@@ -30,6 +30,7 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # Global vocabulary storage
 hsk_vocab = {}
+translation_cache = {}
 
 class TextAnalysisRequest(BaseModel):
     text: str
@@ -298,6 +299,30 @@ async def health_check():
         "vocab_count": len(hsk_vocab)
     }
 
+@app.get("/api/tts/{text}")
+async def text_to_speech(text: str):
+    """Text-to-speech proxy for Google Translate TTS"""
+    try:
+        url = f"https://translate.google.com/translate_tts?ie=UTF-8&q={text}&tl=zh-CN&client=gtx"
+        
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
+            response.raise_for_status()
+            
+            from fastapi.responses import Response
+            return Response(
+                content=response.content,
+                media_type="audio/mpeg",
+                headers={
+                    "Cache-Control": "public, max-age=86400"
+                }
+            )
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"TTS failed: {str(e)}")
+
 @lru_cache(maxsize=1000)
 def cached_translation(text: str, target_lang: str) -> Optional[str]:
     """Cache translations to reduce API calls"""
@@ -310,9 +335,9 @@ async def translate_text(data: TranslationRequest) -> Dict:
     if not text:
         raise HTTPException(status_code=400, detail="Text is empty")
     
-    cached = cached_translation(text, data.target_lang)
-    if cached:
-        return {"translation": cached, "cached": True}
+    cache_key = f"{text}_{data.target_lang}"
+    if cache_key in translation_cache:
+        return {"translation": translation_cache[cache_key], "cached": True}
     
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -323,7 +348,7 @@ async def translate_text(data: TranslationRequest) -> Dict:
             
             if result.get('responseStatus') == 200:
                 translation = result['responseData']['translatedText']
-                cached_translation.__wrapped__.__setitem__((text, data.target_lang), translation)
+                translation_cache[cache_key] = translation
                 return {"translation": translation, "cached": False}
             else:
                 raise HTTPException(status_code=500, detail="Translation service error")

@@ -33,8 +33,8 @@
         .new-9, .new9, .new9plus { background-color: #fafafa; border-bottom: 2px solid #424242; }
         .word-info-panel { background: white; border: 2px solid #e0e0e0; border-radius: 10px; padding: 20px; margin-top: 20px; min-height: 100px; }
         .stats { background: #f8f9fa; padding: 15px; border-radius: 10px; margin: 10px 0; }
-        .sentence-wrapper { cursor: pointer; transition: background-color 0.2s; }
-        .sentence-wrapper:hover { background-color: #fff3cd; border-radius: 3px; }
+        .sentence-wrapper { cursor: pointer; transition: background-color 0.2s; display: inline-block; padding: 2px 4px; margin: -2px -4px; border-radius: 4px; }
+        .sentence-wrapper:hover { background-color: #fff3cd; }
         .loading { text-align: center; padding: 40px; color: #666; }
         @media (max-width: 768px) { .main-content { flex-direction: column; } .input-section { border-right: none; border-bottom: 2px solid #f0f0f0; } }
     </style>
@@ -170,9 +170,26 @@
         }
         function speakWord(text) {
             var cleanText = text.replace(/\\'/g, "'").replace(/&quot;/g, '"');
-            var url = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-CN&client=tw-ob&q=' + encodeURIComponent(cleanText);
+            console.log('TTS speaking:', cleanText);
+            
+            var url = '/api/tts/' + encodeURIComponent(cleanText);
+            console.log('TTS URL:', url);
+            
             var audio = new Audio(url);
-            audio.play().catch(function(err) { console.error('TTS error:', err); alert('Fehler beim Abspielen.'); });
+            
+            audio.onerror = function(e) {
+                console.error('TTS error:', e);
+                alert('TTS konnte nicht geladen werden.');
+            };
+            
+            audio.onloadeddata = function() {
+                console.log('TTS audio loaded successfully');
+            };
+            
+            audio.play().catch(function(err) {
+                console.error('Play error:', err);
+                alert('Fehler: ' + err.message);
+            });
         }
         function speakSentence() { if (currentSentenceText) speakWord(currentSentenceText); }
         function clearAll() {
