@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>轻读 QingDu - HSK Chinese Analyzer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ff6b6b, #ffa500);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .main-content {
+            display: flex;
+            min-height: 70vh;
+        }
+
+        .input-section {
+            flex: 1;
+            padding: 20px;
+            border-right: 2px solid #f0f0f0;
+        }
+
+        .reading-section {
+            flex: 2;
+            padding: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 300px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
+            resize: vertical;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 10px 10px 0;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .reading-text {
+            line-height: 2.5;
+            font-size: 24px;
+            font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .hsk-word {
+            display: inline-block;
+            margin: 1px;
+            padding: 3px 6px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .hsk-word:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .new-1, .new1 { background-color: #e8f5e8; border-bottom: 2px solid #4caf50; }
+        .new-2, .new2 { background-color: #e3f2fd; border-bottom: 2px solid #2196f3; }
+        .new-3, .new3 { background-color: #fff3e0; border-bottom: 2px solid #ff9800; }
+        .new-4, .new4 { background-color: #fce4ec; border-bottom: 2px solid #e91e63; }
+        .new-5, .new5 { background-color: #f3e5f5; border-bottom: 2px solid #9c27b0; }
+        .new-6, .new6 { background-color: #ffebee; border-bottom: 2px solid #f44336; }
+        .new-7, .new7 { background-color: #f1f8e9; border-bottom: 2px solid #689f38; }
+        .new-8, .new8 { background-color: #e0f2f1; border-bottom: 2px solid #00695c; }
+        .new-9, .new9 { background-color: #fafafa; border-bottom: 2px solid #424242; }
+
+        .word-info-panel {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            min-height: 100px;
+        }
+
+        .stats {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            .input-section {
+                border-right: none;
+                border-bottom: 2px solid #f0f0f0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>轻读 QingDu</h1>
+            <p>Chinese Text Analyzer mit HSK-Vokabeln • Powered by Python + FastAPI</p>
+        </div>
+
+        <div class="main-content">
+            <div class="input-section">
+                <h3>Chinesischen Text eingeben</h3>
+                <div class="stats" id="vocabStats">
+                    Vokabeln: <span id="vocabCount">Lädt...</span>
+                </div>
+                <textarea id="textInput" placeholder="Gib hier deinen chinesischen Text ein...">我今天去学校学习中文。老师教我们很多新的汉字。我觉得中文很有意思，但是也很难。</textarea>
+                <button class="btn" onclick="analyzeText()">Text analysieren</button>
+                <button class="btn" onclick="clearAll()">Alles löschen</button>
+            </div>
+
+            <div class="reading-section">
+                <h3>Analyse-Ergebnis</h3>
+                <div class="reading-text" id="readingArea">
+                    Warte auf Textanalyse...
+                </div>
+                
+                <div class="word-info-panel" id="wordInfo">
+                    <h4>Wort-Information</h4>
+                    <p>Klicke auf ein farbiges Wort, um Details zu sehen</p>
+                </div>
+
+                <div class="stats" id="statistics" style="display:none;">
+                    <h4>Statistik</h4>
+                    <div id="statsContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load vocabulary stats on page load
+        window.onload = async function() {
+            try {
+                const response = await fetch('/api/vocabulary-stats');
+                const data = await response.json();
+                document.getElementById('vocabCount').textContent = 
+                    data.loaded ? `${data.count.toLocaleString()} Wörter geladen` : 'Wird geladen...';
+            } catch (error) {
+                document.getElementById('vocabCount').textContent = 'Fehler beim Laden';
+            }
+        };
+
+        async function analyzeText() {
+            const text = document.getElementById('textInput').value.trim();
+            const readingArea = document.getElementById('readingArea');
+            
+            if (!text) {
+                alert('Bitte gib einen Text ein!');
+                return;
+            }
+
+            readingArea.innerHTML = '<div class="loading">Analysiere Text mit jieba...</div>';
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: text })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Analyse fehlgeschlagen');
+                }
+
+                const data = await response.json();
+                displayResults(data);
+            } catch (error) {
+                readingArea.innerHTML = `<div style="color: #e74c3c;">Fehler: ${error.message}</div>`;
+            }
+        }
+
+        function displayResults(data) {
+            const readingArea = document.getElementById('readingArea');
+            let html = '';
+
+            data.words.forEach(word => {
+                if (word.is_hsk) {
+                    const levelClass = word.hsk_level.replace(/-/g, '').replace(/\+/g, 'plus');
+                    html += `<span class="hsk-word ${levelClass}" 
+                                   onclick="showWordInfo('${word.text}', '${word.hsk_level}', '${word.pinyin}', '${word.meaning}')"
+                                   title="${word.pinyin}">${word.text}</span>`;
+                } else {
+                    html += word.text;
+                }
+            });
+
+            readingArea.innerHTML = html;
+
+            // Display statistics
+            const stats = data.statistics;
+            document.getElementById('statistics').style.display = 'block';
+            document.getElementById('statsContent').innerHTML = `
+                <p><strong>Zeichen:</strong> ${stats.total_characters}</p>
+                <p><strong>Wörter:</strong> ${stats.total_words}</p>
+                <p><strong>HSK-Wörter:</strong> ${stats.hsk_words}</p>
+                <p><strong>Geschätztes Level:</strong> ${stats.estimated_level}</p>
+                <p><strong>Verteilung:</strong> ${Object.entries(stats.hsk_distribution)
+                    .filter(([k, v]) => v > 0)
+                    .map(([k, v]) => `${k.toUpperCase()}: ${v}`)
+                    .join(', ')}</p>
+            `;
+        }
+
+        function showWordInfo(word, level, pinyin, meaning) {
+            const wordInfo = document.getElementById('wordInfo');
+            const displayLevel = level.replace('new-', 'HSK ').replace('+', '+');
+            
+            wordInfo.innerHTML = `
+                <h4>${word} <span style="color: #667eea;">${displayLevel}</span></h4>
+                <p><strong>Pinyin:</strong> ${pinyin}</p>
+                <p><strong>Bedeutung:</strong> ${meaning}</p>
+            `;
+        }
+
+        function clearAll() {
+            document.getElementById('textInput').value = '';
+            document.getElementById('readingArea').innerHTML = 'Warte auf Textanalyse...';
+            document.getElementById('wordInfo').innerHTML = '<h4>Wort-Information</h4><p>Klicke auf ein farbiges Wort, um Details zu sehen</p>';
+            document.getElementById('statistics').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
