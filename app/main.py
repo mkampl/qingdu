@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 from typing import List, Dict, Optional
 import httpx
+from functools import lru_cache
 
 app = FastAPI(title="轻读 QingDu - Chinese Text Analyzer")
 
@@ -32,6 +33,10 @@ hsk_vocab = {}
 
 class TextAnalysisRequest(BaseModel):
     text: str
+
+class TranslationRequest(BaseModel):
+    text: str
+    target_lang: str = "de"
 
 class WordInfo(BaseModel):
     text: str
@@ -292,6 +297,41 @@ async def health_check():
         "vocab_loaded": len(hsk_vocab) > 0,
         "vocab_count": len(hsk_vocab)
     }
+
+@lru_cache(maxsize=1000)
+def cached_translation(text: str, target_lang: str) -> Optional[str]:
+    """Cache translations to reduce API calls"""
+    return None
+
+@app.post("/api/translate")
+async def translate_text(data: TranslationRequest) -> Dict:
+    """Translate Chinese text to target language"""
+    text = data.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Text is empty")
+    
+    cached = cached_translation(text, data.target_lang)
+    if cached:
+        return {"translation": cached, "cached": True}
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = f"https://api.mymemory.translated.net/get?q={text}&langpair=zh|{data.target_lang}"
+            response = await client.get(url)
+            response.raise_for_status()
+            result = response.json()
+            
+            if result.get('responseStatus') == 200:
+                translation = result['responseData']['translatedText']
+                cached_translation.__wrapped__.__setitem__((text, data.target_lang), translation)
+                return {"translation": translation, "cached": False}
+            else:
+                raise HTTPException(status_code=500, detail="Translation service error")
+    
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Translation timeout")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Translation failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
