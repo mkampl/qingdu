@@ -37,7 +37,7 @@ class TextAnalysisRequest(BaseModel):
 
 class TranslationRequest(BaseModel):
     text: str
-    target_lang: str = "de"
+    target_lang: str = "en"
 
 class WordInfo(BaseModel):
     text: str
@@ -289,6 +289,14 @@ async def vocabulary_stats():
         "count": len(hsk_vocab),
         "by_level": level_counts
     }
+
+@app.get("/api/get-hsk-vocabulary")
+async def get_hsk_vocabulary():
+    """Get complete HSK vocabulary for client-side list generation"""
+    if not hsk_vocab:
+        raise HTTPException(status_code=503, detail="Vocabulary not loaded yet")
+    
+    return hsk_vocab
 
 @app.get("/health")
 async def health_check():
