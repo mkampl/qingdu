@@ -8,6 +8,7 @@ aiofiles==23.2.1
 
 # Chinese Text Processing
 jieba==0.42.1
+pypinyin==0.49.0
 
 # Data Processing
 pandas==2.1.3

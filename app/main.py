@@ -7,9 +7,11 @@ import jieba
 import json
 import os
 from pathlib import Path
-from typing import List, Dict, Optional
+from pypinyin import lazy_pinyin, Style
 import httpx
 from functools import lru_cache
+from typing import List, Tuple, Optional, Dict
+import asyncio
 
 app = FastAPI(title="轻读 QingDu - Chinese Text Analyzer")
 
@@ -31,6 +33,7 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # Global vocabulary storage
 hsk_vocab = {}
 translation_cache = {}
+unknown_word_cache = {}  # Cache for online lookups
 
 class TextAnalysisRequest(BaseModel):
     text: str
@@ -144,10 +147,33 @@ async def download_hsk_vocabulary():
 def create_compound_word_info(word: str) -> Optional[Dict]:
     """
     Create info for compound words not in HSK database
-    by combining info from individual characters
+    by combining info from individual characters or sub-words
     """
-    chars = list(word)
+    # First try: Check if it's a compound of known vocabulary words
+    # Try splitting at different positions to find valid HSK words
+    for split_pos in range(1, len(word)):
+        left_part = word[:split_pos]
+        right_part = word[split_pos:]
+        
+        if left_part in hsk_vocab and right_part in hsk_vocab:
+            left_data = hsk_vocab[left_part]
+            right_data = hsk_vocab[right_part]
+            
+            # Take highest HSK level from components
+            left_level = int(left_data['level'].replace('new-', '').replace('old-', '').replace('+', ''))
+            right_level = int(right_data['level'].replace('new-', '').replace('old-', '').replace('+', ''))
+            max_level = max(left_level, right_level)
+            
+            return {
+                'pinyin': f"{left_data['pinyin']} {right_data['pinyin']}",
+                'meaning': f"{left_data['meaning']} + {right_data['meaning']}",
+                'meanings': [left_data['meaning'], right_data['meaning']],
+                'level': f'new-{max_level}',
+                'frequency': 0
+            }
     
+    # Second try: Split into individual characters
+    chars = list(word)
     char_data = []
     for char in chars:
         if char in hsk_vocab:
@@ -188,6 +214,46 @@ async def home(request: Request):
         "vocab_count": len(hsk_vocab)
     })
 
+async def lookup_unknown_word(word: str) -> Optional[Dict]:
+    """
+    Look up unknown word online using translation API and pypinyin
+    """
+    # Check cache first
+    if word in unknown_word_cache:
+        return unknown_word_cache[word]
+    
+    try:
+        # Get pinyin using pypinyin
+        pinyin_result = lazy_pinyin(word, style=Style.TONE)
+        word_pinyin = ' '.join(pinyin_result)
+        
+        # Get translation using MyMemory API
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            url = f"https://api.mymemory.translated.net/get?q={word}&langpair=zh|en"
+            response = await client.get(url)
+            response.raise_for_status()
+            result = response.json()
+            
+            if result.get('responseStatus') == 200:
+                translation = result['responseData']['translatedText']
+                
+                word_info = {
+                    'pinyin': word_pinyin,
+                    'meaning': translation,
+                    'meanings': [translation],
+                    'level': 'unknown',
+                    'frequency': 0
+                }
+                
+                # Cache the result
+                unknown_word_cache[word] = word_info
+                return word_info
+    
+    except Exception as e:
+        print(f"Error looking up word '{word}': {e}")
+    
+    return None
+
 @app.post("/api/analyze")
 async def analyze_text(data: TextAnalysisRequest) -> Dict:
     """Analyze Chinese text and return HSK information"""
@@ -199,6 +265,9 @@ async def analyze_text(data: TextAnalysisRequest) -> Dict:
         raise HTTPException(status_code=400, detail="Text is empty")
     
     segments = list(jieba.cut(text))
+    
+    # Debug logging
+    print(f"Analyzing text, total segments: {len(segments)}")
     
     words = []
     hsk_stats = {f'hsk{i}': 0 for i in range(1, 10)}
@@ -226,8 +295,10 @@ async def analyze_text(data: TextAnalysisRequest) -> Dict:
                 pass
         
         elif len(segment) > 1:
+            # Try compound word creation first
             compound_info = create_compound_word_info(segment)
             if compound_info:
+                print(f"Compound word created for '{segment}': {compound_info['meaning']}")
                 word_info.hsk_level = compound_info['level']
                 word_info.pinyin = compound_info['pinyin']
                 word_info.meaning = compound_info['meaning']
@@ -243,6 +314,22 @@ async def analyze_text(data: TextAnalysisRequest) -> Dict:
                     total_hsk_words += 1
                 except ValueError:
                     pass
+            else:
+                print(f"Compound word failed for '{segment}', trying online lookup...")
+                # Try online lookup for unknown words
+                online_info = await lookup_unknown_word(segment)
+                if online_info:
+                    word_info.hsk_level = 'unknown'
+                    word_info.pinyin = online_info['pinyin']
+                    word_info.meaning = online_info['meaning']
+                    word_info.meanings = online_info['meanings']
+                    word_info.frequency = 0
+                    word_info.is_hsk = True  # Mark as recognized
+                    print(f"Online lookup successful for '{segment}': {online_info['meaning']}")
+                else:
+                    # Debug: log segments that couldn't be looked up
+                    if segment.strip() and not segment.isspace() and segment not in ['，', '。', '！', '？', '；', '：', '"', '"', ''', ''']:
+                        print(f"Could not find info for: '{segment}'")
         
         words.append(word_info.dict())
     
