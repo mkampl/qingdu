@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -43,33 +43,33 @@
     <div class="container">
         <div class="header">
             <h1>轻读 QingDu</h1>
-            <p>Chinese Text Analyzer mit HSK-Vokabeln</p>
+            <p>Chinese Text Analyzer with HSK Vocabulary</p>
         </div>
         <div class="main-content">
             <div class="input-section">
-                <h3>Chinesischen Text eingeben</h3>
-                <div class="stats" id="vocabStats">Vokabeln: <span id="vocabCount">Lädt...</span></div>
-                <textarea id="textInput" placeholder="Gib hier deinen chinesischen Text ein...">我今天去学校学习中文。老师教我们很多新的汉字。我觉得中文很有意思，但是也很难。</textarea>
-                <button class="btn" onclick="analyzeText()">Text analysieren</button>
-                <button class="btn" onclick="clearAll()">Alles löschen</button>
+                <h3>Enter Chinese Text</h3>
+                <div class="stats" id="vocabStats">Vocabulary: <span id="vocabCount">Loading...</span></div>
+                <textarea id="textInput" placeholder="Enter your Chinese text here...">我今天去学校学习中文。老师教我们很多新的汉字。我觉得中文很有意思，但是也很难。</textarea>
+                <button class="btn" onclick="analyzeText()">Analyze Text</button>
+                <button class="btn" onclick="clearAll()">Clear All</button>
             </div>
             <div class="reading-section">
-                <h3>Analyse-Ergebnis</h3>
-                <div class="reading-text" id="readingArea">Warte auf Textanalyse...</div>
+                <h3>Analysis Result</h3>
+                <div class="reading-text" id="readingArea">Waiting for text analysis...</div>
                 <div class="word-info-panel" id="wordInfo">
-                    <h4>Wort-Information</h4>
-                    <p>Klicke auf ein farbiges Wort, um Details zu sehen</p>
+                    <h4>Word Information</h4>
+                    <p>Click on a colored word to see details</p>
                 </div>
                 <div class="word-info-panel" id="sentenceInfo" style="display:none; background: #e8f5e8;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <h4>Satz-Übersetzung</h4>
-                        <button class="tts-btn" onclick="speakSentence()" id="sentenceTTSBtn">🔊 Vorlesen</button>
+                        <h4>Sentence Translation</h4>
+                        <button class="tts-btn" onclick="speakSentence()" id="sentenceTTSBtn">🔊 Play</button>
                     </div>
                     <p id="sentenceText"></p>
                     <p id="sentenceTranslation" style="margin-top: 10px; color: #666;"></p>
                 </div>
                 <div class="stats" id="statistics" style="display:none;">
-                    <h4>Statistik</h4>
+                    <h4>Statistics</h4>
                     <div id="statsContent"></div>
                 </div>
             </div>
@@ -82,24 +82,24 @@
             fetch('/api/vocabulary-stats').then(function(response) {
                 return response.json();
             }).then(function(data) {
-                document.getElementById('vocabCount').textContent = data.loaded ? data.count.toLocaleString() + ' Wörter geladen' : 'Wird geladen...';
+                document.getElementById('vocabCount').textContent = data.loaded ? data.count.toLocaleString() + ' words loaded' : 'Loading...';
             }).catch(function(error) {
-                document.getElementById('vocabCount').textContent = 'Fehler beim Laden';
+                document.getElementById('vocabCount').textContent = 'Error loading';
             });
         };
         function analyzeText() {
             var text = document.getElementById('textInput').value.trim();
             var readingArea = document.getElementById('readingArea');
-            if (!text) { alert('Bitte gib einen Text ein!'); return; }
-            readingArea.innerHTML = '<div class="loading">Analysiere Text mit jieba...</div>';
+            if (!text) { alert('Please enter some text!'); return; }
+            readingArea.innerHTML = '<div class="loading">Analyzing text with jieba...</div>';
             fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text }) }).then(function(response) {
-                if (!response.ok) throw new Error('Analyse fehlgeschlagen');
+                if (!response.ok) throw new Error('Analysis failed');
                 return response.json();
             }).then(function(data) {
                 currentAnalysisData = data;
                 displayResults(data);
             }).catch(function(error) {
-                readingArea.innerHTML = '<div style="color: #e74c3c;">Fehler: ' + error.message + '</div>';
+                readingArea.innerHTML = '<div style="color: #e74c3c;">Error: ' + error.message + '</div>';
             });
         }
         function displayResults(data) {
@@ -141,61 +141,56 @@
             var dist = [];
             for (var key in stats.hsk_distribution) { if (stats.hsk_distribution[key] > 0) dist.push(key.toUpperCase() + ': ' + stats.hsk_distribution[key]); }
             document.getElementById('statistics').style.display = 'block';
-            document.getElementById('statsContent').innerHTML = '<p><strong>Zeichen:</strong> ' + stats.total_characters + '</p><p><strong>Wörter:</strong> ' + stats.total_words + '</p><p><strong>HSK-Wörter:</strong> ' + stats.hsk_words + '</p><p><strong>Geschätztes Level:</strong> ' + stats.estimated_level + ' (Pinyin ab HSK ' + (pinyinLevel + 1) + '+)</p><p><strong>Verteilung:</strong> ' + dist.join(', ') + '</p>';
+            document.getElementById('statsContent').innerHTML = '<p><strong>Characters:</strong> ' + stats.total_characters + '</p><p><strong>Words:</strong> ' + stats.total_words + '</p><p><strong>HSK Words:</strong> ' + stats.hsk_words + '</p><p><strong>Estimated Level:</strong> ' + stats.estimated_level + ' (Pinyin for HSK ' + (pinyinLevel + 1) + '+)</p><p><strong>Distribution:</strong> ' + dist.join(', ') + '</p>';
         }
         function showWordInfo(word, level, pinyin, meaning) {
             var wordInfo = document.getElementById('wordInfo');
             var displayLevel = level.replace('new-', 'HSK ').replace('+', '+');
             var escaped = word.replace(/'/g, "\\'");
-            wordInfo.innerHTML = '<div style="display: flex; justify-content: space-between; align-items: center;"><h4>' + word + ' <span style="color: #667eea;">' + displayLevel + '</span></h4><button class="tts-btn" onclick="speakWord(\'' + escaped + '\')">🔊 Vorlesen</button></div><p><strong>Pinyin:</strong> ' + pinyin + '</p><p><strong>Bedeutung:</strong> ' + meaning + '</p>';
+            wordInfo.innerHTML = '<div style="display: flex; justify-content: space-between; align-items: center;"><h4>' + word + ' <span style="color: #667eea;">' + displayLevel + '</span></h4><button class="tts-btn" onclick="speakWord(\'' + escaped + '\')">🔊 Play</button></div><p><strong>Pinyin:</strong> ' + pinyin + '</p><p><strong>Meaning:</strong> ' + meaning + '</p>';
             wordInfo.style.display = 'block';
             document.getElementById('sentenceInfo').style.display = 'none';
         }
         function showSentence(sentence) {
             currentSentenceText = sentence.replace(/\\'/g, "'").replace(/&quot;/g, '"');
             var sentenceInfo = document.getElementById('sentenceInfo');
-            document.getElementById('sentenceText').innerHTML = '<strong>Chinesisch:</strong> ' + currentSentenceText;
-            document.getElementById('sentenceTranslation').innerHTML = 'Übersetze...';
+            document.getElementById('sentenceText').innerHTML = '<strong>Chinese:</strong> ' + currentSentenceText;
+            document.getElementById('sentenceTranslation').innerHTML = 'Translating...';
             sentenceInfo.style.display = 'block';
             document.getElementById('wordInfo').style.display = 'none';
-            fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: currentSentenceText, target_lang: 'de' }) }).then(function(response) {
-                if (!response.ok) throw new Error('Übersetzung fehlgeschlagen');
+            fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: currentSentenceText, target_lang: 'en' }) }).then(function(response) {
+                if (!response.ok) throw new Error('Translation failed');
                 return response.json();
             }).then(function(data) {
-                var cacheInfo = data.cached ? ' (gecached)' : '';
-                document.getElementById('sentenceTranslation').innerHTML = '<strong>Deutsch:</strong> ' + data.translation + '<small style="color: #999;">' + cacheInfo + '</small>';
+                var cacheInfo = data.cached ? ' (cached)' : '';
+                document.getElementById('sentenceTranslation').innerHTML = '<strong>English:</strong> ' + data.translation + '<small style="color: #999;">' + cacheInfo + '</small>';
             }).catch(function(error) {
-                document.getElementById('sentenceTranslation').innerHTML = '<span style="color: #e74c3c;">Fehler: ' + error.message + '</span>';
+                document.getElementById('sentenceTranslation').innerHTML = '<span style="color: #e74c3c;">Error: ' + error.message + '</span>';
             });
         }
         function speakWord(text) {
             var cleanText = text.replace(/\\'/g, "'").replace(/&quot;/g, '"');
             console.log('TTS speaking:', cleanText);
-            
             var url = '/api/tts/' + encodeURIComponent(cleanText);
             console.log('TTS URL:', url);
-            
             var audio = new Audio(url);
-            
             audio.onerror = function(e) {
                 console.error('TTS error:', e);
-                alert('TTS konnte nicht geladen werden.');
+                alert('TTS could not be loaded.');
             };
-            
             audio.onloadeddata = function() {
                 console.log('TTS audio loaded successfully');
             };
-            
             audio.play().catch(function(err) {
                 console.error('Play error:', err);
-                alert('Fehler: ' + err.message);
+                alert('Error: ' + err.message);
             });
         }
         function speakSentence() { if (currentSentenceText) speakWord(currentSentenceText); }
         function clearAll() {
             document.getElementById('textInput').value = '';
-            document.getElementById('readingArea').innerHTML = 'Warte auf Textanalyse...';
-            document.getElementById('wordInfo').innerHTML = '<h4>Wort-Information</h4><p>Klicke auf ein farbiges Wort, um Details zu sehen</p>';
+            document.getElementById('readingArea').innerHTML = 'Waiting for text analysis...';
+            document.getElementById('wordInfo').innerHTML = '<h4>Word Information</h4><p>Click on a colored word to see details</p>';
             document.getElementById('wordInfo').style.display = 'block';
             document.getElementById('sentenceInfo').style.display = 'none';
             document.getElementById('statistics').style.display = 'none';
