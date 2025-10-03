@@ -40,6 +40,20 @@
         .btn-secondary:hover { background: #5a6268; }
         .results-section { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .results-section.hidden { display: none; }
+        .list-view-section { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .list-view-section.hidden { display: none; }
+        .list-view-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #f0f0f0; }
+        .section-container { margin-bottom: 15px; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; }
+        .section-header { padding: 15px; background: #f8f9fa; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
+        .section-header:hover { background: #e9ecef; }
+        .section-header.active { background: #667eea; color: white; }
+        .section-content { display: none; padding: 15px; }
+        .section-content.show { display: block; }
+        .word-table { width: 100%; border-collapse: collapse; }
+        .word-table th { background: #f8f9fa; padding: 10px; text-align: left; font-weight: bold; border-bottom: 2px solid #e0e0e0; }
+        .word-table td { padding: 10px; border-bottom: 1px solid #f0f0f0; }
+        .word-table tr:hover { background: #f8f9fa; }
+        .word-table .hanzi { font-size: 20px; font-family: 'Microsoft YaHei', 'SimHei', sans-serif; }
         .reading-text { line-height: 2.5; font-size: 24px; font-family: 'Microsoft YaHei', 'SimHei', sans-serif; background: #f8f9fa; padding: 20px; border-radius: 10px; max-height: 400px; overflow-y: auto; margin-bottom: 20px; }
         .hsk-word { display: inline-block; margin: 1px; padding: 3px 6px; cursor: pointer; border-radius: 4px; transition: all 0.2s; position: relative; }
         .hsk-word:hover { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
@@ -116,6 +130,13 @@
                 <h4>Statistics</h4>
                 <div id="statsContent"></div>
             </div>
+        </div>
+        <div class="list-view-section hidden" id="listViewSection">
+            <div class="list-view-header">
+                <h3 id="listViewTitle">Vocabulary List</h3>
+                <button class="btn btn-secondary" onclick="closeListView()">Back</button>
+            </div>
+            <div id="listViewContent"></div>
         </div>
     </div>
     <script>
@@ -280,8 +301,58 @@
         }
 
         function viewVocabularyList(index) {
-            alert('List viewer coming in next step!');
+            var lists = JSON.parse(localStorage.getItem('qingdu_lists') || '[]');
+            if (!lists[index]) return;
+            
+            var list = lists[index];
+            document.getElementById('listViewTitle').textContent = list.name;
+            
+            var content = '';
+            for (var i = 0; i < list.sections.length; i++) {
+                var section = list.sections[i];
+                if (section.words.length === 0) continue;
+                
+                content += '<div class="section-container">';
+                content += '<div class="section-header" onclick="toggleSection(this)">';
+                content += '<span><strong>' + section.name + '</strong> (' + section.words.length + ' words)</span>';
+                content += '<span>▼</span>';
+                content += '</div>';
+                content += '<div class="section-content">';
+                content += '<table class="word-table">';
+                content += '<thead><tr><th>Hanzi</th><th>Pinyin</th><th>Meaning</th><th>Level</th></tr></thead>';
+                content += '<tbody>';
+                
+                for (var j = 0; j < section.words.length; j++) {
+                    var word = section.words[j];
+                    content += '<tr>';
+                    content += '<td class="hanzi">' + word.hanzi + '</td>';
+                    content += '<td>' + word.pinyin + '</td>';
+                    content += '<td>' + word.meaning + '</td>';
+                    content += '<td>' + word.level.replace('new-', 'HSK ').replace('+', '+') + '</td>';
+                    content += '</tr>';
+                }
+                
+                content += '</tbody></table></div></div>';
+            }
+            
+            document.getElementById('listViewContent').innerHTML = content;
+            document.getElementById('inputSection').classList.add('collapsed');
+            document.getElementById('resultsSection').classList.add('hidden');
+            document.getElementById('listViewSection').classList.remove('hidden');
             toggleSidebar();
+        }
+
+        function toggleSection(header) {
+            var content = header.nextElementSibling;
+            var isOpen = content.classList.contains('show');
+            content.classList.toggle('show', !isOpen);
+            header.classList.toggle('active', !isOpen);
+            header.querySelector('span:last-child').textContent = isOpen ? '▼' : '▲';
+        }
+
+        function closeListView() {
+            document.getElementById('listViewSection').classList.add('hidden');
+            document.getElementById('resultsSection').classList.remove('hidden');
         }
 
         function analyzeText() {
