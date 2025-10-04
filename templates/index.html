@@ -4,111 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>轻读 QingDu - HSK Chinese Analyzer</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
-        .header { background: linear-gradient(135deg, #ff6b6b, #ffa500); color: white; padding: 15px 20px; display: flex; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
-        .hamburger { background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 5px 10px; margin-right: 15px; }
-        .hamburger:hover { background: rgba(255,255,255,0.1); border-radius: 5px; }
-        .header h1 { font-size: 24px; }
-        .sidebar { position: fixed; left: -280px; top: 0; width: 280px; height: 100vh; background: white; box-shadow: 2px 0 10px rgba(0,0,0,0.1); transition: left 0.3s ease; z-index: 1000; overflow-y: auto; }
-        .sidebar.open { left: 0; }
-        .sidebar-header { padding: 20px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; }
-        .sidebar-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #666; }
-        .sidebar-section { padding: 15px 20px; border-bottom: 1px solid #f0f0f0; }
-        .sidebar-section h3 { font-size: 14px; color: #666; margin-bottom: 10px; text-transform: uppercase; }
-        .sidebar-item { padding: 10px; margin: 5px 0; border-radius: 8px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 10px; }
-        .sidebar-item:hover { background: #f5f5f5; }
-        .sidebar-item-icon { font-size: 20px; }
-        .sidebar-item-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .sidebar-item-delete { background: none; border: none; color: #dc3545; cursor: pointer; padding: 5px; font-size: 18px; opacity: 0; transition: opacity 0.2s; }
-        .sidebar-item:hover .sidebar-item-delete { opacity: 1; }
-        .sidebar-item-delete:hover { color: #c82333; }
-        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 999; }
-        .overlay.show { display: block; }
-        .main-content { padding: 20px; max-width: 1400px; margin: 0 auto; }
-        .input-section { background: white; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .input-section.collapsed { padding: 15px; cursor: pointer; }
-        .input-section.collapsed:hover { background: #f9f9f9; }
-        .input-section.collapsed .input-content { display: none; }
-        .input-section.collapsed .input-placeholder { display: block; }
-        .input-placeholder { display: none; color: #999; font-size: 16px; }
-        .input-content textarea { width: 100%; height: 200px; padding: 15px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 16px; font-family: 'Microsoft YaHei', 'SimHei', sans-serif; resize: vertical; margin-bottom: 15px; }
-        .btn { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 12px 24px; border-radius: 25px; cursor: pointer; font-size: 16px; margin: 5px 5px 5px 0; transition: all 0.3s; }
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-        .btn-secondary { background: #6c757d; }
-        .btn-secondary:hover { background: #5a6268; }
-        
-        /* Split Screen Layout for Desktop */
-        .results-section { background: white; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; }
-        .results-section.show { display: flex; gap: 20px; }
-        
-        .text-panel { flex: 1; padding: 20px; overflow-y: auto; max-height: calc(100vh - 140px); }
-        .text-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .save-text-btn { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; transition: all 0.3s; }
-        .save-text-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-        .save-text-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .info-panel { width: 40%; padding: 20px; border-left: 2px solid #f0f0f0; overflow-y: auto; max-height: calc(100vh - 140px); display: flex; flex-direction: column; gap: 15px; }
-        
-        .reading-text { line-height: 2.5; font-size: 24px; font-family: 'Microsoft YaHei', 'SimHei', sans-serif; background: #f8f9fa; padding: 20px; border-radius: 10px; }
-        
-        .word-info-panel, .sentence-info-panel, .stats-panel { background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 4px solid #667eea; }
-        .sentence-info-panel { background: #e8f5e8; border-left-color: #4CAF50; display: none; }
-        .stats-panel { background: #fff3e0; border-left-color: #ff9800; }
-        
-        .list-view-section { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .list-view-section.hidden { display: none; }
-        .list-view-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #f0f0f0; }
-        .section-container { margin-bottom: 15px; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; }
-        .section-header { padding: 15px; background: #f8f9fa; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
-        .section-header:hover { background: #e9ecef; }
-        .section-header.active { background: #667eea; color: white; }
-        .section-content { display: none; padding: 15px; }
-        .section-content.show { display: block; }
-        .word-table { width: 100%; border-collapse: collapse; }
-        .word-table th { background: #f8f9fa; padding: 10px; text-align: left; font-weight: bold; border-bottom: 2px solid #e0e0e0; }
-        .word-table td { padding: 10px; border-bottom: 1px solid #f0f0f0; }
-        .word-table tr:hover { background: #f8f9fa; }
-        .word-table .hanzi { font-size: 20px; font-family: 'Microsoft YaHei', 'SimHei', sans-serif; }
-        .hsk-word { display: inline-block; margin: 1px; padding: 3px 6px; cursor: pointer; border-radius: 4px; transition: all 0.2s; position: relative; }
-        .hsk-word:hover { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-        .pinyin-above::before { content: attr(data-pinyin); position: absolute; top: 3px; left: 50%; transform: translateX(-50%); font-size: 10px; color: #555; white-space: nowrap; pointer-events: none; font-weight: normal; z-index: 1; }
-        .tts-btn { background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; padding: 6px 12px; border-radius: 15px; cursor: pointer; font-size: 14px; transition: all 0.3s; }
-        .tts-btn:hover { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-        .new-1, .new1 { background-color: #e8f5e8; border-bottom: 2px solid #4caf50; }
-        .new-2, .new2 { background-color: #e3f2fd; border-bottom: 2px solid #2196f3; }
-        .new-3, .new3 { background-color: #fff3e0; border-bottom: 2px solid #ff9800; }
-        .new-4, .new4 { background-color: #fce4ec; border-bottom: 2px solid #e91e63; }
-        .new-5, .new5 { background-color: #f3e5f5; border-bottom: 2px solid #9c27b0; }
-        .new-6, .new6 { background-color: #ffebee; border-bottom: 2px solid #f44336; }
-        .new-7, .new7, .new7plus { background-color: #f1f8e9; border-bottom: 2px solid #689f38; }
-        .new-8, .new8, .new8plus { background-color: #e0f2f1; border-bottom: 2px solid #00695c; }
-        .new-9, .new9, .new9plus { background-color: #fafafa; border-bottom: 2px solid #424242; }
-        .unknown { background-color: #f5f5f5; border-bottom: 2px solid #9e9e9e; }
-        .stats { background: #f8f9fa; padding: 15px; border-radius: 10px; margin: 10px 0; }
-        .sentence-wrapper { cursor: pointer; transition: background-color 0.2s; display: inline-block; padding: 2px 0; border-radius: 4px; }
-        .sentence-wrapper:hover { background-color: #fff3cd; }
-        .loading { text-align: center; padding: 40px; color: #666; }
-        
-        /* Mobile Layout */
-        @media (max-width: 768px) {
-            .results-section.show { flex-direction: column; }
-            .text-panel { max-height: 50vh; }
-            .info-panel { width: 100%; border-left: none; border-top: 2px solid #f0f0f0; max-height: 40vh; position: sticky; bottom: 0; background: white; }
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
+    <!-- Header -->
     <div class="header">
         <button class="hamburger" onclick="toggleSidebar()">☰</button>
         <h1>轻读 QingDu</h1>
     </div>
-    <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+    <!-- Overlay for sidebar -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h2>Menu</h2>
             <button class="sidebar-close" onclick="toggleSidebar()">×</button>
         </div>
+        
         <div class="sidebar-section">
             <h3>Texts</h3>
             <div class="sidebar-item" onclick="showNewTextInput()">
@@ -117,22 +31,33 @@
             </div>
             <div id="textsList"></div>
         </div>
+        
         <div class="sidebar-section">
             <h3>Vocabulary Lists</h3>
             <div id="vocabularyLists"></div>
         </div>
     </div>
+
+    <!-- Main Content -->
     <div class="main-content">
+        <!-- Input Section -->
         <div class="input-section" id="inputSection">
-            <div class="input-placeholder" id="inputPlaceholder">Click here to enter new Chinese text...</div>
+            <div class="input-placeholder" id="inputPlaceholder">
+                Click here to enter new Chinese text...
+            </div>
+            
             <div class="input-content" id="inputContent">
                 <h3>Enter Chinese Text</h3>
-                <div class="stats" id="vocabStats">Vocabulary: <span id="vocabCount">Loading...</span></div>
+                <div class="stats" id="vocabStats">
+                    Vocabulary: <span id="vocabCount">Loading...</span>
+                </div>
                 <textarea id="textInput" placeholder="Enter your Chinese text here...">我今天去学校学习中文。老师教我们很多新的汉字。我觉得中文很有意思,但是也很难。</textarea>
                 <button class="btn" onclick="analyzeText()">Analyze Text</button>
                 <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
             </div>
         </div>
+
+        <!-- Results Section -->
         <div class="results-section" id="resultsSection">
             <div class="text-panel">
                 <div class="text-panel-header">
@@ -144,11 +69,13 @@
                 </div>
                 <div class="reading-text" id="readingArea"></div>
             </div>
+            
             <div class="info-panel">
                 <div class="word-info-panel" id="wordInfo">
                     <h4>Word Information</h4>
                     <p>Click on a colored word to see details</p>
                 </div>
+                
                 <div class="sentence-info-panel" id="sentenceInfo">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <h4>Sentence Translation</h4>
@@ -157,12 +84,15 @@
                     <p id="sentenceText"></p>
                     <p id="sentenceTranslation" style="margin-top: 10px; color: #666;"></p>
                 </div>
+                
                 <div class="stats-panel" id="statistics">
                     <h4>Statistics</h4>
                     <div id="statsContent"></div>
                 </div>
             </div>
         </div>
+
+        <!-- List View Section -->
         <div class="list-view-section hidden" id="listViewSection">
             <div class="list-view-header">
                 <h3 id="listViewTitle">Vocabulary List</h3>
@@ -171,612 +101,10 @@
             <div id="listViewContent"></div>
         </div>
     </div>
-    <script>
-        var currentAnalysisData = null;
-        var currentSentenceText = '';
-        var currentTextId = null;
-        var currentInputText = '';
-        var sidebarOpen = false;
-        var longPressTimer = null;
-        var longPressTarget = null;
 
-        window.onload = function() {
-            fetch('/api/vocabulary-stats').then(function(r) { return r.json(); }).then(function(d) {
-                document.getElementById('vocabCount').textContent = d.loaded ? d.count.toLocaleString() + ' words loaded' : 'Loading...';
-            }).catch(function() {
-                document.getElementById('vocabCount').textContent = 'Error loading';
-            });
-            loadTextsFromStorage();
-            loadVocabularyLists();
-        };
-
-        function toggleSidebar() {
-            sidebarOpen = !sidebarOpen;
-            document.getElementById('sidebar').classList.toggle('open', sidebarOpen);
-            document.getElementById('overlay').classList.toggle('show', sidebarOpen);
-        }
-
-        function showNewTextInput() {
-            document.getElementById('inputSection').classList.remove('collapsed');
-            document.getElementById('resultsSection').classList.remove('show');
-            document.getElementById('textInput').value = '';
-            document.getElementById('textInput').focus();
-            toggleSidebar();
-        }
-
-        function loadTextsFromStorage() {
-            var texts = JSON.parse(localStorage.getItem('qingdu_texts') || '[]');
-            var textsList = document.getElementById('textsList');
-            textsList.innerHTML = '';
-            
-            if (texts.length === 0) {
-                textsList.innerHTML = '<div style="padding:10px;color:#999;font-size:14px">No saved texts yet</div>';
-                return;
-            }
-            
-            for (var i = 0; i < texts.length; i++) {
-                var text = texts[i];
-                var item = document.createElement('div');
-                item.className = 'sidebar-item';
-                item.innerHTML = '<span class="sidebar-item-icon">📄</span><span class="sidebar-item-text">' + 
-                    (text.title.length > 30 ? text.title.substring(0, 30) + '...' : text.title) + 
-                    '</span><button class="sidebar-item-delete" title="Delete text">🗑️</button>';
-                item.querySelector('.sidebar-item-text').setAttribute('data-idx', i);
-                item.querySelector('.sidebar-item-text').onclick = function() {
-                    loadText(parseInt(this.getAttribute('data-idx')));
-                };
-                item.querySelector('.sidebar-item-delete').setAttribute('data-idx', i);
-                item.querySelector('.sidebar-item-delete').onclick = function(e) {
-                    e.stopPropagation();
-                    deleteText(parseInt(this.getAttribute('data-idx')));
-                };
-                textsList.appendChild(item);
-            }
-        }
-
-        function saveTextToStorage(textId, title, content, analysisData) {
-            var texts = JSON.parse(localStorage.getItem('qingdu_texts') || '[]');
-            
-            // Check for duplicates
-            for (var i = 0; i < texts.length; i++) {
-                if (texts[i].content === content) {
-                    alert('This text has already been saved!');
-                    return;
-                }
-            }
-            
-            texts.unshift({ id: textId, title: title, content: content, date: new Date().toISOString(), analysisData: analysisData });
-            localStorage.setItem('qingdu_texts', JSON.stringify(texts));
-            loadTextsFromStorage();
-        }
-
-        function loadText(index) {
-            var texts = JSON.parse(localStorage.getItem('qingdu_texts') || '[]');
-            if (texts[index]) {
-                currentAnalysisData = texts[index].analysisData;
-                currentTextId = texts[index].id;
-                currentInputText = texts[index].content;  // Load the original text
-                displayResults(texts[index].analysisData);
-                document.getElementById('inputSection').classList.add('collapsed');
-                document.getElementById('resultsSection').classList.add('show');
-                document.getElementById('listViewSection').classList.add('hidden');
-                document.getElementById('saveTextBtn').disabled = true;  // Already saved
-                toggleSidebar();
-            }
-        }
-
-        function deleteText(index) {
-            if (!confirm('Delete this text?')) return;
-            var texts = JSON.parse(localStorage.getItem('qingdu_texts') || '[]');
-            texts.splice(index, 1);
-            localStorage.setItem('qingdu_texts', JSON.stringify(texts));
-            loadTextsFromStorage();
-        }
-
-        function loadVocabularyLists() {
-            var lists = JSON.parse(localStorage.getItem('qingdu_lists') || '[]');
-            var vocabDiv = document.getElementById('vocabularyLists');
-            vocabDiv.innerHTML = '';
-            
-            var hskExists = false;
-            for (var i = 0; i < lists.length; i++) {
-                if (lists[i].type === 'hsk') {
-                    hskExists = true;
-                    break;
-                }
-            }
-            
-            if (!hskExists) {
-                var btn = document.createElement('div');
-                btn.className = 'sidebar-item';
-                btn.innerHTML = '<span class="sidebar-item-icon">⚡</span><span>Generate HSK List</span>';
-                btn.onclick = function() { generateHSKList(); };
-                vocabDiv.appendChild(btn);
-            }
-            
-            if (lists.length === 0) {
-                var empty = document.createElement('div');
-                empty.style.cssText = 'padding:10px;color:#999;font-size:14px';
-                empty.textContent = 'No vocabulary lists yet';
-                vocabDiv.appendChild(empty);
-                return;
-            }
-            
-            for (var i = 0; i < lists.length; i++) {
-                var list = lists[i];
-                var wordCount = 0;
-                for (var j = 0; j < list.sections.length; j++) {
-                    wordCount += list.sections[j].words.length;
-                }
-                var item = document.createElement('div');
-                item.className = 'sidebar-item';
-                item.innerHTML = '<span class="sidebar-item-icon">' + (list.type === 'hsk' ? '📚' : '📝') + 
-                    '</span><span class="sidebar-item-text">' + list.name + ' (' + wordCount + ' words)</span>';
-                item.querySelector('.sidebar-item-text').setAttribute('data-idx', i);
-                item.querySelector('.sidebar-item-text').onclick = function() {
-                    viewVocabularyList(parseInt(this.getAttribute('data-idx')));
-                };
-                vocabDiv.appendChild(item);
-            }
-        }
-
-        function generateHSKList() {
-            if (!confirm('This will load all 11,000+ HSK words. Continue?')) return;
-            document.getElementById('vocabularyLists').innerHTML = '<div class="loading">Generating HSK list...</div>';
-            fetch('/api/get-hsk-vocabulary').then(function(r) { return r.json(); }).then(function(vocabData) {
-                var lists = JSON.parse(localStorage.getItem('qingdu_lists') || '[]');
-                var hskList = { id: 7482936105, name: 'HSK Vocabulary', type: 'hsk', sections: [] };
-                for (var level = 1; level <= 9; level++) {
-                    hskList.sections.push({ name: 'HSK ' + level, words: [] });
-                }
-                for (var word in vocabData) {
-                    var wData = vocabData[word];
-                    var lvl = wData.level.replace('new-', '').replace('old-', '').replace('+', '');
-                    var lvlNum = parseInt(lvl);
-                    if (lvlNum >= 1 && lvlNum <= 9) {
-                        hskList.sections[lvlNum - 1].words.push({ hanzi: word, pinyin: wData.pinyin, meaning: wData.meaning, level: wData.level });
-                    }
-                }
-                lists.push(hskList);
-                localStorage.setItem('qingdu_lists', JSON.stringify(lists));
-                loadVocabularyLists();
-                alert('HSK list generated successfully!');
-            }).catch(function(e) {
-                alert('Error: ' + e.message);
-                loadVocabularyLists();
-            });
-        }
-
-        function viewVocabularyList(index) {
-            var lists = JSON.parse(localStorage.getItem('qingdu_lists') || '[]');
-            if (!lists[index]) return;
-            
-            var list = lists[index];
-            document.getElementById('listViewTitle').textContent = list.name;
-            
-            var content = '';
-            for (var i = 0; i < list.sections.length; i++) {
-                var section = list.sections[i];
-                if (section.words.length === 0) continue;
-                
-                content += '<div class="section-container">';
-                content += '<div class="section-header" onclick="toggleSection(this)">';
-                content += '<span><strong>' + section.name + '</strong> (' + section.words.length + ' words)</span>';
-                content += '<span>▼</span>';
-                content += '</div>';
-                content += '<div class="section-content">';
-                content += '<table class="word-table">';
-                content += '<thead><tr><th>Hanzi</th><th>Pinyin</th><th>Meaning</th><th>Level</th></tr></thead>';
-                content += '<tbody>';
-                
-                for (var j = 0; j < section.words.length; j++) {
-                    var word = section.words[j];
-                    content += '<tr>';
-                    content += '<td class="hanzi">' + word.hanzi + '</td>';
-                    content += '<td>' + word.pinyin + '</td>';
-                    content += '<td>' + word.meaning + '</td>';
-                    content += '<td>' + word.level.replace('new-', 'HSK ').replace('+', '+') + '</td>';
-                    content += '</tr>';
-                }
-                
-                content += '</tbody></table></div></div>';
-            }
-            
-            document.getElementById('listViewContent').innerHTML = content;
-            document.getElementById('inputSection').classList.add('collapsed');
-            document.getElementById('resultsSection').classList.remove('show');
-            document.getElementById('listViewSection').classList.remove('hidden');
-            toggleSidebar();
-        }
-
-        function toggleSection(header) {
-            var content = header.nextElementSibling;
-            var isOpen = content.classList.contains('show');
-            content.classList.toggle('show', !isOpen);
-            header.classList.toggle('active', !isOpen);
-            header.querySelector('span:last-child').textContent = isOpen ? '▼' : '▲';
-        }
-
-        function closeListView() {
-            document.getElementById('listViewSection').classList.add('hidden');
-            document.getElementById('resultsSection').classList.add('show');
-        }
-
-        function analyzeText() {
-            var text = document.getElementById('textInput').value.trim();
-            if (!text) { alert('Please enter some text!'); return; }
-            
-            currentInputText = text;  // Store the input text
-            currentTextId = null;  // Reset text ID since this is new/unsaved
-            
-            document.getElementById('readingArea').innerHTML = '<div class="loading">Analyzing...</div>';
-            document.getElementById('resultsSection').classList.add('show');
-            document.getElementById('saveTextBtn').disabled = false;  // Enable save button
-            
-            fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text }) })
-                .then(function(r) { if (!r.ok) throw new Error('Failed'); return r.json(); })
-                .then(function(data) {
-                    currentAnalysisData = data;
-                    displayResults(data);
-                    document.getElementById('inputSection').classList.add('collapsed');
-                }).catch(function(e) {
-                    document.getElementById('readingArea').innerHTML = '<div style="color:#e74c3c">Error: ' + e.message + '</div>';
-                });
-        }
-
-        function saveCurrentText() {
-            if (!currentInputText || !currentAnalysisData) {
-                alert('No text to save');
-                return;
-            }
-            
-            var title = currentInputText.split(/[。！？]/)[0] || currentInputText.substring(0, 50);
-            var textId = Date.now();
-            currentTextId = textId;
-            
-            saveTextToStorage(textId, title, currentInputText, currentAnalysisData);
-            document.getElementById('saveTextBtn').disabled = true;  // Disable after saving
-            alert('Text saved successfully!');
-        }
-
-        function displayResults(data) {
-            // Debug: Log first word to see structure
-            if (data.words && data.words.length > 0) {
-                console.log('First word data:', data.words[0]);
-            }
-            
-            var stats = data.statistics;
-            var estimatedLevelNum = parseInt(stats.estimated_level.replace('HSK ', ''));
-            var pinyinLevel = estimatedLevelNum;
-            var sentences = [];
-            var currentSentence = [];
-            
-            for (var i = 0; i < data.words.length; i++) {
-                var w = data.words[i];
-                currentSentence.push({ text: w.text, is_hsk: w.is_hsk, level: w.hsk_level, pinyin: w.pinyin, meaning: w.meaning });
-                if (w.text.match(/[。！？]/)) {
-                    sentences.push(currentSentence.slice());
-                    currentSentence = [];
-                }
-            }
-            if (currentSentence.length > 0) sentences.push(currentSentence);
-            
-            var html = '';
-            for (var s = 0; s < sentences.length; s++) {
-                var sentence = sentences[s];
-                var sentenceText = sentence.map(function(w) { return w.text; }).join('');
-                var escaped = sentenceText.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                html += '<span class="sentence-wrapper" data-sentence="' + escaped + '">';
-                for (var w = 0; w < sentence.length; w++) {
-                    var word = sentence[w];
-                    if (word.is_hsk) {
-                        var levelClass = word.level.replace(/-/g, '').replace(/\+/g, 'plus');
-                        var wordLevel = word.level === 'unknown' ? 999 : parseInt(word.level.replace('new-', '').replace('+', ''));
-                        var showPinyin = wordLevel > pinyinLevel;
-                        
-                        // Get source with fallback for old saved texts without translation_source
-                        var wordSource = word.translation_source;
-                        if (!wordSource || wordSource === 'null') {
-                            // Determine source based on word properties
-                            if (word.level === 'unknown') {
-                                wordSource = 'mymemory';
-                            } else if (word.meaning && (word.meaning.includes(' + ') || word.meaning.includes('character'))) {
-                                wordSource = 'hsk-chars';
-                            } else {
-                                wordSource = 'hsk';
-                            }
-                        }
-                        
-                        if (showPinyin) {
-                            html += '<span class="hsk-word ' + levelClass + ' pinyin-above" data-pinyin="' + word.pinyin + 
-                                '" data-word="' + word.text + 
-                                '" data-level="' + word.level + 
-                                '" data-meaning="' + word.meaning + 
-                                '" data-source="' + wordSource + 
-                                '" title="' + word.pinyin + '">' + word.text + '</span>';
-                        } else {
-                            html += '<span class="hsk-word ' + levelClass + 
-                                '" data-pinyin="' + word.pinyin + 
-                                '" data-word="' + word.text + 
-                                '" data-level="' + word.level + 
-                                '" data-meaning="' + word.meaning + 
-                                '" data-source="' + wordSource + 
-                                '" title="' + word.pinyin + '">' + word.text + '</span>';
-                        }
-                    } else {
-                        html += word.text;
-                    }
-                }
-                html += '</span>';
-            }
-            document.getElementById('readingArea').innerHTML = html;
-            
-            // Add event listeners for words and long press after HTML is inserted
-            var sentenceWrappers = document.querySelectorAll('.sentence-wrapper');
-            sentenceWrappers.forEach(function(wrapper) {
-                setupLongPress(wrapper);
-            });
-            
-            // Add click handlers to all HSK words
-            var hskWords = document.querySelectorAll('.hsk-word');
-            hskWords.forEach(function(wordEl) {
-                wordEl.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    var word = wordEl.getAttribute('data-word');
-                    var level = wordEl.getAttribute('data-level');
-                    var pinyin = wordEl.getAttribute('data-pinyin');
-                    var meaning = wordEl.getAttribute('data-meaning');
-                    var source = wordEl.getAttribute('data-source');
-                    
-                    // Debug: show all attributes
-                    console.log('All data attributes:', {
-                        word: word,
-                        level: level, 
-                        pinyin: pinyin,
-                        meaning: meaning,
-                        source: source,
-                        hasSourceAttr: wordEl.hasAttribute('data-source'),
-                        outerHTML: wordEl.outerHTML.substring(0, 200)
-                    });
-                    
-                    showWordInfo(word, level, pinyin, meaning, source);
-                });
-            });
-            var dist = [];
-            for (var key in stats.hsk_distribution) {
-                if (stats.hsk_distribution[key] > 0) dist.push(key.toUpperCase() + ': ' + stats.hsk_distribution[key]);
-            }
-            document.getElementById('statsContent').innerHTML = '<p><strong>Characters:</strong> ' + stats.total_characters + '</p><p><strong>Words:</strong> ' + stats.total_words + '</p><p><strong>HSK Words:</strong> ' + stats.hsk_words + '</p><p><strong>Estimated Level:</strong> ' + stats.estimated_level + ' (Pinyin for HSK ' + (pinyinLevel + 1) + '+)</p><p><strong>Distribution:</strong> ' + dist.join(', ') + '</p>';
-        }
-
-        function setupLongPress(element) {
-            var pressTimer;
-            var longPressHappened = false;
-            
-            element.addEventListener('mousedown', function(e) {
-                longPressHappened = false;
-                pressTimer = setTimeout(function() {
-                    longPressHappened = true;
-                    var sentenceText = element.getAttribute('data-sentence');
-                    if (sentenceText) {
-                        showSentence(sentenceText.replace(/\\'/g, "'").replace(/&quot;/g, '"'));
-                    }
-                }, 500);
-            });
-            
-            element.addEventListener('mouseup', function(e) {
-                clearTimeout(pressTimer);
-                // Do NOT close panel here - let it stay open
-            });
-            
-            element.addEventListener('click', function(e) {
-                clearTimeout(pressTimer);
-                // Only show sentence if NOT long press and clicked on wrapper itself
-                if (!longPressHappened && e.target === element) {
-                    var sentenceText = element.getAttribute('data-sentence');
-                    if (sentenceText) {
-                        showSentence(sentenceText.replace(/\\'/g, "'").replace(/&quot;/g, '"'));
-                    }
-                }
-                // Reset after short delay
-                setTimeout(function() { longPressHappened = false; }, 100);
-            });
-            
-            // Touch support
-            element.addEventListener('touchstart', function(e) {
-                longPressHappened = false;
-                pressTimer = setTimeout(function() {
-                    longPressHappened = true;
-                    var sentenceText = element.getAttribute('data-sentence');
-                    if (sentenceText) {
-                        showSentence(sentenceText.replace(/\\'/g, "'").replace(/&quot;/g, '"'));
-                    }
-                }, 500);
-            });
-            
-            element.addEventListener('touchend', function(e) {
-                clearTimeout(pressTimer);
-            });
-        }
-
-        function testSentence() {
-            console.log('Test button clicked - calling showSentence directly');
-            showSentence('我今天去学校');
-        }
-
-        function handleWordClick(event, word, level, pinyin, meaning, source) {
-            event.stopPropagation();
-            showWordInfo(word, level, pinyin, meaning, source);
-        }
-
-        function startLongPress(element, sentenceText) {
-            longPressTarget = element;
-            longPressTimer = setTimeout(function() {
-                // Long press detected - show sentence translation
-                var cleanText = sentenceText.replace(/\\'/g, "'").replace(/&quot;/g, '"');
-                showSentence(cleanText);
-                longPressTarget = null;
-            }, 500); // 500ms for long press
-        }
-
-        function endLongPress() {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-            longPressTarget = null;
-        }
-
-        function cancelLongPress() {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-            longPressTarget = null;
-        }
-
-        function showWordInfo(word, level, pinyin, meaning, source) {
-            console.log('showWordInfo called with source:', source); // Debug
-            var displayLevel = level.replace('new-', 'HSK ').replace('+', '+');
-            if (level === 'unknown') displayLevel = 'Unknown (Online lookup)';
-            var escaped = word.replace(/'/g, "\\'");
-            
-            var sourceTag = '';
-            if (source && source !== 'null' && source !== '') {
-                var sourceLabels = {
-                    'deepl': '🟢 DeepL',
-                    'google': '🔵 Google',
-                    'mymemory': '🟡 MyMemory',
-                    'hsk-chars': '📚 HSK',
-                    'hsk': '📚 HSK'
-                };
-                sourceTag = '<span style="font-size:11px;color:#666;margin-left:8px">' + (sourceLabels[source] || source) + '</span>';
-            }
-            
-            document.getElementById('wordInfo').innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center"><h4>' + word + ' <span style="color:#667eea">' + displayLevel + '</span>' + sourceTag + '</h4><div><button class="tts-btn" onclick="speakWord(\'' + escaped + '\')">🔊 Play</button><button class="btn" style="margin:0 0 0 10px;padding:8px 16px;font-size:14px" onclick="saveWordToList(\'' + escaped + '\',\'' + level.replace(/'/g, "\\'") + '\',\'' + pinyin.replace(/'/g, "\\'") + '\',\'' + meaning.replace(/'/g, "\\'") + '\')">Save to List</button></div></div><p><strong>Pinyin:</strong> ' + pinyin + '</p><p><strong>Meaning:</strong> ' + meaning + '</p>';
-            document.getElementById('wordInfo').style.display = 'block';
-            document.getElementById('sentenceInfo').style.display = 'none';
-        }
-
-        function saveWordToList(word, level, pinyin, meaning) {
-            if (!currentTextId) { alert('No text active'); return; }
-            var lists = JSON.parse(localStorage.getItem('qingdu_lists') || '[]');
-            var vocabList = null;
-            for (var i = 0; i < lists.length; i++) {
-                if (lists[i].type === 'auto') {
-                    vocabList = lists[i];
-                    break;
-                }
-            }
-            if (!vocabList) {
-                vocabList = { id: Date.now(), name: 'Vocabulary from Texts', type: 'auto', sections: [] };
-                lists.push(vocabList);
-            }
-            var texts = JSON.parse(localStorage.getItem('qingdu_texts') || '[]');
-            var currentText = null;
-            for (var i = 0; i < texts.length; i++) {
-                if (texts[i].id === currentTextId) {
-                    currentText = texts[i];
-                    break;
-                }
-            }
-            if (!currentText) { alert('Current text not found'); return; }
-            var section = null;
-            for (var i = 0; i < vocabList.sections.length; i++) {
-                if (vocabList.sections[i].name === currentText.title) {
-                    section = vocabList.sections[i];
-                    break;
-                }
-            }
-            if (!section) {
-                section = { name: currentText.title, words: [] };
-                vocabList.sections.push(section);
-            }
-            for (var i = 0; i < section.words.length; i++) {
-                if (section.words[i].hanzi === word) {
-                    alert('Word already in list!');
-                    return;
-                }
-            }
-            section.words.push({ hanzi: word, pinyin: pinyin, meaning: meaning, level: level });
-            localStorage.setItem('qingdu_lists', JSON.stringify(lists));
-            alert('Word saved to "' + currentText.title + '" section!');
-        }
-
-        function showSentence(sentence) {
-            currentSentenceText = sentence.replace(/\\'/g, "'").replace(/&quot;/g, '"');
-            console.log('=== showSentence DEBUG START ===');
-            console.log('Input sentence:', currentSentenceText);
-            
-            document.getElementById('sentenceText').innerHTML = '<strong>Chinese:</strong> ' + currentSentenceText;
-            document.getElementById('sentenceTranslation').innerHTML = 'Translating...';
-            document.getElementById('sentenceInfo').style.display = 'block';
-            document.getElementById('wordInfo').style.display = 'none';
-            
-            var requestBody = { text: currentSentenceText, target_lang: 'en' };
-            console.log('Request body:', JSON.stringify(requestBody));
-            
-            fetch('/api/translate', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify(requestBody) 
-            })
-            .then(function(r) { 
-                console.log('Response status:', r.status);
-                if (!r.ok) throw new Error('HTTP ' + r.status); 
-                return r.json(); 
-            })
-            .then(function(d) {
-                console.log('Translation data:', d);
-                
-                var sourceTag = '';
-                if (d.source && d.source !== 'cache') {
-                    var sourceLabels = {
-                        'deepl': '🟢 DeepL',
-                        'google': '🔵 Google',
-                        'mymemory': '🟡 MyMemory'
-                    };
-                    var label = sourceLabels[d.source] || d.source;
-                    sourceTag = d.cached ? 
-                        ' <span style="font-size:11px;color:#666">(' + label + ' - cached)</span>' :
-                        ' <span style="font-size:11px;color:#666">(' + label + ')</span>';
-                    console.log('Created source tag:', sourceTag);
-                }
-                
-                var html = '<strong>English:</strong> ' + d.translation + sourceTag;
-                console.log('Final HTML:', html);
-                console.log('=== showSentence DEBUG END ===');
-                document.getElementById('sentenceTranslation').innerHTML = html;
-            })
-            .catch(function(e) {
-                console.error('Translation error:', e);
-                document.getElementById('sentenceTranslation').innerHTML = '<span style="color:#e74c3c">Error: ' + e.message + '</span>';
-            });
-        }
-
-        function speakWord(text) {
-            var cleanText = text.replace(/\\'/g, "'").replace(/&quot;/g, '"');
-            var audio = new Audio('/api/tts/' + encodeURIComponent(cleanText));
-            audio.onerror = function() { alert('TTS failed'); };
-            audio.play().catch(function(e) { alert('Error: ' + e.message); });
-        }
-
-        function speakSentence() {
-            if (currentSentenceText) speakWord(currentSentenceText);
-        }
-
-        function clearAll() {
-            document.getElementById('textInput').value = '';
-            document.getElementById('inputSection').classList.remove('collapsed');
-            document.getElementById('resultsSection').classList.remove('show');
-            currentAnalysisData = null;
-            currentSentenceText = '';
-        }
-
-        document.getElementById('inputPlaceholder').addEventListener('click', function() {
-            document.getElementById('inputSection').classList.remove('collapsed');
-            document.getElementById('textInput').focus();
-        });
-    </script>
+    <!-- JavaScript -->
+<script src="/static/js/vocabulary.js"></script>
+<script src="/static/js/display.js"></script>
+<script src="/static/js/app.js"></script>
 </body>
 </html>
