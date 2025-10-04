@@ -403,14 +403,20 @@ def estimate_text_level(hsk_stats: Dict, total_hsk_words: int) -> str:
     if total_hsk_words == 0:
         return "Unknown"
     
-    threshold = total_hsk_words * 0.2
+    # Calculate cumulative percentage approach
+    # Text level = highest level where you'd understand 80%+ of words
+    cumulative_words = 0
     
-    for level in range(9, 0, -1):
-        if hsk_stats.get(f'hsk{level}', 0) > threshold:
+    for level in range(1, 10):
+        cumulative_words += hsk_stats.get(f'hsk{level}', 0)
+        percentage = (cumulative_words / total_hsk_words) * 100
+        
+        # If you know up to this level and understand 80%+ of words, this is the text level
+        if percentage >= 80:
             return f"HSK {level}"
     
-    max_level = max(hsk_stats.items(), key=lambda x: x[1])
-    return f"HSK {max_level[0].replace('hsk', '')}"
+    # If even HSK 9 doesn't cover 80%, it's beyond HSK
+    return "HSK 9+"
 
 @app.get("/api/vocabulary-stats")
 async def vocabulary_stats():

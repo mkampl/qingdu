@@ -44,6 +44,10 @@
         .results-section.show { display: flex; gap: 20px; }
         
         .text-panel { flex: 1; padding: 20px; overflow-y: auto; max-height: calc(100vh - 140px); }
+        .text-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .save-text-btn { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; transition: all 0.3s; }
+        .save-text-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .save-text-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .info-panel { width: 40%; padding: 20px; border-left: 2px solid #f0f0f0; overflow-y: auto; max-height: calc(100vh - 140px); display: flex; flex-direction: column; gap: 15px; }
         
         .reading-text { line-height: 2.5; font-size: 24px; font-family: 'Microsoft YaHei', 'SimHei', sans-serif; background: #f8f9fa; padding: 20px; border-radius: 10px; }
@@ -131,7 +135,13 @@
         </div>
         <div class="results-section" id="resultsSection">
             <div class="text-panel">
-                <h3>Reading Text</h3>
+                <div class="text-panel-header">
+                    <h3>Reading Text</h3>
+                    <button class="save-text-btn" id="saveTextBtn" onclick="saveCurrentText()" disabled>
+                        <span>💾</span>
+                        <span>Save Text</span>
+                    </button>
+                </div>
                 <div class="reading-text" id="readingArea"></div>
             </div>
             <div class="info-panel">
@@ -165,6 +175,7 @@
         var currentAnalysisData = null;
         var currentSentenceText = '';
         var currentTextId = null;
+        var currentInputText = '';  // Store the original input text
         var sidebarOpen = false;
 
         window.onload = function() {
@@ -242,10 +253,12 @@
             if (texts[index]) {
                 currentAnalysisData = texts[index].analysisData;
                 currentTextId = texts[index].id;
+                currentInputText = texts[index].content;  // Load the original text
                 displayResults(texts[index].analysisData);
                 document.getElementById('inputSection').classList.add('collapsed');
                 document.getElementById('resultsSection').classList.add('show');
                 document.getElementById('listViewSection').classList.add('hidden');
+                document.getElementById('saveTextBtn').disabled = true;  // Already saved
                 toggleSidebar();
             }
         }
@@ -390,21 +403,38 @@
         function analyzeText() {
             var text = document.getElementById('textInput').value.trim();
             if (!text) { alert('Please enter some text!'); return; }
+            
+            currentInputText = text;  // Store the input text
+            currentTextId = null;  // Reset text ID since this is new/unsaved
+            
             document.getElementById('readingArea').innerHTML = '<div class="loading">Analyzing...</div>';
             document.getElementById('resultsSection').classList.add('show');
+            document.getElementById('saveTextBtn').disabled = false;  // Enable save button
+            
             fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text }) })
                 .then(function(r) { if (!r.ok) throw new Error('Failed'); return r.json(); })
                 .then(function(data) {
                     currentAnalysisData = data;
                     displayResults(data);
                     document.getElementById('inputSection').classList.add('collapsed');
-                    var title = text.split(/[。！？]/)[0] || text.substring(0, 50);
-                    var textId = Date.now();
-                    currentTextId = textId;
-                    saveTextToStorage(textId, title, text, data);
                 }).catch(function(e) {
                     document.getElementById('readingArea').innerHTML = '<div style="color:#e74c3c">Error: ' + e.message + '</div>';
                 });
+        }
+
+        function saveCurrentText() {
+            if (!currentInputText || !currentAnalysisData) {
+                alert('No text to save');
+                return;
+            }
+            
+            var title = currentInputText.split(/[。！？]/)[0] || currentInputText.substring(0, 50);
+            var textId = Date.now();
+            currentTextId = textId;
+            
+            saveTextToStorage(textId, title, currentInputText, currentAnalysisData);
+            document.getElementById('saveTextBtn').disabled = true;  // Disable after saving
+            alert('Text saved successfully!');
         }
 
         function displayResults(data) {
