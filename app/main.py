@@ -50,6 +50,7 @@ class WordInfo(BaseModel):
     meanings: Optional[List[str]] = None
     frequency: Optional[int] = None
     is_hsk: bool = False
+    translation_source: Optional[str] = None
 
 @app.on_event("startup")
 async def startup_event():
@@ -211,35 +212,26 @@ async def lookup_unknown_word(word: str) -> Optional[Dict]:
     if word in unknown_word_cache:
         return unknown_word_cache[word]
     
-    try:
-        # Get pinyin using pypinyin
-        pinyin_result = lazy_pinyin(word, style=Style.TONE)
-        word_pinyin = ' '.join(pinyin_result)
-        
-        # Get translation using MyMemory API with shorter timeout
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            url = f"https://api.mymemory.translated.net/get?q={word}&langpair=zh|en"
-            response = await client.get(url)
-            response.raise_for_status()
-            result = response.json()
-            
-            if result.get('responseStatus') == 200:
-                translation = result['responseData']['translatedText']
-                
-                word_info = {
-                    'pinyin': word_pinyin,
-                    'meaning': translation,
-                    'meanings': [translation],
-                    'level': 'unknown',
-                    'frequency': 0
-                }
-                
-                # Cache the result
-                unknown_word_cache[word] = word_info
-                return word_info
+    # Get pinyin using pypinyin
+    pinyin_result = lazy_pinyin(word, style=Style.TONE)
+    word_pinyin = ' '.join(pinyin_result)
     
-    except Exception as e:
-        print(f"Online lookup failed for '{word}': {e}")
+    # Try online translation
+    translation_result = await get_translation_with_source(word)
+    
+    if translation_result:
+        word_info = {
+            'pinyin': word_pinyin,
+            'meaning': translation_result['translation'],
+            'meanings': [translation_result['translation']],
+            'level': 'unknown',
+            'frequency': 0,
+            'translation_source': translation_result['source']
+        }
+        
+        # Cache the result
+        unknown_word_cache[word] = word_info
+        return word_info
     
     return None
 
@@ -251,11 +243,13 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
     chars = list(word)
     char_pinyins = []
     char_levels = []
+    char_meanings = []
     
     # Check if all characters are in HSK and collect their levels
     for char in chars:
         if char in hsk_vocab:
             char_pinyins.append(hsk_vocab[char]['pinyin'])
+            char_meanings.append(hsk_vocab[char]['meaning'])
             level_str = hsk_vocab[char]['level'].replace('new-', '').replace('old-', '').replace('+', '')
             try:
                 char_levels.append(int(level_str))
@@ -271,37 +265,114 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
     max_level = max(char_levels)
     compound_level = f'new-{max_level}'
     
+    # Fallback meaning from characters
+    fallback_meaning = ' + '.join(char_meanings)
+    
     # Try to get proper translation online
+    translation_result = await get_translation_with_source(word)
+    
+    if translation_result:
+        translation = translation_result['translation']
+        source = translation_result['source']
+        
+        # Check if translation is just pinyin (failed translation)
+        # If translation contains only Latin letters and spaces, it's probably just pinyin
+        if translation.replace(' ', '').replace('-', '').isalpha():
+            # Likely just pinyin, use fallback
+            translation = fallback_meaning
+            source = 'hsk-chars'
+        
+        return {
+            'pinyin': compound_pinyin,
+            'meaning': translation,
+            'meanings': [translation],
+            'level': compound_level,
+            'frequency': 0,
+            'translation_source': source
+        }
+    
+    # If online lookup completely failed, use character meanings
+    return {
+        'pinyin': compound_pinyin,
+        'meaning': fallback_meaning,
+        'meanings': char_meanings,
+        'level': compound_level,
+        'frequency': 0,
+        'translation_source': 'hsk-chars'
+    }
+
+async def get_translation_with_source(text: str) -> Optional[Dict]:
+    """
+    Get translation with multiple API support and source tracking
+    Priority: DeepL > Google > MyMemory
+    """
+    # Check for API keys from environment
+    deepl_key = os.getenv('DEEPL_API_KEY')
+    google_key = os.getenv('GOOGLE_TRANSLATE_API_KEY')
+    
+    # Try DeepL first if available
+    if deepl_key:
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                url = "https://api-free.deepl.com/v2/translate"
+                data = {
+                    'auth_key': deepl_key,
+                    'text': text,
+                    'target_lang': 'EN',
+                    'source_lang': 'ZH'
+                }
+                response = await client.post(url, data=data)
+                response.raise_for_status()
+                result = response.json()
+                
+                if result.get('translations'):
+                    return {
+                        'translation': result['translations'][0]['text'],
+                        'source': 'deepl'
+                    }
+        except Exception as e:
+            print(f"DeepL API failed for '{text}': {e}")
+    
+    # Try Google Translate if available
+    if google_key:
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                url = f"https://translation.googleapis.com/language/translate/v2"
+                params = {
+                    'key': google_key,
+                    'q': text,
+                    'target': 'en',
+                    'source': 'zh'
+                }
+                response = await client.post(url, params=params)
+                response.raise_for_status()
+                result = response.json()
+                
+                if result.get('data', {}).get('translations'):
+                    return {
+                        'translation': result['data']['translations'][0]['translatedText'],
+                        'source': 'google'
+                    }
+        except Exception as e:
+            print(f"Google Translate API failed for '{text}': {e}")
+    
+    # Fallback to free MyMemory API
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
-            url = f"https://api.mymemory.translated.net/get?q={word}&langpair=zh|en"
+            url = f"https://api.mymemory.translated.net/get?q={text}&langpair=zh|en"
             response = await client.get(url)
             response.raise_for_status()
             result = response.json()
             
             if result.get('responseStatus') == 200:
-                translation = result['responseData']['translatedText']
-                
-                word_info = {
-                    'pinyin': compound_pinyin,
-                    'meaning': translation,
-                    'meanings': [translation],
-                    'level': compound_level,
-                    'frequency': 0
+                return {
+                    'translation': result['responseData']['translatedText'],
+                    'source': 'mymemory'
                 }
-                return word_info
     except Exception as e:
-        print(f"Online translation failed for compound '{word}': {e}")
+        print(f"MyMemory API failed for '{text}': {e}")
     
-    # Fallback: use character meanings if online fails
-    char_meanings = [hsk_vocab[char]['meaning'] for char in chars]
-    return {
-        'pinyin': compound_pinyin,
-        'meaning': ' + '.join(char_meanings),
-        'meanings': char_meanings,
-        'level': compound_level,
-        'frequency': 0
-    }
+    return None
 
 @app.post("/api/analyze")
 async def analyze_text(data: TextAnalysisRequest) -> Dict:
@@ -334,6 +405,7 @@ async def analyze_text(data: TextAnalysisRequest) -> Dict:
             word_info.meanings = vocab_entry['meanings']
             word_info.frequency = vocab_entry['frequency']
             word_info.is_hsk = True
+            word_info.translation_source = 'hsk'  # Mark as HSK vocabulary
             
             level_num = vocab_entry['level'].replace('new-', '').replace('old-', '').replace('+', '')
             try:
@@ -359,6 +431,7 @@ async def analyze_text(data: TextAnalysisRequest) -> Dict:
                     word_info.meanings = compound_info['meanings']
                     word_info.frequency = 0
                     word_info.is_hsk = True
+                    word_info.translation_source = compound_info.get('translation_source')
                     print(f"Compound created for '{segment}': {compound_info['meaning']}")
                 else:
                     print(f"Compound method failed for '{segment}'")
@@ -377,6 +450,7 @@ async def analyze_text(data: TextAnalysisRequest) -> Dict:
                     word_info.meanings = online_info['meanings']
                     word_info.frequency = 0
                     word_info.is_hsk = True
+                    word_info.translation_source = online_info.get('translation_source')
                     print(f"Online lookup for '{segment}': {online_info['meaning']}")
                 else:
                     # Debug: log segments that couldn't be looked up
@@ -384,6 +458,10 @@ async def analyze_text(data: TextAnalysisRequest) -> Dict:
                         print(f"Could not find info for: '{segment}'")
         
         words.append(word_info.dict())
+    
+    # Debug: Print first word to verify translation_source
+    if words:
+        print(f"DEBUG - First word data: {words[0]}")
     
     estimated_level = estimate_text_level(hsk_stats, total_hsk_words)
     
@@ -490,26 +568,33 @@ async def translate_text(data: TranslationRequest) -> Dict:
     
     cache_key = f"{text}_{data.target_lang}"
     if cache_key in translation_cache:
-        return {"translation": translation_cache[cache_key], "cached": True}
+        cached_result = translation_cache[cache_key]
+        # Handle both old (string) and new (dict) cache format
+        if isinstance(cached_result, str):
+            return {
+                "translation": cached_result,
+                "source": "cache",
+                "cached": True
+            }
+        else:
+            return {
+                "translation": cached_result.get('translation', cached_result),
+                "source": cached_result.get('source', 'cache'),
+                "cached": True
+            }
     
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            url = f"https://api.mymemory.translated.net/get?q={text}&langpair=zh|{data.target_lang}"
-            response = await client.get(url)
-            response.raise_for_status()
-            result = response.json()
-            
-            if result.get('responseStatus') == 200:
-                translation = result['responseData']['translatedText']
-                translation_cache[cache_key] = translation
-                return {"translation": translation, "cached": False}
-            else:
-                raise HTTPException(status_code=500, detail="Translation service error")
+    # Try translation with source tracking
+    translation_result = await get_translation_with_source(text)
     
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Translation timeout")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Translation failed: {str(e)}")
+    if translation_result:
+        translation_cache[cache_key] = translation_result
+        return {
+            "translation": translation_result['translation'],
+            "source": translation_result['source'],
+            "cached": False
+        }
+    else:
+        raise HTTPException(status_code=500, detail="All translation services failed")
 
 if __name__ == "__main__":
     import uvicorn

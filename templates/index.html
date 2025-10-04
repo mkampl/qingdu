@@ -86,7 +86,7 @@
         .new-9, .new9, .new9plus { background-color: #fafafa; border-bottom: 2px solid #424242; }
         .unknown { background-color: #f5f5f5; border-bottom: 2px solid #9e9e9e; }
         .stats { background: #f8f9fa; padding: 15px; border-radius: 10px; margin: 10px 0; }
-        .sentence-wrapper { cursor: pointer; transition: background-color 0.2s; display: inline-block; padding: 2px 4px; margin: -2px -4px; border-radius: 4px; }
+        .sentence-wrapper { cursor: pointer; transition: background-color 0.2s; display: inline-block; padding: 2px 0; border-radius: 4px; }
         .sentence-wrapper:hover { background-color: #fff3cd; }
         .loading { text-align: center; padding: 40px; color: #666; }
         
@@ -175,8 +175,10 @@
         var currentAnalysisData = null;
         var currentSentenceText = '';
         var currentTextId = null;
-        var currentInputText = '';  // Store the original input text
+        var currentInputText = '';
         var sidebarOpen = false;
+        var longPressTimer = null;
+        var longPressTarget = null;
 
         window.onload = function() {
             fetch('/api/vocabulary-stats').then(function(r) { return r.json(); }).then(function(d) {
@@ -438,6 +440,11 @@
         }
 
         function displayResults(data) {
+            // Debug: Log first word to see structure
+            if (data.words && data.words.length > 0) {
+                console.log('First word data:', data.words[0]);
+            }
+            
             var stats = data.statistics;
             var estimatedLevelNum = parseInt(stats.estimated_level.replace('HSK ', ''));
             var pinyinLevel = estimatedLevelNum;
@@ -459,18 +466,42 @@
                 var sentence = sentences[s];
                 var sentenceText = sentence.map(function(w) { return w.text; }).join('');
                 var escaped = sentenceText.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                html += '<span class="sentence-wrapper" onclick="showSentence(\'' + escaped + '\')">';
+                html += '<span class="sentence-wrapper" data-sentence="' + escaped + '">';
                 for (var w = 0; w < sentence.length; w++) {
                     var word = sentence[w];
                     if (word.is_hsk) {
                         var levelClass = word.level.replace(/-/g, '').replace(/\+/g, 'plus');
                         var wordLevel = word.level === 'unknown' ? 999 : parseInt(word.level.replace('new-', '').replace('+', ''));
                         var showPinyin = wordLevel > pinyinLevel;
-                        var esc = { t: word.text.replace(/'/g, "\\'"), l: word.level.replace(/'/g, "\\'"), p: word.pinyin.replace(/'/g, "\\'"), m: word.meaning.replace(/'/g, "\\'") };
+                        
+                        // Get source with fallback for old saved texts without translation_source
+                        var wordSource = word.translation_source;
+                        if (!wordSource || wordSource === 'null') {
+                            // Determine source based on word properties
+                            if (word.level === 'unknown') {
+                                wordSource = 'mymemory';
+                            } else if (word.meaning && (word.meaning.includes(' + ') || word.meaning.includes('character'))) {
+                                wordSource = 'hsk-chars';
+                            } else {
+                                wordSource = 'hsk';
+                            }
+                        }
+                        
                         if (showPinyin) {
-                            html += '<span class="hsk-word ' + levelClass + ' pinyin-above" data-pinyin="' + word.pinyin + '" onclick="event.stopPropagation();showWordInfo(\'' + esc.t + '\',\'' + esc.l + '\',\'' + esc.p + '\',\'' + esc.m + '\')" title="' + word.pinyin + '">' + word.text + '</span>';
+                            html += '<span class="hsk-word ' + levelClass + ' pinyin-above" data-pinyin="' + word.pinyin + 
+                                '" data-word="' + word.text + 
+                                '" data-level="' + word.level + 
+                                '" data-meaning="' + word.meaning + 
+                                '" data-source="' + wordSource + 
+                                '" title="' + word.pinyin + '">' + word.text + '</span>';
                         } else {
-                            html += '<span class="hsk-word ' + levelClass + '" onclick="event.stopPropagation();showWordInfo(\'' + esc.t + '\',\'' + esc.l + '\',\'' + esc.p + '\',\'' + esc.m + '\')" title="' + word.pinyin + '">' + word.text + '</span>';
+                            html += '<span class="hsk-word ' + levelClass + 
+                                '" data-pinyin="' + word.pinyin + 
+                                '" data-word="' + word.text + 
+                                '" data-level="' + word.level + 
+                                '" data-meaning="' + word.meaning + 
+                                '" data-source="' + wordSource + 
+                                '" title="' + word.pinyin + '">' + word.text + '</span>';
                         }
                     } else {
                         html += word.text;
@@ -479,6 +510,38 @@
                 html += '</span>';
             }
             document.getElementById('readingArea').innerHTML = html;
+            
+            // Add event listeners for words and long press after HTML is inserted
+            var sentenceWrappers = document.querySelectorAll('.sentence-wrapper');
+            sentenceWrappers.forEach(function(wrapper) {
+                setupLongPress(wrapper);
+            });
+            
+            // Add click handlers to all HSK words
+            var hskWords = document.querySelectorAll('.hsk-word');
+            hskWords.forEach(function(wordEl) {
+                wordEl.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var word = wordEl.getAttribute('data-word');
+                    var level = wordEl.getAttribute('data-level');
+                    var pinyin = wordEl.getAttribute('data-pinyin');
+                    var meaning = wordEl.getAttribute('data-meaning');
+                    var source = wordEl.getAttribute('data-source');
+                    
+                    // Debug: show all attributes
+                    console.log('All data attributes:', {
+                        word: word,
+                        level: level, 
+                        pinyin: pinyin,
+                        meaning: meaning,
+                        source: source,
+                        hasSourceAttr: wordEl.hasAttribute('data-source'),
+                        outerHTML: wordEl.outerHTML.substring(0, 200)
+                    });
+                    
+                    showWordInfo(word, level, pinyin, meaning, source);
+                });
+            });
             var dist = [];
             for (var key in stats.hsk_distribution) {
                 if (stats.hsk_distribution[key] > 0) dist.push(key.toUpperCase() + ': ' + stats.hsk_distribution[key]);
@@ -486,11 +549,112 @@
             document.getElementById('statsContent').innerHTML = '<p><strong>Characters:</strong> ' + stats.total_characters + '</p><p><strong>Words:</strong> ' + stats.total_words + '</p><p><strong>HSK Words:</strong> ' + stats.hsk_words + '</p><p><strong>Estimated Level:</strong> ' + stats.estimated_level + ' (Pinyin for HSK ' + (pinyinLevel + 1) + '+)</p><p><strong>Distribution:</strong> ' + dist.join(', ') + '</p>';
         }
 
-        function showWordInfo(word, level, pinyin, meaning) {
+        function setupLongPress(element) {
+            var pressTimer;
+            var longPressHappened = false;
+            
+            element.addEventListener('mousedown', function(e) {
+                longPressHappened = false;
+                pressTimer = setTimeout(function() {
+                    longPressHappened = true;
+                    var sentenceText = element.getAttribute('data-sentence');
+                    if (sentenceText) {
+                        showSentence(sentenceText.replace(/\\'/g, "'").replace(/&quot;/g, '"'));
+                    }
+                }, 500);
+            });
+            
+            element.addEventListener('mouseup', function(e) {
+                clearTimeout(pressTimer);
+                // Do NOT close panel here - let it stay open
+            });
+            
+            element.addEventListener('click', function(e) {
+                clearTimeout(pressTimer);
+                // Only show sentence if NOT long press and clicked on wrapper itself
+                if (!longPressHappened && e.target === element) {
+                    var sentenceText = element.getAttribute('data-sentence');
+                    if (sentenceText) {
+                        showSentence(sentenceText.replace(/\\'/g, "'").replace(/&quot;/g, '"'));
+                    }
+                }
+                // Reset after short delay
+                setTimeout(function() { longPressHappened = false; }, 100);
+            });
+            
+            // Touch support
+            element.addEventListener('touchstart', function(e) {
+                longPressHappened = false;
+                pressTimer = setTimeout(function() {
+                    longPressHappened = true;
+                    var sentenceText = element.getAttribute('data-sentence');
+                    if (sentenceText) {
+                        showSentence(sentenceText.replace(/\\'/g, "'").replace(/&quot;/g, '"'));
+                    }
+                }, 500);
+            });
+            
+            element.addEventListener('touchend', function(e) {
+                clearTimeout(pressTimer);
+            });
+        }
+
+        function testSentence() {
+            console.log('Test button clicked - calling showSentence directly');
+            showSentence('我今天去学校');
+        }
+
+        function handleWordClick(event, word, level, pinyin, meaning, source) {
+            event.stopPropagation();
+            showWordInfo(word, level, pinyin, meaning, source);
+        }
+
+        function startLongPress(element, sentenceText) {
+            longPressTarget = element;
+            longPressTimer = setTimeout(function() {
+                // Long press detected - show sentence translation
+                var cleanText = sentenceText.replace(/\\'/g, "'").replace(/&quot;/g, '"');
+                showSentence(cleanText);
+                longPressTarget = null;
+            }, 500); // 500ms for long press
+        }
+
+        function endLongPress() {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            longPressTarget = null;
+        }
+
+        function cancelLongPress() {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            longPressTarget = null;
+        }
+
+        function showWordInfo(word, level, pinyin, meaning, source) {
+            console.log('showWordInfo called with source:', source); // Debug
             var displayLevel = level.replace('new-', 'HSK ').replace('+', '+');
             if (level === 'unknown') displayLevel = 'Unknown (Online lookup)';
             var escaped = word.replace(/'/g, "\\'");
-            document.getElementById('wordInfo').innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center"><h4>' + word + ' <span style="color:#667eea">' + displayLevel + '</span></h4><div><button class="tts-btn" onclick="speakWord(\'' + escaped + '\')">🔊 Play</button><button class="btn" style="margin:0 0 0 10px;padding:8px 16px;font-size:14px" onclick="saveWordToList(\'' + escaped + '\',\'' + level.replace(/'/g, "\\'") + '\',\'' + pinyin.replace(/'/g, "\\'") + '\',\'' + meaning.replace(/'/g, "\\'") + '\')">Save to List</button></div></div><p><strong>Pinyin:</strong> ' + pinyin + '</p><p><strong>Meaning:</strong> ' + meaning + '</p>';
+            
+            var sourceTag = '';
+            if (source && source !== 'null' && source !== '') {
+                var sourceLabels = {
+                    'deepl': '🟢 DeepL',
+                    'google': '🔵 Google',
+                    'mymemory': '🟡 MyMemory',
+                    'hsk-chars': '📚 HSK',
+                    'hsk': '📚 HSK'
+                };
+                sourceTag = '<span style="font-size:11px;color:#666;margin-left:8px">' + (sourceLabels[source] || source) + '</span>';
+            }
+            
+            document.getElementById('wordInfo').innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center"><h4>' + word + ' <span style="color:#667eea">' + displayLevel + '</span>' + sourceTag + '</h4><div><button class="tts-btn" onclick="speakWord(\'' + escaped + '\')">🔊 Play</button><button class="btn" style="margin:0 0 0 10px;padding:8px 16px;font-size:14px" onclick="saveWordToList(\'' + escaped + '\',\'' + level.replace(/'/g, "\\'") + '\',\'' + pinyin.replace(/'/g, "\\'") + '\',\'' + meaning.replace(/'/g, "\\'") + '\')">Save to List</button></div></div><p><strong>Pinyin:</strong> ' + pinyin + '</p><p><strong>Meaning:</strong> ' + meaning + '</p>';
+            document.getElementById('wordInfo').style.display = 'block';
             document.getElementById('sentenceInfo').style.display = 'none';
         }
 
@@ -541,16 +705,53 @@
 
         function showSentence(sentence) {
             currentSentenceText = sentence.replace(/\\'/g, "'").replace(/&quot;/g, '"');
+            console.log('=== showSentence DEBUG START ===');
+            console.log('Input sentence:', currentSentenceText);
+            
             document.getElementById('sentenceText').innerHTML = '<strong>Chinese:</strong> ' + currentSentenceText;
             document.getElementById('sentenceTranslation').innerHTML = 'Translating...';
             document.getElementById('sentenceInfo').style.display = 'block';
-            fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: currentSentenceText, target_lang: 'en' }) })
-                .then(function(r) { if (!r.ok) throw new Error('Failed'); return r.json(); })
-                .then(function(d) {
-                    document.getElementById('sentenceTranslation').innerHTML = '<strong>English:</strong> ' + d.translation + '<small style="color:#999">' + (d.cached ? ' (cached)' : '') + '</small>';
-                }).catch(function(e) {
-                    document.getElementById('sentenceTranslation').innerHTML = '<span style="color:#e74c3c">Error: ' + e.message + '</span>';
-                });
+            document.getElementById('wordInfo').style.display = 'none';
+            
+            var requestBody = { text: currentSentenceText, target_lang: 'en' };
+            console.log('Request body:', JSON.stringify(requestBody));
+            
+            fetch('/api/translate', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(requestBody) 
+            })
+            .then(function(r) { 
+                console.log('Response status:', r.status);
+                if (!r.ok) throw new Error('HTTP ' + r.status); 
+                return r.json(); 
+            })
+            .then(function(d) {
+                console.log('Translation data:', d);
+                
+                var sourceTag = '';
+                if (d.source && d.source !== 'cache') {
+                    var sourceLabels = {
+                        'deepl': '🟢 DeepL',
+                        'google': '🔵 Google',
+                        'mymemory': '🟡 MyMemory'
+                    };
+                    var label = sourceLabels[d.source] || d.source;
+                    sourceTag = d.cached ? 
+                        ' <span style="font-size:11px;color:#666">(' + label + ' - cached)</span>' :
+                        ' <span style="font-size:11px;color:#666">(' + label + ')</span>';
+                    console.log('Created source tag:', sourceTag);
+                }
+                
+                var html = '<strong>English:</strong> ' + d.translation + sourceTag;
+                console.log('Final HTML:', html);
+                console.log('=== showSentence DEBUG END ===');
+                document.getElementById('sentenceTranslation').innerHTML = html;
+            })
+            .catch(function(e) {
+                console.error('Translation error:', e);
+                document.getElementById('sentenceTranslation').innerHTML = '<span style="color:#e74c3c">Error: ' + e.message + '</span>';
+            });
         }
 
         function speakWord(text) {
