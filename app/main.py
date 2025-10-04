@@ -12,6 +12,10 @@ import httpx
 from functools import lru_cache
 from typing import List, Tuple, Optional, Dict
 import asyncio
+from dotenv import load_dotenv
+   
+# Load environment variables
+load_dotenv()
 
 app = FastAPI(title="轻读 QingDu - Chinese Text Analyzer")
 
