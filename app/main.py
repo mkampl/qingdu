@@ -74,61 +74,61 @@ async def startup_event():
     vocab_file = DATA_DIR / "hsk_vocabulary.json"
     
     if vocab_file.exists():
-        print("Loading HSK vocabulary from cache...")
+        # print("Loading HSK vocabulary from cache...")
         with open(vocab_file, 'r', encoding='utf-8') as f:
             hsk_vocab = json.load(f)
-        print(f"Loaded {len(hsk_vocab)} HSK words from cache")
+        # print(f"Loaded {len(hsk_vocab)} HSK words from cache")
     else:
-        print("Downloading HSK vocabulary from GitHub...")
+        # print("Downloading HSK vocabulary from GitHub...")
         await download_hsk_vocabulary()
     
     # Check for common words and report if missing
-    common_words = ['第一天', '很多', '一个', '这个', '那个', '喝茶', '成都', '一位', '一种']
-    print("\nChecking common words in HSK database:")
-    for word in common_words:
-        if word in hsk_vocab:
-            print(f"  ✓ '{word}' found: {hsk_vocab[word]['meaning']}")
-        else:
-            print(f"  ✗ '{word}' MISSING from HSK database")
+    # common_words = ['第一天', '很多', '一个', '这个', '那个', '喝茶', '成都', '一位', '一种']
+    # print("\nChecking common words in HSK database:")
+    # for word in common_words:
+    #     if word in hsk_vocab:
+    #         print(f"  ✓ '{word}' found: {hsk_vocab[word]['meaning']}")
+    #     else:
+    #         print(f"  ✗ '{word}' MISSING from HSK database")
     
-    print("\nInitializing jieba tokenizer...")
+    # print("\nInitializing jieba tokenizer...")
     jieba.initialize()
     
-    print("Adding HSK words to jieba dictionary with high frequency...")
+    # print("Adding HSK words to jieba dictionary with high frequency...")
     multi_char_count = 0
     
     # Common multi-character words that must be recognized as units
-    priority_words = ['第一', '第二', '第三', '很多', '一个', '这个', '那个', '什么', 
-                      '怎么', '为什么', '可以', '喝茶', '吃饭', '第一天', '每天',
-                      '今天', '明天', '昨天', '去年', '今年', '明年', '一位', '一种',
-                      '成都', '茶馆', '打麻将', '武侯祠', '三国', '诸葛亮', '道家',
-                      '麻婆豆腐', '担担面', '当地人', '四川菜', '阴阳', '老先生', '这次']
+    # priority_words = ['第一', '第二', '第三', '很多', '一个', '这个', '那个', '什么', 
+    #                   '怎么', '为什么', '可以', '喝茶', '吃饭', '第一天', '每天',
+    #                   '今天', '明天', '昨天', '去年', '今年', '明年', '一位', '一种',
+    #                   '成都', '茶馆', '打麻将', '武侯祠', '三国', '诸葛亮', '道家',
+    #                   '麻婆豆腐', '担担面', '当地人', '四川菜', '阴阳', '老先生', '这次']
     
     for word, data in hsk_vocab.items():
         if len(word) > 1:
             # Add with high frequency to prioritize HSK words in segmentation
             # Give extra priority to common multi-char words
             base_freq = max(data.get('frequency', 0) * 100, 10000)
-            if word in priority_words:
-                freq = base_freq * 10  # 10x priority for common words
-            else:
-                freq = base_freq
+            # if word in priority_words:
+            #     freq = base_freq * 10  # 10x priority for common words
+            # else:
+            freq = base_freq
             jieba.add_word(word, freq=freq)
             multi_char_count += 1
     
     # Force add priority words even if not in HSK with max frequency
-    for word in priority_words:
-        if word not in hsk_vocab:
-            jieba.add_word(word, freq=1000000)
-            print(f"Force added priority word to jieba: {word}")
+    # for word in priority_words:
+    #     if word not in hsk_vocab:
+    #         jieba.add_word(word, freq=1000000)
+    #         print(f"Force added priority word to jieba: {word}")
 
-    print(f"Added {multi_char_count} multi-character HSK words with priority to jieba")
+    # print(f"Added {multi_char_count} multi-character HSK words with priority to jieba")
 
     # Initialize database
     init_db()
-    print("Database initialized")
+    # print("Database initialized")
 
-    print("Startup complete!\n")
+    # print("Startup complete!\n")
 
 async def download_hsk_vocabulary():
     """Download and process HSK vocabulary from GitHub"""
@@ -256,7 +256,7 @@ async def download_hsk_vocabulary():
         with open(vocab_file, 'w', encoding='utf-8') as f:
             json.dump(hsk_vocab, f, ensure_ascii=False, indent=2)
         
-        print(f"Processed and saved {processed} HSK words + {len(char_levels)} individual characters")
+        # print(f"Processed and saved {processed} HSK words + {len(char_levels)} individual characters")
     
     except Exception as e:
         print(f"Error downloading vocabulary: {e}")
@@ -454,8 +454,8 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
     segments = list(jieba.cut(text))
     
     # Debug logging - show what jieba segmented
-    print(f"Analyzing text, total segments: {len(segments)}")
-    print(f"Segmentation result: {' | '.join(segments)}")
+    # print(f"Analyzing text, total segments: {len(segments)}")
+    # print(f"Segmentation result: {' | '.join(segments)}")
     
     words = []
     hsk_stats = {f'hsk{i}': 0 for i in range(1, 10)}
@@ -500,14 +500,14 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
                     word_info.frequency = 0
                     word_info.is_hsk = True
                     word_info.translation_source = compound_info.get('translation_source')
-                    print(f"Compound created for '{segment}': {compound_info['meaning']}")
-                else:
-                    print(f"Compound method failed for '{segment}'")
+                #     print(f"Compound created for '{segment}': {compound_info['meaning']}")
+                # else:
+                #     print(f"Compound method failed for '{segment}'")
             else:
                 # Debug: show which character is missing
-                missing_chars = [char for char in chars if char not in hsk_vocab]
-                if missing_chars:
-                    print(f"Not HSK compound '{segment}': missing chars {missing_chars}")
+                # missing_chars = [char for char in chars if char not in hsk_vocab]
+                # if missing_chars:
+                #     print(f"Not HSK compound '{segment}': missing chars {missing_chars}")
                 
                 # Not an HSK compound - do online lookup for everything
                 online_info = await lookup_unknown_word(segment)
@@ -519,17 +519,17 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
                     word_info.frequency = 0
                     word_info.is_hsk = True
                     word_info.translation_source = online_info.get('translation_source')
-                    print(f"Online lookup for '{segment}': {online_info['meaning']}")
-                else:
-                    # Debug: log segments that couldn't be looked up
-                    if segment.strip() and not segment.isspace() and segment not in ['，', '。', '！', '？', '；', '：', '"', '"', ''', ''']:
-                        print(f"Could not find info for: '{segment}'")
+                #     print(f"Online lookup for '{segment}': {online_info['meaning']}")
+                # else:
+                #     # Debug: log segments that couldn't be looked up
+                #     if segment.strip() and not segment.isspace() and segment not in ['，', '。', '！', '？', '；', '：', '"', '"', ''', ''']:
+                #         print(f"Could not find info for: '{segment}'")
         
         words.append(word_info.dict())
     
     # Debug: Print first word to verify translation_source
-    if words:
-        print(f"DEBUG - First word data: {words[0]}")
+    # if words:
+    #     print(f"DEBUG - First word data: {words[0]}")
     
     estimated_level = estimate_text_level(hsk_stats, total_hsk_words)
     
