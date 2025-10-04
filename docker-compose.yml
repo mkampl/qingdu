@@ -12,13 +12,15 @@ services:
       - ./templates:/app/templates
       - ./static:/app/static
       # Persistent data
-      - vocabulary_data:/app/data
+      - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=info
       # Load API keys from .env file (optional)
       - DEEPL_API_KEY=${DEEPL_API_KEY:-}
       - GOOGLE_TRANSLATE_API_KEY=${GOOGLE_TRANSLATE_API_KEY:-}
+      - WORKERS=2
+      - RELOAD=false
     env_file:
       - .env
     restart: unless-stopped

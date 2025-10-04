@@ -60,20 +60,26 @@ function showNewTextInput() {
 }
 
 // Load texts from localStorage
-function loadTextsFromStorage() {
-  const texts = JSON.parse(localStorage.getItem('qingdu_texts') || '[]');
-  const textsList = document.getElementById('textsList');
-  textsList.innerHTML = '';
-  
-  if (texts.length === 0) {
-    textsList.innerHTML = '<div style="padding:10px;color:#999;font-size:14px">No saved texts yet</div>';
-    return;
+async function loadTextsFromStorage() {
+  try {
+    const texts = await API.getTexts();
+    const textsList = document.getElementById('textsList');
+    textsList.innerHTML = '';
+    
+    if (texts.length === 0) {
+      textsList.innerHTML = '<div style="padding:10px;color:#999;font-size:14px">No saved texts yet</div>';
+      return;
+    }
+    
+    texts.forEach((text, index) => {
+      const item = createTextListItem(text, index);
+      textsList.appendChild(item);
+    });
+  } catch (error) {
+    console.error('Failed to load texts:', error);
+    document.getElementById('textsList').innerHTML = 
+      '<div style="padding:10px;color:#dc3545;font-size:14px">Error loading texts</div>';
   }
-  
-  texts.forEach((text, index) => {
-    const item = createTextListItem(text, index);
-    textsList.appendChild(item);
-  });
 }
 
 // Create text list item
@@ -106,55 +112,51 @@ function createTextListItem(text, index) {
 }
 
 // Save text to storage
-function saveTextToStorage(textId, title, content, analysisData) {
-  const texts = JSON.parse(localStorage.getItem('qingdu_texts') || '[]');
-  
-  // Check for duplicates
-  if (texts.some(text => text.content === content)) {
-    alert('This text has already been saved!');
-    return;
+async function saveTextToStorage(textId, title, content, analysisData) {
+  try {
+    await API.saveText(title, content, analysisData);
+    await loadTextsFromStorage();
+  } catch (error) {
+    alert('Failed to save text: ' + error.message);
   }
-  
-  texts.unshift({ 
-    id: textId, 
-    title, 
-    content, 
-    date: new Date().toISOString(), 
-    analysisData 
-  });
-  
-  localStorage.setItem('qingdu_texts', JSON.stringify(texts));
-  loadTextsFromStorage();
 }
 
 // Load text
-function loadText(index) {
-  const texts = JSON.parse(localStorage.getItem('qingdu_texts') || '[]');
-  
-  if (!texts[index]) return;
-  
-  AppState.currentAnalysisData = texts[index].analysisData;
-  AppState.currentTextId = texts[index].id;
-  AppState.currentInputText = texts[index].content;
-  
-  displayResults(texts[index].analysisData);
-  
-  document.getElementById('inputSection').classList.add('collapsed');
-  document.getElementById('resultsSection').classList.add('show');
-  document.getElementById('listViewSection').classList.add('hidden');
-  document.getElementById('saveTextBtn').disabled = true;
-  
-  toggleSidebar();
+async function loadText(index) {
+  try {
+    const texts = await API.getTexts();
+    if (!texts[index]) return;
+    
+    AppState.currentAnalysisData = texts[index].analysisData;
+    AppState.currentTextId = texts[index].id;
+    AppState.currentInputText = texts[index].content;
+    
+    displayResults(texts[index].analysisData);
+    
+    document.getElementById('inputSection').classList.add('collapsed');
+    document.getElementById('resultsSection').classList.add('show');
+    document.getElementById('listViewSection').classList.add('hidden');
+    document.getElementById('saveTextBtn').disabled = true;
+    
+    toggleSidebar();
+  } catch (error) {
+    alert('Failed to load text: ' + error.message);
+  }
 }
 
 // Delete text
-function deleteText(index) {
+async function deleteText(index) {
   if (!confirm('Delete this text?')) return;
   
-  const texts = JSON.parse(localStorage.getItem('qingdu_texts') || '[]');
-  texts.splice(index, 1);
-  localStorage.setItem('qingdu_texts', JSON.stringify(texts));
-  loadTextsFromStorage();
+  try {
+    const texts = await API.getTexts();
+    if (texts[index]) {
+      await API.deleteText(texts[index].id);
+      await loadTextsFromStorage();
+    }
+  } catch (error) {
+    alert('Failed to delete text: ' + error.message);
+  }
 }
 
 // Analyze text

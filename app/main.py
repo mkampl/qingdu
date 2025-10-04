@@ -13,11 +13,22 @@ from functools import lru_cache
 from typing import List, Tuple, Optional, Dict
 import asyncio
 from dotenv import load_dotenv
-   
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from app.database import init_db, get_db, SavedText
+from sqlalchemy.orm import Session
+from fastapi import Depends
+from functools import lru_cache
+
 # Load environment variables
 load_dotenv()
 
 app = FastAPI(title="轻读 QingDu - Chinese Text Analyzer")
+# Rate limiting
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Directories
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -110,8 +121,13 @@ async def startup_event():
         if word not in hsk_vocab:
             jieba.add_word(word, freq=1000000)
             print(f"Force added priority word to jieba: {word}")
-    
+
     print(f"Added {multi_char_count} multi-character HSK words with priority to jieba")
+
+    # Initialize database
+    init_db()
+    print("Database initialized")
+
     print("Startup complete!\n")
 
 async def download_hsk_vocabulary():
@@ -144,10 +160,32 @@ async def download_hsk_vocabulary():
             if not forms:
                 continue
             
-            first_form = forms[0]
-            transcriptions = first_form.get('transcriptions', {})
+            # Choose best form (prefer substantive meanings over names/abbreviations)
+            best_form = None
+            fallback_form = None
+            
+            for form in forms:
+                form_meanings = form.get('meanings', [])
+                if not form_meanings:
+                    continue
+                
+                first_meaning = form_meanings[0]
+                
+                if fallback_form is None:
+                    fallback_form = form
+                
+                if first_meaning.startswith('surname ') or first_meaning.startswith('abbr. for '):
+                    continue
+                
+                best_form = form
+                break
+            
+            best_form = best_form or fallback_form or forms[0]
+            
+            # Extract data from best form
+            transcriptions = best_form.get('transcriptions', {})
             pinyin = transcriptions.get('pinyin', '')
-            meanings = first_form.get('meanings', [])
+            meanings = best_form.get('meanings', [])
             
             hsk_level = None
             for level in levels:
@@ -162,13 +200,37 @@ async def download_hsk_vocabulary():
                         break
             
             if hsk_level and simplified:
-                hsk_vocab[simplified] = {
+                # Build new entry
+                new_entry = {
                     'pinyin': pinyin,
                     'meaning': meanings[0] if meanings else 'No translation',
                     'meanings': meanings,
                     'level': hsk_level,
                     'frequency': entry.get('frequency', 0)
                 }
+                
+                if simplified not in hsk_vocab:
+                    hsk_vocab[simplified] = new_entry
+                else:
+                    # Compare entries
+                    existing = hsk_vocab[simplified]
+                    existing_level = int(existing['level'].replace('new-', '').replace('+', ''))
+                    new_level = int(hsk_level.replace('new-', '').replace('+', ''))
+                    
+                    existing_meaning = existing.get('meaning', '')
+                    new_meaning = new_entry['meaning']
+                    
+                    existing_is_bad = 'abbr.' in existing_meaning or 'variant of' in existing_meaning
+                    new_is_good = 'abbr.' not in new_meaning and 'variant of' not in new_meaning
+                    
+                    should_replace = (
+                        new_level < existing_level or
+                        (new_level == existing_level and existing_is_bad and new_is_good)
+                    )
+                    
+                    if should_replace:
+                        hsk_vocab[simplified] = new_entry
+                
                 processed += 1
                 
                 # Track the lowest HSK level for each character
@@ -281,8 +343,8 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
         
         # Check if translation is just pinyin (failed translation)
         # If translation contains only Latin letters and spaces, it's probably just pinyin
-        if translation.replace(' ', '').replace('-', '').isalpha():
-            # Likely just pinyin, use fallback
+        # Only use fallback if translation seems invalid (too short or same as pinyin)
+        if len(translation) < 3 or translation.lower() == compound_pinyin.lower().replace(' ', ''):
             translation = fallback_meaning
             source = 'hsk-chars'
         
@@ -379,7 +441,8 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
     return None
 
 @app.post("/api/analyze")
-async def analyze_text(data: TextAnalysisRequest) -> Dict:
+@limiter.limit("30/minute")
+async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
     """Analyze Chinese text and return HSK information"""
     if not hsk_vocab:
         raise HTTPException(status_code=503, detail="Vocabulary not loaded yet")
@@ -401,7 +464,8 @@ async def analyze_text(data: TextAnalysisRequest) -> Dict:
     for segment in segments:
         word_info = WordInfo(text=segment)
         
-        if segment in hsk_vocab:
+        vocab_entry = get_word_info(segment)
+        if vocab_entry:
             vocab_entry = hsk_vocab[segment]
             word_info.hsk_level = vocab_entry['level']
             word_info.pinyin = vocab_entry['pinyin']
@@ -564,7 +628,8 @@ def cached_translation(text: str, target_lang: str) -> Optional[str]:
     return None
 
 @app.post("/api/translate")
-async def translate_text(data: TranslationRequest) -> Dict:
+@limiter.limit("20/minute")
+async def translate_text(request: Request, data: TranslationRequest) -> Dict:
     """Translate Chinese text to target language"""
     text = data.text.strip()
     if not text:
@@ -599,6 +664,50 @@ async def translate_text(data: TranslationRequest) -> Dict:
         }
     else:
         raise HTTPException(status_code=500, detail="All translation services failed")
+
+@app.post("/api/texts/save")
+async def save_text(
+    request: Request,
+    text_data: dict,
+    db: Session = Depends(get_db)
+):
+    """Save analyzed text to database"""
+    saved_text = SavedText(
+        title=text_data.get('title'),
+        content=text_data.get('content'),
+        analysis_data=json.dumps(text_data.get('analysis_data'))
+    )
+    db.add(saved_text)
+    db.commit()
+    db.refresh(saved_text)
+    return {"id": saved_text.id, "message": "Text saved"}
+
+@app.get("/api/texts")
+async def get_texts(db: Session = Depends(get_db)):
+    """Get all saved texts"""
+    texts = db.query(SavedText).order_by(SavedText.created_at.desc()).all()
+    return [{
+        "id": text.id,
+        "title": text.title,
+        "content": text.content,
+        "date": text.created_at.isoformat(),
+        "analysisData": json.loads(text.analysis_data)
+    } for text in texts]
+
+@app.delete("/api/texts/{text_id}")
+async def delete_text(text_id: int, db: Session = Depends(get_db)):
+    """Delete a saved text"""
+    text = db.query(SavedText).filter(SavedText.id == text_id).first()
+    if text:
+        db.delete(text)
+        db.commit()
+        return {"message": "Text deleted"}
+    return {"error": "Text not found"}
+
+@lru_cache(maxsize=10000)
+def get_word_info(word: str) -> Optional[Dict]:
+    """Cached word lookup for better performance"""
+    return hsk_vocab.get(word)
 
 if __name__ == "__main__":
     import uvicorn
