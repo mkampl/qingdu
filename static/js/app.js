@@ -8,14 +8,6 @@ const AppState = {
   longPressTimer: null,
 };
 
-// Initialize app on page load
-document.addEventListener('DOMContentLoaded', async () => {
-  await loadVocabularyStats();
-  loadTextsFromStorage();
-  loadVocabularyLists();
-  setupEventListeners();
-});
-
 // Load vocabulary statistics
 async function loadVocabularyStats() {
   try {
@@ -36,6 +28,7 @@ function setupEventListeners() {
   // Input placeholder click
   document.getElementById('inputPlaceholder').addEventListener('click', () => {
     document.getElementById('inputSection').classList.remove('collapsed');
+    document.getElementById('listViewSection').classList.add('hidden');
     document.getElementById('textInput').focus();
   });
 
@@ -54,6 +47,7 @@ function toggleSidebar() {
 function showNewTextInput() {
   document.getElementById('inputSection').classList.remove('collapsed');
   document.getElementById('resultsSection').classList.remove('show');
+  document.getElementById('listViewSection').classList.add('hidden');
   document.getElementById('textInput').value = '';
   document.getElementById('textInput').focus();
   toggleSidebar();
@@ -280,17 +274,23 @@ window.toggleUserMenu = toggleUserMenu;
 window.showAdminPanel = function() { alert('Admin panel coming soon!'); };
 // Initialize app on page load
 window.onload = async function() {
-  await initAuth();  // Initialize authentication first
+  await initAuth();  // Auth FIRST
   
-  fetch('/api/vocabulary-stats').then(function(r) { return r.json(); }).then(function(d) {
-      document.getElementById('vocabCount').textContent = d.loaded ? d.count.toLocaleString() + ' words loaded' : 'Loading...';
-  }).catch(function() {
-      document.getElementById('vocabCount').textContent = 'Error loading';
-  });
+  // Load vocab stats
+  fetch('/api/vocabulary-stats')
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById('vocabCount').textContent = 
+        d.loaded ? d.count.toLocaleString() + ' words loaded' : 'Loading...';
+    });
   
+  // Setup event listeners (synchronous, no await needed)
+  setupEventListeners();
+  
+  // Load user data if authenticated
   if (AuthState.user) {
-      loadTextsFromStorage();
-      loadVocabularyLists();
+    await loadTextsFromStorage();
+    await loadVocabularyLists();
   }
 };
 // Export functions to global scope (temporary, will use modules later)

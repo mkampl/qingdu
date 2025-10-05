@@ -974,6 +974,90 @@ async def create_vocabulary_list(
     db.commit()
     return {"id": vocab_list.id, "message": "List created"}
 
+@app.put("/api/vocabulary-lists/{list_id}")
+async def update_vocabulary_list(
+    list_id: int,
+    list_data: dict,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Update vocabulary list"""
+    vocab_list = db.query(VocabularyList).filter(
+        VocabularyList.id == list_id,
+        VocabularyList.user_id == user.id
+    ).first()
+    
+    if not vocab_list:
+        raise HTTPException(status_code=404, detail="List not found")
+    
+    vocab_list.name = list_data.get('name', vocab_list.name)
+    vocab_list.sections = json.dumps(list_data.get('sections', []))
+    db.commit()
+    
+    return {"message": "List updated"}
+
+@app.delete("/api/vocabulary-lists/{list_id}")
+async def delete_vocabulary_list(
+    list_id: int,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Delete vocabulary list"""
+    vocab_list = db.query(VocabularyList).filter(
+        VocabularyList.id == list_id,
+        VocabularyList.user_id == user.id
+    ).first()
+    
+    if not vocab_list:
+        raise HTTPException(status_code=404, detail="List not found")
+    
+    db.delete(vocab_list)
+    db.commit()
+    
+    return {"message": "List deleted"}
+
+@app.post("/api/vocabulary-lists/{list_id}/words")
+async def add_word_to_list(
+    list_id: int,
+    word_data: dict,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Add word to vocabulary list section"""
+    vocab_list = db.query(VocabularyList).filter(
+        VocabularyList.id == list_id,
+        VocabularyList.user_id == user.id
+    ).first()
+    
+    if not vocab_list:
+        raise HTTPException(status_code=404, detail="List not found")
+    
+    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    section_name = word_data.get('section_name')
+    
+    # Find or create section
+    section = next((s for s in sections if s['name'] == section_name), None)
+    if not section:
+        section = {'name': section_name, 'words': []}
+        sections.append(section)
+    
+    # Check if word already exists
+    word = {
+        'hanzi': word_data.get('hanzi'),
+        'pinyin': word_data.get('pinyin'),
+        'meaning': word_data.get('meaning'),
+        'level': word_data.get('level')
+    }
+    
+    if any(w['hanzi'] == word['hanzi'] for w in section['words']):
+        return {"message": "Word already in list"}
+    
+    section['words'].append(word)
+    vocab_list.sections = json.dumps(sections)
+    db.commit()
+    
+    return {"message": "Word added"}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

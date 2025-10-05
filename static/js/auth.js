@@ -30,9 +30,8 @@ const AuthState = {
       
       if (data.authenticated) {
         AuthState.user = data.user;
-        updateUIForUser(data.user);
+        await updateUIForUser(data.user);  // Add await here
         
-        // Check if password change required
         if (data.user.must_change_password) {
           showChangePasswordModal(true);
         }
@@ -64,7 +63,7 @@ const AuthState = {
       AuthState.user = data.user;
       
       localStorage.setItem('auth_token', data.access_token);
-      updateUIForUser(data.user);
+      await updateUIForUser(data.user);  // Add await here
       closeLoginModal();
       
       if (data.user.must_change_password) {
@@ -87,7 +86,7 @@ const AuthState = {
   }
   
   // Update UI for authenticated user
-  function updateUIForUser(user) {
+  async function updateUIForUser(user) {
     const loginBtn = document.getElementById('loginBtn');
     const userMenu = document.getElementById('userMenu');
     const username = document.getElementById('username');
@@ -105,9 +104,9 @@ const AuthState = {
     // Enable save buttons and lists
     enableAuthFeatures();
     
-    // NEU: Lade Daten nach Login
-    loadTextsFromStorage();
-    loadVocabularyLists();
+    // Load data after login (now with await)
+    await loadTextsFromStorage();
+    await loadVocabularyLists();
   }
   
   // Update UI for guest
