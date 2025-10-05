@@ -11,6 +11,21 @@
     <div class="header">
         <button class="hamburger" onclick="toggleSidebar()">☰</button>
         <h1>轻读 QingDu</h1>
+        
+        <!-- Login Button (shown when not logged in) -->
+        <button id="loginBtn" class="btn" style="margin-left: auto;" onclick="showLoginModal()">Login</button>
+        
+        <!-- User Menu (shown when logged in) -->
+        <div id="userMenu" class="user-menu">
+            <button class="user-menu-btn" onclick="toggleUserMenu()">
+                <span id="username">User</span> ▼
+            </button>
+            <div id="userMenuDropdown" class="user-menu-dropdown">
+                <div class="user-menu-item" onclick="showChangePasswordModal()">Change Password</div>
+                <div id="adminMenuItem" class="user-menu-item" style="display:none;" onclick="showAdminPanel()">Admin Panel</div>
+                <div class="user-menu-item" onclick="logout()">Logout</div>
+            </div>
+        </div>
     </div>
 
     <!-- Overlay for sidebar -->
@@ -102,13 +117,41 @@
         </div>
     </div>
 
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <h3>Login</h3>
+            <form onsubmit="handleLogin(event)">
+                <input type="text" id="loginUsername" placeholder="Username" required>
+                <input type="password" id="loginPassword" placeholder="Password" required>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="closeLoginModal()">Cancel</button>
+                    <button type="submit" class="btn">Login</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="changePasswordModal" class="modal">
+        <div class="modal-content">
+            <h3 id="changePasswordTitle">Change Password</h3>
+            <form onsubmit="handleChangePassword(event)">
+                <input type="password" id="oldPassword" placeholder="Old Password" required>
+                <input type="password" id="newPassword" placeholder="New Password (min 8 chars)" required>
+                <input type="password" id="confirmPassword" placeholder="Confirm New Password" required>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="closeChangePasswordModal()">Cancel</button>
+                    <button type="submit" class="btn">Change Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- JavaScript -->
     <script src="/static/js/utils.js"></script>
+    <script src="/static/js/auth.js"></script>
     <script src="/static/js/api.js"></script>
-    <script src="/static/js/api.js"></script>
-    <script src="/static/js/vocabulary.js"></script>
-    <script src="/static/js/display.js"></script>
-    <script src="/static/js/app.js"></script>
     <script src="/static/js/vocabulary.js"></script>
     <script src="/static/js/display.js"></script>
     <script src="/static/js/app.js"></script>

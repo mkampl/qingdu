@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
@@ -20,6 +20,16 @@ from app.database import init_db, get_db, SavedText
 from sqlalchemy.orm import Session
 from fastapi import Depends
 from functools import lru_cache
+from app.auth import (
+    get_password_hash, 
+    verify_password, 
+    create_access_token,
+    get_current_user,
+    require_auth,
+    require_admin
+)
+from app.database import User, VocabularyList
+from pydantic import BaseModel
 
 # Load environment variables
 load_dotenv()
@@ -66,6 +76,18 @@ class WordInfo(BaseModel):
     frequency: Optional[int] = None
     is_hsk: bool = False
     translation_source: Optional[str] = None
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class CreateUserRequest(BaseModel):
+    username: str
+    password: str
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
 
 @app.on_event("startup")
 async def startup_event():
@@ -129,6 +151,34 @@ async def startup_event():
     # print("Database initialized")
 
     # print("Startup complete!\n")
+
+    # Create initial admin user if no users exist
+    from app.database import SessionLocal
+    db = SessionLocal()
+    
+    try:
+        user_count = db.query(User).count()
+        
+        if user_count == 0:
+            admin = User(
+                username="admin",
+                password_hash=get_password_hash("admin123"),
+                is_admin=True,
+                must_change_password=True
+            )
+            db.add(admin)
+            db.commit()
+            print("✓ Initial admin user created: admin / admin123 (CHANGE PASSWORD!)")
+        else:
+            print(f"✓ Found {user_count} existing user(s)")
+    
+    except Exception as e:
+        print(f"Error setting up users: {e}")
+        db.rollback()
+    finally:
+        db.close()
+    
+    print("Startup complete!\n")
 
 async def download_hsk_vocabulary():
     """Download and process HSK vocabulary from GitHub"""
@@ -669,10 +719,12 @@ async def translate_text(request: Request, data: TranslationRequest) -> Dict:
 async def save_text(
     request: Request,
     text_data: dict,
+    user: User = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
     """Save analyzed text to database"""
     saved_text = SavedText(
+        user_id=user.id,  # <- NEU
         title=text_data.get('title'),
         content=text_data.get('content'),
         analysis_data=json.dumps(text_data.get('analysis_data'))
@@ -683,9 +735,15 @@ async def save_text(
     return {"id": saved_text.id, "message": "Text saved"}
 
 @app.get("/api/texts")
-async def get_texts(db: Session = Depends(get_db)):
-    """Get all saved texts"""
-    texts = db.query(SavedText).order_by(SavedText.created_at.desc()).all()
+async def get_texts(
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get all saved texts for current user"""
+    texts = db.query(SavedText).filter(
+        SavedText.user_id == user.id  # <- NEU: nur eigene Texte
+    ).order_by(SavedText.created_at.desc()).all()
+    
     return [{
         "id": text.id,
         "title": text.title,
@@ -695,9 +753,17 @@ async def get_texts(db: Session = Depends(get_db)):
     } for text in texts]
 
 @app.delete("/api/texts/{text_id}")
-async def delete_text(text_id: int, db: Session = Depends(get_db)):
+async def delete_text(
+    text_id: int,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
     """Delete a saved text"""
-    text = db.query(SavedText).filter(SavedText.id == text_id).first()
+    text = db.query(SavedText).filter(
+        SavedText.id == text_id,
+        SavedText.user_id == user.id  # <- NEU: nur eigene Texte
+    ).first()
+    
     if text:
         db.delete(text)
         db.commit()
@@ -708,6 +774,205 @@ async def delete_text(text_id: int, db: Session = Depends(get_db)):
 def get_word_info(word: str) -> Optional[Dict]:
     """Cached word lookup for better performance"""
     return hsk_vocab.get(word)
+
+# ==================== AUTH ENDPOINTS ====================
+
+@app.post("/api/auth/login")
+async def login(data: LoginRequest, db: Session = Depends(get_db)):
+    """Login endpoint"""
+    user = db.query(User).filter(User.username == data.username).first()
+    
+    if not user or not verify_password(data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password"
+        )
+    
+    # Create access token
+    access_token = create_access_token(data={"sub": user.username})
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "username": user.username,
+            "is_admin": user.is_admin,
+            "must_change_password": user.must_change_password
+        }
+    }
+
+@app.get("/api/auth/me")
+async def get_me(user: User = Depends(get_current_user)):
+    """Get current user info"""
+    if not user:
+        return {"authenticated": False}
+    
+    return {
+        "authenticated": True,
+        "user": {
+            "username": user.username,
+            "is_admin": user.is_admin,
+            "must_change_password": user.must_change_password
+        }
+    }
+
+@app.post("/api/auth/logout")
+async def logout():
+    """Logout (client-side token removal)"""
+    return {"message": "Logged out successfully"}
+
+@app.post("/api/auth/change-password")
+async def change_password(
+    data: ChangePasswordRequest,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Change password"""
+    if not verify_password(data.old_password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid old password"
+        )
+    
+    # Validate new password
+    if len(data.new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters"
+        )
+    
+    user.password_hash = get_password_hash(data.new_password)
+    user.must_change_password = False
+    db.commit()
+    
+    return {"message": "Password changed successfully"}
+
+# ==================== ADMIN ENDPOINTS ====================
+
+@app.get("/api/admin/users")
+async def list_users(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """List all users (admin only)"""
+    users = db.query(User).all()
+    return [{
+        "id": u.id,
+        "username": u.username,
+        "is_admin": u.is_admin,
+        "last_active": u.last_active.isoformat(),
+        "created_at": u.created_at.isoformat()
+    } for u in users]
+
+@app.post("/api/admin/users")
+async def create_user(
+    data: CreateUserRequest,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Create new user (admin only)"""
+    # Check if username exists
+    existing = db.query(User).filter(User.username == data.username).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already exists"
+        )
+    
+    # Create user
+    user = User(
+        username=data.username,
+        password_hash=get_password_hash(data.password),
+        is_admin=False,
+        must_change_password=True
+    )
+    db.add(user)
+    db.commit()
+    
+    return {"message": f"User {data.username} created successfully"}
+
+@app.delete("/api/admin/users/{user_id}")
+async def delete_user(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Delete user (admin only)"""
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot delete admin users"
+        )
+    
+    db.delete(user)
+    db.commit()
+    
+    return {"message": f"User {user.username} deleted"}
+
+@app.post("/api/admin/users/{user_id}/reset-password")
+async def reset_user_password(
+    user_id: int,
+    data: dict,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Reset user password (admin only)"""
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    new_password = data.get("new_password")
+    if not new_password or len(new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters"
+        )
+    
+    user.password_hash = get_password_hash(new_password)
+    user.must_change_password = True
+    db.commit()
+    
+    return {"message": f"Password reset for {user.username}"}
+
+@app.get("/api/vocabulary-lists")
+async def get_vocabulary_lists(
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get all vocabulary lists for current user"""
+    lists = db.query(VocabularyList).filter(
+        VocabularyList.user_id == user.id
+    ).all()
+    
+    return [{
+        "id": l.id,
+        "name": l.name,
+        "type": l.list_type,
+        "sections": json.loads(l.sections) if l.sections else []
+    } for l in lists]
+
+@app.post("/api/vocabulary-lists")
+async def create_vocabulary_list(
+    list_data: dict,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Create vocabulary list"""
+    vocab_list = VocabularyList(
+        user_id=user.id,
+        name=list_data.get('name'),
+        list_type=list_data.get('type', 'custom'),
+        sections=json.dumps(list_data.get('sections', []))
+    )
+    db.add(vocab_list)
+    db.commit()
+    return {"id": vocab_list.id, "message": "List created"}
 
 if __name__ == "__main__":
     import uvicorn
