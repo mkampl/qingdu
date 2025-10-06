@@ -8,14 +8,6 @@ const AppState = {
   longPressTimer: null,
 };
 
-// Initialize app on page load
-document.addEventListener('DOMContentLoaded', async () => {
-  await loadVocabularyStats();
-  loadTextsFromStorage();
-  loadVocabularyLists();
-  setupEventListeners();
-});
-
 // Load vocabulary statistics
 async function loadVocabularyStats() {
   try {
@@ -36,6 +28,7 @@ function setupEventListeners() {
   // Input placeholder click
   document.getElementById('inputPlaceholder').addEventListener('click', () => {
     document.getElementById('inputSection').classList.remove('collapsed');
+    document.getElementById('listViewSection').classList.add('hidden');
     document.getElementById('textInput').focus();
   });
 
@@ -54,6 +47,7 @@ function toggleSidebar() {
 function showNewTextInput() {
   document.getElementById('inputSection').classList.remove('collapsed');
   document.getElementById('resultsSection').classList.remove('show');
+  document.getElementById('listViewSection').classList.add('hidden');
   document.getElementById('textInput').value = '';
   document.getElementById('textInput').focus();
   toggleSidebar();
@@ -61,35 +55,65 @@ function showNewTextInput() {
 
 // Load texts from localStorage
 async function loadTextsFromStorage() {
-  try {
-    const texts = await API.getTexts();
-    const textsList = document.getElementById('textsList');
-    textsList.innerHTML = '';
-    
-    if (texts.length === 0) {
-      textsList.innerHTML = '<div style="padding:10px;color:#999;font-size:14px">No saved texts yet</div>';
+  if (!AuthState.user) {
+      document.getElementById('textsList').innerHTML = 
+          '<div style="padding:10px;color:#999;font-size:14px">🔒 Login to access</div>';
       return;
-    }
-    
-    texts.forEach((text, index) => {
-      const item = createTextListItem(text, index);
-      textsList.appendChild(item);
-    });
+  }
+  
+  try {
+      const response = await authFetch('/api/texts');
+      
+      if (!response.ok) {
+          throw new Error('Failed to load texts');
+      }
+      
+      const texts = await response.json();  // Erst nach ok-Check
+      const textsList = document.getElementById('textsList');
+      textsList.innerHTML = '';
+      
+      if (texts.length === 0) {
+          textsList.innerHTML = '<div style="padding:10px;color:#999;font-size:14px">No saved texts yet</div>';
+          return;
+      }
+      
+      texts.forEach((text, index) => {
+          const item = createTextListItem(text, index);
+          textsList.appendChild(item);
+      });
   } catch (error) {
-    console.error('Failed to load texts:', error);
-    document.getElementById('textsList').innerHTML = 
-      '<div style="padding:10px;color:#dc3545;font-size:14px">Error loading texts</div>';
+      console.error('Failed to load texts:', error);
+      document.getElementById('textsList').innerHTML = 
+          '<div style="padding:10px;color:#dc3545;font-size:14px">Error loading texts</div>';
   }
 }
 
+// Save text to storage
+async function saveTextToStorage(textId, title, content, analysisData) {
+  if (!AuthState.user) {
+      alert('Please login to save texts');
+      return;
+  }
+  
+  try {
+      await authFetch('/api/texts/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, content, analysis_data: analysisData })
+      });
+      await loadTextsFromStorage();
+  } catch (error) {
+      alert('Failed to save text: ' + error.message);
+  }
+}
 // Create text list item
 function createTextListItem(text, index) {
   const item = document.createElement('div');
   item.className = 'sidebar-item';
   
-  const truncatedTitle = text.title.length > 30 
+  const truncatedTitle = text.title && text.title.length > 30 
     ? text.title.substring(0, 30) + '...' 
-    : text.title;
+    : (text.title || 'Untitled');
   
   item.innerHTML = `
     <span class="sidebar-item-icon">📄</span>
@@ -110,35 +134,26 @@ function createTextListItem(text, index) {
   
   return item;
 }
-
-// Save text to storage
-async function saveTextToStorage(textId, title, content, analysisData) {
-  try {
-    await API.saveText(title, content, analysisData);
-    await loadTextsFromStorage();
-  } catch (error) {
-    alert('Failed to save text: ' + error.message);
-  }
-}
-
 // Load text
 async function loadText(index) {
   try {
-    const texts = await API.getTexts();
-    if (!texts[index]) return;
+    const response = await authFetch('/api/texts');
+    const texts = await response.json();
     
-    AppState.currentAnalysisData = texts[index].analysisData;
-    AppState.currentTextId = texts[index].id;
-    AppState.currentInputText = texts[index].content;
-    
-    displayResults(texts[index].analysisData);
-    
-    document.getElementById('inputSection').classList.add('collapsed');
-    document.getElementById('resultsSection').classList.add('show');
-    document.getElementById('listViewSection').classList.add('hidden');
-    document.getElementById('saveTextBtn').disabled = true;
-    
-    toggleSidebar();
+    if (texts[index]) {
+      AppState.currentAnalysisData = texts[index].analysisData;
+      AppState.currentTextId = texts[index].id;  // <- Schon da
+      AppState.currentInputText = texts[index].content;
+      
+      displayResults(texts[index].analysisData);
+      
+      document.getElementById('inputSection').classList.add('collapsed');
+      document.getElementById('resultsSection').classList.add('show');
+      document.getElementById('listViewSection').classList.add('hidden');
+      document.getElementById('saveTextBtn').disabled = true;
+      
+      toggleSidebar();
+    }
   } catch (error) {
     alert('Failed to load text: ' + error.message);
   }
@@ -149,13 +164,15 @@ async function deleteText(index) {
   if (!confirm('Delete this text?')) return;
   
   try {
-    const texts = await API.getTexts();
-    if (texts[index]) {
-      await API.deleteText(texts[index].id);
-      await loadTextsFromStorage();
-    }
+      const response = await authFetch('/api/texts');
+      const texts = await response.json();
+      
+      if (texts[index]) {
+          await authFetch(`/api/texts/${texts[index].id}`, { method: 'DELETE' });
+          await loadTextsFromStorage();
+      }
   } catch (error) {
-    alert('Failed to delete text: ' + error.message);
+      alert('Failed to delete text: ' + error.message);
   }
 }
 
@@ -199,7 +216,7 @@ async function analyzeText() {
 }
 
 // Save current text
-function saveCurrentText() {
+async function saveCurrentText() {
   if (!AppState.currentInputText || !AppState.currentAnalysisData) {
     alert('No text to save');
     return;
@@ -207,12 +224,27 @@ function saveCurrentText() {
   
   const title = AppState.currentInputText.split(/[。！？]/)[0] || 
                 AppState.currentInputText.substring(0, 50);
-  const textId = Date.now();
-  AppState.currentTextId = textId;
   
-  saveTextToStorage(textId, title, AppState.currentInputText, AppState.currentAnalysisData);
-  document.getElementById('saveTextBtn').disabled = true;
-  alert('Text saved successfully!');
+  try {
+    const response = await authFetch('/api/texts/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        title: title,
+        content: AppState.currentInputText,
+        analysis_data: AppState.currentAnalysisData 
+      })
+    });
+    
+    const data = await response.json();
+    AppState.currentTextId = data.id;  // <- NEU: Setze ID nach dem Speichern
+    
+    document.getElementById('saveTextBtn').disabled = true;
+    await loadTextsFromStorage();
+    alert('Text saved successfully!');
+  } catch (error) {
+    alert('Failed to save: ' + error.message);
+  }
 }
 
 // Clear all
@@ -223,7 +255,44 @@ function clearAll() {
   AppState.currentAnalysisData = null;
   AppState.currentSentenceText = '';
 }
+function toggleUserMenu() {
+  const dropdown = document.getElementById('userMenuDropdown');
+  dropdown.classList.toggle('show');
+}
 
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+  const userMenu = document.getElementById('userMenu');
+  const dropdown = document.getElementById('userMenuDropdown');
+  
+  if (userMenu && !userMenu.contains(event.target)) {
+      dropdown.classList.remove('show');
+  }
+});
+
+window.toggleUserMenu = toggleUserMenu;
+window.showAdminPanel = function() { window.location.href = '/admin'; };
+// Initialize app on page load
+window.onload = async function() {
+  await initAuth();  // Auth FIRST
+  
+  // Load vocab stats
+  fetch('/api/vocabulary-stats')
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById('vocabCount').textContent = 
+        d.loaded ? d.count.toLocaleString() + ' words loaded' : 'Loading...';
+    });
+  
+  // Setup event listeners (synchronous, no await needed)
+  setupEventListeners();
+  
+  // Load user data if authenticated
+  if (AuthState.user) {
+    await loadTextsFromStorage();
+    await loadVocabularyLists();
+  }
+};
 // Export functions to global scope (temporary, will use modules later)
 window.toggleSidebar = toggleSidebar;
 window.showNewTextInput = showNewTextInput;
