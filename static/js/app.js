@@ -271,7 +271,7 @@ document.addEventListener('click', function(event) {
 });
 
 window.toggleUserMenu = toggleUserMenu;
-window.showAdminPanel = function() { alert('Admin panel coming soon!'); };
+window.showAdminPanel = function() { window.location.href = '/admin'; };
 // Initialize app on page load
 window.onload = async function() {
   await initAuth();  // Auth FIRST

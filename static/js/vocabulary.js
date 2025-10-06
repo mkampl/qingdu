@@ -142,19 +142,25 @@ async function viewVocabularyList(listId) {
       .map(section => createSectionHTML(section))
       .join('');
     
-    document.getElementById('listViewContent').innerHTML = `
-      <div style="margin-bottom: 20px;">
-        <input 
-          type="text" 
-          id="vocabSearch" 
-          placeholder="Search words (hanzi, pinyin, or meaning)..."
-          style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;"
-        />
-      </div>
-      <div id="vocabTableContainer">
-        ${content || '<p>No words in this list yet.</p>'}
-      </div>
-    `;
+      document.getElementById('listViewContent').innerHTML = `
+        <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
+          <input 
+            type="text" 
+            id="vocabSearch" 
+            placeholder="Search words (hanzi, pinyin, or meaning)..."
+            style="flex: 1; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;"
+          />
+          <button class="btn btn-secondary" onclick="exportVocabularyList(${listId}, '${list.name}')">
+            📄 CSV
+          </button>
+          <button class="btn" onclick="exportVocabularyListAnki(${listId}, '${list.name}')">
+            📥 Anki (.apkg)
+          </button>
+        </div>
+        <div id="vocabTableContainer">
+          ${content || '<p>No words in this list yet.</p>'}
+        </div>
+      `;
     
     // Attach event listener once
     document.getElementById('vocabSearch').addEventListener('input', (e) => {
@@ -364,6 +370,65 @@ async function deleteVocabularyList(listId, listName) {
     alert('Failed to delete list: ' + error.message);
   }
 }
+// Export vocabulary as anki deck
+async function exportVocabularyList(listId, listName) {
+  try {
+    const response = await authFetch(`/api/vocabulary-lists/${listId}/export`);
+    
+    if (!response.ok) {
+      throw new Error('Export failed');
+    }
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${listName.replace(/ /g, '_')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    
+  } catch (error) {
+    alert('Failed to export: ' + error.message);
+  }
+}
+// Export vocabulary list as Anki .apkg
+async function exportVocabularyListAnki(listId, listName) {
+  try {
+    // Show loading indicator
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Generating...';
+    btn.disabled = true;
+    
+    const response = await authFetch(`/api/vocabulary-lists/${listId}/export-anki`);
+    
+    if (!response.ok) {
+      throw new Error('Export failed');
+    }
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${listName.replace(/ /g, '_')}.apkg`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    
+    // Restore button
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+    
+  } catch (error) {
+    alert('Failed to export: ' + error.message);
+    // Restore button on error
+    event.target.innerHTML = '📥 Anki (.apkg)';
+    event.target.disabled = false;
+  }
+}
 // Export functions
 window.loadVocabularyLists = loadVocabularyLists;
 window.viewVocabularyList = viewVocabularyList;
@@ -372,3 +437,5 @@ window.closeListView = closeListView;
 window.saveWordToList = saveWordToList;
 window.deleteVocabularyList = deleteVocabularyList;
 window.filterVocabWords = filterVocabWords;
+window.exportVocabularyList = exportVocabularyList;
+window.exportVocabularyListAnki = exportVocabularyListAnki;

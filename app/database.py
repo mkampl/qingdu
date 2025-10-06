@@ -42,6 +42,7 @@ class VocabularyList(Base):
     name = Column(String(255))
     list_type = Column(String(50))  # 'hsk', 'auto', 'custom'
     sections = Column(Text)  # JSON string
+    anki_deck_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     user = relationship("User", back_populates="vocabulary_lists")
