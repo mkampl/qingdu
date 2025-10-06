@@ -44,7 +44,10 @@
                 <span class="sidebar-item-icon">+</span>
                 <span>New Text</span>
             </div>
-            <div id="textsList"></div>
+            <div class="sidebar-item" onclick="showSavedTextsView()">
+                <span class="sidebar-item-icon">📚</span>
+                <span>Saved Texts</span>
+            </div>
         </div>
         
         <div class="sidebar-section">
@@ -142,6 +145,25 @@
                 <button class="btn btn-secondary" onclick="closeListView()">Back</button>
             </div>
             <div id="listViewContent"></div>
+        </div>
+        <!-- Saved Texts View Section -->
+        <div class="list-view-section hidden" id="savedTextsSection">
+            <div class="list-view-header">
+                <h3>Saved Texts</h3>
+                <button class="btn btn-secondary" onclick="closeSavedTextsView()">Back</button>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <input 
+                    type="text" 
+                    id="savedTextsSearch" 
+                    placeholder="Search by title or tags..."
+                    style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;"
+                    oninput="filterSavedTexts(this.value)"
+                />
+            </div>
+            
+            <div id="savedTextsContent"></div>
         </div>
     </div>
 

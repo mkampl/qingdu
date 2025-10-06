@@ -105,7 +105,7 @@ const AuthState = {
     enableAuthFeatures();
     
     // Load data after login (now with await)
-    await loadTextsFromStorage();
+    // Load data after login - REMOVED loadTextsFromStorage()
     await loadVocabularyLists();
   }
   

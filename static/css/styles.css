@@ -242,7 +242,9 @@ body {
   flex: 1; 
   padding: 20px; 
   overflow-y: auto; 
-  max-height: calc(100vh - 140px); 
+  max-height: calc(100vh - 140px);  /* Volle Viewport-Höhe minus Header */
+  display: flex;
+  flex-direction: column;
 }
 
 .text-panel-header { 
@@ -289,13 +291,16 @@ body {
 }
 
 /* Reading Text */
-.reading-text { 
+.reading-text {
+  flex: 1;
+  overflow-y: auto;  /* Nur Text scrollt */
   line-height: 2.5; 
   font-size: 24px; 
   font-family: 'Microsoft YaHei', 'SimHei', sans-serif; 
   background: #f8f9fa; 
   padding: 20px; 
-  border-radius: 10px; 
+  border-radius: 10px;
+  max-height: calc(100vh - 300px);  /* Platz für Header + Tags */
 }
 
 /* Info Panels */
@@ -501,13 +506,14 @@ body {
   }
   
   .info-panel { 
-    width: 100%; 
-    border-left: none; 
-    border-top: 2px solid #f0f0f0; 
-    max-height: 40vh; 
-    position: sticky; 
-    bottom: 0; 
-    background: white; 
+    width: 40%; 
+    padding: 20px; 
+    border-left: 2px solid #f0f0f0; 
+    overflow-y: auto; 
+    max-height: calc(100vh - 140px);  /* Gleiche Höhe wie text-panel */
+    display: flex; 
+    flex-direction: column; 
+    gap: 15px; 
   }
 }
 /* Modal Styles */

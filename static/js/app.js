@@ -54,38 +54,12 @@ function showNewTextInput() {
 }
 
 // Load texts from localStorage
+// Load texts from storage - simplified for new UI
 async function loadTextsFromStorage() {
-  if (!AuthState.user) {
-      document.getElementById('textsList').innerHTML = 
-          '<div style="padding:10px;color:#999;font-size:14px">🔒 Login to access</div>';
-      return;
-  }
-  
-  try {
-      const response = await authFetch('/api/texts');
-      
-      if (!response.ok) {
-          throw new Error('Failed to load texts');
-      }
-      
-      const texts = await response.json();  // Erst nach ok-Check
-      const textsList = document.getElementById('textsList');
-      textsList.innerHTML = '';
-      
-      if (texts.length === 0) {
-          textsList.innerHTML = '<div style="padding:10px;color:#999;font-size:14px">No saved texts yet</div>';
-          return;
-      }
-      
-      texts.forEach((text, index) => {
-          const item = createTextListItem(text, index);
-          textsList.appendChild(item);
-      });
-  } catch (error) {
-      console.error('Failed to load texts:', error);
-      document.getElementById('textsList').innerHTML = 
-          '<div style="padding:10px;color:#dc3545;font-size:14px">Error loading texts</div>';
-  }
+  // This function is now only called for backward compatibility
+  // The actual texts loading happens in showSavedTextsView()
+  // We can make this a no-op since we removed the sidebar list
+  return;
 }
 
 // Save text to storage
@@ -578,6 +552,154 @@ function editCurrentTextTitle() {
   
   input.addEventListener('blur', saveTitle);
 }
+// Show saved texts view
+async function showSavedTextsView() {
+  if (!AuthState.user) {
+      alert('Please login to view saved texts');
+      return;
+  }
+  
+  try {
+      const response = await authFetch('/api/texts');
+      if (!response.ok) throw new Error('Failed to load texts');
+      
+      const texts = await response.json();
+      allTexts = texts;
+      
+      renderSavedTextsTable(texts);
+      
+      document.getElementById('inputSection').classList.add('collapsed');
+      document.getElementById('resultsSection').classList.remove('show');
+      document.getElementById('listViewSection').classList.add('hidden');
+      document.getElementById('savedTextsSection').classList.remove('hidden');
+      
+      toggleSidebar();
+  } catch (error) {
+      alert('Failed to load texts: ' + error.message);
+  }
+}
+
+// Close saved texts view
+function closeSavedTextsView() {
+  document.getElementById('savedTextsSection').classList.add('hidden');
+}
+
+// Render saved texts as table
+function renderSavedTextsTable(texts) {
+  const content = document.getElementById('savedTextsContent');
+  
+  if (texts.length === 0) {
+      content.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">No saved texts yet</p>';
+      return;
+  }
+  
+  const tableHTML = `
+      <table class="word-table">
+          <thead>
+              <tr>
+                  <th>Title</th>
+                  <th>Tags</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+              </tr>
+          </thead>
+          <tbody>
+              ${texts.map((text, index) => {
+                  const date = new Date(text.date).toLocaleDateString();
+                  let tags = [];
+                  try {
+                      tags = text.tags ? JSON.parse(text.tags) : [];
+                  } catch (e) {}
+                  
+                  const tagsHTML = tags.length > 0 
+                      ? tags.map(tag => `<span style="background: #667eea; color: white; padding: 3px 8px; border-radius: 10px; font-size: 11px; margin-right: 5px;">${tag}</span>`).join('')
+                      : '<span style="color: #999;">—</span>';
+                  
+                  return `
+                      <tr>
+                          <td style="font-weight: 500;">${text.title || 'Untitled'}</td>
+                          <td>${tagsHTML}</td>
+                          <td>${date}</td>
+                          <td>
+                              <button class="btn" style="padding: 6px 12px; font-size: 13px; margin-right: 5px;" 
+                                      onclick="loadTextFromView(${index})">Open</button>
+                              <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;" 
+                                      onclick="deleteTextFromView(${index})">Delete</button>
+                          </td>
+                      </tr>
+                  `;
+              }).join('')}
+          </tbody>
+      </table>
+  `;
+  
+  content.innerHTML = tableHTML;
+}
+
+// Filter saved texts
+function filterSavedTexts(searchTerm) {
+  const term = searchTerm.toLowerCase().trim();
+  
+  if (!term) {
+      renderSavedTextsTable(allTexts);
+      return;
+  }
+  
+  const filtered = allTexts.filter(text => {
+      const titleMatch = text.title && text.title.toLowerCase().includes(term);
+      
+      let tagsMatch = false;
+      if (text.tags) {
+          try {
+              const tags = JSON.parse(text.tags);
+              tagsMatch = tags.some(tag => tag.toLowerCase().includes(term));
+          } catch (e) {}
+      }
+      
+      return titleMatch || tagsMatch;
+  });
+  
+  renderSavedTextsTable(filtered);
+}
+
+// Load text from saved texts view
+async function loadTextFromView(index) {
+  const text = allTexts[index];
+  if (!text) return;
+  
+  AppState.currentAnalysisData = text.analysisData;
+  AppState.currentTextId = text.id;
+  AppState.currentInputText = text.content;
+  
+  displayResults(text.analysisData);
+  
+  document.getElementById('currentTextTitle').textContent = text.title || 'Untitled';
+  
+  const tags = text.tags ? JSON.parse(text.tags) : [];
+  displayTags(tags);
+  showTagsButton(true);
+  
+  document.getElementById('inputSection').classList.add('collapsed');
+  document.getElementById('resultsSection').classList.add('show');
+  document.getElementById('savedTextsSection').classList.add('hidden');
+  document.getElementById('saveTextBtn').disabled = true;
+}
+
+// Delete text from saved texts view
+async function deleteTextFromView(index) {
+  if (!confirm('Delete this text? This cannot be undone.')) return;
+  
+  const text = allTexts[index];
+  
+  try {
+      await authFetch(`/api/texts/${text.id}`, { method: 'DELETE' });
+      allTexts.splice(index, 1);
+      renderSavedTextsTable(allTexts);
+      alert('Text deleted');
+  } catch (error) {
+      alert('Failed to delete: ' + error.message);
+  }
+}
 // Export functions to global scope (temporary, will use modules later)
 window.toggleSidebar = toggleSidebar;
 window.showNewTextInput = showNewTextInput;
@@ -591,3 +713,8 @@ window.addTag = addTag;
 window.removeTag = removeTag;
 window.editCurrentTextTitle = editCurrentTextTitle;
 window.toggleTagsDialog = toggleTagsDialog;
+window.showSavedTextsView = showSavedTextsView;
+window.closeSavedTextsView = closeSavedTextsView;
+window.filterSavedTexts = filterSavedTexts;
+window.loadTextFromView = loadTextFromView;
+window.deleteTextFromView = deleteTextFromView;
