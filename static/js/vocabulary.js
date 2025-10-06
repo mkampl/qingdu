@@ -42,10 +42,17 @@ async function loadVocabularyLists() {
       item.innerHTML = `
         <span class="sidebar-item-icon">${icon}</span>
         <span class="sidebar-item-text">${list.name} (${wordCount} words)</span>
+        <button class="sidebar-item-delete" title="Delete list">🗑️</button>
       `;
       
       item.querySelector('.sidebar-item-text').addEventListener('click', () => {
         viewVocabularyList(list.id);
+      });
+      
+      // Delete button handler
+      item.querySelector('.sidebar-item-delete').addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteVocabularyList(list.id, list.name);
       });
       
       vocabDiv.appendChild(item);
@@ -124,14 +131,36 @@ async function viewVocabularyList(listId) {
       return;
     }
     
+    // Store current list for search
+    window.currentVocabList = list;
+    
     document.getElementById('listViewTitle').textContent = list.name;
     
+    // Create structure with separate containers
     const content = list.sections
       .filter(section => section.words && section.words.length > 0)
       .map(section => createSectionHTML(section))
       .join('');
     
-    document.getElementById('listViewContent').innerHTML = content || '<p>No words in this list yet.</p>';
+    document.getElementById('listViewContent').innerHTML = `
+      <div style="margin-bottom: 20px;">
+        <input 
+          type="text" 
+          id="vocabSearch" 
+          placeholder="Search words (hanzi, pinyin, or meaning)..."
+          style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;"
+        />
+      </div>
+      <div id="vocabTableContainer">
+        ${content || '<p>No words in this list yet.</p>'}
+      </div>
+    `;
+    
+    // Attach event listener once
+    document.getElementById('vocabSearch').addEventListener('input', (e) => {
+      filterVocabWords(e.target.value);
+    });
+    
     document.getElementById('inputSection').classList.add('collapsed');
     document.getElementById('resultsSection').classList.remove('show');
     document.getElementById('listViewSection').classList.remove('hidden');
@@ -139,6 +168,46 @@ async function viewVocabularyList(listId) {
   } catch (error) {
     alert('Failed to load list: ' + error.message);
   }
+}
+
+// Filter vocabulary words by search term
+function filterVocabWords(searchTerm) {
+  if (!window.currentVocabList) return;
+  
+  const term = searchTerm.toLowerCase().trim();
+  const sections = window.currentVocabList.sections;
+  const container = document.getElementById('vocabTableContainer');
+  
+  if (!container) return;
+  
+  if (!term) {
+    // Show all if search is empty
+    const content = sections
+      .filter(section => section.words && section.words.length > 0)
+      .map(section => createSectionHTML(section))
+      .join('');
+    
+    container.innerHTML = content || '<p>No words in this list yet.</p>';
+    return;
+  }
+  
+  // Filter sections and words
+  const filteredSections = sections
+    .map(section => ({
+      ...section,
+      words: section.words.filter(word => 
+        word.hanzi.toLowerCase().includes(term) ||
+        word.pinyin.toLowerCase().includes(term) ||
+        word.meaning.toLowerCase().includes(term)
+      )
+    }))
+    .filter(section => section.words.length > 0);
+  
+  const content = filteredSections.length > 0
+    ? filteredSections.map(section => createSectionHTML(section)).join('')
+    : '<p style="color: #999; padding: 20px;">No matches found</p>';
+  
+  container.innerHTML = content;
 }
 
 // Create section HTML
@@ -197,8 +266,21 @@ function closeListView() {
 
 // Save word to list (now functional!)
 async function saveWordToList(word, level, pinyin, meaning) {
+  // Auto-save if text not saved yet
+  if (!window.AppState.currentTextId && window.AppState.currentInputText) {
+    if (!confirm('Text must be saved first. Save now?')) {
+      return;
+    }
+    await saveCurrentText();
+    // Check if save was successful
+    if (!window.AppState.currentTextId) {
+      alert('Failed to save text. Please try again.');
+      return;
+    }
+  }
+  
   if (!window.AppState.currentTextId) {
-    alert('No active text. Please save the text first.');
+    alert('No active text available.');
     return;
   }
   
@@ -217,7 +299,6 @@ async function saveWordToList(word, level, pinyin, meaning) {
     const listsResponse = await authFetch('/api/vocabulary-lists');
     const lists = await listsResponse.json();
     
-    // Fix: use 'type' instead of 'list_type' (matches API response)
     let autoList = lists.find(l => l.type === 'auto');
     
     if (!autoList) {
@@ -263,16 +344,31 @@ async function saveWordToList(word, level, pinyin, meaning) {
         level: level
       })
     });
+
+    await loadVocabularyLists();
     
     alert(`Word "${word}" saved to "${currentText.title}" section!`);
   } catch (error) {
     alert('Failed to save word: ' + error.message);
   }
 }
-
+// Delete vocabulary list
+async function deleteVocabularyList(listId, listName) {
+  if (!confirm(`Delete "${listName}"? This cannot be undone.`)) return;
+  
+  try {
+    await authFetch(`/api/vocabulary-lists/${listId}`, { method: 'DELETE' });
+    await loadVocabularyLists();
+    alert('List deleted successfully');
+  } catch (error) {
+    alert('Failed to delete list: ' + error.message);
+  }
+}
 // Export functions
 window.loadVocabularyLists = loadVocabularyLists;
 window.viewVocabularyList = viewVocabularyList;
 window.toggleSection = toggleSection;
 window.closeListView = closeListView;
 window.saveWordToList = saveWordToList;
+window.deleteVocabularyList = deleteVocabularyList;
+window.filterVocabWords = filterVocabWords;
