@@ -134,6 +134,95 @@ function createTextListItem(text, index) {
   
   return item;
 }
+// Load Text
+async function loadText(index) {
+  try {
+    const response = await authFetch('/api/texts');
+    const texts = await response.json();
+    
+    if (texts[index]) {
+      AppState.currentAnalysisData = texts[index].analysisData;
+      AppState.currentTextId = texts[index].id;
+      AppState.currentInputText = texts[index].content;
+      
+      displayResults(texts[index].analysisData);
+      
+      // Update title
+      document.getElementById('currentTextTitle').textContent = texts[index].title || 'Untitled';
+      
+      // Load tags and show button
+      const tags = texts[index].tags ? JSON.parse(texts[index].tags) : [];
+      displayTags(tags);
+      showTagsButton(true);
+      tagsDialogOpen = false; // Close dialog when loading new text
+      document.getElementById('tagsDialog').style.display = 'none';
+      
+      document.getElementById('inputSection').classList.add('collapsed');
+      document.getElementById('resultsSection').classList.add('show');
+      document.getElementById('listViewSection').classList.add('hidden');
+      document.getElementById('saveTextBtn').disabled = true;
+      
+      toggleSidebar();
+    }
+  } catch (error) {
+    alert('Failed to load text: ' + error.message);
+  }
+}
+// Start inline title editing
+function startTitleEdit(textId, currentTitle, spanElement) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentTitle || 'Untitled';
+  input.className = 'title-edit-input';
+  input.style.cssText = 'width: 100%; padding: 5px; border: 2px solid #667eea; border-radius: 5px; font-size: 14px;';
+  
+  // Replace span with input
+  const parent = spanElement.parentElement;
+  parent.replaceChild(input, spanElement);
+  input.focus();
+  input.select();
+  
+  // Save on Enter
+  input.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      await saveTitleEdit(textId, input.value, parent);
+    } else if (e.key === 'Escape') {
+      await loadTextsFromStorage(); // Cancel - reload list
+    }
+  });
+  
+  // Save on blur (click outside)
+  input.addEventListener('blur', async () => {
+    await saveTitleEdit(textId, input.value, parent);
+  });
+}
+
+// Save edited title
+async function saveTitleEdit(textId, newTitle, parentElement) {
+  if (!newTitle.trim()) {
+    alert('Title cannot be empty');
+    await loadTextsFromStorage();
+    return;
+  }
+  
+  try {
+    await authFetch(`/api/texts/${textId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newTitle })
+    });
+    
+    // Update UI in results section if this text is currently displayed
+    if (AppState.currentTextId === textId) {
+      // Could add visual indicator here
+    }
+    
+    await loadTextsFromStorage();
+  } catch (error) {
+    alert('Failed to update title: ' + error.message);
+    await loadTextsFromStorage();
+  }
+}
 // Load text
 async function loadText(index) {
   try {
@@ -142,10 +231,18 @@ async function loadText(index) {
     
     if (texts[index]) {
       AppState.currentAnalysisData = texts[index].analysisData;
-      AppState.currentTextId = texts[index].id;  // <- Schon da
+      AppState.currentTextId = texts[index].id;
       AppState.currentInputText = texts[index].content;
       
       displayResults(texts[index].analysisData);
+      
+      // Update title in header
+      document.getElementById('currentTextTitle').textContent = texts[index].title || 'Untitled';
+      
+      // Load and display tags
+      const tags = texts[index].tags ? JSON.parse(texts[index].tags) : [];
+      displayTags(tags);
+      showTagsSection(true);
       
       document.getElementById('inputSection').classList.add('collapsed');
       document.getElementById('resultsSection').classList.add('show');
@@ -293,6 +390,194 @@ window.onload = async function() {
     await loadVocabularyLists();
   }
 };
+// Current tags for active text
+let currentTags = [];
+let tagsDialogOpen = false;
+
+// Show/hide tags section
+function showTagsSection(show) {
+  const section = document.getElementById('tagsSection');
+  if (section) {
+    section.style.display = show ? 'block' : 'none';
+  }
+}
+
+// Toggle tags dialog
+function toggleTagsDialog() {
+  tagsDialogOpen = !tagsDialogOpen;
+  const dialog = document.getElementById('tagsDialog');
+  if (dialog) {
+    dialog.style.display = tagsDialogOpen ? 'block' : 'none';
+    if (tagsDialogOpen) {
+      document.getElementById('tagInput').focus();
+    }
+  }
+}
+
+// Show/hide tags button
+function showTagsButton(show) {
+  const btn = document.getElementById('tagsToggleBtn');
+  if (btn) {
+    btn.style.display = show ? 'inline-block' : 'none';
+  }
+}
+
+// Update tags count badge
+function updateTagsCount() {
+  const countSpan = document.getElementById('tagsCount');
+  if (countSpan) {
+    countSpan.textContent = currentTags.length > 0 ? `(${currentTags.length})` : '';
+  }
+}
+
+// Display tags
+function displayTags(tags) {
+  currentTags = tags || [];
+  const display = document.getElementById('tagsDisplay');
+  
+  if (!display) return;
+  
+  if (currentTags.length === 0) {
+    display.innerHTML = '<span style="color: #999; font-size: 12px;">No tags yet</span>';
+  } else {
+    display.innerHTML = currentTags.map(tag => `
+      <span style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; 
+                   padding: 5px 12px; border-radius: 15px; font-size: 13px; display: inline-flex; 
+                   align-items: center; gap: 8px;">
+        ${tag}
+        <button onclick="removeTag('${tag}')" 
+                style="background: none; border: none; color: white; cursor: pointer; 
+                       font-size: 16px; padding: 0; line-height: 1;">
+          ×
+        </button>
+      </span>
+    `).join('');
+  }
+  
+  updateTagsCount();
+}
+
+// Add tag
+async function addTag() {
+  const input = document.getElementById('tagInput');
+  const tag = input.value.trim();
+  
+  if (!tag) return;
+  
+  if (currentTags.includes(tag)) {
+    alert('Tag already exists');
+    input.value = '';
+    return;
+  }
+  
+  if (!AppState.currentTextId) {
+    alert('Please save the text first');
+    return;
+  }
+  
+  currentTags.push(tag);
+  
+  try {
+    await authFetch(`/api/texts/${AppState.currentTextId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: currentTags })
+    });
+    
+    displayTags(currentTags);
+    input.value = '';
+    await loadTextsFromStorage();
+  } catch (error) {
+    alert('Failed to add tag: ' + error.message);
+    currentTags.pop();
+  }
+}
+
+// Remove tag
+async function removeTag(tag) {
+  if (!AppState.currentTextId) return;
+  
+  currentTags = currentTags.filter(t => t !== tag);
+  
+  try {
+    await authFetch(`/api/texts/${AppState.currentTextId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: currentTags })
+    });
+    
+    displayTags(currentTags);
+    await loadTextsFromStorage();
+  } catch (error) {
+    alert('Failed to remove tag: ' + error.message);
+  }
+}
+// Edit current text title in header
+function editCurrentTextTitle() {
+  if (!AppState.currentTextId) return;
+  
+  const titleElement = document.getElementById('currentTextTitle');
+  const currentTitle = titleElement.textContent;
+  
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = currentTitle;
+  input.style.cssText = 'flex: 1; padding: 8px; border: 2px solid #667eea; border-radius: 5px; font-size: 18px; font-weight: bold;';
+  
+  titleElement.replaceWith(input);
+  input.focus();
+  input.select();
+  
+  const saveTitle = async () => {
+    const newTitle = input.value.trim();
+    if (!newTitle) {
+      alert('Title cannot be empty');
+      const h3 = document.createElement('h3');
+      h3.id = 'currentTextTitle';
+      h3.ondblclick = editCurrentTextTitle;
+      h3.style.cssText = 'cursor: pointer; flex: 1;';
+      h3.title = 'Double-click to edit';
+      h3.textContent = currentTitle;
+      input.replaceWith(h3);
+      return;
+    }
+    
+    try {
+      await authFetch(`/api/texts/${AppState.currentTextId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newTitle })
+      });
+      
+      const h3 = document.createElement('h3');
+      h3.id = 'currentTextTitle';
+      h3.ondblclick = editCurrentTextTitle;
+      h3.style.cssText = 'cursor: pointer; flex: 1;';
+      h3.title = 'Double-click to edit';
+      h3.textContent = newTitle;
+      input.replaceWith(h3);
+      
+      await loadTextsFromStorage(); // Update sidebar
+    } catch (error) {
+      alert('Failed to update title: ' + error.message);
+    }
+  };
+  
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveTitle();
+    if (e.key === 'Escape') {
+      const h3 = document.createElement('h3');
+      h3.id = 'currentTextTitle';
+      h3.ondblclick = editCurrentTextTitle;
+      h3.style.cssText = 'cursor: pointer; flex: 1;';
+      h3.title = 'Double-click to edit';
+      h3.textContent = currentTitle;
+      input.replaceWith(h3);
+    }
+  });
+  
+  input.addEventListener('blur', saveTitle);
+}
 // Export functions to global scope (temporary, will use modules later)
 window.toggleSidebar = toggleSidebar;
 window.showNewTextInput = showNewTextInput;
@@ -300,3 +585,9 @@ window.analyzeText = analyzeText;
 window.saveCurrentText = saveCurrentText;
 window.clearAll = clearAll;
 window.AppState = AppState;
+window.startTitleEdit = startTitleEdit;
+window.saveTitleEdit = saveTitleEdit;
+window.addTag = addTag;
+window.removeTag = removeTag;
+window.editCurrentTextTitle = editCurrentTextTitle;
+window.toggleTagsDialog = toggleTagsDialog;

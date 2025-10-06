@@ -29,6 +29,7 @@ class SavedText(Base):
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     title = Column(String(500))
     content = Column(Text)
+    tags = Column(Text, nullable=True)
     analysis_data = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     

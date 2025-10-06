@@ -745,7 +745,7 @@ async def get_texts(
 ):
     """Get all saved texts for current user"""
     texts = db.query(SavedText).filter(
-        SavedText.user_id == user.id  # <- NEU: nur eigene Texte
+        SavedText.user_id == user.id
     ).order_by(SavedText.created_at.desc()).all()
     
     return [{
@@ -753,7 +753,8 @@ async def get_texts(
         "title": text.title,
         "content": text.content,
         "date": text.created_at.isoformat(),
-        "analysisData": json.loads(text.analysis_data)
+        "analysisData": json.loads(text.analysis_data),
+        "tags": text.tags  # NEW: Include tags
     } for text in texts]
 
 @app.delete("/api/texts/{text_id}")
@@ -773,6 +774,39 @@ async def delete_text(
         db.commit()
         return {"message": "Text deleted"}
     return {"error": "Text not found"}
+
+@app.patch("/api/texts/{text_id}")
+async def update_text(
+    text_id: int,
+    data: dict,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Update text (title, tags, etc.)"""
+    text = db.query(SavedText).filter(
+        SavedText.id == text_id,
+        SavedText.user_id == user.id
+    ).first()
+    
+    if not text:
+        raise HTTPException(status_code=404, detail="Text not found")
+    
+    # Update fields if provided
+    if 'title' in data:
+        text.title = data['title']
+    
+    if 'tags' in data:
+        # Tags will be stored as JSON string
+        text.tags = json.dumps(data['tags']) if data['tags'] else None
+    
+    db.commit()
+    db.refresh(text)
+    
+    return {
+        "id": text.id,
+        "title": text.title,
+        "message": "Text updated"
+    }
 
 @lru_cache(maxsize=10000)
 def get_word_info(word: str) -> Optional[Dict]:
