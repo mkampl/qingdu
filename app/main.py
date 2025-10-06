@@ -754,7 +754,8 @@ async def get_texts(
         "content": text.content,
         "date": text.created_at.isoformat(),
         "analysisData": json.loads(text.analysis_data),
-        "tags": text.tags  # NEW: Include tags
+        "tags": text.tags,
+        "reading_progress": text.reading_progress or 0  # NEW
     } for text in texts]
 
 @app.delete("/api/texts/{text_id}")
@@ -782,7 +783,7 @@ async def update_text(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    """Update text (title, tags, etc.)"""
+    """Update text (title, tags, reading_progress)"""
     text = db.query(SavedText).filter(
         SavedText.id == text_id,
         SavedText.user_id == user.id
@@ -796,8 +797,10 @@ async def update_text(
         text.title = data['title']
     
     if 'tags' in data:
-        # Tags will be stored as JSON string
         text.tags = json.dumps(data['tags']) if data['tags'] else None
+    
+    if 'reading_progress' in data:  # ADD THIS
+        text.reading_progress = data['reading_progress']
     
     db.commit()
     db.refresh(text)

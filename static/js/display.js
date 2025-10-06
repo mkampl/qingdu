@@ -14,13 +14,22 @@ function displayResults(data) {
   // Build sentences from words
   const sentences = buildSentences(data.words);
   
-  // Render HTML
-  const html = renderSentences(sentences, pinyinLevel);
+  // Render HTML with progress bar
+  const html = `
+    <div id="readingProgress" style="position: sticky; top: 0; width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px; margin-bottom: 15px; z-index: 10;">
+      <div id="readingProgressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 2px; transition: width 0.1s;"></div>
+    </div>
+    ${renderSentences(sentences, pinyinLevel)}
+  `;
+  
   document.getElementById('readingArea').innerHTML = html;
   
   // Setup interactions
   setupWordInteractions();
   setupSentenceInteractions();
+  
+  // Setup reading progress tracking
+  setTimeout(setupReadingProgress, 100);
   
   // Display statistics
   displayStatistics(stats, pinyinLevel);
@@ -285,7 +294,102 @@ function unescapeHtml(text) {
   div.innerHTML = text;
   return div.textContent;
 }
+// Flag to prevent saving during restore
+let isRestoringProgress = false;
 
+// Track reading progress
+function setupReadingProgress() {
+  const readingArea = document.getElementById('readingArea');
+  const progressBar = document.getElementById('readingProgressBar');
+  
+  if (!readingArea || !progressBar) return;
+  
+  readingArea.addEventListener('scroll', () => {
+    console.log('SCROLL EVENT - isRestoring:', isRestoringProgress); // DEBUG
+    
+    // Don't save if we're currently restoring
+    if (isRestoringProgress) {
+      console.log('Skipping scroll event during restore'); // DEBUG
+      return;
+    }
+    
+    const scrollTop = readingArea.scrollTop;
+    const scrollHeight = readingArea.scrollHeight - readingArea.clientHeight;
+    
+    if (scrollHeight <= 0) {
+      progressBar.style.width = '100%';
+      return;
+    }
+    
+    const progress = (scrollTop / scrollHeight) * 100;
+    console.log('Setting bar to:', progress); // DEBUG
+    progressBar.style.width = `${Math.min(progress, 100)}%`;
+    
+    if (window.AppState?.currentTextId && progress >= 1) {
+      saveReadingProgress(window.AppState.currentTextId, progress);
+    }
+  });
+  
+  restoreReadingProgress();
+}
+
+
+// Debounced save to avoid too many API calls
+let saveProgressTimeout;
+function saveReadingProgress(textId, progress) {
+  clearTimeout(saveProgressTimeout);
+  saveProgressTimeout = setTimeout(async () => {
+    try {
+      await authFetch(`/api/texts/${textId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reading_progress: Math.round(progress) })
+      });
+    } catch (e) {
+      // Silent fail - progress tracking is not critical
+      console.log('Progress save failed:', e);
+    }
+  }, 2000); // Save every 2 seconds max
+}
+
+// Restore reading progress when loading text
+function restoreReadingProgress() {
+  const progress = window.AppState?.currentReadingProgress;
+  console.log('=== RESTORE called with progress:', progress); // DEBUG
+  
+  if (!progress || progress === 0) {
+    return;
+  }
+  
+  const readingArea = document.getElementById('readingArea');
+  if (!readingArea) return;
+  
+  isRestoringProgress = true;
+  console.log('Set isRestoringProgress = true'); // DEBUG
+  
+  setTimeout(() => {
+    const progressBar = document.getElementById('readingProgressBar');
+    const scrollHeight = readingArea.scrollHeight - readingArea.clientHeight;
+    const scrollTo = (progress / 100) * scrollHeight;
+    
+    console.log('About to scroll to:', scrollTo, 'and set bar to:', progress); // DEBUG
+    
+    readingArea.scrollTop = scrollTo;
+    
+    if (progressBar) {
+      progressBar.style.width = `${progress}%`;
+      console.log('Bar width set to:', progress); // DEBUG
+    }
+    
+    setTimeout(() => {
+      isRestoringProgress = false;
+      console.log('Set isRestoringProgress = false'); // DEBUG
+    }, 1000);
+  }, 400);
+}
+
+// Export
+window.setupReadingProgress = setupReadingProgress;
 // Export functions
 window.displayResults = displayResults;
 window.showWordInfo = showWordInfo;

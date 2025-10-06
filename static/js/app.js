@@ -4,6 +4,7 @@ const AppState = {
   currentSentenceText: '',
   currentTextId: null,
   currentInputText: '',
+  currentReadingProgress: 0, // NEW
   sidebarOpen: false,
   longPressTimer: null,
 };
@@ -108,7 +109,7 @@ function createTextListItem(text, index) {
   
   return item;
 }
-// Load Text
+// Load text
 async function loadText(index) {
   try {
     const response = await authFetch('/api/texts');
@@ -119,6 +120,9 @@ async function loadText(index) {
       AppState.currentTextId = texts[index].id;
       AppState.currentInputText = texts[index].content;
       
+      // Store reading progress for restoration
+      AppState.currentReadingProgress = texts[index].reading_progress || 0;
+      
       displayResults(texts[index].analysisData);
       
       // Update title
@@ -128,7 +132,7 @@ async function loadText(index) {
       const tags = texts[index].tags ? JSON.parse(texts[index].tags) : [];
       displayTags(tags);
       showTagsButton(true);
-      tagsDialogOpen = false; // Close dialog when loading new text
+      tagsDialogOpen = false;
       document.getElementById('tagsDialog').style.display = 'none';
       
       document.getElementById('inputSection').classList.add('collapsed');
@@ -670,6 +674,7 @@ async function loadTextFromView(index) {
   AppState.currentAnalysisData = text.analysisData;
   AppState.currentTextId = text.id;
   AppState.currentInputText = text.content;
+  AppState.currentReadingProgress = text.reading_progress || 0; // NEW
   
   displayResults(text.analysisData);
   

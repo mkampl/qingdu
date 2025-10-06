@@ -30,6 +30,7 @@ class SavedText(Base):
     title = Column(String(500))
     content = Column(Text)
     tags = Column(Text, nullable=True)
+    reading_progress = Column(Integer, default=0)  # 0-100%
     analysis_data = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     
