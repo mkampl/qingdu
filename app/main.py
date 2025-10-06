@@ -1281,6 +1281,26 @@ async def export_vocabulary_list_csv(
 async def admin_page(request: Request):
     """Serve admin panel page"""
     return templates.TemplateResponse("admin.html", {"request": request})
+@app.post("/api/admin/users/{user_id}/toggle-admin")
+async def toggle_admin_status(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Toggle admin status for user"""
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent removing your own admin rights
+    if user.id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot change your own admin status")
+    
+    user.is_admin = not user.is_admin
+    db.commit()
+    
+    return {"message": f"User is now {'admin' if user.is_admin else 'regular user'}"}
 
 if __name__ == "__main__":
     import uvicorn
