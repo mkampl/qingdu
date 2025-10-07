@@ -1133,6 +1133,16 @@ async def export_vocabulary_list_anki(
     temp_dir = tempfile.mkdtemp(prefix='qingdu_anki_')
     media_files = []
     
+    # Track statistics
+    total_words = sum(len(s.get('words', [])) for s in sections)
+    words_processed = 0
+    audio_generated = 0
+    audio_cached = 0
+    audio_failed = 0
+    failed_words = []
+    rate_limited = False
+    consecutive_failures = 0
+    
     try:
         # Load template from file
         template_path = DATA_DIR / "hanzi_template.json"
@@ -1195,8 +1205,22 @@ async def export_vocabulary_list_anki(
                 if not hanzi:
                     continue
                 
-                # Generate or retrieve cached audio file
+                words_processed += 1
                 mp3_field = ''
+                
+                # Check if we should stop trying TTS
+                if rate_limited or consecutive_failures >= 5:
+                    # Skip TTS generation, just create card without audio
+                    note = genanki.Note(
+                        model=model,
+                        fields=[meaning, hanzi, pinyin, '', deck_identifier]
+                    )
+                    subdeck.add_note(note)
+                    all_notes.append(note)
+                    audio_failed += 1
+                    continue
+                
+                # Generate or retrieve cached audio file
                 try:
                     unicode_ids = "_".join(str(ord(char)) for char in hanzi)
                     cache_filename = f"{unicode_ids}_zh.mp3"
@@ -1210,22 +1234,48 @@ async def export_vocabulary_list_anki(
                         # Use cached audio
                         shutil.copy2(cache_path, mp3_filename)
                         media_files.append(mp3_filename)
-                        print(f"Using cached audio for '{hanzi}'")
+                        audio_cached += 1
+                        consecutive_failures = 0
                     else:
                         # Generate new audio
-                        tts = gTTS(hanzi, lang='zh')
-                        tts.save(mp3_filename)
-                        
-                        # Save to cache for future use
-                        shutil.copy2(mp3_filename, cache_path)
-                        media_files.append(mp3_filename)
-                        print(f"Generated and cached audio for '{hanzi}'")
+                        try:
+                            tts = gTTS(hanzi, lang='zh')
+                            tts.save(mp3_filename)
+                            
+                            # Save to cache for future use
+                            shutil.copy2(mp3_filename, cache_path)
+                            media_files.append(mp3_filename)
+                            audio_generated += 1
+                            consecutive_failures = 0
+                            
+                            # Small delay to avoid hammering API
+                            import time
+                            time.sleep(0.1)
+                            
+                        except Exception as tts_error:
+                            # Check if it's a rate limit error
+                            error_msg = str(tts_error)
+                            if '429' in error_msg or 'Too Many Requests' in error_msg:
+                                print(f"⚠️ Rate limit hit at word '{hanzi}'. Stopping TTS generation.")
+                                rate_limited = True
+                                audio_failed += 1
+                                failed_words.append(hanzi)
+                            else:
+                                print(f"TTS failed for '{hanzi}': {tts_error}")
+                                consecutive_failures += 1
+                                audio_failed += 1
+                                failed_words.append(hanzi)
+                            
+                            mp3_field = ''
                     
-                    mp3_field = f'[sound:{os.path.basename(mp3_filename)}]'
+                    if mp3_filename in media_files:
+                        mp3_field = f'[sound:{os.path.basename(mp3_filename)}]'
                 
                 except Exception as e:
-                    print(f"Audio generation failed for '{hanzi}': {e}")
-                    mp3_field = ''
+                    audio_failed += 1
+                    failed_words.append(hanzi)
+                    consecutive_failures += 1
+                    print(f"Audio processing failed for '{hanzi}': {e}")
                 
                 # Create note
                 note = genanki.Note(
@@ -1258,7 +1308,10 @@ async def export_vocabulary_list_anki(
         # Cleanup temp directory
         shutil.rmtree(temp_dir)
         
-        print(f"Successfully created Anki package with {len(decks)} subdeck(s) and {len(all_notes)} card(s)")
+        # Log results
+        print(f"Export complete: {words_processed} words, {audio_cached} cached, {audio_generated} generated, {audio_failed} failed")
+        if rate_limited:
+            print(f"⚠️ Rate limit reached. {audio_failed} cards created without audio.")
         
         # Return file
         from fastapi.responses import Response
@@ -1266,7 +1319,9 @@ async def export_vocabulary_list_anki(
             content=apkg_content,
             media_type="application/octet-stream",
             headers={
-                "Content-Disposition": f"attachment; filename={output_filename}"
+                "Content-Disposition": f"attachment; filename={output_filename}",
+                "X-Export-Stats": f"{words_processed}|{audio_cached}|{audio_generated}|{audio_failed}",
+                "X-Rate-Limited": "true" if rate_limited else "false"
             }
         )
     

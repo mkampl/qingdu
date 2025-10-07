@@ -395,18 +395,29 @@ async function exportVocabularyList(listId, listName) {
 }
 // Export vocabulary list as Anki .apkg
 async function exportVocabularyListAnki(listId, listName) {
+  const btn = event?.target || document.querySelector(`button[onclick*="exportVocabularyListAnki(${listId}"]`);
+  
+  if (!btn) {
+    alert('Button not found');
+    return;
+  }
+  
+  const originalText = btn.innerHTML;
+  
   try {
-    // Show loading indicator
-    const btn = event.target;
-    const originalText = btn.innerHTML;
     btn.innerHTML = '⏳ Generating...';
     btn.disabled = true;
     
     const response = await authFetch(`/api/vocabulary-lists/${listId}/export-anki`);
     
     if (!response.ok) {
-      throw new Error('Export failed');
+      const error = await response.json();
+      throw new Error(error.detail || 'Export failed');
     }
+    
+    // Check for export stats in headers
+    const stats = response.headers.get('X-Export-Stats');
+    const rateLimited = response.headers.get('X-Rate-Limited') === 'true';
     
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
@@ -418,15 +429,41 @@ async function exportVocabularyListAnki(listId, listName) {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
     
-    // Restore button
     btn.innerHTML = originalText;
     btn.disabled = false;
     
+    // Show stats if available
+    if (stats) {
+      const [total, cached, generated, failed] = stats.split('|').map(Number);
+      
+      let message = `Export complete!\n\n`;
+      message += `📊 Statistics:\n`;
+      message += `Total cards: ${total}\n`;
+      message += `Audio from cache: ${cached}\n`;
+      message += `Audio generated: ${generated}\n`;
+      
+      if (failed > 0) {
+        message += `\n⚠️ AUDIO MISSING: ${failed} cards\n\n`;
+        if (rateLimited) {
+          message += `❌ Rate limit reached!\n`;
+          message += `Google blocked further requests.\n\n`;
+        }
+        message += `✅ All audio is cached now.\n`;
+        message += `Try export again in 12-24 hours.`;
+      }
+      
+      alert(message);
+    } else {
+      alert('Export complete!');
+    }
+    
   } catch (error) {
-    alert('Failed to export: ' + error.message);
-    // Restore button on error
-    event.target.innerHTML = '📥 Anki (.apkg)';
-    event.target.disabled = false;
+    // Restore button state
+    if (btn) {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    }
+    alert('Failed to export Anki deck: ' + error.message);
   }
 }
 // Export functions
