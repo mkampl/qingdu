@@ -293,14 +293,15 @@ body {
 /* Reading Text */
 .reading-text {
   flex: 1;
-  overflow-y: auto;  /* Nur Text scrollt */
+  overflow-y: auto;
   line-height: 2.5; 
   font-size: 24px; 
   font-family: 'Microsoft YaHei', 'SimHei', sans-serif; 
   background: #f8f9fa; 
-  padding: 20px; 
+  padding: 0 20px 20px 20px;  /* Kein padding-top, nur sides und bottom */
   border-radius: 10px;
-  max-height: calc(100vh - 300px);  /* Platz für Header + Tags */
+  max-height: calc(100vh - 300px);
+  position: relative;  /* Für sticky child positioning */
 }
 
 /* Info Panels */

@@ -16,11 +16,13 @@ function displayResults(data) {
   
   // Render HTML with progress bar
   const html = `
-    <div id="readingProgress" style="position: sticky; top: 0; width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px; margin-bottom: 15px; z-index: 10;">
+  <div id="readingProgress" style="position: sticky; top: 0; width: calc(100% + 40px); margin: 0 -20px 15px -20px; height: 20px; background: white; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; padding: 0 20px;">
+    <div style="width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px;">
       <div id="readingProgressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 2px; transition: width 0.1s;"></div>
     </div>
-    ${renderSentences(sentences, pinyinLevel)}
-  `;
+  </div>
+  ${renderSentences(sentences, pinyinLevel)}
+`;
   
   document.getElementById('readingArea').innerHTML = html;
   
