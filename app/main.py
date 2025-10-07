@@ -1208,73 +1208,53 @@ async def export_vocabulary_list_anki(
                 words_processed += 1
                 mp3_field = ''
                 
-                # Check if we should stop trying TTS
-                if rate_limited or consecutive_failures >= 5:
-                    # Skip TTS generation, just create card without audio
-                    note = genanki.Note(
-                        model=model,
-                        fields=[meaning, hanzi, pinyin, '', deck_identifier]
-                    )
-                    subdeck.add_note(note)
-                    all_notes.append(note)
-                    audio_failed += 1
-                    continue
-                
                 # Generate or retrieve cached audio file
                 try:
                     unicode_ids = "_".join(str(ord(char)) for char in hanzi)
                     cache_filename = f"{unicode_ids}_zh.mp3"
                     cache_path = audio_cache_dir / cache_filename
-                    
-                    # Prepare temp file path
                     mp3_filename = os.path.join(temp_dir, f"{unicode_ids}_pronunciation.mp3")
                     
-                    # Check cache first
+                    # ALWAYS check cache first - even if rate limited
                     if cache_path.exists() and cache_path.stat().st_size > 0:
-                        # Use cached audio
                         shutil.copy2(cache_path, mp3_filename)
                         media_files.append(mp3_filename)
+                        mp3_field = f'[sound:{os.path.basename(mp3_filename)}]'
                         audio_cached += 1
                         consecutive_failures = 0
-                    else:
-                        # Generate new audio
+                    
+                    # Only try TTS if NOT cached and NOT rate limited
+                    elif not rate_limited and consecutive_failures < 5:
                         try:
                             tts = gTTS(hanzi, lang='zh')
                             tts.save(mp3_filename)
-                            
-                            # Save to cache for future use
                             shutil.copy2(mp3_filename, cache_path)
                             media_files.append(mp3_filename)
+                            mp3_field = f'[sound:{os.path.basename(mp3_filename)}]'
                             audio_generated += 1
                             consecutive_failures = 0
                             
-                            # Small delay to avoid hammering API
                             import time
                             time.sleep(0.1)
                             
                         except Exception as tts_error:
-                            # Check if it's a rate limit error
                             error_msg = str(tts_error)
                             if '429' in error_msg or 'Too Many Requests' in error_msg:
-                                print(f"⚠️ Rate limit hit at word '{hanzi}'. Stopping TTS generation.")
+                                print(f"⚠️ Rate limit hit at word '{hanzi}'")
                                 rate_limited = True
-                                audio_failed += 1
-                                failed_words.append(hanzi)
                             else:
                                 print(f"TTS failed for '{hanzi}': {tts_error}")
                                 consecutive_failures += 1
-                                audio_failed += 1
-                                failed_words.append(hanzi)
                             
-                            mp3_field = ''
-                    
-                    if mp3_filename in media_files:
-                        mp3_field = f'[sound:{os.path.basename(mp3_filename)}]'
+                            audio_failed += 1
+                            failed_words.append(hanzi)
+                    else:
+                        # Rate limited or too many failures - skip TTS
+                        audio_failed += 1
                 
                 except Exception as e:
                     audio_failed += 1
                     failed_words.append(hanzi)
-                    consecutive_failures += 1
                     print(f"Audio processing failed for '{hanzi}': {e}")
                 
                 # Create note
