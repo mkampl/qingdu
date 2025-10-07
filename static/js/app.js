@@ -328,6 +328,10 @@ async function saveCurrentText() {
   const title = AppState.currentInputText.split(/[。！？]/)[0] || 
                 AppState.currentInputText.substring(0, 50);
   
+  // Auto-generate HSK level tag
+  const estimatedLevel = AppState.currentAnalysisData.statistics?.estimated_level || 'Unknown';
+  const autoTags = [estimatedLevel]; // e.g., "HSK 3"
+  
   try {
     const response = await authFetch('/api/texts/save', {
       method: 'POST',
@@ -335,12 +339,18 @@ async function saveCurrentText() {
       body: JSON.stringify({ 
         title: title,
         content: AppState.currentInputText,
-        analysis_data: AppState.currentAnalysisData 
+        analysis_data: AppState.currentAnalysisData,
+        tags: autoTags  // NEW: Include auto-generated tags
       })
     });
     
     const data = await response.json();
-    AppState.currentTextId = data.id;  // <- NEU: Setze ID nach dem Speichern
+    AppState.currentTextId = data.id;
+    
+    // Update current tags and display
+    currentTags = autoTags;
+    displayTags(currentTags);
+    showTagsButton(true);
     
     document.getElementById('saveTextBtn').disabled = true;
     await loadTextsFromStorage();

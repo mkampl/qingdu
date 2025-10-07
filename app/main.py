@@ -727,11 +727,14 @@ async def save_text(
     db: Session = Depends(get_db)
 ):
     """Save analyzed text to database"""
+    tags = text_data.get('tags', [])
+    
     saved_text = SavedText(
-        user_id=user.id,  # <- NEU
+        user_id=user.id,
         title=text_data.get('title'),
         content=text_data.get('content'),
-        analysis_data=json.dumps(text_data.get('analysis_data'))
+        analysis_data=json.dumps(text_data.get('analysis_data')),
+        tags=json.dumps(tags) if tags else None  # NEW: Save tags
     )
     db.add(saved_text)
     db.commit()
