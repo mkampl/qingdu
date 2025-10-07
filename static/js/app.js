@@ -46,10 +46,26 @@ function toggleSidebar() {
 
 // Show new text input
 function showNewTextInput() {
+  // Clear current state
+  AppState.currentTextId = null;
+  AppState.currentInputText = '';
+  AppState.currentAnalysisData = null;
+  AppState.currentReadingProgress = 0;
+  currentTags = [];
+  
+  // Reset UI
+  document.getElementById('textInput').value = '';
+  document.getElementById('currentTextTitle').textContent = 'Reading Text';
   document.getElementById('inputSection').classList.remove('collapsed');
   document.getElementById('resultsSection').classList.remove('show');
   document.getElementById('listViewSection').classList.add('hidden');
-  document.getElementById('textInput').value = '';
+  document.getElementById('savedTextsSection').classList.add('hidden');
+  
+  // Hide tags button and dialog
+  showTagsButton(false);
+  document.getElementById('tagsDialog').style.display = 'none';
+  tagsDialogOpen = false;
+  
   document.getElementById('textInput').focus();
   toggleSidebar();
 }
@@ -260,8 +276,15 @@ async function analyzeText() {
     return;
   }
   
+  // Reset state for new text
   AppState.currentInputText = text;
   AppState.currentTextId = null;
+  AppState.currentReadingProgress = 0;
+  currentTags = [];
+  
+  // Hide tags until text is saved
+  showTagsButton(false);
+  document.getElementById('tagsDialog').style.display = 'none';
   
   const readingArea = document.getElementById('readingArea');
   readingArea.innerHTML = '<div class="loading">Analyzing...</div>';
@@ -283,6 +306,11 @@ async function analyzeText() {
     const data = await response.json();
     AppState.currentAnalysisData = data;
     displayResults(data);
+    
+    // Set title to first sentence
+    const firstSentence = text.split(/[。！？]/)[0] || text.substring(0, 50);
+    document.getElementById('currentTextTitle').textContent = firstSentence;
+    
     document.getElementById('inputSection').classList.add('collapsed');
   } catch (error) {
     readingArea.innerHTML = `<div style="color:#e74c3c">Error: ${error.message}</div>`;
