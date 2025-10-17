@@ -626,78 +626,42 @@ function closeSavedTextsView() {
   document.getElementById('savedTextsSection').classList.add('hidden');
 }
 
-// Render saved texts as table
+// Render saved texts as cards (works for both desktop and mobile)
 function renderSavedTextsTable(texts) {
   const content = document.getElementById('savedTextsContent');
-
+  
   if (texts.length === 0) {
-    content.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">No saved texts yet</p>';
-    return;
+      content.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">No saved texts yet</p>';
+      return;
   }
-
-  const tableHTML = `
-      <table class="word-table">
-          <thead>
-              <tr>
-                  <th>Title</th>
-                  <th>Tags</th>
-                  <th>Date</th>
-                  <th>Actions</th>
-              </tr>
-          </thead>
-          <tbody>
-              ${texts.map((text, index) => {
-    const date = new Date(text.date).toLocaleDateString();
-    let tags = [];
-    try {
-      tags = text.tags ? JSON.parse(text.tags) : [];
-    } catch (e) { }
-
-    const tagsHTML = tags.length > 0
-      ? tags.map(tag => `<span style="background: #667eea; color: white; padding: 3px 8px; border-radius: 10px; font-size: 11px; margin-right: 5px;">${tag}</span>`).join('')
-      : '<span style="color: #999;">—</span>';
-
-    return `
-                      <tr>
-                          <td style="font-weight: 500;">${text.title || 'Untitled'}</td>
-                          <td>${tagsHTML}</td>
-                          <td>${date}</td>
-                          <td>
-                              <button class="btn" style="padding: 6px 12px; font-size: 13px; margin-right: 5px;" 
-                                      onclick="loadTextFromView(${index})">Open</button>
-                              <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;" 
-                                      onclick="deleteTextFromView(${index})">Delete</button>
-                          </td>
-                      </tr>
-                  `;
-  }).join('')}
-          </tbody>
-      </table>
-  `;
-
-  // Add mobile cards view
-  const mobileCards = texts.map((text, index) => {
-    const date = new Date(text.createdAt).toLocaleDateString();
-    const tags = text.tags ? JSON.parse(text.tags) : [];
-    const tagsHTML = tags.map(tag =>
-      `<span>${tag}</span>`
-    ).join('');
-
-    return `
-        <div class="saved-text-card">
-            <h4>${text.title || 'Untitled'}</h4>
-            <div class="text-meta">Created: ${date}</div>
-            <div class="text-tags">${tagsHTML || '<span style="background: #ccc;">No tags</span>'}</div>
-            <div class="text-actions">
-                <button class="btn" onclick="loadTextFromView(${index})">Open</button>
-                <button class="btn btn-secondary" onclick="deleteTextFromView(${index})">Delete</button>
-            </div>
-        </div>
-    `;
+  
+  const cardsHTML = texts.map((text, index) => {
+      const date = new Date(text.date || text.createdAt).toLocaleDateString();
+      let tags = [];
+      try {
+          tags = text.tags ? JSON.parse(text.tags) : [];
+      } catch (e) {}
+      
+      const tagsHTML = tags.length > 0
+          ? tags.map(tag => `<span class="text-tag">${tag}</span>`).join('')
+          : '<span class="text-tag no-tag">No tags</span>';
+      
+      return `
+          <div class="saved-text-card">
+              <div class="card-header">
+                  <h4>${text.title || 'Untitled'}</h4>
+                  <span class="text-date">${date}</span>
+              </div>
+              <div class="text-tags">${tagsHTML}</div>
+              <div class="text-actions">
+                  <button class="btn" onclick="loadTextFromView(${index})">Open</button>
+                  <button class="btn btn-secondary" onclick="deleteTextFromView(${index})">Delete</button>
+              </div>
+          </div>
+      `;
   }).join('');
-
-  // Add mobile container after the table
-  content.innerHTML = tableHTML + `<div class="saved-texts-mobile">${mobileCards}</div>`;
+  
+  content.innerHTML = `<div class="saved-texts-grid">${cardsHTML}</div>`;
 }
 
 // Filter saved texts

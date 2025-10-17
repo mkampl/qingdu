@@ -533,70 +533,98 @@ body {
     padding: 5px 0;
   }
 }
-/* Mobile styles for saved texts list */
+/* Card layout that works on all screen sizes */
+.saved-texts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 15px;
+  padding: 10px;
+}
+
+.saved-text-card {
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.saved-text-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.saved-text-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 10px;
+}
+
+.saved-text-card h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+  flex: 1;
+  word-wrap: break-word;
+}
+
+.saved-text-card .text-date {
+  font-size: 12px;
+  color: #666;
+  white-space: nowrap;
+  margin-left: 10px;
+}
+
+.saved-text-card .text-tags {
+  margin-bottom: 12px;
+  min-height: 24px;
+}
+
+.saved-text-card .text-tag {
+  display: inline-block;
+  background: #667eea;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  margin-right: 5px;
+  margin-bottom: 5px;
+}
+
+.saved-text-card .text-tag.no-tag {
+  background: #ccc;
+  color: #666;
+}
+
+.saved-text-card .text-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.saved-text-card .text-actions button {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+/* On mobile, make it single column */
 @media (max-width: 768px) {
-  /* Hide the table on mobile and use cards instead */
-  .saved-texts-table {
-    display: none;
-  }
-  
-  /* Mobile-friendly card layout */
-  .saved-texts-mobile {
-    display: block; /* This should be hidden on desktop */
+  .saved-texts-grid {
+      grid-template-columns: 1fr;
+      padding: 5px;
   }
   
   .saved-text-card {
-    background: #f8f9fa;
-    border: 1px solid #e0e0e0;
-    border-radius: 10px;
-    padding: 15px;
-    margin-bottom: 15px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  }
-  
-  .saved-text-card h4 {
-    margin: 0 0 10px 0;
-    font-size: 16px;
-    color: #333;
-  }
-  
-  .saved-text-card .text-meta {
-    font-size: 14px;
-    color: #666;
-    margin-bottom: 10px;
-  }
-  
-  .saved-text-card .text-tags {
-    margin-bottom: 10px;
-  }
-  
-  .saved-text-card .text-tags span {
-    display: inline-block;
-    background: #667eea;
-    color: white;
-    padding: 3px 8px;
-    border-radius: 10px;
-    font-size: 11px;
-    margin-right: 5px;
-    margin-bottom: 5px;
-  }
-  
-  .saved-text-card .text-actions {
-    display: flex;
-    gap: 10px;
-  }
-  
-  .saved-text-card .text-actions button {
-    flex: 1;
-    padding: 8px 12px;
-    font-size: 14px;
+      padding: 12px;
   }
 }
 
-/* Show mobile layout only on mobile */
-@media (min-width: 769px) {
-  .saved-texts-mobile {
-    display: none;
+/* On very large screens, limit the number of columns */
+@media (min-width: 1400px) {
+  .saved-texts-grid {
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   }
 }
 /* Modal Styles */
