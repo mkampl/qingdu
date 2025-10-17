@@ -533,6 +533,72 @@ body {
     padding: 5px 0;
   }
 }
+/* Mobile styles for saved texts list */
+@media (max-width: 768px) {
+  /* Hide the table on mobile and use cards instead */
+  .saved-texts-table {
+    display: none;
+  }
+  
+  /* Mobile-friendly card layout */
+  .saved-texts-mobile {
+    display: block; /* This should be hidden on desktop */
+  }
+  
+  .saved-text-card {
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  }
+  
+  .saved-text-card h4 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    color: #333;
+  }
+  
+  .saved-text-card .text-meta {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
+  }
+  
+  .saved-text-card .text-tags {
+    margin-bottom: 10px;
+  }
+  
+  .saved-text-card .text-tags span {
+    display: inline-block;
+    background: #667eea;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    margin-right: 5px;
+    margin-bottom: 5px;
+  }
+  
+  .saved-text-card .text-actions {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .saved-text-card .text-actions button {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+}
+
+/* Show mobile layout only on mobile */
+@media (min-width: 769px) {
+  .saved-texts-mobile {
+    display: none;
+  }
+}
 /* Modal Styles */
 .modal {
   display: none;
