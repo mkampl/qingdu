@@ -504,17 +504,33 @@ body {
   
   .text-panel { 
     max-height: 50vh; 
+    width: 100%;
   }
   
   .info-panel { 
-    width: 40%; 
-    padding: 20px; 
-    border-left: 2px solid #f0f0f0; 
-    overflow-y: auto; 
-    max-height: calc(100vh - 140px);  /* Gleiche Höhe wie text-panel */
-    display: flex; 
-    flex-direction: column; 
-    gap: 15px; 
+    width: 100%; 
+    border-left: none; 
+    border-top: 2px solid #f0f0f0;
+    padding: 15px;
+    max-height: none; /* Remove height constraint on mobile */
+  }
+  
+  /* Ensure all panels inside info-panel use full width */
+  .word-info-panel,
+  .sentence-info-panel,
+  .stats-panel {
+    width: 100%;
+    box-sizing: border-box;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  /* Ensure translation content is readable */
+  .word-info-panel p,
+  .sentence-info-panel p {
+    width: 100%;
+    margin: 0;
+    padding: 5px 0;
   }
 }
 /* Modal Styles */
