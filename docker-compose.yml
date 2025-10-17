@@ -5,7 +5,7 @@ services:
     build: .
     container_name: chinese_analyzer
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:8000"
     volumes:
       # Mount code for development (remove in production)
       - ./app:/app/app
