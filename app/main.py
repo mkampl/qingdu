@@ -35,6 +35,7 @@ from gtts import gTTS
 import tempfile
 import shutil
 import logging
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 # Load environment variables
 load_dotenv()
@@ -192,11 +193,20 @@ async def startup_event():
 
     logger.info("Startup complete")
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
+    reraise=True
+)
 async def download_hsk_vocabulary():
-    """Download and process HSK vocabulary from GitHub"""
+    """
+    Download and process HSK vocabulary from GitHub
+    Includes automatic retry with exponential backoff for network errors
+    """
     global hsk_vocab
     url = "https://raw.githubusercontent.com/drkameleon/complete-hsk-vocabulary/refs/heads/main/complete.json"
-    
+
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(url)
@@ -317,11 +327,18 @@ async def download_hsk_vocabulary():
         vocab_file = DATA_DIR / "hsk_vocabulary.json"
         with open(vocab_file, 'w', encoding='utf-8') as f:
             json.dump(hsk_vocab, f, ensure_ascii=False, indent=2)
-        
-        # print(f"Processed and saved {processed} HSK words + {len(char_levels)} individual characters")
-    
+
+
+        logger.info(f"Processed and saved {processed} HSK words + {len(char_levels)} individual characters")
+
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error downloading vocabulary: {e.response.status_code}", exc_info=True)
+        raise
+    except (httpx.TimeoutException, httpx.NetworkError) as e:
+        logger.error(f"Network error downloading vocabulary: {e}", exc_info=True)
+        raise
     except Exception as e:
-        print(f"Error downloading vocabulary: {e}")
+        logger.error(f"Error downloading vocabulary: {e}", exc_info=True)
         raise
 
 @app.get("/")
@@ -429,19 +446,37 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
         'translation_source': 'hsk-chars'
     }
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=5),
+    retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
+    reraise=True
+)
+async def _call_translation_api(client: httpx.AsyncClient, url: str, method: str = 'POST', **kwargs) -> httpx.Response:
+    """
+    Make HTTP request with retry logic for network errors
+    """
+    if method.upper() == 'POST':
+        response = await client.post(url, **kwargs)
+    else:
+        response = await client.get(url, **kwargs)
+    response.raise_for_status()
+    return response
+
 async def get_translation_with_source(text: str) -> Optional[Dict]:
     """
     Get translation with multiple API support and source tracking
     Priority: DeepL > Google > MyMemory
+    Includes automatic retry for network errors
     """
     # Check for API keys from environment
     deepl_key = os.getenv('DEEPL_API_KEY')
     google_key = os.getenv('GOOGLE_TRANSLATE_API_KEY')
-    
+
     # Try DeepL first if available
     if deepl_key:
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
+            async with httpx.AsyncClient(timeout=5.0) as client:
                 url = "https://api-free.deepl.com/v2/translate"
                 data = {
                     'auth_key': deepl_key,
@@ -449,22 +484,25 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
                     'target_lang': 'EN',
                     'source_lang': 'ZH'
                 }
-                response = await client.post(url, data=data)
-                response.raise_for_status()
+                response = await _call_translation_api(client, url, method='POST', data=data)
                 result = response.json()
-                
+
                 if result.get('translations'):
                     return {
                         'translation': result['translations'][0]['text'],
                         'source': 'deepl'
                     }
+        except httpx.HTTPStatusError as e:
+            logger.warning(f"DeepL API error {e.response.status_code} for '{text}'")
+        except (httpx.TimeoutException, httpx.NetworkError) as e:
+            logger.warning(f"DeepL API network error for '{text}': {e}")
         except Exception as e:
             logger.debug(f"DeepL API failed for '{text}': {e}")
-    
+
     # Try Google Translate if available
     if google_key:
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
+            async with httpx.AsyncClient(timeout=5.0) as client:
                 url = f"https://translation.googleapis.com/language/translate/v2"
                 params = {
                     'key': google_key,
@@ -472,34 +510,40 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
                     'target': 'en',
                     'source': 'zh'
                 }
-                response = await client.post(url, params=params)
-                response.raise_for_status()
+                response = await _call_translation_api(client, url, method='POST', params=params)
                 result = response.json()
-                
+
                 if result.get('data', {}).get('translations'):
                     return {
                         'translation': result['data']['translations'][0]['translatedText'],
                         'source': 'google'
                     }
+        except httpx.HTTPStatusError as e:
+            logger.warning(f"Google Translate API error {e.response.status_code} for '{text}'")
+        except (httpx.TimeoutException, httpx.NetworkError) as e:
+            logger.warning(f"Google Translate API network error for '{text}': {e}")
         except Exception as e:
             logger.debug(f"Google Translate API failed for '{text}': {e}")
-    
+
     # Fallback to free MyMemory API
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:
             url = f"https://api.mymemory.translated.net/get?q={text}&langpair=zh|en"
-            response = await client.get(url)
-            response.raise_for_status()
+            response = await _call_translation_api(client, url, method='GET')
             result = response.json()
-            
+
             if result.get('responseStatus') == 200:
                 return {
                     'translation': result['responseData']['translatedText'],
                     'source': 'mymemory'
                 }
+    except httpx.HTTPStatusError as e:
+        logger.warning(f"MyMemory API error {e.response.status_code} for '{text}'")
+    except (httpx.TimeoutException, httpx.NetworkError) as e:
+        logger.warning(f"MyMemory API network error for '{text}': {e}")
     except Exception as e:
         logger.debug(f"MyMemory API failed for '{text}': {e}")
-    
+
     return None
 
 @app.post("/api/analyze")
