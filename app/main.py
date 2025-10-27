@@ -37,6 +37,31 @@ import shutil
 import logging
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from cachetools import TTLCache
+from app.core.constants import (
+    ANALYZE_RATE_LIMIT,
+    TRANSLATE_RATE_LIMIT,
+    AUTH_RATE_LIMIT,
+    TRANSLATION_CACHE_SIZE,
+    TRANSLATION_CACHE_TTL,
+    UNKNOWN_WORD_CACHE_SIZE,
+    UNKNOWN_WORD_CACHE_TTL,
+    HSK_WORD_BASE_FREQ,
+    API_TIMEOUT,
+    HSK_DOWNLOAD_TIMEOUT,
+    MAX_RETRY_ATTEMPTS,
+    RETRY_MIN_WAIT,
+    RETRY_MAX_WAIT,
+    HSK_RETRY_MIN_WAIT,
+    HSK_RETRY_MAX_WAIT,
+    TEXT_LEVEL_THRESHOLD,
+    HSK_VOCAB_URL,
+    TRANSLATION_SOURCE_DEEPL,
+    TRANSLATION_SOURCE_GOOGLE,
+    TRANSLATION_SOURCE_MYMEMORY,
+    TRANSLATION_SOURCE_HSK,
+    TRANSLATION_SOURCE_HSK_CHARS,
+    TRANSLATION_SOURCE_CACHE,
+)
 
 # Load environment variables
 load_dotenv()
@@ -73,11 +98,8 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 hsk_vocab = {}
 
 # TTL Caches with size limits
-# Translation cache: 5000 entries, 1 hour TTL
-translation_cache = TTLCache(maxsize=5000, ttl=3600)
-
-# Unknown word cache: 2000 entries, 30 minutes TTL
-unknown_word_cache = TTLCache(maxsize=2000, ttl=1800)
+translation_cache = TTLCache(maxsize=TRANSLATION_CACHE_SIZE, ttl=TRANSLATION_CACHE_TTL)
+unknown_word_cache = TTLCache(maxsize=UNKNOWN_WORD_CACHE_SIZE, ttl=UNKNOWN_WORD_CACHE_TTL)
 
 class TextAnalysisRequest(BaseModel):
     text: str
@@ -149,7 +171,7 @@ async def startup_event():
         if len(word) > 1:
             # Add with high frequency to prioritize HSK words in segmentation
             # Give extra priority to common multi-char words
-            base_freq = max(data.get('frequency', 0) * 100, 10000)
+            base_freq = max(data.get('frequency', 0) * 100, HSK_WORD_BASE_FREQ)
             # if word in priority_words:
             #     freq = base_freq * 10  # 10x priority for common words
             # else:
@@ -200,8 +222,8 @@ async def startup_event():
     logger.info("Startup complete")
 
 @retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=10),
+    stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
+    wait=wait_exponential(multiplier=1, min=HSK_RETRY_MIN_WAIT, max=HSK_RETRY_MAX_WAIT),
     retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
     reraise=True
 )
@@ -211,11 +233,10 @@ async def download_hsk_vocabulary():
     Includes automatic retry with exponential backoff for network errors
     """
     global hsk_vocab
-    url = "https://raw.githubusercontent.com/drkameleon/complete-hsk-vocabulary/refs/heads/main/complete.json"
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url)
+        async with httpx.AsyncClient(timeout=HSK_DOWNLOAD_TIMEOUT) as client:
+            response = await client.get(HSK_VOCAB_URL)
             response.raise_for_status()
             raw_data = response.json()
         
@@ -377,7 +398,7 @@ async def lookup_unknown_word(word: str) -> Optional[Dict]:
             'meanings': [translation_result['translation']],
             'level': 'unknown',
             'frequency': 0,
-            'translation_source': translation_result['source']
+            'translation_source': translation_result.get('source', TRANSLATION_SOURCE_MYMEMORY)
         }
         
         # Cache the result
@@ -453,8 +474,8 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
     }
 
 @retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=5),
+    stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
+    wait=wait_exponential(multiplier=1, min=RETRY_MIN_WAIT, max=RETRY_MAX_WAIT),
     retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
     reraise=True
 )
@@ -482,7 +503,7 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
     # Try DeepL first if available
     if deepl_key:
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
                 url = "https://api-free.deepl.com/v2/translate"
                 data = {
                     'auth_key': deepl_key,
@@ -496,7 +517,7 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
                 if result.get('translations'):
                     return {
                         'translation': result['translations'][0]['text'],
-                        'source': 'deepl'
+                        'source': TRANSLATION_SOURCE_DEEPL
                     }
         except httpx.HTTPStatusError as e:
             logger.warning(f"DeepL API error {e.response.status_code} for '{text}'")
@@ -508,7 +529,7 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
     # Try Google Translate if available
     if google_key:
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
                 url = f"https://translation.googleapis.com/language/translate/v2"
                 params = {
                     'key': google_key,
@@ -522,7 +543,7 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
                 if result.get('data', {}).get('translations'):
                     return {
                         'translation': result['data']['translations'][0]['translatedText'],
-                        'source': 'google'
+                        'source': TRANSLATION_SOURCE_GOOGLE
                     }
         except httpx.HTTPStatusError as e:
             logger.warning(f"Google Translate API error {e.response.status_code} for '{text}'")
@@ -533,7 +554,7 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
 
     # Fallback to free MyMemory API
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
             url = f"https://api.mymemory.translated.net/get?q={text}&langpair=zh|en"
             response = await _call_translation_api(client, url, method='GET')
             result = response.json()
@@ -541,7 +562,7 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
             if result.get('responseStatus') == 200:
                 return {
                     'translation': result['responseData']['translatedText'],
-                    'source': 'mymemory'
+                    'source': TRANSLATION_SOURCE_MYMEMORY
                 }
     except httpx.HTTPStatusError as e:
         logger.warning(f"MyMemory API error {e.response.status_code} for '{text}'")
@@ -553,7 +574,7 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
     return None
 
 @app.post("/api/analyze")
-@limiter.limit("30/minute")
+@limiter.limit(ANALYZE_RATE_LIMIT)
 async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
     """Analyze Chinese text and return HSK information"""
     if not hsk_vocab:
@@ -585,7 +606,7 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
             word_info.meanings = vocab_entry['meanings']
             word_info.frequency = vocab_entry['frequency']
             word_info.is_hsk = True
-            word_info.translation_source = 'hsk'  # Mark as HSK vocabulary
+            word_info.translation_source = TRANSLATION_SOURCE_HSK  # Mark as HSK vocabulary
             
             level_num = vocab_entry['level'].replace('new-', '').replace('old-', '').replace('+', '')
             try:
@@ -657,23 +678,32 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
     }
 
 def estimate_text_level(hsk_stats: Dict, total_hsk_words: int) -> str:
-    """Estimate text difficulty based on HSK word distribution"""
+    """
+    Estimate text difficulty based on HSK word distribution
+
+    Args:
+        hsk_stats: Dictionary with HSK level counts
+        total_hsk_words: Total number of HSK words in text
+
+    Returns:
+        Estimated HSK level as string (e.g., "HSK 3" or "HSK 9+")
+    """
     if total_hsk_words == 0:
         return "Unknown"
-    
+
     # Calculate cumulative percentage approach
-    # Text level = highest level where you'd understand 80%+ of words
+    # Text level = highest level where you'd understand TEXT_LEVEL_THRESHOLD% of words
     cumulative_words = 0
-    
+
     for level in range(1, 10):
         cumulative_words += hsk_stats.get(f'hsk{level}', 0)
         percentage = (cumulative_words / total_hsk_words) * 100
-        
-        # If you know up to this level and understand 80%+ of words, this is the text level
-        if percentage >= 80:
+
+        # If you know up to this level and understand TEXT_LEVEL_THRESHOLD% of words
+        if percentage >= TEXT_LEVEL_THRESHOLD:
             return f"HSK {level}"
-    
-    # If even HSK 9 doesn't cover 80%, it's beyond HSK
+
+    # If even HSK 9 doesn't cover TEXT_LEVEL_THRESHOLD%, it's beyond HSK
     return "HSK 9+"
 
 @app.get("/api/vocabulary-stats")
@@ -740,7 +770,7 @@ def cached_translation(text: str, target_lang: str) -> Optional[str]:
     return None
 
 @app.post("/api/translate")
-@limiter.limit("20/minute")
+@limiter.limit(TRANSLATE_RATE_LIMIT)
 async def translate_text(request: Request, data: TranslationRequest) -> Dict:
     """Translate Chinese text to target language"""
     text = data.text.strip()
@@ -754,13 +784,13 @@ async def translate_text(request: Request, data: TranslationRequest) -> Dict:
         if isinstance(cached_result, str):
             return {
                 "translation": cached_result,
-                "source": "cache",
+                "source": TRANSLATION_SOURCE_CACHE,
                 "cached": True
             }
         else:
             return {
                 "translation": cached_result.get('translation', cached_result),
-                "source": cached_result.get('source', 'cache'),
+                "source": cached_result.get('source', TRANSLATION_SOURCE_CACHE),
                 "cached": True
             }
     
@@ -880,7 +910,7 @@ def get_word_info(word: str) -> Optional[Dict]:
 # ==================== AUTH ENDPOINTS ====================
 
 @app.post("/api/auth/login")
-@limiter.limit("5/minute")  # Prevent brute force attacks
+@limiter.limit(AUTH_RATE_LIMIT)  # Prevent brute force attacks
 async def login(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
     """Login endpoint"""
     user = db.query(User).filter(User.username == data.username).first()
@@ -938,10 +968,11 @@ async def change_password(
         )
     
     # Validate new password
-    if len(data.new_password) < 8:
+    from app.core.constants import MIN_PASSWORD_LENGTH
+    if len(data.new_password) < MIN_PASSWORD_LENGTH:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 8 characters"
+            detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters"
         )
     
     user.password_hash = get_password_hash(data.new_password)
@@ -1030,11 +1061,12 @@ async def reset_user_password(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    from app.core.constants import MIN_PASSWORD_LENGTH
     new_password = data.get("new_password")
-    if not new_password or len(new_password) < 8:
+    if not new_password or len(new_password) < MIN_PASSWORD_LENGTH:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 8 characters"
+            detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters"
         )
     
     user.password_hash = get_password_hash(new_password)
