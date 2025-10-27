@@ -74,6 +74,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="轻读 QingDu - Chinese Text Analyzer")
+
+# CORS Configuration
+from fastapi.middleware.cors import CORSMiddleware
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[origin.strip() for origin in allowed_origins],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Rate limiting
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -130,12 +142,37 @@ class ChangePasswordRequest(BaseModel):
     old_password: str
     new_password: str
 
+def validate_environment():
+    """
+    Validate required environment variables at startup
+    Raises ValueError if any required variables are missing
+    """
+    required_vars = ["SECRET_KEY"]
+    missing = [var for var in required_vars if not os.getenv(var)]
+
+    if missing:
+        raise ValueError(
+            f"Missing required environment variables: {', '.join(missing)}\n"
+            f"Please check your .env file or environment configuration."
+        )
+
+    # Log configuration (without sensitive data)
+    logger.info("Environment validation passed")
+    logger.info(f"LOG_LEVEL: {os.getenv('LOG_LEVEL', 'INFO')}")
+    logger.info(f"PORT: {os.getenv('PORT', '8000')}")
+    logger.info(f"ALLOWED_ORIGINS: {os.getenv('ALLOWED_ORIGINS', '*')}")
+    logger.info(f"DEEPL_API_KEY configured: {bool(os.getenv('DEEPL_API_KEY'))}")
+    logger.info(f"GOOGLE_TRANSLATE_API_KEY configured: {bool(os.getenv('GOOGLE_TRANSLATE_API_KEY'))}")
+
 @app.on_event("startup")
 async def startup_event():
     """Load HSK vocabulary on startup"""
+    # Validate environment first
+    validate_environment()
+
     global hsk_vocab
     vocab_file = DATA_DIR / "hsk_vocabulary.json"
-    
+
     if vocab_file.exists():
         # print("Loading HSK vocabulary from cache...")
         with open(vocab_file, 'r', encoding='utf-8') as f:
