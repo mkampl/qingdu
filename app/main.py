@@ -822,7 +822,8 @@ def get_word_info(word: str) -> Optional[Dict]:
 # ==================== AUTH ENDPOINTS ====================
 
 @app.post("/api/auth/login")
-async def login(data: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")  # Prevent brute force attacks
+async def login(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
     """Login endpoint"""
     user = db.query(User).filter(User.username == data.username).first()
     

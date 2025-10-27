@@ -9,7 +9,12 @@ from app.database import get_db, User
 import os
 
 # Security
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError(
+        "SECRET_KEY environment variable must be set! "
+        "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+    )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 30
 
