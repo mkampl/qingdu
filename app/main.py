@@ -21,8 +21,8 @@ from sqlalchemy.orm import Session
 from fastapi import Depends
 from functools import lru_cache
 from app.auth import (
-    get_password_hash, 
-    verify_password, 
+    get_password_hash,
+    verify_password,
     create_access_token,
     get_current_user,
     require_auth,
@@ -34,9 +34,17 @@ import genanki
 from gtts import gTTS
 import tempfile
 import shutil
+import logging
 
 # Load environment variables
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="轻读 QingDu - Chinese Text Analyzer")
 # Rate limiting
@@ -172,17 +180,17 @@ async def startup_event():
             )
             db.add(admin)
             db.commit()
-            print("✓ Initial admin user created: admin / admin123 (CHANGE PASSWORD!)")
+            logger.warning("Initial admin user created: admin / admin123 (CHANGE PASSWORD!)")
         else:
-            print(f"✓ Found {user_count} existing user(s)")
-    
+            logger.info(f"Found {user_count} existing user(s)")
+
     except Exception as e:
-        print(f"Error setting up users: {e}")
+        logger.error(f"Error setting up users: {e}", exc_info=True)
         db.rollback()
     finally:
         db.close()
-    
-    print("Startup complete!\n")
+
+    logger.info("Startup complete")
 
 async def download_hsk_vocabulary():
     """Download and process HSK vocabulary from GitHub"""
@@ -451,7 +459,7 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
                         'source': 'deepl'
                     }
         except Exception as e:
-            print(f"DeepL API failed for '{text}': {e}")
+            logger.debug(f"DeepL API failed for '{text}': {e}")
     
     # Try Google Translate if available
     if google_key:
@@ -474,7 +482,7 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
                         'source': 'google'
                     }
         except Exception as e:
-            print(f"Google Translate API failed for '{text}': {e}")
+            logger.debug(f"Google Translate API failed for '{text}': {e}")
     
     # Fallback to free MyMemory API
     try:
@@ -490,7 +498,7 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
                     'source': 'mymemory'
                 }
     except Exception as e:
-        print(f"MyMemory API failed for '{text}': {e}")
+        logger.debug(f"MyMemory API failed for '{text}': {e}")
     
     return None
 
@@ -1241,10 +1249,10 @@ async def export_vocabulary_list_anki(
                         except Exception as tts_error:
                             error_msg = str(tts_error)
                             if '429' in error_msg or 'Too Many Requests' in error_msg:
-                                print(f"⚠️ Rate limit hit at word '{hanzi}'")
+                                logger.warning(f"Rate limit hit at word '{hanzi}'")
                                 rate_limited = True
                             else:
-                                print(f"TTS failed for '{hanzi}': {tts_error}")
+                                logger.debug(f"TTS failed for '{hanzi}': {tts_error}")
                                 consecutive_failures += 1
                             
                             audio_failed += 1
@@ -1256,7 +1264,7 @@ async def export_vocabulary_list_anki(
                 except Exception as e:
                     audio_failed += 1
                     failed_words.append(hanzi)
-                    print(f"Audio processing failed for '{hanzi}': {e}")
+                    logger.debug(f"Audio processing failed for '{hanzi}': {e}")
                 
                 # Create note
                 note = genanki.Note(
@@ -1288,11 +1296,11 @@ async def export_vocabulary_list_anki(
         
         # Cleanup temp directory
         shutil.rmtree(temp_dir)
-        
+
         # Log results
-        print(f"Export complete: {words_processed} words, {audio_cached} cached, {audio_generated} generated, {audio_failed} failed")
+        logger.info(f"Export complete: {words_processed} words, {audio_cached} cached, {audio_generated} generated, {audio_failed} failed")
         if rate_limited:
-            print(f"⚠️ Rate limit reached. {audio_failed} cards created without audio.")
+            logger.warning(f"Rate limit reached. {audio_failed} cards created without audio.")
         
         # Return file
         from fastapi.responses import Response
@@ -1310,7 +1318,7 @@ async def export_vocabulary_list_anki(
         # Cleanup on error
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
-        print(f"Export error: {e}")
+        logger.error(f"Export error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
      
 @app.get("/api/vocabulary-lists/{list_id}/export")
