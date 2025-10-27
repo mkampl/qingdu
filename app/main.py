@@ -37,6 +37,7 @@ import shutil
 import logging
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from cachetools import TTLCache
+from uuid import uuid4
 from app.core.constants import (
     ANALYZE_RATE_LIMIT,
     TRANSLATE_RATE_LIMIT,
@@ -85,6 +86,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request ID Middleware for tracking requests
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    """
+    Add unique request ID to each request for debugging and tracking
+    The request ID is:
+    - Stored in request.state for access in endpoints
+    - Added to response headers as X-Request-ID
+    - Can be logged with each operation for tracing
+    """
+    request_id = str(uuid4())
+    request.state.request_id = request_id
+
+    try:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+    except Exception as e:
+        logger.error(f"Request {request_id} failed: {e}", exc_info=True)
+        raise
 
 # Rate limiting
 limiter = Limiter(key_func=get_remote_address)
