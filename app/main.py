@@ -36,6 +36,7 @@ import tempfile
 import shutil
 import logging
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from cachetools import TTLCache
 
 # Load environment variables
 load_dotenv()
@@ -70,8 +71,13 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # Global vocabulary storage
 hsk_vocab = {}
-translation_cache = {}
-unknown_word_cache = {}  # Cache for online lookups
+
+# TTL Caches with size limits
+# Translation cache: 5000 entries, 1 hour TTL
+translation_cache = TTLCache(maxsize=5000, ttl=3600)
+
+# Unknown word cache: 2000 entries, 30 minutes TTL
+unknown_word_cache = TTLCache(maxsize=2000, ttl=1800)
 
 class TextAnalysisRequest(BaseModel):
     text: str
