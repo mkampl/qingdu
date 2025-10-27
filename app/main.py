@@ -196,27 +196,28 @@ async def startup_event():
     vocab_file = DATA_DIR / "hsk_vocabulary.json"
 
     if vocab_file.exists():
-        # print("Loading HSK vocabulary from cache...")
-        with open(vocab_file, 'r', encoding='utf-8') as f:
-            hsk_vocab = json.load(f)
-        # print(f"Loaded {len(hsk_vocab)} HSK words from cache")
+        logger.info("Loading HSK vocabulary from cache...")
+        try:
+            with open(vocab_file, 'r', encoding='utf-8') as f:
+                hsk_vocab = json.load(f)
+            logger.info(f"Loaded {len(hsk_vocab)} HSK words from cache")
+        except Exception as e:
+            logger.error(f"Failed to load vocabulary from cache: {e}", exc_info=True)
+            logger.info("Attempting to download vocabulary from GitHub...")
+            await download_hsk_vocabulary()
     else:
-        # print("Downloading HSK vocabulary from GitHub...")
-        await download_hsk_vocabulary()
-    
-    # Check for common words and report if missing
-    # common_words = ['第一天', '很多', '一个', '这个', '那个', '喝茶', '成都', '一位', '一种']
-    # print("\nChecking common words in HSK database:")
-    # for word in common_words:
-    #     if word in hsk_vocab:
-    #         print(f"  ✓ '{word}' found: {hsk_vocab[word]['meaning']}")
-    #     else:
-    #         print(f"  ✗ '{word}' MISSING from HSK database")
-    
-    # print("\nInitializing jieba tokenizer...")
+        logger.info("Vocabulary cache not found, downloading from GitHub...")
+        try:
+            await download_hsk_vocabulary()
+        except Exception as e:
+            logger.error(f"Failed to download vocabulary: {e}", exc_info=True)
+            logger.warning("Application will start without vocabulary - some features may not work")
+            # Don't crash the app, just log the error
+
+    logger.info("Initializing jieba tokenizer...")
     jieba.initialize()
-    
-    # print("Adding HSK words to jieba dictionary with high frequency...")
+
+    logger.info("Adding HSK words to jieba dictionary with high frequency...")
     multi_char_count = 0
     
     # Common multi-character words that must be recognized as units
@@ -238,19 +239,12 @@ async def startup_event():
             jieba.add_word(word, freq=freq)
             multi_char_count += 1
     
-    # Force add priority words even if not in HSK with max frequency
-    # for word in priority_words:
-    #     if word not in hsk_vocab:
-    #         jieba.add_word(word, freq=1000000)
-    #         print(f"Force added priority word to jieba: {word}")
-
-    # print(f"Added {multi_char_count} multi-character HSK words with priority to jieba")
+    logger.info(f"Added {multi_char_count} multi-character HSK words with priority to jieba")
 
     # Initialize database
+    logger.info("Initializing database...")
     init_db()
-    # print("Database initialized")
-
-    # print("Startup complete!\n")
+    logger.info("Database initialized")
 
     # Create initial admin user if no users exist
     from app.database import SessionLocal
