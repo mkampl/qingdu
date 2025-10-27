@@ -15,10 +15,14 @@ services:
       - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
-      - LOG_LEVEL=info
-      # Load API keys from .env file (optional)
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Security - REQUIRED
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in .env file}
+      # Translation API keys (optional)
       - DEEPL_API_KEY=${DEEPL_API_KEY:-}
       - GOOGLE_TRANSLATE_API_KEY=${GOOGLE_TRANSLATE_API_KEY:-}
+      # CORS Configuration
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
       - WORKERS=2
       - RELOAD=false
     env_file:
