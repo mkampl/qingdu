@@ -1359,13 +1359,23 @@ async def add_section_to_list(
     db: Session = Depends(get_db)
 ):
     """Add new section to vocabulary list"""
+    # Debug logging
+    logger.info(f"Adding section to list {list_id} for user {user.id}")
+
     vocab_list = db.query(VocabularyList).filter(
         VocabularyList.id == list_id,
         VocabularyList.user_id == user.id
     ).first()
 
     if not vocab_list:
-        raise HTTPException(status_code=404, detail="List not found")
+        # Check if list exists at all
+        any_list = db.query(VocabularyList).filter(VocabularyList.id == list_id).first()
+        if any_list:
+            logger.warning(f"List {list_id} exists but belongs to user {any_list.user_id}, not {user.id}")
+            raise HTTPException(status_code=404, detail="List not found or access denied")
+        else:
+            logger.warning(f"List {list_id} does not exist in database")
+            raise HTTPException(status_code=404, detail=f"List with ID {list_id} not found")
 
     sections = json.loads(vocab_list.sections) if vocab_list.sections else []
     section_name = section_data.get('name', '').strip()
