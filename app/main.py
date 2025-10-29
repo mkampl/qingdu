@@ -74,7 +74,37 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="轻读 QingDu - Chinese Text Analyzer")
+app = FastAPI(
+    title="轻读 QingDu - Chinese Text Analyzer",
+    description="""
+    A modern Chinese language learning tool that analyzes text difficulty based on HSK vocabulary levels.
+
+    ## Features
+
+    * **Text Analysis**: Analyze Chinese text and get HSK level information for each word
+    * **Translation**: Multi-provider translation with DeepL, Google, and MyMemory
+    * **Text Management**: Save and organize analyzed texts with tags
+    * **Vocabulary Lists**: Create custom vocabulary lists and export to Anki
+    * **User Management**: Multi-user support with role-based access
+
+    ## Authentication
+
+    Most endpoints require authentication using JWT tokens. Include the token in the `Authorization` header:
+    ```
+    Authorization: Bearer <your-token>
+    ```
+
+    Get a token by calling `/api/auth/login` with your credentials.
+    """,
+    version="1.0.0",
+    contact={
+        "name": "QingDu Support",
+        "url": "https://github.com/mkampl/qingdu",
+    },
+    license_info={
+        "name": "MIT",
+    },
+)
 
 # CORS Configuration
 from fastapi.middleware.cors import CORSMiddleware
@@ -626,7 +656,43 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
 
     return None
 
-@app.post("/api/analyze")
+@app.post("/api/analyze",
+    summary="Analyze Chinese text",
+    description="Analyzes Chinese text and returns HSK level information for each word, including pinyin, meaning, and statistics.",
+    response_description="Analysis results with word-by-word breakdown and statistics",
+    responses={
+        200: {
+            "description": "Successful analysis",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "words": [
+                            {
+                                "text": "你好",
+                                "hsk_level": "new-1",
+                                "pinyin": "nǐ hǎo",
+                                "meaning": "hello",
+                                "is_hsk": True,
+                                "translation_source": "hsk"
+                            }
+                        ],
+                        "statistics": {
+                            "total_characters": 2,
+                            "total_words": 1,
+                            "hsk_words": 1,
+                            "hsk_distribution": {"hsk1": 1},
+                            "estimated_level": "HSK 1"
+                        }
+                    }
+                }
+            }
+        },
+        503: {"description": "Vocabulary not loaded yet"},
+        400: {"description": "Empty text provided"},
+        429: {"description": "Rate limit exceeded (30 requests/minute)"}
+    },
+    tags=["Analysis"]
+)
 @limiter.limit(ANALYZE_RATE_LIMIT)
 async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
     """Analyze Chinese text and return HSK information"""
@@ -784,7 +850,12 @@ async def get_hsk_vocabulary():
     
     return hsk_vocab
 
-@app.get("/health")
+@app.get("/health",
+    summary="Health check",
+    description="Check if the application is running and vocabulary is loaded",
+    response_description="Health status",
+    tags=["System"]
+)
 async def health_check():
     """Health check endpoint"""
     return {
@@ -965,7 +1036,32 @@ def get_word_info(word: str) -> Optional[Dict]:
 
 # ==================== AUTH ENDPOINTS ====================
 
-@app.post("/api/auth/login")
+@app.post("/api/auth/login",
+    summary="User login",
+    description="Authenticate user and receive JWT access token. Default credentials: admin/admin123 (must be changed on first login).",
+    response_description="JWT token and user information",
+    responses={
+        200: {
+            "description": "Successful login",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                        "token_type": "bearer",
+                        "user": {
+                            "username": "admin",
+                            "is_admin": True,
+                            "must_change_password": False
+                        }
+                    }
+                }
+            }
+        },
+        401: {"description": "Invalid username or password"},
+        429: {"description": "Rate limit exceeded (5 requests/minute)"}
+    },
+    tags=["Authentication"]
+)
 @limiter.limit(AUTH_RATE_LIMIT)  # Prevent brute force attacks
 async def login(request: Request, data: LoginRequest, db: Session = Depends(get_db)):
     """Login endpoint"""
