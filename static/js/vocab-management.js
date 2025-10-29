@@ -19,7 +19,6 @@ function closeCreateListModal() {
 }
 
 function openAddSectionModal(listId) {
-  console.log('openAddSectionModal called with listId:', listId, 'type:', typeof listId);
   currentListId = listId;
   document.getElementById('addSectionModal').classList.add('show');
   document.getElementById('newSectionName').focus();
@@ -156,8 +155,6 @@ async function renameList(listId, oldName) {
 async function addNewSection() {
   const name = document.getElementById('newSectionName').value.trim();
 
-  console.log('addNewSection called, currentListId:', currentListId, 'type:', typeof currentListId);
-
   if (!name) {
     alert('Please enter a section name');
     return;
@@ -169,23 +166,17 @@ async function addNewSection() {
   }
 
   try {
-    const url = `/api/vocabulary-lists/${currentListId}/sections`;
-    console.log('POSTing to:', url);
-
-    const response = await authFetch(url, {
+    const response = await authFetch(`/api/vocabulary-lists/${currentListId}/sections`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: name })
     });
-
-    console.log('Response status:', response.status);
 
     if (response.ok) {
       closeAddSectionModal();
       await viewVocabularyList(currentListId);
     } else {
       const error = await response.json();
-      console.error('Error response:', error);
       alert(`Error: ${error.detail || 'Failed to add section'}`);
     }
   } catch (error) {
