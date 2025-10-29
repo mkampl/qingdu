@@ -125,10 +125,14 @@ async function generateHSKList() {
 // View vocabulary list by ID
 async function viewVocabularyList(listId) {
   try {
+    console.log('viewVocabularyList called with listId:', listId, 'type:', typeof listId);
     const response = await authFetch('/api/vocabulary-lists');
     const lists = await response.json();
-    
+    console.log('Fetched lists:', lists.length, 'lists');
+    console.log('List IDs:', lists.map(l => ({id: l.id, name: l.name, sections: l.sections.length})));
+
     const list = lists.find(l => l.id === listId);
+    console.log('Found list:', list ? `${list.name} with ${list.sections.length} sections` : 'NOT FOUND');
     if (!list) {
       alert('List not found');
       return;

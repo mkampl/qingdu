@@ -173,10 +173,14 @@ async function addNewSection() {
     });
 
     if (response.ok) {
+      const result = await response.json();
+      console.log('Section added successfully:', result);
       closeAddSectionModal();
+      console.log('Now reloading list with ID:', currentListId);
       await viewVocabularyList(currentListId);
     } else {
       const error = await response.json();
+      console.error('Error adding section:', error);
       alert(`Error: ${error.detail || 'Failed to add section'}`);
     }
   } catch (error) {

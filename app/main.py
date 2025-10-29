@@ -1368,6 +1368,8 @@ async def add_section_to_list(
         raise HTTPException(status_code=404, detail="List not found")
 
     sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    logger.info(f"Before adding: list {list_id} has {len(sections)} sections: {[s['name'] for s in sections]}")
+
     section_name = section_data.get('name', '').strip()
 
     if not section_name:
@@ -1380,8 +1382,13 @@ async def add_section_to_list(
     sections.append({'name': section_name, 'words': []})
     vocab_list.sections = json.dumps(sections)
     db.commit()
+    db.refresh(vocab_list)
 
-    return {"message": "Section added", "name": section_name}
+    # Verify the section was saved
+    updated_sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    logger.info(f"After commit: list {list_id} has {len(updated_sections)} sections: {[s['name'] for s in updated_sections]}")
+
+    return {"message": "Section added", "name": section_name, "total_sections": len(updated_sections)}
 
 @app.put("/api/vocabulary-lists/{list_id}/sections")
 async def rename_section(
