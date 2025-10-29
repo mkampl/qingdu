@@ -17,7 +17,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from app.database import init_db, get_db, SavedText
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from fastapi import Depends
 from functools import lru_cache
 from app.auth import (
@@ -887,10 +887,13 @@ async def get_texts(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
-    """Get all saved texts for current user"""
-    texts = db.query(SavedText).filter(
-        SavedText.user_id == user.id
-    ).order_by(SavedText.created_at.desc()).all()
+    """Get all saved texts for current user with optimized query"""
+    # Use eager loading to avoid N+1 query problem
+    texts = db.query(SavedText)\
+        .options(joinedload(SavedText.user))\
+        .filter(SavedText.user_id == user.id)\
+        .order_by(SavedText.created_at.desc())\
+        .all()
     
     return [{
         "id": text.id,
