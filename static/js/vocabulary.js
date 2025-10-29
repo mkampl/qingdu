@@ -3,58 +3,61 @@
 // Load vocabulary lists from storage
 async function loadVocabularyLists() {
   const vocabDiv = document.getElementById('vocabularyLists');
-  
+
   if (!window.AuthState?.user) {
     vocabDiv.innerHTML = '<div style="padding:10px;color:#999;font-size:14px">🔒 Login to access</div>';
     return;
   }
-  
+
   try {
     const response = await authFetch('/api/vocabulary-lists');
-    
+
     if (!response.ok) throw new Error('Failed to load lists');
-    
+
     const lists = await response.json();
     vocabDiv.innerHTML = '';
-    
+
+    // Add "New List" button at the top
+    const newListBtn = document.createElement('button');
+    newListBtn.className = 'add-btn';
+    newListBtn.style.cssText = 'width: 100%; margin-bottom: 10px;';
+    newListBtn.innerHTML = '+ New List';
+    newListBtn.onclick = openCreateListModal;
+    vocabDiv.appendChild(newListBtn);
+
     // Check if HSK list exists
     const hskExists = lists.some(list => list.type === 'hsk' || list.list_type === 'hsk');
-    
+
     if (!hskExists) {
       const btn = createGenerateHSKButton();
       vocabDiv.appendChild(btn);
     }
-    
-    if (lists.length === 0 && hskExists) {
+
+    if (lists.length === 0) {
       const empty = document.createElement('div');
       empty.style.cssText = 'padding:10px;color:#999;font-size:14px';
       empty.textContent = 'No vocabulary lists yet';
       vocabDiv.appendChild(empty);
       return;
     }
-    
+
     lists.forEach((list) => {
       const wordCount = list.sections.reduce((sum, section) => sum + section.words.length, 0);
       const item = document.createElement('div');
       item.className = 'sidebar-item';
-      
+
       const icon = list.type === 'hsk' ? '📚' : '📝';
       item.innerHTML = `
         <span class="sidebar-item-icon">${icon}</span>
         <span class="sidebar-item-text">${list.name} (${wordCount} words)</span>
-        <button class="sidebar-item-delete" title="Delete list">🗑️</button>
+        <button class="icon-btn edit" title="Rename list" onclick="event.stopPropagation(); renameList(${list.id}, '${list.name.replace(/'/g, "\\'")}')">✏️</button>
+        <button class="icon-btn delete" title="Delete list" onclick="event.stopPropagation(); deleteVocabularyList(${list.id}, '${list.name.replace(/'/g, "\\'")}')">🗑️</button>
       `;
-      
+
       item.querySelector('.sidebar-item-text').addEventListener('click', () => {
         viewVocabularyList(list.id);
       });
-      
-      // Delete button handler
-      item.querySelector('.sidebar-item-delete').addEventListener('click', (e) => {
-        e.stopPropagation();
-        deleteVocabularyList(list.id, list.name);
-      });
-      
+
       vocabDiv.appendChild(item);
     });
   } catch (error) {
@@ -143,22 +146,23 @@ async function viewVocabularyList(listId) {
       .join('');
     
       document.getElementById('listViewContent').innerHTML = `
-        <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
-          <input 
-            type="text" 
-            id="vocabSearch" 
+        <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <input
+            type="text"
+            id="vocabSearch"
             placeholder="Search words (hanzi, pinyin, or meaning)..."
-            style="flex: 1; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;"
+            style="flex: 1; min-width: 200px; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;"
           />
-          <button class="btn btn-secondary" onclick="exportVocabularyList(${listId}, '${list.name}')">
+          <button class="add-btn" onclick="openAddSectionModal(${listId})">+ Add Section</button>
+          <button class="btn btn-secondary" onclick="exportVocabularyList(${listId}, '${list.name.replace(/'/g, "\\'")}')">
             📄 CSV
           </button>
-          <button class="btn" onclick="exportVocabularyListAnki(${listId}, '${list.name}')">
+          <button class="btn" onclick="exportVocabularyListAnki(${listId}, '${list.name.replace(/'/g, "\\'")}')">
             📥 Anki (.apkg)
           </button>
         </div>
         <div id="vocabTableContainer">
-          ${content || '<p>No words in this list yet.</p>'}
+          ${content || '<p>No words in this list yet. Click "Add Section" to get started.</p>'}
         </div>
       `;
     
@@ -216,39 +220,53 @@ function filterVocabWords(searchTerm) {
   container.innerHTML = content;
 }
 
-// Create section HTML
+// Create section HTML with management buttons
 function createSectionHTML(section) {
-  const wordsTable = section.words
+  // Get current list ID from the window.currentVocabList
+  const listId = window.currentVocabList?.id;
+
+  const wordsHTML = section.words
     .map(word => `
-      <tr>
-        <td class="hanzi">${word.hanzi}</td>
-        <td>${word.pinyin}</td>
-        <td>${word.meaning}</td>
-        <td>${word.level.replace('new-', 'HSK ').replace('+', '+')}</td>
-      </tr>
+      <div class="word-item">
+        <div class="word-info">
+          <div class="word-hanzi">${word.hanzi}</div>
+          <div class="word-pinyin">${word.pinyin}</div>
+          <div class="word-meaning">${word.meaning}</div>
+          <div class="word-level">${word.level.replace('new-', 'HSK ').replace('+', '+')}</div>
+        </div>
+        <div class="word-actions">
+          <button class="icon-btn edit" title="Edit word"
+                  onclick="openWordModal('edit', ${listId}, '${section.name.replace(/'/g, "\\'")}', {
+                    hanzi: '${word.hanzi.replace(/'/g, "\\'")}',
+                    pinyin: '${word.pinyin.replace(/'/g, "\\'")}',
+                    meaning: '${word.meaning.replace(/'/g, "\\'")}',
+                    level: '${word.level}'
+                  })">✏️</button>
+          <button class="icon-btn delete" title="Delete word"
+                  onclick="deleteWord(${listId}, '${section.name.replace(/'/g, "\\'")}', '${word.hanzi.replace(/'/g, "\\'")}')">🗑️</button>
+        </div>
+      </div>
     `)
     .join('');
-  
+
   return `
     <div class="section-container">
       <div class="section-header" onclick="toggleSection(this)">
         <span><strong>${section.name}</strong> (${section.words.length} words)</span>
-        <span>▼</span>
+        <div style="display: inline-flex; gap: 4px;">
+          <button class="icon-btn edit" title="Rename section"
+                  onclick="event.stopPropagation(); renameSection(${listId}, '${section.name.replace(/'/g, "\\'")}')">✏️</button>
+          <button class="icon-btn delete" title="Delete section"
+                  onclick="event.stopPropagation(); deleteSection(${listId}, '${section.name.replace(/'/g, "\\'")}')">🗑️</button>
+          <span style="margin-left: 8px;">▼</span>
+        </div>
       </div>
       <div class="section-content">
-        <table class="word-table">
-          <thead>
-            <tr>
-              <th>Hanzi</th>
-              <th>Pinyin</th>
-              <th>Meaning</th>
-              <th>Level</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${wordsTable}
-          </tbody>
-        </table>
+        <button class="add-btn secondary" style="margin: 12px 0;"
+                onclick="openWordModal('add', ${listId}, '${section.name.replace(/'/g, "\\'")}')">+ Add Word</button>
+        <div>
+          ${wordsHTML}
+        </div>
       </div>
     </div>
   `;

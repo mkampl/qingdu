@@ -203,11 +203,93 @@
         </div>
     </div>
 
+    <!-- Vocabulary Management Modals -->
+    <div id="createListModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Create New List</h3>
+                <button class="modal-close" onclick="closeCreateListModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="newListName">List Name</label>
+                    <input type="text" id="newListName" placeholder="Enter list name" autofocus>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeCreateListModal()">Cancel</button>
+                <button class="btn-primary" onclick="createNewList()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="addSectionModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Add Section</h3>
+                <button class="modal-close" onclick="closeAddSectionModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="newSectionName">Section Name</label>
+                    <input type="text" id="newSectionName" placeholder="Enter section name" autofocus>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeAddSectionModal()">Cancel</button>
+                <button class="btn-primary" onclick="addNewSection()">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="wordModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="wordModalTitle">Add Word</h3>
+                <button class="modal-close" onclick="closeWordModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="wordHanzi">Hanzi (Chinese Characters)</label>
+                    <input type="text" id="wordHanzi" placeholder="你好" autofocus>
+                </div>
+                <div class="form-group">
+                    <label for="wordPinyin">Pinyin</label>
+                    <input type="text" id="wordPinyin" placeholder="nǐ hǎo">
+                </div>
+                <div class="form-group">
+                    <label for="wordMeaning">Meaning</label>
+                    <input type="text" id="wordMeaning" placeholder="hello">
+                </div>
+                <div class="form-group">
+                    <label for="wordLevel">HSK Level</label>
+                    <select id="wordLevel">
+                        <option value="new-1">HSK 1</option>
+                        <option value="new-2">HSK 2</option>
+                        <option value="new-3">HSK 3</option>
+                        <option value="new-4">HSK 4</option>
+                        <option value="new-5">HSK 5</option>
+                        <option value="new-6">HSK 6</option>
+                        <option value="new-7">HSK 7</option>
+                        <option value="new-7+">HSK 7+</option>
+                        <option value="new-8">HSK 8</option>
+                        <option value="new-9">HSK 9</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeWordModal()">Cancel</button>
+                <button class="btn-primary" onclick="saveWord()">Save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- JavaScript -->
     <script src="/static/js/utils.js"></script>
     <script src="/static/js/auth.js"></script>
     <script src="/static/js/api.js"></script>
     <script src="/static/js/vocabulary.js"></script>
+    <script src="/static/js/vocab-management.js"></script>
     <script src="/static/js/display.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
