@@ -1348,8 +1348,190 @@ async def add_word_to_list(
     section['words'].append(word)
     vocab_list.sections = json.dumps(sections)
     db.commit()
-    
+
     return {"message": "Word added"}
+
+@app.post("/api/vocabulary-lists/{list_id}/sections")
+async def add_section_to_list(
+    list_id: int,
+    section_data: dict,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Add new section to vocabulary list"""
+    vocab_list = db.query(VocabularyList).filter(
+        VocabularyList.id == list_id,
+        VocabularyList.user_id == user.id
+    ).first()
+
+    if not vocab_list:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    section_name = section_data.get('name', '').strip()
+
+    if not section_name:
+        raise HTTPException(status_code=400, detail="Section name required")
+
+    # Check if section already exists
+    if any(s['name'] == section_name for s in sections):
+        raise HTTPException(status_code=400, detail="Section already exists")
+
+    sections.append({'name': section_name, 'words': []})
+    vocab_list.sections = json.dumps(sections)
+    db.commit()
+
+    return {"message": "Section added", "name": section_name}
+
+@app.put("/api/vocabulary-lists/{list_id}/sections")
+async def rename_section(
+    list_id: int,
+    section_data: dict,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Rename section in vocabulary list"""
+    vocab_list = db.query(VocabularyList).filter(
+        VocabularyList.id == list_id,
+        VocabularyList.user_id == user.id
+    ).first()
+
+    if not vocab_list:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    old_name = section_data.get('old_name')
+    new_name = section_data.get('new_name', '').strip()
+
+    if not old_name or not new_name:
+        raise HTTPException(status_code=400, detail="Both old_name and new_name required")
+
+    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    section = next((s for s in sections if s['name'] == old_name), None)
+
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+
+    # Check if new name already exists
+    if any(s['name'] == new_name for s in sections if s['name'] != old_name):
+        raise HTTPException(status_code=400, detail="Section name already exists")
+
+    section['name'] = new_name
+    vocab_list.sections = json.dumps(sections)
+    db.commit()
+
+    return {"message": "Section renamed"}
+
+@app.delete("/api/vocabulary-lists/{list_id}/sections/{section_name}")
+async def delete_section(
+    list_id: int,
+    section_name: str,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Delete section from vocabulary list"""
+    vocab_list = db.query(VocabularyList).filter(
+        VocabularyList.id == list_id,
+        VocabularyList.user_id == user.id
+    ).first()
+
+    if not vocab_list:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    section = next((s for s in sections if s['name'] == section_name), None)
+
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+
+    sections = [s for s in sections if s['name'] != section_name]
+    vocab_list.sections = json.dumps(sections)
+    db.commit()
+
+    return {"message": "Section deleted", "word_count": len(section.get('words', []))}
+
+@app.put("/api/vocabulary-lists/{list_id}/words")
+async def update_word_in_list(
+    list_id: int,
+    word_data: dict,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Update word in vocabulary list"""
+    vocab_list = db.query(VocabularyList).filter(
+        VocabularyList.id == list_id,
+        VocabularyList.user_id == user.id
+    ).first()
+
+    if not vocab_list:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    section_name = word_data.get('section_name')
+    old_hanzi = word_data.get('old_hanzi')
+    new_word = word_data.get('word')  # {hanzi, pinyin, meaning, level}
+
+    if not section_name or not old_hanzi or not new_word:
+        raise HTTPException(status_code=400, detail="section_name, old_hanzi, and word required")
+
+    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    section = next((s for s in sections if s['name'] == section_name), None)
+
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+
+    word = next((w for w in section['words'] if w['hanzi'] == old_hanzi), None)
+
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+
+    # Update word
+    word['hanzi'] = new_word.get('hanzi', word['hanzi'])
+    word['pinyin'] = new_word.get('pinyin', word['pinyin'])
+    word['meaning'] = new_word.get('meaning', word['meaning'])
+    word['level'] = new_word.get('level', word['level'])
+
+    vocab_list.sections = json.dumps(sections)
+    db.commit()
+
+    return {"message": "Word updated"}
+
+@app.delete("/api/vocabulary-lists/{list_id}/words")
+async def delete_word_from_list(
+    list_id: int,
+    word_data: dict,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Delete word from vocabulary list"""
+    vocab_list = db.query(VocabularyList).filter(
+        VocabularyList.id == list_id,
+        VocabularyList.user_id == user.id
+    ).first()
+
+    if not vocab_list:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    section_name = word_data.get('section_name')
+    hanzi = word_data.get('hanzi')
+
+    if not section_name or not hanzi:
+        raise HTTPException(status_code=400, detail="section_name and hanzi required")
+
+    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    section = next((s for s in sections if s['name'] == section_name), None)
+
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+
+    original_count = len(section['words'])
+    section['words'] = [w for w in section['words'] if w['hanzi'] != hanzi]
+
+    if len(section['words']) == original_count:
+        raise HTTPException(status_code=404, detail="Word not found")
+
+    vocab_list.sections = json.dumps(sections)
+    db.commit()
+
+    return {"message": "Word deleted"}
 
 @app.get("/api/vocabulary-lists/{list_id}/export-anki")
 async def export_vocabulary_list_anki(
