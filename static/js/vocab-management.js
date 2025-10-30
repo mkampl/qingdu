@@ -165,8 +165,11 @@ async function addNewSection() {
     return;
   }
 
+  // Save listId before closing modal (which sets currentListId to null)
+  const listId = currentListId;
+
   try {
-    const response = await authFetch(`/api/vocabulary-lists/${currentListId}/sections`, {
+    const response = await authFetch(`/api/vocabulary-lists/${listId}/sections`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: name })
@@ -176,8 +179,8 @@ async function addNewSection() {
       const result = await response.json();
       console.log('Section added successfully:', result);
       closeAddSectionModal();
-      console.log('Now reloading list with ID:', currentListId);
-      await viewVocabularyList(currentListId);
+      console.log('Now reloading list with ID:', listId);
+      await viewVocabularyList(listId);
     } else {
       const error = await response.json();
       console.error('Error adding section:', error);
@@ -261,6 +264,8 @@ async function saveWord() {
     return;
   }
 
+  // Save values before closing modal (which sets them to null)
+  const listId = currentListId;
   const word = { hanzi, pinyin, meaning, level };
 
   try {
@@ -268,7 +273,7 @@ async function saveWord() {
 
     if (wordModalMode === 'edit' && editingWord) {
       // Update existing word
-      response = await authFetch(`/api/vocabulary-lists/${currentListId}/words`, {
+      response = await authFetch(`/api/vocabulary-lists/${listId}/words`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -279,7 +284,7 @@ async function saveWord() {
       });
     } else {
       // Add new word
-      response = await authFetch(`/api/vocabulary-lists/${currentListId}/words`, {
+      response = await authFetch(`/api/vocabulary-lists/${listId}/words`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -294,7 +299,7 @@ async function saveWord() {
 
     if (response.ok) {
       closeWordModal();
-      await viewVocabularyList(currentListId);
+      await viewVocabularyList(listId);
     } else {
       const error = await response.json();
       alert(`Error: ${error.detail || 'Failed to save word'}`);
