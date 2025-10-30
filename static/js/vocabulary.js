@@ -142,13 +142,13 @@ async function viewVocabularyList(listId) {
     window.currentVocabList = list;
     
     document.getElementById('listViewTitle').textContent = list.name;
-    
+
     // Create structure with separate containers
-    const content = list.sections
-      .filter(section => section.words && section.words.length > 0)
-      .map(section => createSectionHTML(section))
-      .join('');
-    
+    // Show all sections, even empty ones (so users can add words)
+    const content = list.sections.length > 0
+      ? list.sections.map(section => createSectionHTML(section)).join('')
+      : '<p style="color: #999; padding: 20px;">No sections yet. Click "Add Section" to get started.</p>';
+
       document.getElementById('listViewContent').innerHTML = `
         <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
           <input
@@ -195,13 +195,12 @@ function filterVocabWords(searchTerm) {
   if (!container) return;
   
   if (!term) {
-    // Show all if search is empty
-    const content = sections
-      .filter(section => section.words && section.words.length > 0)
-      .map(section => createSectionHTML(section))
-      .join('');
-    
-    container.innerHTML = content || '<p>No words in this list yet.</p>';
+    // Show all sections if search is empty (including empty sections)
+    const content = sections.length > 0
+      ? sections.map(section => createSectionHTML(section)).join('')
+      : '<p>No sections in this list yet.</p>';
+
+    container.innerHTML = content;
     return;
   }
   
@@ -229,8 +228,8 @@ function createSectionHTML(section) {
   // Get current list ID from the window.currentVocabList
   const listId = window.currentVocabList?.id;
 
-  const wordsHTML = section.words
-    .map(word => `
+  const wordsHTML = section.words && section.words.length > 0
+    ? section.words.map(word => `
       <div class="word-item">
         <div class="word-info">
           <div class="word-hanzi">${word.hanzi}</div>
@@ -250,13 +249,13 @@ function createSectionHTML(section) {
                   onclick="deleteWord(${listId}, '${section.name.replace(/'/g, "\\'")}', '${word.hanzi.replace(/'/g, "\\'")}')">🗑️</button>
         </div>
       </div>
-    `)
-    .join('');
+    `).join('')
+    : '<p style="color: #999; padding: 12px; font-style: italic;">No words yet. Click "Add Word" to get started.</p>';
 
   return `
     <div class="section-container">
       <div class="section-header" onclick="toggleSection(this)">
-        <span><strong>${section.name}</strong> (${section.words.length} words)</span>
+        <span><strong>${section.name}</strong> (${section.words?.length || 0} words)</span>
         <div style="display: inline-flex; gap: 4px;">
           <button class="icon-btn edit" title="Rename section"
                   onclick="event.stopPropagation(); renameSection(${listId}, '${section.name.replace(/'/g, "\\'")}')">✏️</button>
