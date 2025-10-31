@@ -85,20 +85,28 @@ async function toggleAdmin(userId, username, isCurrentlyAdmin) {
 // Display users in table
 function displayUsers(users) {
   const tbody = document.getElementById('userTableBody');
-  
+
   if (users.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No users found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No users found</td></tr>';
     return;
   }
-  
+
   tbody.innerHTML = users.map(user => {
     const createdDate = new Date(user.created_at).toLocaleDateString();
     const lastActive = new Date(user.last_active).toLocaleDateString();
-    
+    const inviteQuota = user.invite_quota !== undefined ? user.invite_quota : 5;
+
     return `
       <tr>
         <td>${user.username}</td>
         <td>${user.is_admin ? '✅ Admin' : '👤 User'}</td>
+        <td>
+          <span id="quota-${user.id}" style="cursor: pointer; padding: 4px 8px; background: #f0f0f0; border-radius: 4px;"
+                onclick="editQuota(${user.id}, ${inviteQuota})"
+                title="Click to edit">
+            ${inviteQuota}
+          </span>
+        </td>
         <td>${createdDate}</td>
         <td>${lastActive}</td>
         <td>
@@ -110,7 +118,7 @@ function displayUsers(users) {
               🗑️ Delete
             </button>
           ` : ''}
-          <button class="action-btn" style="background: #17a2b8; color: white;" 
+          <button class="action-btn" style="background: #17a2b8; color: white;"
                     onclick="toggleAdmin(${user.id}, '${user.username}', ${user.is_admin})">
             ${user.is_admin ? '⬇️ Remove Admin' : '⬆️ Make Admin'}
             </button>
@@ -118,6 +126,58 @@ function displayUsers(users) {
       </tr>
     `;
   }).join('');
+}
+
+// Edit quota inline
+function editQuota(userId, currentQuota) {
+  const span = document.getElementById(`quota-${userId}`);
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.value = currentQuota;
+  input.min = '0';
+  input.style.width = '60px';
+  input.style.padding = '4px';
+  input.style.border = '2px solid #667eea';
+  input.style.borderRadius = '4px';
+
+  span.replaceWith(input);
+  input.focus();
+  input.select();
+
+  const saveQuota = async () => {
+    const newQuota = parseInt(input.value);
+
+    if (isNaN(newQuota) || newQuota < 0) {
+      alert('Invalid quota value');
+      await loadUsers();
+      return;
+    }
+
+    try {
+      const response = await authFetch(`/api/admin/users/${userId}/invite-quota`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invite_quota: newQuota })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to update quota');
+      }
+
+      await loadUsers();
+    } catch (error) {
+      alert('Failed to update quota: ' + error.message);
+      await loadUsers();
+    }
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveQuota();
+    if (e.key === 'Escape') loadUsers();
+  });
+
+  input.addEventListener('blur', saveQuota);
 }
 
 // Show create user modal
@@ -241,3 +301,5 @@ window.showResetPasswordModal = showResetPasswordModal;
 window.closeResetPasswordModal = closeResetPasswordModal;
 window.handleResetPassword = handleResetPassword;
 window.deleteUser = deleteUser;
+window.editQuota = editQuota;
+window.toggleAdmin = toggleAdmin;
