@@ -77,7 +77,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
     """Initialize database and handle schema migrations"""
-    from sqlalchemy import inspect
+    from sqlalchemy import inspect, text
     import logging
 
     logger = logging.getLogger(__name__)
@@ -95,7 +95,7 @@ def init_db():
             if 'invite_quota' not in columns:
                 logger.info("Adding invite_quota column to users table")
                 with engine.connect() as conn:
-                    conn.execute('ALTER TABLE users ADD COLUMN invite_quota INTEGER DEFAULT 5')
+                    conn.execute(text('ALTER TABLE users ADD COLUMN invite_quota INTEGER DEFAULT 5'))
                     conn.commit()
     except Exception as e:
         logger.error(f"Error updating database schema: {e}")
