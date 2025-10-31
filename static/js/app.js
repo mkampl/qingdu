@@ -46,7 +46,9 @@ function setupEventListeners() {
   // Input placeholder click
   document.getElementById('inputPlaceholder').addEventListener('click', () => {
     document.getElementById('inputSection').classList.remove('collapsed');
+    document.getElementById('resultsSection').classList.remove('show');
     document.getElementById('listViewSection').classList.add('hidden');
+    document.getElementById('savedTextsSection').classList.add('hidden');
     document.getElementById('textInput').focus();
   });
 
