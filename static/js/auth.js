@@ -163,12 +163,17 @@ const AuthState = {
       saveBtn.disabled = true;
       saveBtn.title = 'Login required to save';
     }
-    
+
     // Clear sidebar lists
-    document.getElementById('textsList').innerHTML = 
-      '<div style="padding:10px;color:#999;font-size:14px">🔒 Login to access saved texts</div>';
-    document.getElementById('vocabularyLists').innerHTML = 
-      '<div style="padding:10px;color:#999;font-size:14px">🔒 Login to access vocabulary lists</div>';
+    const textsList = document.getElementById('textsList');
+    if (textsList) {
+      textsList.innerHTML = '<div style="padding:10px;color:#999;font-size:14px">🔒 Login to access saved texts</div>';
+    }
+
+    const vocabularyLists = document.getElementById('vocabularyLists');
+    if (vocabularyLists) {
+      vocabularyLists.innerHTML = '<div style="padding:10px;color:#999;font-size:14px">🔒 Login to access vocabulary lists</div>';
+    }
   }
   
   // Show login modal
