@@ -33,14 +33,14 @@ function displayResults(data) {
     console.error('Invalid data structure:', data);
     return;
   }
-  
+
   const stats = data.statistics;
   const estimatedLevelNum = parseInt(stats.estimated_level.replace('HSK ', ''));
   const pinyinLevel = estimatedLevelNum;
-  
+
   // Build sentences from words
   const sentences = buildSentences(data.words);
-  
+
   // Render HTML with progress bar
   const html = `
   <div id="readingProgress" style="position: sticky; top: 0; width: calc(100% + 40px); margin: 0 -20px 15px -20px; height: 20px; background: white; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; padding: 0 20px;">
@@ -50,7 +50,7 @@ function displayResults(data) {
   </div>
   ${renderSentences(sentences, pinyinLevel)}
 `;
-  
+
   document.getElementById('readingArea').innerHTML = html;
 
   // Cleanup old listeners before adding new ones
@@ -59,13 +59,23 @@ function displayResults(data) {
   // Setup interactions
   setupWordInteractions();
   setupSentenceInteractions();
-  
+
   // Setup reading progress tracking
   setTimeout(setupReadingProgress, 100);
-  
+
   // Display statistics
   displayStatistics(stats, pinyinLevel);
 }
+
+// Listen for settings changes and re-render if text is displayed
+window.addEventListener('settingsChanged', (event) => {
+  const { key } = event.detail;
+
+  // If pinyin_mode changed and we have analysis data, re-render
+  if (key === 'pinyin_mode' && window.AppState?.currentAnalysisData) {
+    displayResults(window.AppState.currentAnalysisData);
+  }
+});
 
 // Build sentences from word array
 function buildSentences(words) {
@@ -128,14 +138,27 @@ function renderWord(word, pinyinLevel) {
   if (!word.is_hsk) {
     return word.text;
   }
-  
+
   const levelClass = word.level.replace(/-/g, '').replace(/\+/g, 'plus');
-  const wordLevel = word.level === 'unknown' ? 999 : 
+  const wordLevel = word.level === 'unknown' ? 999 :
                     parseInt(word.level.replace('new-', '').replace('+', ''));
-  const showPinyin = wordLevel > pinyinLevel;
-  
+
+  // Get pinyin_mode setting from SettingsManager
+  const pinyinMode = window.SettingsManager?.get('pinyin_mode') || 'auto';
+
+  // Determine whether to show pinyin based on mode
+  let showPinyin;
+  if (pinyinMode === 'on') {
+    showPinyin = true; // Always show
+  } else if (pinyinMode === 'off') {
+    showPinyin = false; // Never show
+  } else {
+    // 'auto' - show if word level is above user level
+    showPinyin = wordLevel > pinyinLevel;
+  }
+
   const source = word.translation_source || (word.level === 'unknown' ? 'mymemory' : 'hsk');
-  
+
   const baseAttrs = `
     class="hsk-word ${levelClass}${showPinyin ? ' pinyin-above' : ''}"
     data-pinyin="${word.pinyin}"
@@ -145,7 +168,7 @@ function renderWord(word, pinyinLevel) {
     data-source="${source}"
     title="${word.pinyin}"
   `.trim();
-  
+
   return `<span ${baseAttrs}>${word.text}</span>`;
 }
 
