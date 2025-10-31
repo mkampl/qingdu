@@ -1037,13 +1037,19 @@ async def update_text(
     # Update fields if provided
     if 'title' in data:
         text.title = data['title']
-    
+
     if 'tags' in data:
         text.tags = json.dumps(data['tags']) if data['tags'] else None
-    
-    if 'reading_progress' in data:  # ADD THIS
+
+    if 'reading_progress' in data:
         text.reading_progress = data['reading_progress']
-    
+
+    if 'content' in data:
+        text.content = data['content']
+
+    if 'analysis_data' in data:
+        text.analysis_data = json.dumps(data['analysis_data'])
+
     db.commit()
     db.refresh(text)
     

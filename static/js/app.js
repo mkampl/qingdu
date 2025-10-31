@@ -393,7 +393,7 @@ async function saveCurrentText() {
     return;
   }
 
-  const title = AppState.currentInputText.split(/[。！？]/)[0] ||
+  const title = AppState.currentInputText.split(/[。！？\n]/)[0] ||
     AppState.currentInputText.substring(0, 50);
 
   // Auto-generate HSK level tag
@@ -401,19 +401,40 @@ async function saveCurrentText() {
   const autoTags = [estimatedLevel]; // e.g., "HSK 3"
 
   try {
-    const response = await authFetch('/api/texts/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: title,
-        content: AppState.currentInputText,
-        analysis_data: AppState.currentAnalysisData,
-        tags: autoTags  // NEW: Include auto-generated tags
-      })
-    });
+    let response;
+
+    if (AppState.currentTextId) {
+      // Update existing text
+      response = await authFetch(`/api/texts/${AppState.currentTextId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title,
+          content: AppState.currentInputText,
+          analysis_data: AppState.currentAnalysisData,
+          tags: autoTags
+        })
+      });
+      alert('Text updated successfully!');
+    } else {
+      // Create new text
+      response = await authFetch('/api/texts/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title,
+          content: AppState.currentInputText,
+          analysis_data: AppState.currentAnalysisData,
+          tags: autoTags
+        })
+      });
+      alert('Text saved successfully!');
+    }
 
     const data = await response.json();
-    AppState.currentTextId = data.id;
+    if (!AppState.currentTextId) {
+      AppState.currentTextId = data.id;
+    }
 
     // Update current tags and display
     currentTags = autoTags;
@@ -422,7 +443,6 @@ async function saveCurrentText() {
 
     document.getElementById('saveTextBtn').disabled = true;
     await loadTextsFromStorage();
-    alert('Text saved successfully!');
   } catch (error) {
     alert('Failed to save: ' + error.message);
   }
@@ -723,6 +743,7 @@ function renderSavedTextsTable(texts) {
               <div class="text-tags">${tagsHTML}</div>
               <div class="text-actions">
                   <button class="btn" onclick="loadTextFromView(${index})">Open</button>
+                  <button class="btn btn-secondary" onclick="editTextFromView(${index})">Edit</button>
                   <button class="btn btn-secondary" onclick="deleteTextFromView(${index})">Delete</button>
               </div>
           </div>
@@ -782,6 +803,25 @@ async function loadTextFromView(index) {
   document.getElementById('saveTextBtn').disabled = true;
 }
 
+// Edit text from saved texts view
+async function editTextFromView(index) {
+  const text = allTexts[index];
+  if (!text) return;
+
+  // Load text into input area for editing
+  document.getElementById('textInput').value = text.content;
+
+  // Store the text ID and title for updating after re-analysis
+  AppState.currentTextId = text.id;
+  AppState.currentInputText = text.content;
+
+  // Show input section
+  document.getElementById('inputSection').classList.remove('collapsed');
+  document.getElementById('resultsSection').classList.remove('show');
+  document.getElementById('savedTextsSection').classList.add('hidden');
+  document.getElementById('textInput').focus();
+}
+
 // Delete text from saved texts view
 async function deleteTextFromView(index) {
   if (!confirm('Delete this text? This cannot be undone.')) return;
@@ -814,4 +854,5 @@ window.showSavedTextsView = showSavedTextsView;
 window.closeSavedTextsView = closeSavedTextsView;
 window.filterSavedTexts = filterSavedTexts;
 window.loadTextFromView = loadTextFromView;
+window.editTextFromView = editTextFromView;
 window.deleteTextFromView = deleteTextFromView;
