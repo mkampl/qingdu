@@ -270,6 +270,147 @@ const AuthState = {
     return response;
   }
   
+// ==================== INVITATION FLOW ====================
+
+let currentInviteToken = null;
+
+// Check URL for invitation token on page load
+async function checkInviteToken() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const inviteToken = urlParams.get('invite');
+
+  if (inviteToken) {
+    // Validate token
+    try {
+      const response = await fetch(`/api/invitations/validate/${inviteToken}`);
+      const data = await response.json();
+
+      if (data.valid) {
+        // Store token and show signup modal
+        currentInviteToken = inviteToken;
+        showSignupModal(data.invited_by);
+      } else {
+        // Show error and clean URL
+        let message = 'Invalid invitation';
+        if (data.reason === 'already_used') {
+          message = 'This invitation has already been used';
+        } else if (data.reason === 'expired') {
+          message = 'This invitation has expired';
+        } else if (data.reason === 'not_found') {
+          message = 'Invitation not found';
+        }
+        alert(message);
+        cleanURL();
+      }
+    } catch (error) {
+      console.error('Failed to validate invitation:', error);
+      alert('Failed to validate invitation');
+      cleanURL();
+    }
+  }
+}
+
+// Show signup modal
+function showSignupModal(invitedBy) {
+  const modal = document.getElementById('signupModal');
+  const info = document.getElementById('signupInviteInfo');
+
+  if (info && invitedBy) {
+    info.textContent = `You've been invited by ${invitedBy}`;
+  }
+
+  if (modal) {
+    modal.style.display = 'flex';
+  }
+}
+
+// Close signup modal
+function closeSignupModal() {
+  const modal = document.getElementById('signupModal');
+  if (modal) {
+    modal.style.display = 'none';
+    // Clear form
+    document.getElementById('signupUsername').value = '';
+    document.getElementById('signupPassword').value = '';
+    document.getElementById('signupConfirmPassword').value = '';
+  }
+  // Clean URL when closing
+  cleanURL();
+  currentInviteToken = null;
+}
+
+// Handle signup form submit
+async function handleSignup(event) {
+  event.preventDefault();
+
+  const username = document.getElementById('signupUsername').value.trim();
+  const password = document.getElementById('signupPassword').value;
+  const confirmPassword = document.getElementById('signupConfirmPassword').value;
+
+  // Validation
+  if (password !== confirmPassword) {
+    alert('Passwords do not match');
+    return;
+  }
+
+  if (password.length < 8) {
+    alert('Password must be at least 8 characters');
+    return;
+  }
+
+  if (username.length < 3) {
+    alert('Username must be at least 3 characters');
+    return;
+  }
+
+  if (!currentInviteToken) {
+    alert('Invalid invitation token');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/auth/signup-with-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: currentInviteToken,
+        username: username,
+        password: password
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Signup failed');
+    }
+
+    const data = await response.json();
+
+    // Store token and update auth state
+    AuthState.token = data.access_token;
+    AuthState.user = data.user;
+    localStorage.setItem('auth_token', data.access_token);
+
+    // Close modal and clean URL
+    closeSignupModal();
+    cleanURL();
+
+    // Update UI
+    await updateUIForUser(data.user);
+
+    alert(`Welcome, ${data.user.username}! Your account has been created.`);
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+// Clean URL (remove invite parameter)
+function cleanURL() {
+  const url = new URL(window.location);
+  url.searchParams.delete('invite');
+  window.history.replaceState({}, '', url);
+}
+
   // Export
   window.AuthState = AuthState;
   window.initAuth = initAuth;
@@ -282,3 +423,7 @@ const AuthState = {
   window.closeChangePasswordModal = closeChangePasswordModal;
   window.handleChangePassword = handleChangePassword;
   window.authFetch = authFetch;
+  window.checkInviteToken = checkInviteToken;
+  window.showSignupModal = showSignupModal;
+  window.closeSignupModal = closeSignupModal;
+  window.handleSignup = handleSignup;

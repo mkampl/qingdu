@@ -477,6 +477,11 @@ window.showAdminPanel = function () { window.location.href = '/admin'; };
 window.onload = async function () {
   await initAuth();  // Auth FIRST
 
+  // Check for invitation token in URL (only if not already logged in)
+  if (!AuthState.user) {
+    await checkInviteToken();
+  }
+
   // Load vocab stats
   fetch('/api/vocabulary-stats')
     .then(r => r.json())

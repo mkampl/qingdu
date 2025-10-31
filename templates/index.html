@@ -216,6 +216,23 @@
         </div>
     </div>
 
+    <!-- Signup Modal (Invitation) -->
+    <div id="signupModal" class="legacy-modal">
+        <div class="legacy-modal-content">
+            <h3>Create Account</h3>
+            <p id="signupInviteInfo" style="color: #666; margin-bottom: 15px; font-size: 14px;"></p>
+            <form onsubmit="handleSignup(event)">
+                <input type="text" id="signupUsername" placeholder="Username" required minlength="3">
+                <input type="password" id="signupPassword" placeholder="Password (min 8 characters)" required minlength="8">
+                <input type="password" id="signupConfirmPassword" placeholder="Confirm Password" required minlength="8">
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="closeSignupModal()">Cancel</button>
+                    <button type="submit" class="btn">Create Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Change Password Modal -->
     <div id="changePasswordModal" class="legacy-modal">
         <div class="legacy-modal-content">
