@@ -36,8 +36,46 @@ body {
   border-radius: 5px; 
 }
 
-.header h1 { 
-  font-size: 24px; 
+.header h1 {
+  font-size: 24px;
+}
+
+/* Ko-fi Support Button */
+.kofi-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  margin-left: auto;
+  margin-right: 15px;
+}
+
+.kofi-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.kofi-btn svg {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+/* Mobile: Hide Ko-fi text, show only icon */
+@media (max-width: 768px) {
+  .kofi-btn span {
+    display: none;
+  }
+  .kofi-btn {
+    padding: 8px 12px;
+    margin-right: 10px;
+  }
 }
 
 /* Sidebar */
