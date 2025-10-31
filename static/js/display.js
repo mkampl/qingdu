@@ -71,8 +71,19 @@ function displayResults(data) {
 function buildSentences(words) {
   const sentences = [];
   let currentSentence = [];
-  
+
   words.forEach(word => {
+    // Handle line breaks as sentence boundaries
+    if (word.text === '\n') {
+      if (currentSentence.length > 0) {
+        sentences.push([...currentSentence]);
+        currentSentence = [];
+      }
+      // Add line break as a separate "sentence"
+      sentences.push([{ text: '\n', is_linebreak: true }]);
+      return;
+    }
+
     currentSentence.push({
       text: word.text,
       is_hsk: word.is_hsk,
@@ -81,28 +92,33 @@ function buildSentences(words) {
       meaning: word.meaning,
       translation_source: word.translation_source
     });
-    
+
     if (word.text.match(/[。！？]/)) {
       sentences.push([...currentSentence]);
       currentSentence = [];
     }
   });
-  
+
   if (currentSentence.length > 0) {
     sentences.push(currentSentence);
   }
-  
+
   return sentences;
 }
 
 // Render sentences as HTML
 function renderSentences(sentences, pinyinLevel) {
   return sentences.map(sentence => {
+    // Check if this is a line break
+    if (sentence.length === 1 && sentence[0].is_linebreak) {
+      return '<br>';
+    }
+
     const sentenceText = sentence.map(w => w.text).join('');
     const escaped = escapeHtml(sentenceText);
-    
+
     const wordsHtml = sentence.map(word => renderWord(word, pinyinLevel)).join('');
-    
+
     return `<span class="sentence-wrapper" data-sentence="${escaped}">${wordsHtml}</span>`;
   }).join('');
 }

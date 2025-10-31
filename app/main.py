@@ -698,24 +698,48 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
     """Analyze Chinese text and return HSK information"""
     if not hsk_vocab:
         raise HTTPException(status_code=503, detail="Vocabulary not loaded yet")
-    
+
     text = data.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="Text is empty")
-    
-    segments = list(jieba.cut(text))
-    
+
+    # Split by line breaks first to preserve them
+    lines = text.split('\n')
+    segments = []
+
+    for i, line in enumerate(lines):
+        if line.strip():  # Only process non-empty lines
+            segments.extend(list(jieba.cut(line)))
+        # Add line break marker between lines (but not after the last line)
+        if i < len(lines) - 1:
+            segments.append('\n')
+
     # Debug logging - show what jieba segmented
     # print(f"Analyzing text, total segments: {len(segments)}")
     # print(f"Segmentation result: {' | '.join(segments)}")
-    
+
     words = []
     hsk_stats = {f'hsk{i}': 0 for i in range(1, 10)}
     total_hsk_words = 0
-    
+
     for segment in segments:
+        # Handle line breaks specially
+        if segment == '\n':
+            word_info = WordInfo(
+                text='\n',
+                is_hsk=False,
+                hsk_level='',
+                pinyin='',
+                meaning='',
+                meanings=[],
+                frequency=0,
+                translation_source='linebreak'
+            )
+            words.append(word_info)
+            continue
+
         word_info = WordInfo(text=segment)
-        
+
         vocab_entry = get_word_info(segment)
         if vocab_entry:
             vocab_entry = hsk_vocab[segment]
