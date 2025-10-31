@@ -837,6 +837,26 @@ async function deleteTextFromView(index) {
     alert('Failed to delete: ' + error.message);
   }
 }
+// Settings Modal Functions
+function openSettingsModal() {
+  const modal = document.getElementById('settingsModal');
+  const select = document.getElementById('pinyinModeSelect');
+
+  // Load current pinyin mode
+  const currentMode = window.SettingsManager.get('pinyin_mode');
+  select.value = currentMode;
+
+  modal.classList.add('show');
+}
+
+function closeSettingsModal() {
+  document.getElementById('settingsModal').classList.remove('show');
+}
+
+function changePinyinMode(mode) {
+  window.SettingsManager.update('pinyin_mode', mode);
+}
+
 // Export functions to global scope (temporary, will use modules later)
 window.toggleSidebar = toggleSidebar;
 window.showNewTextInput = showNewTextInput;
@@ -856,3 +876,6 @@ window.filterSavedTexts = filterSavedTexts;
 window.loadTextFromView = loadTextFromView;
 window.editTextFromView = editTextFromView;
 window.deleteTextFromView = deleteTextFromView;
+window.openSettingsModal = openSettingsModal;
+window.closeSettingsModal = closeSettingsModal;
+window.changePinyinMode = changePinyinMode;

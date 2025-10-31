@@ -40,6 +40,31 @@ body {
   font-size: 24px;
 }
 
+/* Icon Button in Header */
+.icon-btn-header {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  margin-right: 10px;
+}
+
+.icon-btn-header:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.icon-btn-header svg {
+  display: block;
+}
+
 /* Ko-fi Support Button */
 .kofi-btn {
   display: inline-flex;
@@ -53,7 +78,6 @@ body {
   font-size: 14px;
   font-weight: 500;
   transition: all 0.3s ease;
-  margin-left: auto;
   margin-right: 15px;
 }
 
