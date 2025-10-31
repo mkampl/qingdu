@@ -286,6 +286,25 @@ async function deleteText(index) {
   }
 }
 
+// Simulate progress bar animation
+function simulateProgress(progressBar, progressText, targetPercent, duration) {
+  const startPercent = parseInt(progressBar.style.width) || 0;
+  const increment = (targetPercent - startPercent) / (duration / 50);
+  let currentPercent = startPercent;
+
+  const interval = setInterval(() => {
+    currentPercent += increment;
+    if (currentPercent >= targetPercent) {
+      currentPercent = targetPercent;
+      clearInterval(interval);
+    }
+    progressBar.style.width = currentPercent + '%';
+    progressText.textContent = Math.round(currentPercent) + '%';
+  }, 50);
+
+  return interval;
+}
+
 // Analyze text
 async function analyzeText() {
   const text = document.getElementById('textInput').value.trim();
@@ -305,8 +324,20 @@ async function analyzeText() {
   showTagsButton(false);
   document.getElementById('tagsDialog').style.display = 'none';
 
-  // Show loading overlay
+  // Show loading overlay and reset progress
+  const progressBar = document.getElementById('analysisProgressBar');
+  const progressText = document.getElementById('progressText');
+  progressBar.style.width = '0%';
+  progressText.textContent = '0%';
   document.getElementById('loadingOverlay').classList.add('show');
+
+  // Simulate progress: 0% -> 20% quickly
+  let progressInterval = simulateProgress(progressBar, progressText, 20, 500);
+
+  // Then 20% -> 75% over 2 seconds
+  setTimeout(() => {
+    progressInterval = simulateProgress(progressBar, progressText, 75, 2000);
+  }, 500);
 
   try {
     const response = await fetch('/api/analyze', {
@@ -322,7 +353,13 @@ async function analyzeText() {
     const data = await response.json();
     AppState.currentAnalysisData = data;
 
-    // Hide loading overlay
+    // Jump to 100%
+    clearInterval(progressInterval);
+    progressBar.style.width = '100%';
+    progressText.textContent = '100%';
+
+    // Wait a moment to show 100%, then hide overlay
+    await new Promise(resolve => setTimeout(resolve, 300));
     document.getElementById('loadingOverlay').classList.remove('show');
 
     // Now show results
@@ -336,7 +373,8 @@ async function analyzeText() {
     document.getElementById('currentTextTitle').textContent = firstSentence;
 
   } catch (error) {
-    // Hide loading overlay on error
+    // Clear progress interval and hide loading overlay on error
+    clearInterval(progressInterval);
     document.getElementById('loadingOverlay').classList.remove('show');
 
     // Show error in results section

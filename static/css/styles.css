@@ -236,6 +236,30 @@ body {
   font-weight: 400 !important;
 }
 
+.progress-container {
+  width: 300px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  margin: 20px auto 10px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  margin: 5px 0 0;
+}
+
 /* Main Content */
 .main-content { 
   padding: 20px; 
