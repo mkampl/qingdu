@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from app.database import init_db, get_db, SavedText
+from app.database import init_db, get_db, SavedText, InvitationToken, User as UserModel
 from sqlalchemy.orm import Session, joinedload
 from fastapi import Depends
 from functools import lru_cache
@@ -28,6 +28,8 @@ from app.auth import (
     require_auth,
     require_admin
 )
+import uuid
+from datetime import datetime, timedelta
 from app.database import User, VocabularyList
 from pydantic import BaseModel
 import genanki
@@ -1160,8 +1162,176 @@ async def change_password(
     user.password_hash = get_password_hash(data.new_password)
     user.must_change_password = False
     db.commit()
-    
+
     return {"message": "Password changed successfully"}
+
+# ==================== INVITATION ENDPOINTS ====================
+
+@app.post("/api/invitations/generate")
+async def generate_invitation(
+    request: Request,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Generate a new invitation token"""
+    # Check remaining quota
+    used_count = db.query(InvitationToken).filter(
+        InvitationToken.created_by_user_id == user.id
+    ).count()
+
+    if used_count >= user.invite_quota:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Invitation quota exceeded. You have used {used_count}/{user.invite_quota} invitations."
+        )
+
+    # Generate token
+    token = str(uuid.uuid4())
+    expires_at = datetime.utcnow() + timedelta(days=30)
+
+    invitation = InvitationToken(
+        token=token,
+        created_by_user_id=user.id,
+        expires_at=expires_at
+    )
+
+    db.add(invitation)
+    db.commit()
+    db.refresh(invitation)
+
+    # Get base URL from request
+    base_url = str(request.url).split('/api')[0] if hasattr(request, 'url') else 'http://localhost:8000'
+    invite_url = f"{base_url}/?invite={token}"
+
+    return {
+        "id": invitation.id,
+        "token": token,
+        "invite_url": invite_url,
+        "expires_at": invitation.expires_at.isoformat(),
+        "remaining_quota": user.invite_quota - used_count - 1
+    }
+
+@app.get("/api/invitations/my-invitations")
+async def get_my_invitations(
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Get all invitations created by the current user"""
+    invitations = db.query(InvitationToken).filter(
+        InvitationToken.created_by_user_id == user.id
+    ).order_by(InvitationToken.created_at.desc()).all()
+
+    used_count = len(invitations)
+
+    return {
+        "invitations": [{
+            "id": inv.id,
+            "token": inv.token[-8:],  # Show last 8 chars
+            "full_token": inv.token,
+            "status": "claimed" if inv.claimed_at else ("expired" if inv.expires_at < datetime.utcnow() else "pending"),
+            "claimed_by": db.query(User).filter(User.id == inv.claimed_by_user_id).first().username if inv.claimed_by_user_id else None,
+            "claimed_at": inv.claimed_at.isoformat() if inv.claimed_at else None,
+            "expires_at": inv.expires_at.isoformat(),
+            "created_at": inv.created_at.isoformat()
+        } for inv in invitations],
+        "quota": {
+            "total": user.invite_quota,
+            "used": used_count,
+            "remaining": user.invite_quota - used_count
+        }
+    }
+
+@app.get("/api/invitations/validate/{token}")
+async def validate_invitation(
+    token: str,
+    db: Session = Depends(get_db)
+):
+    """Validate an invitation token (public endpoint)"""
+    invitation = db.query(InvitationToken).filter(
+        InvitationToken.token == token
+    ).first()
+
+    if not invitation:
+        return {"valid": False, "reason": "not_found"}
+
+    if invitation.claimed_at:
+        return {"valid": False, "reason": "already_used"}
+
+    if invitation.expires_at < datetime.utcnow():
+        return {"valid": False, "reason": "expired"}
+
+    creator = db.query(User).filter(User.id == invitation.created_by_user_id).first()
+
+    return {
+        "valid": True,
+        "invited_by": creator.username if creator else "Unknown",
+        "expires_at": invitation.expires_at.isoformat()
+    }
+
+# Signup with invitation
+class SignupWithInviteRequest(BaseModel):
+    token: str
+    username: str
+    password: str
+
+@app.post("/api/auth/signup-with-invite")
+async def signup_with_invite(
+    data: SignupWithInviteRequest,
+    db: Session = Depends(get_db)
+):
+    """Register a new user with an invitation token"""
+    # Validate token
+    invitation = db.query(InvitationToken).filter(
+        InvitationToken.token == data.token
+    ).first()
+
+    if not invitation:
+        raise HTTPException(status_code=400, detail="Invalid invitation token")
+
+    if invitation.claimed_at:
+        raise HTTPException(status_code=400, detail="Invitation already used")
+
+    if invitation.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Invitation expired")
+
+    # Check if username exists
+    existing = db.query(User).filter(User.username == data.username).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Username already taken")
+
+    # Validate password
+    if len(data.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    # Create user
+    new_user = User(
+        username=data.username,
+        password_hash=get_password_hash(data.password),
+        must_change_password=False,  # No need to change password on first login
+        invite_quota=5  # Default quota for new users
+    )
+
+    db.add(new_user)
+    db.flush()  # Get the user ID
+
+    # Mark invitation as claimed
+    invitation.claimed_by_user_id = new_user.id
+    invitation.claimed_at = datetime.utcnow()
+
+    db.commit()
+
+    # Create access token
+    token = create_access_token(data={"sub": new_user.username})
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": new_user.id,
+            "username": new_user.username,
+            "is_admin": new_user.is_admin
+        }
+    }
 
 # ==================== ADMIN ENDPOINTS ====================
 
@@ -1841,8 +2011,37 @@ async def toggle_admin_status(
     
     user.is_admin = not user.is_admin
     db.commit()
-    
+
     return {"message": f"User is now {'admin' if user.is_admin else 'regular user'}"}
+
+class UpdateInviteQuotaRequest(BaseModel):
+    invite_quota: int
+
+@app.patch("/api/admin/users/{user_id}/invite-quota")
+async def update_user_invite_quota(
+    user_id: int,
+    data: UpdateInviteQuotaRequest,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Update a user's invitation quota (admin only)"""
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if data.invite_quota < 0:
+        raise HTTPException(status_code=400, detail="Quota cannot be negative")
+
+    user.invite_quota = data.invite_quota
+    db.commit()
+
+    return {
+        "message": "Invite quota updated",
+        "user_id": user.id,
+        "username": user.username,
+        "invite_quota": user.invite_quota
+    }
 
 if __name__ == "__main__":
     import uvicorn
