@@ -91,14 +91,17 @@ async function generateHSKList() {
     const hskList = {
       name: 'HSK Vocabulary',
       type: 'hsk',
-      sections: Array.from({ length: 9 }, (_, i) => ({ name: `HSK ${i + 1}`, words: [] }))
+      sections: Array.from({ length: 7 }, (_, i) => ({
+        name: i === 6 ? 'HSK 7+' : `HSK ${i + 1}`,
+        words: []
+      }))
     };
-    
+
     Object.entries(vocabData).forEach(([word, data]) => {
       const level = data.level.replace('new-', '').replace('old-', '').replace('+', '');
       const levelNum = parseInt(level);
-      
-      if (levelNum >= 1 && levelNum <= 9) {
+
+      if (levelNum >= 1 && levelNum <= 7) {
         hskList.sections[levelNum - 1].words.push({
           hanzi: word,
           pinyin: data.pinyin,
@@ -140,14 +143,21 @@ async function viewVocabularyList(listId) {
     
     // Store current list for search
     window.currentVocabList = list;
-    
+
     document.getElementById('listViewTitle').textContent = list.name;
+
+    // Permission check
+    const listType = list.type || list.list_type;
+    const isHSK = listType === 'hsk';
+    const isAuto = listType === 'auto';
+    const isCustom = listType === 'custom' || (!isHSK && !isAuto);
+    const canAddSection = isCustom;
 
     // Create structure with separate containers
     // Show all sections, even empty ones (so users can add words)
     const content = list.sections.length > 0
       ? list.sections.map(section => createSectionHTML(section)).join('')
-      : '<p style="color: #999; padding: 20px;">No sections yet. Click "Add Section" to get started.</p>';
+      : (canAddSection ? '<p style="color: #999; padding: 20px;">No sections yet. Click "Add Section" to get started.</p>' : '<p style="color: #999; padding: 20px;">This list has no sections.</p>');
 
       document.getElementById('listViewContent').innerHTML = `
         <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
@@ -157,7 +167,8 @@ async function viewVocabularyList(listId) {
             placeholder="Search words (hanzi, pinyin, or meaning)..."
             style="flex: 1; min-width: 200px; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;"
           />
-          <button class="add-btn" onclick="openAddSectionModal(${listId})">+ Add Section</button>
+          ${canAddSection ? `<button class="add-btn" onclick="openAddSectionModal(${listId})">+ Add Section</button>` : ''}
+          ${!isCustom ? `<button class="btn btn-primary" onclick="copyListToCustom(${listId}, '${list.name.replace(/'/g, "\\'")}')">📋 Copy to Custom List</button>` : ''}
           <button class="btn btn-secondary" onclick="exportVocabularyList(${listId}, '${list.name.replace(/'/g, "\\'")}')">
             📄 CSV
           </button>
@@ -166,7 +177,7 @@ async function viewVocabularyList(listId) {
           </button>
         </div>
         <div id="vocabTableContainer">
-          ${content || '<p>No words in this list yet. Click "Add Section" to get started.</p>'}
+          ${content}
         </div>
       `;
     
@@ -225,8 +236,23 @@ function filterVocabWords(searchTerm) {
 
 // Create section HTML with management buttons
 function createSectionHTML(section) {
-  // Get current list ID from the window.currentVocabList
+  // Get current list ID and type from the window.currentVocabList
   const listId = window.currentVocabList?.id;
+  const listType = window.currentVocabList?.type || window.currentVocabList?.list_type;
+
+  // Permission checks:
+  // HSK: read-only (no add/edit/delete)
+  // Auto: delete-only for words (no add/edit sections, no add/edit words)
+  // Custom: full CRUD
+  const isHSK = listType === 'hsk';
+  const isAuto = listType === 'auto';
+  const isCustom = listType === 'custom' || (!isHSK && !isAuto); // default to custom
+
+  const canEditSection = isCustom;
+  const canDeleteSection = isCustom;
+  const canAddWord = isCustom;
+  const canEditWord = isCustom;
+  const canDeleteWord = isCustom || isAuto; // auto lists can delete words
 
   const wordsHTML = section.words && section.words.length > 0
     ? section.words.map(word => `
@@ -238,35 +264,35 @@ function createSectionHTML(section) {
           <div class="word-level">${word.level.replace('new-', 'HSK ').replace('+', '+')}</div>
         </div>
         <div class="word-actions">
-          <button class="icon-btn edit" title="Edit word"
+          ${canEditWord ? `<button class="icon-btn edit" title="Edit word"
                   onclick="openWordModal('edit', ${listId}, '${section.name.replace(/'/g, "\\'")}', {
                     hanzi: '${word.hanzi.replace(/'/g, "\\'")}',
                     pinyin: '${word.pinyin.replace(/'/g, "\\'")}',
                     meaning: '${word.meaning.replace(/'/g, "\\'")}',
                     level: '${word.level}'
-                  })">✏️</button>
-          <button class="icon-btn delete" title="Delete word"
-                  onclick="deleteWord(${listId}, '${section.name.replace(/'/g, "\\'")}', '${word.hanzi.replace(/'/g, "\\'")}')">🗑️</button>
+                  })">✏️</button>` : ''}
+          ${canDeleteWord ? `<button class="icon-btn delete" title="Delete word"
+                  onclick="deleteWord(${listId}, '${section.name.replace(/'/g, "\\'")}', '${word.hanzi.replace(/'/g, "\\'")}')">🗑️</button>` : ''}
         </div>
       </div>
     `).join('')
-    : '<p style="color: #999; padding: 12px; font-style: italic;">No words yet. Click "Add Word" to get started.</p>';
+    : (canAddWord ? '<p style="color: #999; padding: 12px; font-style: italic;">No words yet. Click "Add Word" to get started.</p>' : '<p style="color: #999; padding: 12px; font-style: italic;">No words in this section.</p>');
 
   return `
     <div class="section-container">
       <div class="section-header" onclick="toggleSection(this)">
         <span><strong>${section.name}</strong> (${section.words?.length || 0} words)</span>
         <div style="display: inline-flex; gap: 4px;">
-          <button class="icon-btn edit" title="Rename section"
-                  onclick="event.stopPropagation(); renameSection(${listId}, '${section.name.replace(/'/g, "\\'")}')">✏️</button>
-          <button class="icon-btn delete" title="Delete section"
-                  onclick="event.stopPropagation(); deleteSection(${listId}, '${section.name.replace(/'/g, "\\'")}')">🗑️</button>
+          ${canEditSection ? `<button class="icon-btn edit" title="Rename section"
+                  onclick="event.stopPropagation(); renameSection(${listId}, '${section.name.replace(/'/g, "\\'")}')">✏️</button>` : ''}
+          ${canDeleteSection ? `<button class="icon-btn delete" title="Delete section"
+                  onclick="event.stopPropagation(); deleteSection(${listId}, '${section.name.replace(/'/g, "\\'")}')">🗑️</button>` : ''}
           <span style="margin-left: 8px;">▼</span>
         </div>
       </div>
       <div class="section-content">
-        <button class="add-btn secondary" style="margin: 12px 0;"
-                onclick="openWordModal('add', ${listId}, '${section.name.replace(/'/g, "\\'")}')">+ Add Word</button>
+        ${canAddWord ? `<button class="add-btn secondary" style="margin: 12px 0;"
+                onclick="openWordModal('add', ${listId}, '${section.name.replace(/'/g, "\\'")}')">+ Add Word</button>` : ''}
         <div>
           ${wordsHTML}
         </div>
@@ -289,6 +315,57 @@ function toggleSection(header) {
 function closeListView() {
   document.getElementById('listViewSection').classList.add('hidden');
   document.getElementById('resultsSection').classList.add('show');
+}
+
+// Copy list to custom list (for HSK and auto-generated lists)
+async function copyListToCustom(sourceListId, sourceName) {
+  const newName = prompt(`Enter name for the custom copy:`, `Copy of ${sourceName}`);
+
+  if (!newName) {
+    return; // User cancelled
+  }
+
+  try {
+    // Fetch the source list
+    const response = await authFetch('/api/vocabulary-lists');
+    const lists = await response.json();
+    const sourceList = lists.find(l => l.id === sourceListId);
+
+    if (!sourceList) {
+      alert('Source list not found');
+      return;
+    }
+
+    // Create a deep copy of sections
+    const copiedSections = JSON.parse(JSON.stringify(sourceList.sections || []));
+
+    // Create new custom list
+    const createResponse = await authFetch('/api/vocabulary-lists', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: newName,
+        type: 'custom',
+        sections: copiedSections
+      })
+    });
+
+    if (createResponse.ok) {
+      const result = await createResponse.json();
+      alert(`List "${newName}" created successfully!`);
+      await loadVocabularyLists();
+      // Open the new list
+      if (result.id) {
+        viewVocabularyList(result.id);
+      }
+    } else {
+      const error = await createResponse.json();
+      alert(`Error: ${error.detail || 'Failed to create list'}`);
+    }
+  } catch (error) {
+    console.error('Error copying list:', error);
+    alert('Failed to copy list');
+  }
 }
 
 // Save word to list (now functional!)
