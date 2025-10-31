@@ -52,24 +52,37 @@ const AuthState = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
-      
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Login failed');
+        let errorMessage = 'Login failed';
+        const contentType = response.headers.get('content-type');
+
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const error = await response.json();
+            errorMessage = error.detail || errorMessage;
+          } catch (e) {
+            errorMessage = `Server error (${response.status})`;
+          }
+        } else {
+          errorMessage = `Server error (${response.status})`;
+        }
+
+        throw new Error(errorMessage);
       }
-      
+
       const data = await response.json();
       AuthState.token = data.access_token;
       AuthState.user = data.user;
-      
+
       localStorage.setItem('auth_token', data.access_token);
       await updateUIForUser(data.user);  // Add await here
       closeLoginModal();
-      
+
       if (data.user.must_change_password) {
         showChangePasswordModal(true);
       }
-      
+
       return true;
     } catch (error) {
       alert(error.message);
