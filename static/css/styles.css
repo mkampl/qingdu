@@ -627,8 +627,9 @@ body {
       grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   }
 }
-/* Modal Styles */
-.modal {
+
+/* Legacy Modal Styles (for login/password) */
+.legacy-modal {
   display: none;
   position: fixed;
   top: 0;
@@ -641,7 +642,7 @@ body {
   z-index: 2000;
 }
 
-.modal-content {
+.legacy-modal-content {
   background: white;
   padding: 30px;
   border-radius: 15px;
@@ -649,11 +650,11 @@ body {
   width: 90%;
 }
 
-.modal-content h3 {
+.legacy-modal-content h3 {
   margin-bottom: 20px;
 }
 
-.modal-content input {
+.legacy-modal-content input {
   width: 100%;
   padding: 10px;
   margin-bottom: 15px;
@@ -716,4 +717,297 @@ body {
 
 .user-menu-item:last-child {
   border-bottom: none;
+}
+/* Modal Styles */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-overlay.show {
+  display: flex;
+}
+
+.modal {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 400px;
+  max-width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.modal-close:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.modal-body {
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #555;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn-secondary {
+  background: #e0e0e0;
+  color: #555;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #d0d0d0;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Icon Buttons for Lists/Sections/Words */
+.icon-btn {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  opacity: 0;
+}
+
+.sidebar-item:hover .icon-btn,
+.section-header:hover .icon-btn,
+.word-item:hover .icon-btn {
+  opacity: 1;
+}
+
+.icon-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.icon-btn.delete:hover {
+  background: #fee;
+  color: #e74c3c;
+}
+
+.icon-btn.edit:hover {
+  background: #e3f2fd;
+  color: #2196f3;
+}
+
+/* Add Buttons */
+.add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin: 8px 0;
+}
+
+.add-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.add-btn.secondary {
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+}
+
+.add-btn.secondary:hover {
+  background: #f5f7ff;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+/* Inline Editing */
+.inline-edit {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: text;
+  transition: background 0.2s;
+}
+
+.inline-edit:hover {
+  background: #f5f5f5;
+}
+
+.inline-edit input {
+  border: 2px solid #667eea;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: inherit;
+  font-weight: inherit;
+  font-family: inherit;
+  width: auto;
+  min-width: 150px;
+}
+
+.inline-edit input:focus {
+  outline: none;
+}
+
+/* Word Item Styles */
+.word-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.2s;
+}
+
+.word-item:hover {
+  background: #fafafa;
+}
+
+.word-info {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex: 1;
+}
+
+.word-hanzi {
+  font-weight: 600;
+  font-size: 16px;
+  min-width: 60px;
+}
+
+.word-pinyin {
+  color: #667eea;
+  min-width: 100px;
+}
+
+.word-meaning {
+  color: #666;
+  flex: 1;
+}
+
+.word-level {
+  color: #999;
+  font-size: 12px;
+  min-width: 60px;
+  text-align: right;
+}
+
+.word-actions {
+  display: flex;
+  gap: 4px;
 }

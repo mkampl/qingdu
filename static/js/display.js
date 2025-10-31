@@ -1,5 +1,32 @@
 // Display and interaction logic for analyzed text
 
+// Store event listeners for cleanup
+const eventListenerRegistry = {
+  wordListeners: [],
+  sentenceListeners: []
+};
+
+// Cleanup function to remove all registered event listeners
+function cleanupEventListeners() {
+  // Remove word click listeners
+  eventListenerRegistry.wordListeners.forEach(({ element, handler }) => {
+    if (element && element.parentNode) { // Check element still exists
+      element.removeEventListener('click', handler);
+    }
+  });
+  eventListenerRegistry.wordListeners = [];
+
+  // Remove sentence listeners (click, mousedown, mouseup, touchstart, touchend)
+  eventListenerRegistry.sentenceListeners.forEach(({ element, events }) => {
+    if (element && element.parentNode) {
+      Object.entries(events).forEach(([eventType, handler]) => {
+        element.removeEventListener(eventType, handler);
+      });
+    }
+  });
+  eventListenerRegistry.sentenceListeners = [];
+}
+
 // Display analysis results
 function displayResults(data) {
   if (!data?.words || !data?.statistics) {
@@ -25,7 +52,10 @@ function displayResults(data) {
 `;
   
   document.getElementById('readingArea').innerHTML = html;
-  
+
+  // Cleanup old listeners before adding new ones
+  cleanupEventListeners();
+
   // Setup interactions
   setupWordInteractions();
   setupSentenceInteractions();
@@ -106,32 +136,37 @@ function renderWord(word, pinyinLevel) {
 // Setup word click interactions
 function setupWordInteractions() {
   const hskWords = document.querySelectorAll('.hsk-word');
-  
+
   hskWords.forEach(wordEl => {
-    wordEl.addEventListener('click', (e) => {
+    const handler = (e) => {
       e.stopPropagation();
-      
+
       const word = wordEl.getAttribute('data-word');
       const level = wordEl.getAttribute('data-level');
       const pinyin = wordEl.getAttribute('data-pinyin');
       const meaning = wordEl.getAttribute('data-meaning');
       const source = wordEl.getAttribute('data-source');
-      
+
       showWordInfo(word, level, pinyin, meaning, source);
-    });
+    };
+
+    wordEl.addEventListener('click', handler);
+
+    // Register for cleanup
+    eventListenerRegistry.wordListeners.push({ element: wordEl, handler });
   });
 }
 
 // Setup sentence interactions (click and long-press)
 function setupSentenceInteractions() {
   const sentenceWrappers = document.querySelectorAll('.sentence-wrapper');
-  
+
   sentenceWrappers.forEach(wrapper => {
     let pressTimer;
     let longPressHappened = false;
-    
-    // Mouse events
-    wrapper.addEventListener('mousedown', (e) => {
+
+    // Create handler functions that will be registered
+    const mousedownHandler = (e) => {
       longPressHappened = false;
       pressTimer = setTimeout(() => {
         longPressHappened = true;
@@ -140,13 +175,13 @@ function setupSentenceInteractions() {
           showSentence(unescapeHtml(sentenceText));
         }
       }, 500);
-    });
-    
-    wrapper.addEventListener('mouseup', () => {
+    };
+
+    const mouseupHandler = () => {
       clearTimeout(pressTimer);
-    });
-    
-    wrapper.addEventListener('click', (e) => {
+    };
+
+    const clickHandler = (e) => {
       clearTimeout(pressTimer);
       if (!longPressHappened && e.target === wrapper) {
         const sentenceText = wrapper.getAttribute('data-sentence');
@@ -155,10 +190,9 @@ function setupSentenceInteractions() {
         }
       }
       setTimeout(() => { longPressHappened = false; }, 100);
-    });
-    
-    // Touch events
-    wrapper.addEventListener('touchstart', (e) => {
+    };
+
+    const touchstartHandler = (e) => {
       longPressHappened = false;
       pressTimer = setTimeout(() => {
         longPressHappened = true;
@@ -167,10 +201,29 @@ function setupSentenceInteractions() {
           showSentence(unescapeHtml(sentenceText));
         }
       }, 500);
-    });
-    
-    wrapper.addEventListener('touchend', () => {
+    };
+
+    const touchendHandler = () => {
       clearTimeout(pressTimer);
+    };
+
+    // Add event listeners
+    wrapper.addEventListener('mousedown', mousedownHandler);
+    wrapper.addEventListener('mouseup', mouseupHandler);
+    wrapper.addEventListener('click', clickHandler);
+    wrapper.addEventListener('touchstart', touchstartHandler);
+    wrapper.addEventListener('touchend', touchendHandler);
+
+    // Register all handlers for cleanup
+    eventListenerRegistry.sentenceListeners.push({
+      element: wrapper,
+      events: {
+        'mousedown': mousedownHandler,
+        'mouseup': mouseupHandler,
+        'click': clickHandler,
+        'touchstart': touchstartHandler,
+        'touchend': touchendHandler
+      }
     });
   });
 }
@@ -398,3 +451,4 @@ window.showWordInfo = showWordInfo;
 window.showSentence = showSentence;
 window.speakWord = speakWord;
 window.speakSentence = speakSentence;
+window.cleanupEventListeners = cleanupEventListeners;

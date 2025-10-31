@@ -10,14 +10,31 @@ const AppState = {
 };
 
 // Load vocabulary statistics
+let vocabLoadRetries = 0;
+const MAX_VOCAB_RETRIES = 30; // Poll for up to ~30 seconds
+
 async function loadVocabularyStats() {
   try {
     const response = await fetch('/api/vocabulary-stats');
     const data = await response.json();
     const vocabCount = document.getElementById('vocabCount');
-    vocabCount.textContent = data.loaded
-      ? `${data.count.toLocaleString()} words loaded`
-      : 'Loading...';
+
+    if (data.loaded) {
+      vocabCount.textContent = `${data.count.toLocaleString()} words loaded`;
+      vocabLoadRetries = 0; // Reset retry counter on success
+    } else {
+      // Still loading - show loading message and retry
+      vocabCount.textContent = 'Loading...';
+
+      if (vocabLoadRetries < MAX_VOCAB_RETRIES) {
+        vocabLoadRetries++;
+        // Retry after 1 second
+        setTimeout(loadVocabularyStats, 1000);
+      } else {
+        vocabCount.textContent = 'Loading failed - check logs';
+        console.error('Vocabulary loading timeout after', MAX_VOCAB_RETRIES, 'attempts');
+      }
+    }
   } catch (error) {
     document.getElementById('vocabCount').textContent = 'Error loading';
     console.error('Failed to load vocabulary stats:', error);
