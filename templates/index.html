@@ -37,6 +37,7 @@
                 <span id="username">User</span> ▼
             </button>
             <div id="userMenuDropdown" class="user-menu-dropdown">
+                <div class="user-menu-item" onclick="showInvitationsModal()">My Invitations</div>
                 <div class="user-menu-item" onclick="showChangePasswordModal()">Change Password</div>
                 <div id="adminMenuItem" class="user-menu-item" style="display:none;" onclick="showAdminPanel()">Admin Panel</div>
                 <div class="user-menu-item" onclick="logout()">Logout</div>
@@ -275,6 +276,35 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeSettingsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invitations Modal -->
+    <div id="invitationsModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>📨 My Invitations</h3>
+                <button class="modal-close" onclick="closeInvitationsModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span style="font-weight: 600;">Invitation Quota</span>
+                        <span id="inviteQuotaDisplay" style="font-size: 18px; font-weight: bold; color: #667eea;">-/-</span>
+                    </div>
+                    <button class="btn-primary" onclick="generateInvitation()" id="generateInviteBtn" style="width: 100%;">
+                        ✨ Generate Invite Link
+                    </button>
+                </div>
+
+                <h4 style="margin: 20px 0 10px; font-size: 16px;">Your Invitations</h4>
+                <div id="invitationsList" style="max-height: 400px; overflow-y: auto;">
+                    <p style="text-align: center; color: #999; padding: 20px;">Loading...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeInvitationsModal()">Close</button>
             </div>
         </div>
     </div>

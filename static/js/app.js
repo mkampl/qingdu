@@ -862,6 +862,122 @@ function changePinyinMode(mode) {
   window.SettingsManager.update('pinyin_mode', mode);
 }
 
+// Invitations Modal Functions
+async function showInvitationsModal() {
+  const modal = document.getElementById('invitationsModal');
+  modal.classList.add('show');
+  await loadInvitations();
+}
+
+function closeInvitationsModal() {
+  document.getElementById('invitationsModal').classList.remove('show');
+}
+
+async function loadInvitations() {
+  try {
+    const response = await authFetch('/api/invitations/my-invitations');
+    const data = await response.json();
+
+    // Update quota display
+    const quotaDisplay = document.getElementById('inviteQuotaDisplay');
+    quotaDisplay.textContent = `${data.quota.remaining}/${data.quota.total}`;
+
+    // Enable/disable generate button
+    const generateBtn = document.getElementById('generateInviteBtn');
+    if (data.quota.remaining <= 0) {
+      generateBtn.disabled = true;
+      generateBtn.textContent = '❌ Quota Exhausted';
+    } else {
+      generateBtn.disabled = false;
+      generateBtn.textContent = '✨ Generate Invite Link';
+    }
+
+    // Render invitations list
+    const listContainer = document.getElementById('invitationsList');
+
+    if (data.invitations.length === 0) {
+      listContainer.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">No invitations yet</p>';
+      return;
+    }
+
+    const invitationsHTML = data.invitations.map(inv => {
+      const statusColor = inv.status === 'claimed' ? '#28a745' : (inv.status === 'expired' ? '#dc3545' : '#ffc107');
+      const statusText = inv.status === 'claimed' ? `✓ Claimed by ${inv.claimed_by}` : (inv.status === 'expired' ? '✗ Expired' : '⏳ Pending');
+
+      const inviteUrl = `${window.location.origin}/?invite=${inv.full_token}`;
+
+      return `
+        <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px; background: white;">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+            <div>
+              <span style="font-family: monospace; font-size: 13px; background: #f0f0f0; padding: 4px 8px; border-radius: 4px;">
+                ...${inv.token}
+              </span>
+              <div style="margin-top: 5px;">
+                <span style="color: ${statusColor}; font-weight: 500; font-size: 13px;">${statusText}</span>
+              </div>
+            </div>
+            ${inv.status === 'pending' ? `
+              <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;" onclick="copyInviteLink('${inviteUrl}')">
+                📋 Copy Link
+              </button>
+            ` : ''}
+          </div>
+          <div style="font-size: 12px; color: #666;">
+            Created: ${new Date(inv.created_at).toLocaleDateString()}
+            ${inv.claimed_at ? ` • Claimed: ${new Date(inv.claimed_at).toLocaleDateString()}` : ''}
+            ${inv.status === 'pending' ? ` • Expires: ${new Date(inv.expires_at).toLocaleDateString()}` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    listContainer.innerHTML = invitationsHTML;
+  } catch (error) {
+    alert('Failed to load invitations: ' + error.message);
+  }
+}
+
+async function generateInvitation() {
+  try {
+    const response = await authFetch('/api/invitations/generate', {
+      method: 'POST'
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to generate invitation');
+    }
+
+    const data = await response.json();
+
+    // Show success message and copy link
+    await copyInviteLink(data.invite_url);
+    alert(`Invitation link generated!\nRemaining quota: ${data.remaining_quota}`);
+
+    // Reload invitations list
+    await loadInvitations();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function copyInviteLink(url) {
+  try {
+    await navigator.clipboard.writeText(url);
+    alert('Invitation link copied to clipboard!');
+  } catch (error) {
+    // Fallback for older browsers
+    const textarea = document.createElement('textarea');
+    textarea.value = url;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    alert('Invitation link copied to clipboard!');
+  }
+}
+
 // Export functions to global scope (temporary, will use modules later)
 window.toggleSidebar = toggleSidebar;
 window.showNewTextInput = showNewTextInput;
@@ -884,3 +1000,7 @@ window.deleteTextFromView = deleteTextFromView;
 window.openSettingsModal = openSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
 window.changePinyinMode = changePinyinMode;
+window.showInvitationsModal = showInvitationsModal;
+window.closeInvitationsModal = closeInvitationsModal;
+window.generateInvitation = generateInvitation;
+window.copyInviteLink = copyInviteLink;
