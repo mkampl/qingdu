@@ -42,15 +42,11 @@ function openWordModal(mode = 'add', listId, sectionName, word = null) {
   if (mode === 'edit' && word) {
     title.textContent = 'Edit Word';
     document.getElementById('wordHanzi').value = word.hanzi;
-    document.getElementById('wordPinyin').value = word.pinyin;
     document.getElementById('wordMeaning').value = word.meaning;
-    document.getElementById('wordLevel').value = word.level;
   } else {
     title.textContent = 'Add Word';
     document.getElementById('wordHanzi').value = '';
-    document.getElementById('wordPinyin').value = '';
     document.getElementById('wordMeaning').value = '';
-    document.getElementById('wordLevel').value = 'new-1';
   }
 
   modal.classList.add('show');
@@ -250,11 +246,9 @@ async function deleteSection(listId, sectionName) {
 
 async function saveWord() {
   const hanzi = document.getElementById('wordHanzi').value.trim();
-  const pinyin = document.getElementById('wordPinyin').value.trim();
   const meaning = document.getElementById('wordMeaning').value.trim();
-  const level = document.getElementById('wordLevel').value;
 
-  if (!hanzi || !pinyin || !meaning) {
+  if (!hanzi || !meaning) {
     alert('Please fill in all fields');
     return;
   }
@@ -266,7 +260,7 @@ async function saveWord() {
 
   // Save values before closing modal (which sets them to null)
   const listId = currentListId;
-  const word = { hanzi, pinyin, meaning, level };
+  const word = { hanzi, meaning };
 
   try {
     let response;
@@ -283,16 +277,14 @@ async function saveWord() {
         })
       });
     } else {
-      // Add new word
+      // Add new word (pinyin will be auto-generated, level will be 'Custom')
       response = await authFetch(`/api/vocabulary-lists/${listId}/words`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           section_name: currentSectionName,
           hanzi: hanzi,
-          pinyin: pinyin,
-          meaning: meaning,
-          level: level
+          meaning: meaning
         })
       });
     }

@@ -254,28 +254,12 @@
                     <input type="text" id="wordHanzi" placeholder="你好" autofocus>
                 </div>
                 <div class="form-group">
-                    <label for="wordPinyin">Pinyin</label>
-                    <input type="text" id="wordPinyin" placeholder="nǐ hǎo">
-                </div>
-                <div class="form-group">
                     <label for="wordMeaning">Meaning</label>
                     <input type="text" id="wordMeaning" placeholder="hello">
                 </div>
-                <div class="form-group">
-                    <label for="wordLevel">HSK Level</label>
-                    <select id="wordLevel">
-                        <option value="new-1">HSK 1</option>
-                        <option value="new-2">HSK 2</option>
-                        <option value="new-3">HSK 3</option>
-                        <option value="new-4">HSK 4</option>
-                        <option value="new-5">HSK 5</option>
-                        <option value="new-6">HSK 6</option>
-                        <option value="new-7">HSK 7</option>
-                        <option value="new-7+">HSK 7+</option>
-                        <option value="new-8">HSK 8</option>
-                        <option value="new-9">HSK 9</option>
-                    </select>
-                </div>
+                <p style="color: #666; font-size: 14px; font-style: italic; margin-top: 10px;">
+                    Pinyin will be generated automatically. Level will be set to 'Custom'.
+                </p>
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeWordModal()">Cancel</button>

@@ -1321,35 +1321,39 @@ async def add_word_to_list(
         VocabularyList.id == list_id,
         VocabularyList.user_id == user.id
     ).first()
-    
+
     if not vocab_list:
         raise HTTPException(status_code=404, detail="List not found")
-    
+
     sections = json.loads(vocab_list.sections) if vocab_list.sections else []
     section_name = word_data.get('section_name')
-    
+
     # Find or create section
     section = next((s for s in sections if s['name'] == section_name), None)
     if not section:
         section = {'name': section_name, 'words': []}
         sections.append(section)
-    
-    # Check if word already exists
+
+    # Auto-generate pinyin from hanzi
+    hanzi = word_data.get('hanzi')
+    pinyin = ' '.join(lazy_pinyin(hanzi, style=Style.TONE))
+
+    # Create word with auto-generated pinyin and 'Custom' level
     word = {
-        'hanzi': word_data.get('hanzi'),
-        'pinyin': word_data.get('pinyin'),
+        'hanzi': hanzi,
+        'pinyin': pinyin,
         'meaning': word_data.get('meaning'),
-        'level': word_data.get('level')
+        'level': 'Custom'
     }
-    
+
     if any(w['hanzi'] == word['hanzi'] for w in section['words']):
         return {"message": "Word already in list"}
-    
+
     section['words'].append(word)
     vocab_list.sections = json.dumps(sections)
     db.commit()
 
-    return {"message": "Word added"}
+    return {"message": "Word added", "pinyin": pinyin}
 
 @app.post("/api/vocabulary-lists/{list_id}/sections")
 async def add_section_to_list(
@@ -1490,16 +1494,17 @@ async def update_word_in_list(
     if not word:
         raise HTTPException(status_code=404, detail="Word not found")
 
-    # Update word
-    word['hanzi'] = new_word.get('hanzi', word['hanzi'])
-    word['pinyin'] = new_word.get('pinyin', word['pinyin'])
+    # Update word - auto-generate pinyin from new hanzi
+    new_hanzi = new_word.get('hanzi', word['hanzi'])
+    word['hanzi'] = new_hanzi
+    word['pinyin'] = ' '.join(lazy_pinyin(new_hanzi, style=Style.TONE))  # Auto-generate
     word['meaning'] = new_word.get('meaning', word['meaning'])
-    word['level'] = new_word.get('level', word['level'])
+    word['level'] = 'Custom'  # Always set to Custom
 
     vocab_list.sections = json.dumps(sections)
     db.commit()
 
-    return {"message": "Word updated"}
+    return {"message": "Word updated", "pinyin": word['pinyin']}
 
 @app.delete("/api/vocabulary-lists/{list_id}/words")
 async def delete_word_from_list(
