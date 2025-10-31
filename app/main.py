@@ -13,7 +13,7 @@ from functools import lru_cache
 from typing import List, Tuple, Optional, Dict
 import asyncio
 from dotenv import load_dotenv
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from app.database import init_db, get_db, SavedText, InvitationToken, User as UserModel
@@ -143,7 +143,15 @@ async def add_request_id(request: Request, call_next):
 # Rate limiting
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Custom JSON rate limit handler
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Rate limit exceeded. Please try again later."}
+    )
+
+app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 
 # Directories
 BASE_DIR = Path(__file__).resolve().parent.parent
