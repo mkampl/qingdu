@@ -305,11 +305,8 @@ async function analyzeText() {
   showTagsButton(false);
   document.getElementById('tagsDialog').style.display = 'none';
 
-  const readingArea = document.getElementById('readingArea');
-  readingArea.innerHTML = '<div class="loading">Analyzing...</div>';
-
-  document.getElementById('resultsSection').classList.add('show');
-  document.getElementById('saveTextBtn').disabled = false;
+  // Show loading overlay
+  document.getElementById('loadingOverlay').classList.add('show');
 
   try {
     const response = await fetch('/api/analyze', {
@@ -324,15 +321,29 @@ async function analyzeText() {
 
     const data = await response.json();
     AppState.currentAnalysisData = data;
+
+    // Hide loading overlay
+    document.getElementById('loadingOverlay').classList.remove('show');
+
+    // Now show results
     displayResults(data);
+    document.getElementById('resultsSection').classList.add('show');
+    document.getElementById('inputSection').classList.add('collapsed');
+    document.getElementById('saveTextBtn').disabled = false;
 
     // Set title to first sentence
-    const firstSentence = text.split(/[。！？]/)[0] || text.substring(0, 50);
+    const firstSentence = text.split(/[。！？\n]/)[0] || text.substring(0, 50);
     document.getElementById('currentTextTitle').textContent = firstSentence;
 
-    document.getElementById('inputSection').classList.add('collapsed');
   } catch (error) {
+    // Hide loading overlay on error
+    document.getElementById('loadingOverlay').classList.remove('show');
+
+    // Show error in results section
+    const readingArea = document.getElementById('readingArea');
     readingArea.innerHTML = `<div style="color:#e74c3c">Error: ${error.message}</div>`;
+    document.getElementById('resultsSection').classList.add('show');
+
     console.error('Analysis failed:', error);
   }
 }
