@@ -1,193 +1,90 @@
 # 轻读 QingDu - HSK Chinese Text Analyzer
 
-A modern web application for analyzing Chinese text difficulty based on HSK (Hanyu Shuiping Kaoshi) vocabulary levels.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A modern web application for analyzing Chinese text difficulty based on HSK (Hanyu Shuiping Kaoshi) vocabulary levels. Paste any Chinese text and instantly see which words you should know at each HSK level, with automatic pinyin, translations, and difficulty highlighting.
 
 ## Features
 
-### Text Analysis
-- **HSK-based vocabulary analysis** with 11,000+ words from HSK 1-9
-- **Visual difficulty highlighting** - each word is color-coded by HSK level
-- **Automatic pinyin display** for words above your estimated reading level
-- **Smart text segmentation** using jieba with HSK word prioritization
-- **Reading level estimation** based on word distribution
-
-### Learning Tools
-- **Word information panel** - click any word to see pinyin, meaning, and HSK level
-- **Sentence translations** - click sentences for instant translation
-- **Text-to-speech** - hear pronunciation for words and sentences
-- **Save texts** for later review with persistent storage
-- **Vocabulary lists** - generate HSK level lists or create custom study lists
-
-### Translation Services
-- Multiple API support (priority: DeepL → Google → MyMemory)
-- Smart caching to reduce API calls
-- Fallback to free services when API keys not provided
+- **HSK-based Analysis** - Analyze texts with 11,000+ words from HSK 1-9
+- **Visual Difficulty Highlighting** - Color-coded words by HSK level
+- **Smart Pinyin Display** - Automatic pinyin for words above your reading level
+- **Interactive Learning** - Click words for definitions, sentences for translations
+- **Text-to-Speech** - Hear native pronunciation
+- **Vocabulary Lists** - Generate HSK level lists or create custom study lists
+- **Save & Track** - Save texts for later review with user accounts
+- **Invitation System** - Controlled user registration with admin management
 
 ## Quick Start
 
 ### Using Docker (Recommended)
 
-1. **Clone the repository:**
-   ```bash
-   git clone <your-repo-url>
-   cd qingdu
-   ```
+```bash
+git clone https://github.com/mkampl/qingdu.git
+cd qingdu
+docker-compose up -d
+```
 
-2. **Start the application:**
-   ```bash
-   docker-compose up -d
-   ```
+Access the app at `http://localhost:8000`
 
-3. **Access the app:**
-   Open your browser to `http://localhost:8000`
+**Default admin credentials:** `admin` / `admin123` (must change on first login)
 
 ### Manual Setup
 
-1. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Run the application:**
-   ```bash
-   python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
-   ```
-
-## Configuration
-
-### Optional API Keys
-
-For better translation quality, add API keys to `.env` file:
-
-```env
-# DeepL API (best quality)
-DEEPL_API_KEY=your_deepl_api_key
-
-# Google Translate API (good quality)
-GOOGLE_TRANSLATE_API_KEY=your_google_api_key
+```bash
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-**Note:** If no API keys are provided, the app uses the free MyMemory API.
+See [SETUP.md](SETUP.md) for detailed setup instructions including optional API keys for better translation quality.
 
-### Environment Variables
+## Documentation
 
-```env
-LOG_LEVEL=info
-PYTHONUNBUFFERED=1
-```
-
+- **[Features Guide](FEATURES.md)** - Detailed feature descriptions and usage
+- **[API Documentation](API.md)** - Complete API endpoint reference
+- **[Contributing Guide](CONTRIBUTING.md)** - Development setup and guidelines
+- **[Setup Guide](SETUP.md)** - Detailed installation and configuration
 
 ## Technology Stack
 
-### Backend
-- **FastAPI** - Modern Python web framework
-- **jieba** - Chinese text segmentation
-- **pypinyin** - Pinyin conversion
-- **SQLAlchemy** - Database ORM
-- **httpx** - Async HTTP client
+Built with **FastAPI** (Python), **jieba** (Chinese segmentation), **pypinyin** (Pinyin conversion), and **vanilla JavaScript**. Uses SQLite for data persistence and supports optional DeepL/Google Translate APIs.
 
-### Frontend
-- **Vanilla JavaScript** (ES6+) - No frameworks needed
-- **Modern CSS** - Responsive design with flexbox/grid
-- **LocalStorage** - Client-side data persistence
+## Screenshots
 
-### Infrastructure
-- **Docker** - Containerization
-- **SQLite** - Embedded database
-- **Uvicorn** - ASGI server
+![Text Analysis](docs/screenshots/analysis.png)
+_HSK-based text analysis with color-coded difficulty levels_
 
-## API Endpoints
-
-### Analysis
-- `POST /api/analyze` - Analyze Chinese text
-- `POST /api/translate` - Translate text
-- `GET /api/tts/{text}` - Text-to-speech
-
-### Data Management
-- `GET /api/texts` - Get saved texts
-- `POST /api/texts/save` - Save analyzed text
-- `DELETE /api/texts/{id}` - Delete text
-
-### Vocabulary
-- `GET /api/vocabulary-stats` - Get vocabulary statistics
-- `GET /api/get-hsk-vocabulary` - Get complete HSK vocabulary
-
-## Features in Detail
-
-### HSK Level Colors
-
-- **HSK 1** - Light green
-- **HSK 2** - Light blue
-- **HSK 3** - Light orange
-- **HSK 4** - Light pink
-- **HSK 5** - Light purple
-- **HSK 6** - Light red
-- **HSK 7-9** - Various earth tones
-- **Unknown** - Gray (requires online lookup)
-
-### Text Interactions
-
-- **Click word** - View definition, pinyin, and HSK level
-- **Click sentence** - Get translation with source attribution
-- **Long-press sentence** - Same as click (mobile-friendly)
-- **Save word** - Add to vocabulary list for the current text
-
-## Development
-
-### Local Development
-
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. Run with auto-reload:
-   ```bash
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-   ```
-
-### Code Quality
-
-The codebase follows modern JavaScript practices:
-- ES6+ syntax (const/let, arrow functions, template literals)
-- Modular organization (separate files for different concerns)
-- Async/await for asynchronous operations
-- Error handling with try/catch
-
-## Performance Optimizations
-
-- **LRU caching** for word lookups
-- **Translation caching** to minimize API calls
-- **Rate limiting** on API endpoints (30/min for analyze, 20/min for translate)
-- **Efficient text segmentation** with jieba
-- **Lazy loading** of HSK vocabulary
-
+![Vocabulary Lists](docs/screenshots/vocab-lists.png)
+_Generate and manage vocabulary study lists_
 
 ## Contributing
 
-Contributions are welcome! Areas for improvement:
+Contributions welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+
+Ideas for contributions:
 - Additional language pairs for translation
 - Anki/CSV export for vocabulary lists
-- Dark mode
-- PWA (Progressive Web App) support
+- Dark mode theme
 - Spaced repetition system (SRS)
 
 ## License
 
-MIT License - feel free to use and modify as needed.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+Third-party licenses and attributions: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)
 
 ## Credits
 
-- HSK Vocabulary data: [drkameleon/complete-hsk-vocabulary](https://github.com/drkameleon/complete-hsk-vocabulary)
-- Chinese segmentation: [jieba](https://github.com/fxsjy/jieba)
-- Pinyin conversion: [pypinyin](https://github.com/mozillazg/python-pinyin)
+- **HSK Vocabulary**: [drkameleon/complete-hsk-vocabulary](https://github.com/drkameleon/complete-hsk-vocabulary) (MIT)
+- **Chinese Segmentation**: [jieba](https://github.com/fxsjy/jieba) (MIT)
+- **Pinyin Conversion**: [pypinyin](https://github.com/mozillazg/python-pinyin) (MIT)
+
+See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for complete dependency list.
 
 ## Support
 
-For issues, questions, or suggestions:
-- Open an issue on GitHub
-- Check existing documentation
-- Review the code comments
+- [Open an issue](https://github.com/mkampl/qingdu/issues) for bug reports or feature requests
+- [Ko-fi](https://ko-fi.com/mkampl) - Support the project
 
 ---
 
