@@ -1,0 +1,20 @@
+{
+    "name": "QingDu",
+    "short_name": "QingDu",
+    "description": "HSK Chinese Text Analyzer",
+    "icons": [
+        {
+            "src": "/static/favicon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/static/favicon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ],
+    "theme_color": "#CC0000",
+    "background_color": "#FFFFFF",
+    "display": "standalone"
+}
