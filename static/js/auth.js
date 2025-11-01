@@ -297,21 +297,15 @@ async function checkInviteToken() {
   const urlParams = new URLSearchParams(window.location.search);
   const inviteToken = urlParams.get('invite');
 
-  console.log('[Invite] Checking for invitation token in URL...');
-  console.log('[Invite] Token found:', inviteToken);
-
   if (inviteToken) {
     // Validate token
     try {
-      console.log('[Invite] Validating token with API...');
       const response = await fetch(`/api/invitations/validate/${inviteToken}`);
       const data = await response.json();
-      console.log('[Invite] Validation response:', data);
 
       if (data.valid) {
         // Store token and show signup modal
         currentInviteToken = inviteToken;
-        console.log('[Invite] Token is valid, showing signup modal');
         showSignupModal(data.invited_by);
       } else {
         // Show error and clean URL
@@ -323,12 +317,11 @@ async function checkInviteToken() {
         } else if (data.reason === 'not_found') {
           message = 'Invitation not found';
         }
-        console.error('[Invite] Token invalid:', data.reason);
         alert(message);
         cleanURL();
       }
     } catch (error) {
-      console.error('[Invite] Failed to validate invitation:', error);
+      console.error('Failed to validate invitation:', error);
       alert('Failed to validate invitation');
       cleanURL();
     }
@@ -337,22 +330,15 @@ async function checkInviteToken() {
 
 // Show signup modal
 function showSignupModal(invitedBy) {
-  console.log('[Invite] showSignupModal called with invitedBy:', invitedBy);
   const modal = document.getElementById('signupModal');
   const info = document.getElementById('signupInviteInfo');
-
-  console.log('[Invite] Modal element:', modal);
-  console.log('[Invite] Info element:', info);
 
   if (info && invitedBy) {
     info.textContent = `You've been invited by ${invitedBy}`;
   }
 
   if (modal) {
-    console.log('[Invite] Setting modal display to flex');
     modal.style.display = 'flex';
-  } else {
-    console.error('[Invite] Modal element not found!');
   }
 }
 
