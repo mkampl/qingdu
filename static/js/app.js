@@ -880,11 +880,15 @@ async function loadInvitations() {
 
     // Update quota display
     const quotaDisplay = document.getElementById('inviteQuotaDisplay');
-    quotaDisplay.textContent = `${data.quota.remaining}/${data.quota.total}`;
+    if (data.quota.total === -1) {
+      quotaDisplay.textContent = 'Unlimited';
+    } else {
+      quotaDisplay.textContent = `${data.quota.remaining}/${data.quota.total}`;
+    }
 
     // Enable/disable generate button
     const generateBtn = document.getElementById('generateInviteBtn');
-    if (data.quota.remaining <= 0) {
+    if (data.quota.total !== -1 && data.quota.remaining <= 0) {
       generateBtn.disabled = true;
       generateBtn.textContent = '❌ Quota Exhausted';
     } else {

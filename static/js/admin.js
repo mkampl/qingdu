@@ -95,6 +95,7 @@ function displayUsers(users) {
     const createdDate = new Date(user.created_at).toLocaleDateString();
     const lastActive = new Date(user.last_active).toLocaleDateString();
     const inviteQuota = user.invite_quota !== undefined ? user.invite_quota : 5;
+    const quotaDisplay = inviteQuota === -1 ? 'Unlimited' : inviteQuota;
 
     return `
       <tr>
@@ -104,7 +105,7 @@ function displayUsers(users) {
           <span id="quota-${user.id}" style="cursor: pointer; padding: 4px 8px; background: #f0f0f0; border-radius: 4px;"
                 onclick="editQuota(${user.id}, ${inviteQuota})"
                 title="Click to edit">
-            ${inviteQuota}
+            ${quotaDisplay}
           </span>
         </td>
         <td>${createdDate}</td>
@@ -134,7 +135,7 @@ function editQuota(userId, currentQuota) {
   const input = document.createElement('input');
   input.type = 'number';
   input.value = currentQuota;
-  input.min = '0';
+  input.min = '-1';
   input.style.width = '60px';
   input.style.padding = '4px';
   input.style.border = '2px solid #667eea';
@@ -147,7 +148,7 @@ function editQuota(userId, currentQuota) {
   const saveQuota = async () => {
     const newQuota = parseInt(input.value);
 
-    if (isNaN(newQuota) || newQuota < 0) {
+    if (isNaN(newQuota) || newQuota < -1) {
       alert('Invalid quota value');
       await loadUsers();
       return;
@@ -173,7 +174,10 @@ function editQuota(userId, currentQuota) {
   };
 
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') saveQuota();
+    if (e.key === 'Enter') {
+      e.preventDefault();  // Prevent blur event from firing
+      saveQuota();
+    }
     if (e.key === 'Escape') loadUsers();
   });
 

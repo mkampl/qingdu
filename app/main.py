@@ -298,7 +298,8 @@ async def startup_event():
                 username="admin",
                 password_hash=get_password_hash("admin123"),
                 is_admin=True,
-                must_change_password=True
+                must_change_password=True,
+                invite_quota=-1  # Unlimited invites for admin
             )
             db.add(admin)
             db.commit()
@@ -1182,12 +1183,12 @@ async def generate_invitation(
     db: Session = Depends(get_db)
 ):
     """Generate a new invitation token"""
-    # Check remaining quota
+    # Check remaining quota (skip check if quota is -1 = unlimited)
     used_count = db.query(InvitationToken).filter(
         InvitationToken.created_by_user_id == user.id
     ).count()
 
-    if used_count >= user.invite_quota:
+    if user.invite_quota >= 0 and used_count >= user.invite_quota:
         raise HTTPException(
             status_code=403,
             detail=f"Invitation quota exceeded. You have used {used_count}/{user.invite_quota} invitations."
@@ -1216,7 +1217,7 @@ async def generate_invitation(
         "token": token,
         "invite_url": invite_url,
         "expires_at": invitation.expires_at.isoformat(),
-        "remaining_quota": user.invite_quota - used_count - 1
+        "remaining_quota": -1 if user.invite_quota == -1 else user.invite_quota - used_count - 1
     }
 
 @app.get("/api/invitations/my-invitations")
@@ -1245,7 +1246,7 @@ async def get_my_invitations(
         "quota": {
             "total": user.invite_quota,
             "used": used_count,
-            "remaining": user.invite_quota - used_count
+            "remaining": -1 if user.invite_quota == -1 else user.invite_quota - used_count
         }
     }
 
@@ -1354,6 +1355,7 @@ async def list_users(
         "id": u.id,
         "username": u.username,
         "is_admin": u.is_admin,
+        "invite_quota": u.invite_quota,
         "last_active": u.last_active.isoformat(),
         "created_at": u.created_at.isoformat()
     } for u in users]
@@ -2038,8 +2040,8 @@ async def update_user_invite_quota(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if data.invite_quota < 0:
-        raise HTTPException(status_code=400, detail="Quota cannot be negative")
+    if data.invite_quota < -1:
+        raise HTTPException(status_code=400, detail="Quota cannot be less than -1 (use -1 for unlimited)")
 
     user.invite_quota = data.invite_quota
     db.commit()
