@@ -356,7 +356,8 @@ async def download_hsk_vocabulary():
             raw_data = response.json()
         
         processed = 0
-        char_levels = {}  # Track lowest HSK level for each character
+        char_levels_new = {}  # Track lowest NEW HSK level for each character
+        char_levels_old = {}  # Track lowest OLD HSK level for each character
 
         # Debug counters
         total_entries = 0
@@ -500,26 +501,47 @@ async def download_hsk_vocabulary():
 
                 processed += 1
 
-                # Track the lowest HSK level for each character (prefer new HSK)
-                level_for_char = level_new or level_old
-                level_num = int(level_for_char.replace('new-', '').replace('old-', '').replace('+', ''))
+                # Track the lowest HSK level for each character in BOTH systems
                 for char in simplified:
-                    if char not in char_levels or level_num < char_levels[char]:
-                        char_levels[char] = level_num
+                    # Track new HSK level
+                    if level_new:
+                        level_new_num = int(level_new.replace('new-', '').replace('+', ''))
+                        if char not in char_levels_new or level_new_num < char_levels_new[char]:
+                            char_levels_new[char] = level_new_num
+
+                    # Track old HSK level
+                    if level_old:
+                        level_old_num = int(level_old.replace('old-', ''))
+                        if char not in char_levels_old or level_old_num < char_levels_old[char]:
+                            char_levels_old[char] = level_old_num
         
-        # Now add individual characters with their lowest HSK level
-        for char, level_num in char_levels.items():
+        # Now add individual characters with their lowest HSK level from BOTH systems
+        # Combine both character level dictionaries
+        all_chars = set(char_levels_new.keys()) | set(char_levels_old.keys())
+
+        for char in all_chars:
             if char not in hsk_vocab:
                 char_pinyin_list = lazy_pinyin(char, style=Style.TONE)
                 char_pinyin = ' '.join(char_pinyin_list)
-                char_level = f'new-{level_num}'
+
+                # Get levels from both systems if available
+                level_new_num = char_levels_new.get(char)
+                level_old_num = char_levels_old.get(char)
+
+                char_level_new = f'new-{level_new_num}' if level_new_num else None
+                char_level_old = f'old-{level_old_num}' if level_old_num else None
+
+                # Primary level (prefer new)
+                primary_level = char_level_new or char_level_old
+                display_num = level_new_num or level_old_num
+
                 hsk_vocab[char] = {
                     'pinyin': char_pinyin,
-                    'meaning': f'(character, HSK {level_num})',
+                    'meaning': f'(character, HSK {display_num})',
                     'meanings': [f'character component'],
-                    'level': char_level,
-                    'level_new': char_level,
-                    'level_old': None,  # Individual characters don't have old HSK mapping
+                    'level': primary_level,
+                    'level_new': char_level_new,
+                    'level_old': char_level_old,
                     'frequency': 0
                 }
         
@@ -527,7 +549,8 @@ async def download_hsk_vocabulary():
         with open(vocab_file, 'w', encoding='utf-8') as f:
             json.dump(hsk_vocab, f, ensure_ascii=False, indent=2)
 
-        logger.info(f"Processed and saved {processed} HSK words + {len(char_levels)} individual characters")
+        total_chars = len(set(char_levels_new.keys()) | set(char_levels_old.keys()))
+        logger.info(f"Processed and saved {processed} HSK words + {total_chars} individual characters")
         logger.info(f"Level distribution from source: {entries_with_both} with both, {entries_with_new_only} new only, {entries_with_old_only} old only (out of {total_entries} total entries)")
 
     except httpx.HTTPStatusError as e:
