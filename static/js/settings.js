@@ -6,6 +6,7 @@ const SETTINGS_KEY = 'qingdu_settings';
 // Default settings
 const DEFAULT_SETTINGS = {
   pinyin_mode: 'auto', // 'on' | 'off' | 'auto'
+  hsk_version: 'new',  // 'new' | 'old' - which HSK version to use for coloring
   // Future settings can be added here:
   // theme: 'light',
   // font_size: 'medium',

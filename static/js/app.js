@@ -845,11 +845,15 @@ async function deleteTextFromView(index) {
 // Settings Modal Functions
 function openSettingsModal() {
   const modal = document.getElementById('settingsModal');
-  const select = document.getElementById('pinyinModeSelect');
+  const pinyinSelect = document.getElementById('pinyinModeSelect');
+  const hskSelect = document.getElementById('hskVersionSelect');
 
-  // Load current pinyin mode
-  const currentMode = window.SettingsManager.get('pinyin_mode');
-  select.value = currentMode;
+  // Load current settings
+  const currentPinyinMode = window.SettingsManager.get('pinyin_mode');
+  const currentHSKVersion = window.SettingsManager.get('hsk_version');
+
+  pinyinSelect.value = currentPinyinMode;
+  hskSelect.value = currentHSKVersion;
 
   modal.classList.add('show');
 }
@@ -860,6 +864,14 @@ function closeSettingsModal() {
 
 function changePinyinMode(mode) {
   window.SettingsManager.update('pinyin_mode', mode);
+}
+
+function changeHSKVersion(version) {
+  window.SettingsManager.update('hsk_version', version);
+  // Trigger re-render of current results if any
+  if (window.lastAnalysisResult) {
+    displayResults(window.lastAnalysisResult);
+  }
 }
 
 // Invitations Modal Functions
