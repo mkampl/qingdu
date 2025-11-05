@@ -297,30 +297,47 @@ function setupSentenceInteractions() {
 
 // Show word information panel
 function showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld) {
+  // Get current HSK version setting
+  const hskVersion = window.SettingsManager?.get('hsk_version') || 'new';
+
   let levelText;
+  let sourceLabel;
 
-  // Build transparent display of both levels
-  const parts = [];
-  if (levelNew) {
-    parts.push(`New HSK ${levelNew.replace('new-', '').replace('+', '+')}`);
-  }
-  if (levelOld) {
-    parts.push(`Old HSK ${levelOld.replace('old-', '')}`);
-  }
-
-  if (parts.length === 2) {
-    levelText = `${parts[0]} (${parts[1]})`;
-  } else if (parts.length === 1) {
-    levelText = parts[0];
-  } else if (level === 'unknown') {
-    // Truly unknown word (not in any HSK system)
-    levelText = 'Unknown (Online lookup)';
+  // Determine which level to display based on current mode
+  if (hskVersion === 'new') {
+    // New HSK mode - show level_new if available
+    if (levelNew) {
+      const levelNum = levelNew.replace('new-', '').replace('+', '+');
+      levelText = `HSK ${levelNum}`;
+      sourceLabel = source === 'hsk-chars' ? 'Compound' : 'Vocabulary';
+    } else if (levelOld) {
+      // Word only exists in old HSK
+      levelText = 'Not in New HSK';
+      sourceLabel = 'Old HSK only';
+    } else {
+      // Truly unknown word (online lookup)
+      levelText = 'Uncategorized';
+      sourceLabel = 'Online lookup';
+    }
   } else {
-    // Fallback to original level
-    levelText = level.replace('new-', 'HSK ').replace('old-', 'HSK ').replace('+', '+');
+    // Old HSK mode - show level_old if available
+    if (levelOld) {
+      const levelNum = levelOld.replace('old-', '');
+      levelText = `HSK ${levelNum}`;
+      sourceLabel = source === 'hsk-chars' ? 'Compound' : 'Vocabulary';
+    } else if (levelNew) {
+      // Word only exists in new HSK (levels 7-9)
+      levelText = 'Not in Old HSK';
+      sourceLabel = 'New HSK only';
+    } else {
+      // Truly unknown word (online lookup)
+      levelText = 'Uncategorized';
+      sourceLabel = 'Online lookup';
+    }
   }
 
-  const sourceTag = createSourceTag(source);
+  // Create enhanced source tag
+  const sourceTag = createEnhancedSourceTag(source, sourceLabel);
 
   const html = `
     <div style="display:flex;justify-content:space-between;align-items:center">
@@ -430,10 +447,28 @@ function displayHSKLegend() {
   document.getElementById('hskLegendContent').innerHTML = html;
 }
 
-// Create source tag
+// Create enhanced source tag with detailed labels
+function createEnhancedSourceTag(source, sourceLabel) {
+  if (!sourceLabel) return '';
+
+  // Map source labels to emojis
+  const sourceIcons = {
+    'Vocabulary': '📚',
+    'Compound': '🧩',
+    'Online lookup': '🌐',
+    'Old HSK only': '📖',
+    'New HSK only': '📗'
+  };
+
+  const icon = sourceIcons[sourceLabel] || '📝';
+
+  return `<span style="font-size:11px;color:#666;margin-left:8px">(${icon} ${sourceLabel})</span>`;
+}
+
+// Create source tag (legacy function for backwards compatibility)
 function createSourceTag(source, cached = false) {
   if (!source || source === 'null' || source === '') return '';
-  
+
   const sourceLabels = {
     'deepl': '🟢 DeepL',
     'google': '🔵 Google',
@@ -441,10 +476,10 @@ function createSourceTag(source, cached = false) {
     'hsk-chars': '📚 HSK',
     'hsk': '📚 HSK'
   };
-  
+
   const label = sourceLabels[source] || source;
   const cacheText = cached ? ' - cached' : '';
-  
+
   return `<span style="font-size:11px;color:#666;margin-left:8px">(${label}${cacheText})</span>`;
 }
 
