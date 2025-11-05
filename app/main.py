@@ -1111,6 +1111,32 @@ async def debug_vocab_sample():
         }
     }
 
+@app.get("/api/debug/vocab-lookup/{word}")
+async def debug_vocab_lookup(word: str):
+    """Debug endpoint: Look up a specific word in the vocabulary"""
+    if not hsk_vocab:
+        return {"error": "Vocabulary not loaded"}
+
+    if word in hsk_vocab:
+        return {
+            "found": True,
+            "word": word,
+            "data": hsk_vocab[word]
+        }
+    else:
+        # Check if individual characters exist
+        char_data = {}
+        for char in word:
+            if char in hsk_vocab:
+                char_data[char] = hsk_vocab[char]
+
+        return {
+            "found": False,
+            "word": word,
+            "message": "Word not in vocabulary",
+            "characters": char_data if char_data else "No character data found"
+        }
+
 @app.get("/health",
     summary="Health check",
     description="Check if the application is running and vocabulary is loaded",
