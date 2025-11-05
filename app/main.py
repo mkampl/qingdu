@@ -877,6 +877,101 @@ def estimate_text_level(hsk_stats: Dict, total_hsk_words: int) -> str:
     # If even HSK 9 doesn't cover TEXT_LEVEL_THRESHOLD%, it's beyond HSK
     return "HSK 9+"
 
+def migrate_word_data(word_data: Dict) -> Dict:
+    """
+    Migrate old word data format to new dual HSK system format.
+
+    Old format: { "hsk_level": "new-3", ... }
+    New format: { "hsk_level": "new-3", "level_new": "new-3", "level_old": "old-2", ... }
+
+    Args:
+        word_data: Word data dictionary (may be old or new format)
+
+    Returns:
+        Migrated word data with level_new and level_old fields
+    """
+    # Check if already migrated (has level_new or level_old)
+    if 'level_new' in word_data or 'level_old' in word_data:
+        return word_data
+
+    # Get the old hsk_level value
+    old_level = word_data.get('hsk_level') or word_data.get('level')
+
+    # If no level at all, return as-is
+    if not old_level:
+        return word_data
+
+    # Try to look up the word in current vocabulary to get both levels
+    word_text = word_data.get('text') or word_data.get('word')
+    if word_text and word_text in hsk_vocab:
+        vocab_entry = hsk_vocab[word_text]
+        word_data['level_new'] = vocab_entry.get('level_new')
+        word_data['level_old'] = vocab_entry.get('level_old')
+        # Update hsk_level to match current vocab
+        word_data['hsk_level'] = vocab_entry.get('level')
+    else:
+        # Word not in current vocab or no text field
+        # Assume old_level is from new HSK system (most common case)
+        if old_level.startswith('new-'):
+            word_data['level_new'] = old_level
+            word_data['level_old'] = None
+        elif old_level.startswith('old-'):
+            word_data['level_new'] = None
+            word_data['level_old'] = old_level
+        else:
+            # Unknown format, assume it's new HSK
+            word_data['level_new'] = old_level
+            word_data['level_old'] = None
+
+    return word_data
+
+def migrate_analysis_data(analysis_data: Dict) -> Dict:
+    """
+    Migrate saved analysis data to new dual HSK system format.
+
+    Args:
+        analysis_data: Analysis data containing words array
+
+    Returns:
+        Migrated analysis data
+    """
+    if not analysis_data or 'words' not in analysis_data:
+        return analysis_data
+
+    # Migrate each word in the words array
+    migrated_words = []
+    for word in analysis_data['words']:
+        migrated_word = migrate_word_data(word)
+        migrated_words.append(migrated_word)
+
+    analysis_data['words'] = migrated_words
+    return analysis_data
+
+def migrate_vocabulary_sections(sections: List[Dict]) -> List[Dict]:
+    """
+    Migrate vocabulary list sections to new dual HSK system format.
+
+    Args:
+        sections: List of sections containing words
+
+    Returns:
+        Migrated sections
+    """
+    if not sections:
+        return sections
+
+    migrated_sections = []
+    for section in sections:
+        if 'words' in section and section['words']:
+            migrated_words = []
+            for word in section['words']:
+                migrated_word = migrate_word_data(word)
+                migrated_words.append(migrated_word)
+            section['words'] = migrated_words
+        migrated_sections.append(section)
+
+    return migrated_sections
+
 @app.get("/api/vocabulary-stats")
 async def vocabulary_stats():
     """Get vocabulary statistics"""
@@ -1018,15 +1113,23 @@ async def get_texts(
         .order_by(SavedText.created_at.desc())\
         .all()
     
-    return [{
-        "id": text.id,
-        "title": text.title,
-        "content": text.content,
-        "date": text.created_at.isoformat(),
-        "analysisData": json.loads(text.analysis_data),
-        "tags": text.tags,
-        "reading_progress": text.reading_progress or 0  # NEW
-    } for text in texts]
+    result = []
+    for text in texts:
+        analysis_data = json.loads(text.analysis_data)
+        # Automatically migrate old format data to new dual HSK system
+        migrated_data = migrate_analysis_data(analysis_data)
+
+        result.append({
+            "id": text.id,
+            "title": text.title,
+            "content": text.content,
+            "date": text.created_at.isoformat(),
+            "analysisData": migrated_data,
+            "tags": text.tags,
+            "reading_progress": text.reading_progress or 0
+        })
+
+    return result
 
 @app.delete("/api/texts/{text_id}")
 async def delete_text(
@@ -1486,13 +1589,21 @@ async def get_vocabulary_lists(
     lists = db.query(VocabularyList).filter(
         VocabularyList.user_id == user.id
     ).all()
-    
-    return [{
-        "id": l.id,
-        "name": l.name,
-        "type": l.list_type,
-        "sections": json.loads(l.sections) if l.sections else []
-    } for l in lists]
+
+    result = []
+    for l in lists:
+        sections = json.loads(l.sections) if l.sections else []
+        # Automatically migrate old format data to new dual HSK system
+        migrated_sections = migrate_vocabulary_sections(sections)
+
+        result.append({
+            "id": l.id,
+            "name": l.name,
+            "type": l.list_type,
+            "sections": migrated_sections
+        })
+
+    return result
 
 @app.put("/api/vocabulary-lists/{list_id}")
 async def update_vocabulary_list(
