@@ -338,8 +338,15 @@ async def download_hsk_vocabulary():
         
         processed = 0
         char_levels = {}  # Track lowest HSK level for each character
-        
+
+        # Debug counters
+        total_entries = 0
+        entries_with_both = 0
+        entries_with_new_only = 0
+        entries_with_old_only = 0
+
         for entry in raw_data:
+            total_entries += 1
             if not isinstance(entry, dict):
                 continue
             
@@ -391,6 +398,14 @@ async def download_hsk_vocabulary():
                         level_new = level
                     elif level.startswith('old-'):
                         level_old = level
+
+            # Track level statistics for debugging
+            if level_new and level_old:
+                entries_with_both += 1
+            elif level_new:
+                entries_with_new_only += 1
+            elif level_old:
+                entries_with_old_only += 1
 
             # Need at least one level to include the word
             if (level_new or level_old) and simplified:
@@ -478,11 +493,14 @@ async def download_hsk_vocabulary():
             if char not in hsk_vocab:
                 char_pinyin_list = lazy_pinyin(char, style=Style.TONE)
                 char_pinyin = ' '.join(char_pinyin_list)
+                char_level = f'new-{level_num}'
                 hsk_vocab[char] = {
                     'pinyin': char_pinyin,
                     'meaning': f'(character, HSK {level_num})',
                     'meanings': [f'character component'],
-                    'level': f'new-{level_num}',
+                    'level': char_level,
+                    'level_new': char_level,
+                    'level_old': None,  # Individual characters don't have old HSK mapping
                     'frequency': 0
                 }
         
@@ -490,8 +508,8 @@ async def download_hsk_vocabulary():
         with open(vocab_file, 'w', encoding='utf-8') as f:
             json.dump(hsk_vocab, f, ensure_ascii=False, indent=2)
 
-
         logger.info(f"Processed and saved {processed} HSK words + {len(char_levels)} individual characters")
+        logger.info(f"Level distribution from source: {entries_with_both} with both, {entries_with_new_only} new only, {entries_with_old_only} old only (out of {total_entries} total entries)")
 
     except httpx.HTTPStatusError as e:
         logger.error(f"HTTP error downloading vocabulary: {e.response.status_code}", exc_info=True)
