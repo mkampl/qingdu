@@ -924,8 +924,10 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
     # print(f"Segmentation result: {' | '.join(segments)}")
 
     words = []
-    hsk_stats = {f'hsk{i}': 0 for i in range(1, 10)}
-    total_hsk_words = 0
+    hsk_stats_new = {f'hsk{i}': 0 for i in range(1, 10)}
+    hsk_stats_old = {f'hsk{i}': 0 for i in range(1, 7)}  # Old HSK only has 6 levels
+    total_hsk_words_new = 0
+    total_hsk_words_old = 0
 
     for segment in segments:
         # Handle line breaks specially
@@ -958,14 +960,28 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
             word_info.is_hsk = True
             word_info.translation_source = TRANSLATION_SOURCE_HSK  # Mark as HSK vocabulary
 
-            level_num = vocab_entry['level'].replace('new-', '').replace('old-', '').replace('+', '')
-            try:
-                level_key = f'hsk{int(level_num)}'
-                if level_key in hsk_stats:
-                    hsk_stats[level_key] += 1
-                total_hsk_words += 1
-            except ValueError:
-                pass
+            # Track statistics for BOTH HSK systems
+            level_new = vocab_entry.get('level_new')
+            if level_new:
+                level_new_num = level_new.replace('new-', '').replace('+', '')
+                try:
+                    level_key = f'hsk{int(level_new_num)}'
+                    if level_key in hsk_stats_new:
+                        hsk_stats_new[level_key] += 1
+                    total_hsk_words_new += 1
+                except ValueError:
+                    pass
+
+            level_old = vocab_entry.get('level_old')
+            if level_old:
+                level_old_num = level_old.replace('old-', '')
+                try:
+                    level_key = f'hsk{int(level_old_num)}'
+                    if level_key in hsk_stats_old:
+                        hsk_stats_old[level_key] += 1
+                    total_hsk_words_old += 1
+                except ValueError:
+                    pass
         
         elif len(segment) > 1:
             # First check: is this a compound of HSK characters?
@@ -985,6 +1001,29 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
                     word_info.frequency = 0
                     word_info.is_hsk = True
                     word_info.translation_source = compound_info.get('translation_source')
+
+                    # Track compound word in statistics for BOTH HSK systems
+                    level_new = compound_info.get('level_new')
+                    if level_new:
+                        level_new_num = level_new.replace('new-', '').replace('+', '')
+                        try:
+                            level_key = f'hsk{int(level_new_num)}'
+                            if level_key in hsk_stats_new:
+                                hsk_stats_new[level_key] += 1
+                            total_hsk_words_new += 1
+                        except ValueError:
+                            pass
+
+                    level_old = compound_info.get('level_old')
+                    if level_old:
+                        level_old_num = level_old.replace('old-', '')
+                        try:
+                            level_key = f'hsk{int(level_old_num)}'
+                            if level_key in hsk_stats_old:
+                                hsk_stats_old[level_key] += 1
+                            total_hsk_words_old += 1
+                        except ValueError:
+                            pass
                 #     print(f"Compound created for '{segment}': {compound_info['meaning']}")
                 # else:
                 #     print(f"Compound method failed for '{segment}'")
@@ -1017,17 +1056,28 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
     # Debug: Print first word to verify translation_source
     # if words:
     #     print(f"DEBUG - First word data: {words[0]}")
-    
-    estimated_level = estimate_text_level(hsk_stats, total_hsk_words)
-    
+
+    # Calculate estimated level for BOTH HSK systems
+    estimated_level_new = estimate_text_level(hsk_stats_new, total_hsk_words_new)
+    estimated_level_old = estimate_text_level(hsk_stats_old, total_hsk_words_old)
+
     return {
         'words': words,
         'statistics': {
             'total_characters': len(text),
             'total_words': len(segments),
-            'hsk_words': total_hsk_words,
-            'hsk_distribution': hsk_stats,
-            'estimated_level': estimated_level
+            # New HSK statistics
+            'hsk_words_new': total_hsk_words_new,
+            'hsk_distribution_new': hsk_stats_new,
+            'estimated_level_new': estimated_level_new,
+            # Old HSK statistics
+            'hsk_words_old': total_hsk_words_old,
+            'hsk_distribution_old': hsk_stats_old,
+            'estimated_level_old': estimated_level_old,
+            # Legacy fields (for backwards compatibility, use new HSK)
+            'hsk_words': total_hsk_words_new,
+            'hsk_distribution': hsk_stats_new,
+            'estimated_level': estimated_level_new
         }
     }
 

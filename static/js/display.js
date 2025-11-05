@@ -35,7 +35,17 @@ function displayResults(data) {
   }
 
   const stats = data.statistics;
-  const estimatedLevelNum = parseInt(stats.estimated_level.replace('HSK ', ''));
+
+  // Get current HSK version to use appropriate estimated level
+  const hskVersion = window.SettingsManager?.get('hsk_version') || 'new';
+  let estimatedLevel;
+  if (hskVersion === 'old') {
+    estimatedLevel = stats.estimated_level_old || stats.estimated_level;
+  } else {
+    estimatedLevel = stats.estimated_level_new || stats.estimated_level;
+  }
+
+  const estimatedLevelNum = parseInt(estimatedLevel.replace('HSK ', ''));
   const pinyinLevel = estimatedLevelNum;
 
   // Build sentences from words
@@ -391,19 +401,34 @@ async function showSentence(sentence) {
 
 // Display statistics
 function displayStatistics(stats, pinyinLevel) {
-  const distribution = Object.entries(stats.hsk_distribution)
+  // Get current HSK version to display appropriate statistics
+  const hskVersion = window.SettingsManager?.get('hsk_version') || 'new';
+
+  // Choose statistics based on current HSK mode
+  let hskWords, hskDistribution, estimatedLevel;
+  if (hskVersion === 'old') {
+    hskWords = stats.hsk_words_old || stats.hsk_words;
+    hskDistribution = stats.hsk_distribution_old || stats.hsk_distribution;
+    estimatedLevel = stats.estimated_level_old || stats.estimated_level;
+  } else {
+    hskWords = stats.hsk_words_new || stats.hsk_words;
+    hskDistribution = stats.hsk_distribution_new || stats.hsk_distribution;
+    estimatedLevel = stats.estimated_level_new || stats.estimated_level;
+  }
+
+  const distribution = Object.entries(hskDistribution)
     .filter(([_, count]) => count > 0)
     .map(([key, count]) => `${key.toUpperCase()}: ${count}`)
     .join(', ');
-  
+
   const html = `
     <p><strong>Characters:</strong> ${stats.total_characters}</p>
     <p><strong>Words:</strong> ${stats.total_words}</p>
-    <p><strong>HSK Words:</strong> ${stats.hsk_words}</p>
-    <p><strong>Estimated Level:</strong> ${stats.estimated_level} (Pinyin for HSK ${pinyinLevel + 1}+)</p>
+    <p><strong>HSK Words:</strong> ${hskWords}</p>
+    <p><strong>Estimated Level:</strong> ${estimatedLevel} (Pinyin for HSK ${pinyinLevel + 1}+)</p>
     <p><strong>Distribution:</strong> ${distribution}</p>
   `;
-  
+
   document.getElementById('statsContent').innerHTML = html;
 
   // Also display HSK legend
