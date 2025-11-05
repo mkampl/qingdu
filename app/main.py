@@ -1028,8 +1028,51 @@ async def get_hsk_vocabulary():
     """Get complete HSK vocabulary for client-side list generation"""
     if not hsk_vocab:
         raise HTTPException(status_code=503, detail="Vocabulary not loaded yet")
-    
+
     return hsk_vocab
+
+@app.get("/api/debug/vocab-sample")
+async def debug_vocab_sample():
+    """Debug endpoint: Show sample vocabulary entries to verify level_old is populated"""
+    if not hsk_vocab:
+        return {"error": "Vocabulary not loaded"}
+
+    # Get first 20 words as sample
+    sample = {}
+    count_with_both = 0
+    count_new_only = 0
+    count_old_only = 0
+
+    for i, (word, data) in enumerate(hsk_vocab.items()):
+        if i < 20:
+            sample[word] = {
+                'level': data.get('level'),
+                'level_new': data.get('level_new'),
+                'level_old': data.get('level_old'),
+                'pinyin': data.get('pinyin'),
+                'meaning': data.get('meaning')
+            }
+
+        # Count level distribution
+        has_new = data.get('level_new') is not None
+        has_old = data.get('level_old') is not None
+
+        if has_new and has_old:
+            count_with_both += 1
+        elif has_new:
+            count_new_only += 1
+        elif has_old:
+            count_old_only += 1
+
+    return {
+        "sample": sample,
+        "statistics": {
+            "total_words": len(hsk_vocab),
+            "with_both_levels": count_with_both,
+            "new_hsk_only": count_new_only,
+            "old_hsk_only": count_old_only
+        }
+    }
 
 @app.get("/health",
     summary="Health check",
