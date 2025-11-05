@@ -396,9 +396,28 @@ async function saveCurrentText() {
   const title = AppState.currentInputText.split(/[。！？\n]/)[0] ||
     AppState.currentInputText.substring(0, 50);
 
-  // Auto-generate HSK level tag
+  // Auto-generate HSK level tags - include both new and old if available
   const estimatedLevel = AppState.currentAnalysisData.statistics?.estimated_level || 'Unknown';
-  const autoTags = [estimatedLevel]; // e.g., "HSK 3"
+  const autoTags = [];
+
+  // Always add the primary estimated level
+  if (estimatedLevel !== 'Unknown') {
+    // Check if this is a new HSK level (default)
+    if (estimatedLevel.startsWith('HSK ')) {
+      const levelNum = estimatedLevel.replace('HSK ', '');
+      autoTags.push(`New ${estimatedLevel}`); // e.g., "New HSK 3"
+
+      // Try to find a corresponding old HSK level
+      // This is approximate since we don't have a direct mapping here
+      // We just tag it as being analyzed, the specific word mappings are already in the analysis
+      // For now, we'll just add the new HSK tag
+    } else {
+      autoTags.push(estimatedLevel);
+    }
+  }
+
+  // Add a tag indicating both HSK systems are supported
+  autoTags.push('HSK Dual-System');
 
   try {
     let response;

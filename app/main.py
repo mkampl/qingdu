@@ -185,6 +185,8 @@ class TranslationRequest(BaseModel):
 class WordInfo(BaseModel):
     text: str
     hsk_level: Optional[str] = None
+    level_new: Optional[str] = None
+    level_old: Optional[str] = None
     pinyin: Optional[str] = None
     meaning: Optional[str] = None
     meanings: Optional[List[str]] = None
@@ -379,55 +381,60 @@ async def download_hsk_vocabulary():
             transcriptions = best_form.get('transcriptions', {})
             pinyin = transcriptions.get('pinyin', '')
             meanings = best_form.get('meanings', [])
-            
-            hsk_level = None
+
+            # Extract BOTH new and old HSK levels
+            level_new = None
+            level_old = None
             for level in levels:
-                if isinstance(level, str) and level.startswith('new-'):
-                    hsk_level = level
-                    break
-            
-            if not hsk_level:
-                for level in levels:
-                    if isinstance(level, str) and level.startswith('old-'):
-                        hsk_level = level.replace('old-', 'new-')
-                        break
-            
-            if hsk_level and simplified:
-                # Build new entry
+                if isinstance(level, str):
+                    if level.startswith('new-'):
+                        level_new = level
+                    elif level.startswith('old-'):
+                        level_old = level
+
+            # Need at least one level to include the word
+            if (level_new or level_old) and simplified:
+                # Build new entry with both levels
                 new_entry = {
                     'pinyin': pinyin,
                     'meaning': meanings[0] if meanings else 'No translation',
                     'meanings': meanings,
-                    'level': hsk_level,
+                    'level_new': level_new,
+                    'level_old': level_old,
+                    'level': level_new or level_old,  # Backward compatibility
                     'frequency': entry.get('frequency', 0)
                 }
-                
+
                 if simplified not in hsk_vocab:
                     hsk_vocab[simplified] = new_entry
                 else:
-                    # Compare entries
+                    # Compare entries - prefer lower new HSK level
                     existing = hsk_vocab[simplified]
-                    existing_level = int(existing['level'].replace('new-', '').replace('+', ''))
-                    new_level = int(hsk_level.replace('new-', '').replace('+', ''))
-                    
+                    existing_new = existing.get('level_new', existing.get('level', ''))
+                    new_new = new_entry.get('level_new', new_entry.get('level', ''))
+
+                    existing_level_num = int(existing_new.replace('new-', '').replace('old-', '').replace('+', '')) if existing_new else 999
+                    new_level_num = int(new_new.replace('new-', '').replace('old-', '').replace('+', '')) if new_new else 999
+
                     existing_meaning = existing.get('meaning', '')
                     new_meaning = new_entry['meaning']
-                    
+
                     existing_is_bad = 'abbr.' in existing_meaning or 'variant of' in existing_meaning
                     new_is_good = 'abbr.' not in new_meaning and 'variant of' not in new_meaning
-                    
+
                     should_replace = (
-                        new_level < existing_level or
-                        (new_level == existing_level and existing_is_bad and new_is_good)
+                        new_level_num < existing_level_num or
+                        (new_level_num == existing_level_num and existing_is_bad and new_is_good)
                     )
-                    
+
                     if should_replace:
                         hsk_vocab[simplified] = new_entry
-                
+
                 processed += 1
-                
-                # Track the lowest HSK level for each character
-                level_num = int(hsk_level.replace('new-', '').replace('+', ''))
+
+                # Track the lowest HSK level for each character (prefer new HSK)
+                level_for_char = level_new or level_old
+                level_num = int(level_for_char.replace('new-', '').replace('old-', '').replace('+', ''))
                 for char in simplified:
                     if char not in char_levels or level_num < char_levels[char]:
                         char_levels[char] = level_num
@@ -553,16 +560,20 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
             'meaning': translation,
             'meanings': [translation],
             'level': compound_level,
+            'level_new': compound_level,
+            'level_old': None,
             'frequency': 0,
             'translation_source': source
         }
-    
+
     # If online lookup completely failed, use character meanings
     return {
         'pinyin': compound_pinyin,
         'meaning': fallback_meaning,
         'meanings': char_meanings,
         'level': compound_level,
+        'level_new': compound_level,
+        'level_old': None,
         'frequency': 0,
         'translation_source': 'hsk-chars'
     }
@@ -755,13 +766,15 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
         if vocab_entry:
             vocab_entry = hsk_vocab[segment]
             word_info.hsk_level = vocab_entry['level']
+            word_info.level_new = vocab_entry.get('level_new')
+            word_info.level_old = vocab_entry.get('level_old')
             word_info.pinyin = vocab_entry['pinyin']
             word_info.meaning = vocab_entry['meaning']
             word_info.meanings = vocab_entry['meanings']
             word_info.frequency = vocab_entry['frequency']
             word_info.is_hsk = True
             word_info.translation_source = TRANSLATION_SOURCE_HSK  # Mark as HSK vocabulary
-            
+
             level_num = vocab_entry['level'].replace('new-', '').replace('old-', '').replace('+', '')
             try:
                 level_key = f'hsk{int(level_num)}'
@@ -781,6 +794,8 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
                 compound_info = await create_compound_from_hsk(segment)
                 if compound_info:
                     word_info.hsk_level = compound_info['level']
+                    word_info.level_new = compound_info.get('level_new')
+                    word_info.level_old = compound_info.get('level_old')
                     word_info.pinyin = compound_info['pinyin']
                     word_info.meaning = compound_info['meaning']
                     word_info.meanings = compound_info['meanings']
@@ -800,6 +815,8 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
                 online_info = await lookup_unknown_word(segment)
                 if online_info:
                     word_info.hsk_level = 'unknown'
+                    word_info.level_new = None
+                    word_info.level_old = None
                     word_info.pinyin = online_info['pinyin']
                     word_info.meaning = online_info['meaning']
                     word_info.meanings = online_info['meanings']
