@@ -586,28 +586,55 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
     """
     chars = list(word)
     char_pinyins = []
-    char_levels = []
+    char_levels_new = []
+    char_levels_old = []
     char_meanings = []
-    
+
     # Check if all characters are in HSK and collect their levels
     for char in chars:
         if char in hsk_vocab:
-            char_pinyins.append(hsk_vocab[char]['pinyin'])
-            char_meanings.append(hsk_vocab[char]['meaning'])
-            level_str = hsk_vocab[char]['level'].replace('new-', '').replace('old-', '').replace('+', '')
-            try:
-                char_levels.append(int(level_str))
-            except:
-                char_levels.append(1)
+            char_data = hsk_vocab[char]
+            char_pinyins.append(char_data['pinyin'])
+            char_meanings.append(char_data['meaning'])
+
+            # Collect new HSK level
+            level_new = char_data.get('level_new')
+            if level_new:
+                level_new_str = level_new.replace('new-', '').replace('+', '')
+                try:
+                    char_levels_new.append(int(level_new_str))
+                except:
+                    char_levels_new.append(1)
+
+            # Collect old HSK level
+            level_old = char_data.get('level_old')
+            if level_old:
+                level_old_str = level_old.replace('old-', '')
+                try:
+                    char_levels_old.append(int(level_old_str))
+                except:
+                    pass  # Character doesn't have old HSK level
         else:
             return None
-    
+
     # Build pinyin from HSK characters
     compound_pinyin = ' '.join(char_pinyins)
-    
-    # Use highest level from component characters
-    max_level = max(char_levels)
-    compound_level = f'new-{max_level}'
+
+    # Calculate compound levels from component characters
+    # Use highest level from each HSK system
+    compound_level_new = None
+    compound_level_old = None
+
+    if char_levels_new:
+        max_new = max(char_levels_new)
+        compound_level_new = f'new-{max_new}'
+
+    if char_levels_old:
+        max_old = max(char_levels_old)
+        compound_level_old = f'old-{max_old}'
+
+    # Primary level (prefer new HSK)
+    compound_level = compound_level_new or compound_level_old or 'new-1'
     
     # Fallback meaning from characters
     fallback_meaning = ' + '.join(char_meanings)
@@ -631,8 +658,8 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
             'meaning': translation,
             'meanings': [translation],
             'level': compound_level,
-            'level_new': compound_level,
-            'level_old': None,
+            'level_new': compound_level_new,
+            'level_old': compound_level_old,
             'frequency': 0,
             'translation_source': source
         }
@@ -643,8 +670,8 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
         'meaning': fallback_meaning,
         'meanings': char_meanings,
         'level': compound_level,
-        'level_new': compound_level,
-        'level_old': None,
+        'level_new': compound_level_new,
+        'level_old': compound_level_old,
         'frequency': 0,
         'translation_source': 'hsk-chars'
     }
