@@ -544,7 +544,69 @@ async def download_hsk_vocabulary():
                     'level_old': char_level_old,
                     'frequency': 0
                 }
-        
+
+        # Supplement missing levels from constituent characters
+        # If a word is missing level_new or level_old, but all its characters have that level,
+        # calculate it from the characters (same logic as compound words)
+        supplemented_new = 0
+        supplemented_old = 0
+
+        for word, word_data in hsk_vocab.items():
+            # Skip single characters and words that are character components
+            if len(word) == 1 or word_data.get('meaning', '').startswith('(character'):
+                continue
+
+            chars = list(word)
+
+            # Try to supplement missing level_new
+            if not word_data.get('level_new'):
+                char_levels_list = []
+                all_chars_have_level = True
+
+                for char in chars:
+                    if char in hsk_vocab and hsk_vocab[char].get('level_new'):
+                        level_str = hsk_vocab[char]['level_new'].replace('new-', '').replace('+', '')
+                        try:
+                            char_levels_list.append(int(level_str))
+                        except:
+                            all_chars_have_level = False
+                            break
+                    else:
+                        all_chars_have_level = False
+                        break
+
+                if all_chars_have_level and char_levels_list:
+                    max_level = max(char_levels_list)
+                    word_data['level_new'] = f'new-{max_level}'
+                    if not word_data.get('level'):
+                        word_data['level'] = f'new-{max_level}'
+                    supplemented_new += 1
+
+            # Try to supplement missing level_old
+            if not word_data.get('level_old'):
+                char_levels_list = []
+                all_chars_have_level = True
+
+                for char in chars:
+                    if char in hsk_vocab and hsk_vocab[char].get('level_old'):
+                        level_str = hsk_vocab[char]['level_old'].replace('old-', '')
+                        try:
+                            char_levels_list.append(int(level_str))
+                        except:
+                            all_chars_have_level = False
+                            break
+                    else:
+                        all_chars_have_level = False
+                        break
+
+                if all_chars_have_level and char_levels_list:
+                    max_level = max(char_levels_list)
+                    word_data['level_old'] = f'old-{max_level}'
+                    supplemented_old += 1
+
+        if supplemented_new > 0 or supplemented_old > 0:
+            logger.info(f"Supplemented missing levels from characters: {supplemented_new} level_new, {supplemented_old} level_old")
+
         vocab_file = DATA_DIR / "hsk_vocabulary.json"
         with open(vocab_file, 'w', encoding='utf-8') as f:
             json.dump(hsk_vocab, f, ensure_ascii=False, indent=2)
