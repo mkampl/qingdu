@@ -242,7 +242,26 @@ async def startup_event():
         try:
             with open(vocab_file, 'r', encoding='utf-8') as f:
                 hsk_vocab = json.load(f)
-            logger.info(f"Loaded {len(hsk_vocab)} HSK words from cache")
+
+            # Check if cache has new format with level_new/level_old fields
+            # Sample first few entries to verify
+            needs_update = False
+            sample_size = min(10, len(hsk_vocab))
+            sample_words = list(hsk_vocab.items())[:sample_size]
+
+            for word, data in sample_words:
+                # Check if this entry has the new dual-level format
+                if 'level_new' not in data and 'level_old' not in data:
+                    needs_update = True
+                    logger.info(f"Cache is in old format (missing level_new/level_old), will re-download")
+                    break
+
+            if needs_update:
+                # Cache is old format, force re-download
+                logger.info("Downloading fresh vocabulary with dual HSK level support...")
+                await download_hsk_vocabulary()
+            else:
+                logger.info(f"Loaded {len(hsk_vocab)} HSK words from cache")
         except Exception as e:
             logger.error(f"Failed to load vocabulary from cache: {e}", exc_info=True)
             logger.info("Attempting to download vocabulary from GitHub...")
