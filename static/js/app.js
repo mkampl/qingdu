@@ -5,6 +5,7 @@ const AppState = {
   currentTextId: null,
   currentInputText: '',
   currentReadingProgress: 0, // NEW
+  textWasEdited: false, // Track if text was modified after analysis
   sidebarOpen: false,
   longPressTimer: null,
 };
@@ -50,6 +51,15 @@ function setupEventListeners() {
     document.getElementById('listViewSection').classList.add('hidden');
     document.getElementById('savedTextsSection').classList.add('hidden');
     document.getElementById('textInput').focus();
+  });
+
+  // Track text changes in input textarea
+  document.getElementById('textInput').addEventListener('input', () => {
+    const currentText = document.getElementById('textInput').value;
+    // Mark as edited if text differs from stored input text
+    if (currentText !== AppState.currentInputText) {
+      AppState.textWasEdited = true;
+    }
   });
 
   // Overlay click (close sidebar)
@@ -352,6 +362,7 @@ async function analyzeText() {
 
     const data = await response.json();
     AppState.currentAnalysisData = data;
+    AppState.textWasEdited = false; // Reset edit flag after successful analysis
 
     // Jump to 100%
     clearInterval(progressInterval);
@@ -388,8 +399,74 @@ async function analyzeText() {
 
 // Save current text
 async function saveCurrentText() {
-  if (!AppState.currentInputText || !AppState.currentAnalysisData) {
+  // Get current text from input (might have been edited)
+  const currentText = document.getElementById('textInput').value.trim();
+
+  if (!currentText) {
     alert('No text to save');
+    return;
+  }
+
+  // Check if text was edited - if so, need to re-analyze before saving
+  if (AppState.textWasEdited || currentText !== AppState.currentInputText) {
+    // Show loading overlay for re-analysis
+    const progressBar = document.getElementById('analysisProgressBar');
+    const progressText = document.getElementById('progressText');
+    progressBar.style.width = '0%';
+    progressText.textContent = '0%';
+    document.getElementById('loadingOverlay').classList.add('show');
+
+    // Simulate progress
+    let progressInterval = simulateProgress(progressBar, progressText, 75, 1500);
+
+    try {
+      // Re-analyze the edited text
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: currentText })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Update analysis data and input text
+      AppState.currentAnalysisData = data;
+      AppState.currentInputText = currentText;
+      AppState.textWasEdited = false;
+
+      // Jump to 100%
+      clearInterval(progressInterval);
+      progressBar.style.width = '100%';
+      progressText.textContent = '100%';
+
+      // Wait a moment, then hide overlay
+      await new Promise(resolve => setTimeout(resolve, 300));
+      document.getElementById('loadingOverlay').classList.remove('show');
+
+      // Update display with new analysis
+      displayResults(data);
+      document.getElementById('resultsSection').classList.add('show');
+      document.getElementById('inputSection').classList.add('collapsed');
+
+      // Update title
+      const firstSentence = currentText.split(/[。！？\n]/)[0] || currentText.substring(0, 50);
+      document.getElementById('currentTextTitle').textContent = firstSentence;
+
+    } catch (error) {
+      clearInterval(progressInterval);
+      document.getElementById('loadingOverlay').classList.remove('show');
+      alert('Failed to re-analyze text: ' + error.message);
+      return;
+    }
+  }
+
+  // Now save (with current or newly analyzed data)
+  if (!AppState.currentAnalysisData) {
+    alert('No analysis data to save');
     return;
   }
 
@@ -846,6 +923,18 @@ async function editTextFromView(index) {
   document.getElementById('inputSection').classList.remove('collapsed');
   document.getElementById('resultsSection').classList.remove('show');
   document.getElementById('savedTextsSection').classList.add('hidden');
+  document.getElementById('textInput').focus();
+}
+
+// Edit current text from analysis view
+function editCurrentText() {
+  // Load current analyzed text back into input area
+  const currentText = AppState.currentInputText || document.getElementById('textInput').value;
+  document.getElementById('textInput').value = currentText;
+
+  // Show input section and hide results
+  document.getElementById('inputSection').classList.remove('collapsed');
+  document.getElementById('resultsSection').classList.remove('show');
   document.getElementById('textInput').focus();
 }
 
