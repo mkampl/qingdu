@@ -153,11 +153,14 @@ function renderWord(word, pinyinLevel) {
   const hskVersion = window.SettingsManager?.get('hsk_version') || 'new';
 
   // Determine which level to use for coloring
-  let displayLevel = word.level;
-  if (hskVersion === 'new' && word.level_new) {
-    displayLevel = word.level_new;
-  } else if (hskVersion === 'old' && word.level_old) {
-    displayLevel = word.level_old;
+  let displayLevel;
+  if (hskVersion === 'new') {
+    // In new HSK mode: use level_new if available, otherwise fall back to level
+    displayLevel = word.level_new || word.level;
+  } else {
+    // In old HSK mode: use level_old if available
+    // If word doesn't have old HSK level, show as unknown
+    displayLevel = word.level_old || 'unknown';
   }
 
   const levelClass = displayLevel.replace(/-/g, '').replace(/\+/g, 'plus');
@@ -296,26 +299,25 @@ function setupSentenceInteractions() {
 function showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld) {
   let levelText;
 
-  if (level === 'unknown') {
+  // Build transparent display of both levels
+  const parts = [];
+  if (levelNew) {
+    parts.push(`New HSK ${levelNew.replace('new-', '').replace('+', '+')}`);
+  }
+  if (levelOld) {
+    parts.push(`Old HSK ${levelOld.replace('old-', '')}`);
+  }
+
+  if (parts.length === 2) {
+    levelText = `${parts[0]} (${parts[1]})`;
+  } else if (parts.length === 1) {
+    levelText = parts[0];
+  } else if (level === 'unknown') {
+    // Truly unknown word (not in any HSK system)
     levelText = 'Unknown (Online lookup)';
   } else {
-    // Build transparent display of both levels
-    const parts = [];
-    if (levelNew) {
-      parts.push(`New HSK ${levelNew.replace('new-', '').replace('+', '+')}`);
-    }
-    if (levelOld) {
-      parts.push(`Old HSK ${levelOld.replace('old-', '')}`);
-    }
-
-    if (parts.length === 2) {
-      levelText = `${parts[0]} (${parts[1]})`;
-    } else if (parts.length === 1) {
-      levelText = parts[0];
-    } else {
-      // Fallback to original level
-      levelText = level.replace('new-', 'HSK ').replace('old-', 'HSK ').replace('+', '+');
-    }
+    // Fallback to original level
+    levelText = level.replace('new-', 'HSK ').replace('old-', 'HSK ').replace('+', '+');
   }
 
   const sourceTag = createSourceTag(source);
