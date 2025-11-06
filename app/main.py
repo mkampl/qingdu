@@ -173,6 +173,62 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # Global vocabulary storage
 hsk_vocab = {}
 
+# Radical to pinyin mapping (common Chinese radicals)
+RADICAL_PINYIN = {
+    '一': 'yī', '丨': 'gǔn', '丶': 'zhǔ', '丿': 'piě', '乙': 'yǐ',
+    '亅': 'jué', '二': 'èr', '亠': 'tóu', '人': 'rén', '儿': 'ér',
+    '入': 'rù', '八': 'bā', '冂': 'jiōng', '冖': 'mì', '冫': 'bīng',
+    '几': 'jǐ', '凵': 'kǎn', '刀': 'dāo', '刂': 'dāo', '力': 'lì',
+    '勹': 'bāo', '匕': 'bǐ', '匚': 'fāng', '匸': 'xì', '十': 'shí',
+    '卜': 'bǔ', '卩': 'jié', '厂': 'chǎng', '厶': 'sī', '又': 'yòu',
+    '口': 'kǒu', '囗': 'wéi', '土': 'tǔ', '士': 'shì', '夂': 'zhǐ',
+    '夊': 'suī', '夕': 'xī', '大': 'dà', '女': 'nǚ', '子': 'zǐ',
+    '宀': 'mián', '寸': 'cùn', '小': 'xiǎo', '尢': 'wāng', '尸': 'shī',
+    '屮': 'chè', '山': 'shān', '巛': 'chuān', '工': 'gōng', '己': 'jǐ',
+    '巾': 'jīn', '干': 'gān', '幺': 'yāo', '广': 'guǎng', '廴': 'yǐn',
+    '廾': 'gǒng', '弋': 'yì', '弓': 'gōng', '彐': 'jì', '彡': 'shān',
+    '彳': 'chì', '心': 'xīn', '忄': 'xīn', '戈': 'gē', '戶': 'hù',
+    '户': 'hù', '手': 'shǒu', '扌': 'shǒu', '支': 'zhī', '攴': 'pū',
+    '攵': 'pū', '文': 'wén', '斗': 'dǒu', '斤': 'jīn', '方': 'fāng',
+    '无': 'wú', '日': 'rì', '曰': 'yuē', '月': 'yuè', '木': 'mù',
+    '欠': 'qiàn', '止': 'zhǐ', '歹': 'dǎi', '殳': 'shū', '毋': 'wú',
+    '比': 'bǐ', '毛': 'máo', '氏': 'shì', '气': 'qì', '水': 'shuǐ',
+    '氵': 'shuǐ', '火': 'huǒ', '灬': 'huǒ', '爪': 'zhǎo', '爫': 'zhǎo',
+    '父': 'fù', '爻': 'yáo', '爿': 'pán', '片': 'piàn', '牙': 'yá',
+    '牛': 'niú', '犭': 'quǎn', '犬': 'quǎn', '玄': 'xuán', '玉': 'yù',
+    '王': 'wáng', '瓜': 'guā', '瓦': 'wǎ', '甘': 'gān', '生': 'shēng',
+    '用': 'yòng', '田': 'tián', '疋': 'pǐ', '疒': 'chuáng', '癶': 'bō',
+    '白': 'bái', '皮': 'pí', '皿': 'mǐn', '目': 'mù', '矛': 'máo',
+    '矢': 'shǐ', '石': 'shí', '示': 'shì', '禸': 'róu', '禾': 'hé',
+    '穴': 'xué', '立': 'lì', '竹': 'zhú', '⺮': 'zhú', '米': 'mǐ',
+    '糸': 'mì', '糹': 'mì', '缶': 'fǒu', '网': 'wǎng', '罒': 'wǎng',
+    '羊': 'yáng', '羽': 'yǔ', '老': 'lǎo', '而': 'ér', '耒': 'lěi',
+    '耳': 'ěr', '聿': 'yù', '肉': 'ròu', '月': 'ròu', '臣': 'chén',
+    '自': 'zì', '至': 'zhì', '臼': 'jiù', '舌': 'shé', '舛': 'chuǎn',
+    '舟': 'zhōu', '艮': 'gèn', '色': 'sè', '艸': 'cǎo', '艹': 'cǎo',
+    '虍': 'hū', '虫': 'chóng', '血': 'xuè', '行': 'xíng', '衣': 'yī',
+    '衤': 'yī', '襾': 'yà', '西': 'xī', '見': 'jiàn', '见': 'jiàn',
+    '角': 'jiǎo', '言': 'yán', '訁': 'yán', '讑': 'yán', '谷': 'gǔ',
+    '豆': 'dòu', '豕': 'shǐ', '豸': 'zhì', '貝': 'bèi', '贝': 'bèi',
+    '赤': 'chì', '走': 'zǒu', '足': 'zú', '⻊': 'zú', '身': 'shēn',
+    '車': 'chē', '车': 'chē', '辛': 'xīn', '辰': 'chén', '辵': 'chuò',
+    '⻌': 'chuò', '邑': 'yì', '阝': 'fù', '酉': 'yǒu', '釆': 'biàn',
+    '里': 'lǐ', '金': 'jīn', '釒': 'jīn', '長': 'cháng', '长': 'cháng',
+    '門': 'mén', '门': 'mén', '阜': 'fù', '隶': 'lì', '隹': 'zhuī',
+    '雨': 'yǔ', '靑': 'qīng', '青': 'qīng', '非': 'fēi', '面': 'miàn',
+    '革': 'gé', '韋': 'wéi', '韦': 'wéi', '韭': 'jiǔ', '音': 'yīn',
+    '頁': 'yè', '页': 'yè', '風': 'fēng', '风': 'fēng', '飛': 'fēi',
+    '飞': 'fēi', '食': 'shí', '飠': 'shí', '首': 'shǒu', '香': 'xiāng',
+    '馬': 'mǎ', '马': 'mǎ', '骨': 'gǔ', '高': 'gāo', '髟': 'biāo',
+    '鬥': 'dòu', '鬯': 'chàng', '鬲': 'lì', '鬼': 'guǐ', '魚': 'yú',
+    '魚': 'yú', '鱼': 'yú', '鳥': 'niǎo', '鸟': 'niǎo', '鹵': 'lǔ',
+    '鹿': 'lù', '麥': 'mài', '麦': 'mài', '麻': 'má', '黃': 'huáng',
+    '黄': 'huáng', '黍': 'shǔ', '黑': 'hēi', '黹': 'zhǐ', '黽': 'mǐn',
+    '鼎': 'dǐng', '鼓': 'gǔ', '鼠': 'shǔ', '鼻': 'bí', '齊': 'qí',
+    '齿': 'chǐ', '齒': 'chǐ', '龍': 'lóng', '龙': 'lóng', '龜': 'guī',
+    '龟': 'guī', '龠': 'yuè'
+}
+
 # TTL Caches with size limits
 translation_cache = TTLCache(maxsize=TRANSLATION_CACHE_SIZE, ttl=TRANSLATION_CACHE_TTL)
 unknown_word_cache = TTLCache(maxsize=UNKNOWN_WORD_CACHE_SIZE, ttl=UNKNOWN_WORD_CACHE_TTL)
@@ -649,17 +705,25 @@ async def download_hsk_vocabulary():
 
         # Add radical_pinyin for all entries
         radical_pinyin_added = 0
+        radical_from_mapping = 0
         for word, word_data in hsk_vocab.items():
             radical = word_data.get('radical', '')
-            if radical and radical in hsk_vocab:
-                # The radical itself is in vocabulary, get its pinyin
-                word_data['radical_pinyin'] = hsk_vocab[radical].get('pinyin', '')
-                radical_pinyin_added += 1
+            if radical:
+                # First try to find radical in HSK vocabulary
+                if radical in hsk_vocab:
+                    word_data['radical_pinyin'] = hsk_vocab[radical].get('pinyin', '')
+                    radical_pinyin_added += 1
+                # Fall back to radical pinyin mapping
+                elif radical in RADICAL_PINYIN:
+                    word_data['radical_pinyin'] = RADICAL_PINYIN[radical]
+                    radical_from_mapping += 1
+                else:
+                    word_data['radical_pinyin'] = ''
             else:
                 word_data['radical_pinyin'] = ''
 
-        if radical_pinyin_added > 0:
-            logger.info(f"Added radical pinyin for {radical_pinyin_added} entries")
+        if radical_pinyin_added > 0 or radical_from_mapping > 0:
+            logger.info(f"Added radical pinyin: {radical_pinyin_added} from vocabulary, {radical_from_mapping} from mapping")
 
         # Save processed vocabulary
         vocab_file = DATA_DIR / "hsk_vocabulary.json"
@@ -758,8 +822,11 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
             if i == 0:
                 first_char_radical = char_data.get('radical', '')
                 # Try to find pinyin for the radical
-                if first_char_radical and first_char_radical in hsk_vocab:
-                    first_char_radical_pinyin = hsk_vocab[first_char_radical].get('pinyin', '')
+                if first_char_radical:
+                    if first_char_radical in hsk_vocab:
+                        first_char_radical_pinyin = hsk_vocab[first_char_radical].get('pinyin', '')
+                    elif first_char_radical in RADICAL_PINYIN:
+                        first_char_radical_pinyin = RADICAL_PINYIN[first_char_radical]
 
             # Collect new HSK level
             level_new = char_data.get('level_new')
