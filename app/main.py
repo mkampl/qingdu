@@ -1198,12 +1198,13 @@ def migrate_word_data(word_data: Dict) -> Dict:
 def migrate_analysis_data(analysis_data: Dict) -> Dict:
     """
     Migrate saved analysis data to new dual HSK system format.
+    Recalculates statistics for both New and Old HSK systems.
 
     Args:
         analysis_data: Analysis data containing words array
 
     Returns:
-        Migrated analysis data
+        Migrated analysis data with updated statistics
     """
     if not analysis_data or 'words' not in analysis_data:
         return analysis_data
@@ -1215,6 +1216,67 @@ def migrate_analysis_data(analysis_data: Dict) -> Dict:
         migrated_words.append(migrated_word)
 
     analysis_data['words'] = migrated_words
+
+    # Recalculate statistics for BOTH HSK systems from migrated words
+    hsk_stats_new = {f'hsk{i}': 0 for i in range(1, 10)}
+    hsk_stats_old = {f'hsk{i}': 0 for i in range(1, 7)}
+    total_hsk_words_new = 0
+    total_hsk_words_old = 0
+
+    for word in migrated_words:
+        # Skip non-HSK words (punctuation, line breaks, etc.)
+        if not word.get('is_hsk'):
+            continue
+
+        # Count New HSK statistics
+        level_new = word.get('level_new')
+        if level_new:
+            level_new_num = level_new.replace('new-', '').replace('+', '')
+            try:
+                level_key = f'hsk{int(level_new_num)}'
+                if level_key in hsk_stats_new:
+                    hsk_stats_new[level_key] += 1
+                total_hsk_words_new += 1
+            except ValueError:
+                pass
+
+        # Count Old HSK statistics
+        level_old = word.get('level_old')
+        if level_old:
+            level_old_num = level_old.replace('old-', '')
+            try:
+                level_key = f'hsk{int(level_old_num)}'
+                if level_key in hsk_stats_old:
+                    hsk_stats_old[level_key] += 1
+                total_hsk_words_old += 1
+            except ValueError:
+                pass
+
+    # Estimate text level for both systems
+    estimated_level_new = estimate_text_level(hsk_stats_new, total_hsk_words_new)
+    estimated_level_old = estimate_text_level(hsk_stats_old, total_hsk_words_old)
+
+    # Update statistics object with both HSK systems
+    if 'statistics' not in analysis_data:
+        analysis_data['statistics'] = {}
+
+    stats = analysis_data['statistics']
+
+    # New HSK statistics
+    stats['hsk_words_new'] = total_hsk_words_new
+    stats['hsk_distribution_new'] = hsk_stats_new
+    stats['estimated_level_new'] = estimated_level_new
+
+    # Old HSK statistics
+    stats['hsk_words_old'] = total_hsk_words_old
+    stats['hsk_distribution_old'] = hsk_stats_old
+    stats['estimated_level_old'] = estimated_level_old
+
+    # Legacy fields (for backwards compatibility, use new HSK)
+    stats['hsk_words'] = total_hsk_words_new
+    stats['hsk_distribution'] = hsk_stats_new
+    stats['estimated_level'] = estimated_level_new
+
     return analysis_data
 
 def migrate_vocabulary_sections(sections: List[Dict]) -> List[Dict]:
