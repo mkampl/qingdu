@@ -121,10 +121,8 @@ async function generateNewHSKList() {
     };
 
     Object.entries(vocabData).forEach(([word, data]) => {
-      // Only include words that:
-      // 1. Have level_new
-      // 2. Are not single character components (added for analysis only)
-      if (data.level_new && !(word.length === 1 && data.meaning && data.meaning.startsWith('(character'))) {
+      // Only include original HSK words (not character components added for analysis)
+      if (data.level_new && data.is_original_hsk) {
         const level = data.level_new.replace('new-', '').replace('+', '');
         const levelNum = parseInt(level);
 
@@ -173,10 +171,8 @@ async function generateOldHSKList() {
     };
 
     Object.entries(vocabData).forEach(([word, data]) => {
-      // Only include words that:
-      // 1. Have level_old
-      // 2. Are not single character components (added for analysis only)
-      if (data.level_old && !(word.length === 1 && data.meaning && data.meaning.startsWith('(character'))) {
+      // Only include original HSK words (not character components added for analysis)
+      if (data.level_old && data.is_original_hsk) {
         const level = data.level_old.replace('old-', '');
         const levelNum = parseInt(level);
 
@@ -264,6 +260,7 @@ async function viewVocabularyList(listId) {
     
     document.getElementById('inputSection').classList.add('collapsed');
     document.getElementById('resultsSection').classList.remove('show');
+    document.getElementById('savedTextsSection').classList.add('hidden');
     document.getElementById('listViewSection').classList.remove('hidden');
     toggleSidebar();
   } catch (error) {

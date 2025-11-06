@@ -615,7 +615,8 @@ async def download_hsk_vocabulary():
                     'level_old': level_old,
                     'level': level_new or level_old,  # Backward compatibility
                     'frequency': entry.get('frequency', 0),
-                    'radical': radical
+                    'radical': radical,
+                    'is_original_hsk': True  # Mark as original HSK word from source
                 }
 
                 if simplified not in hsk_vocab:
@@ -676,7 +677,8 @@ async def download_hsk_vocabulary():
                         'level_old': best_level_old,
                         'level': best_level,
                         'frequency': max(existing.get('frequency', 0), new_entry.get('frequency', 0)),
-                        'radical': best_radical
+                        'radical': best_radical,
+                        'is_original_hsk': True  # Mark merged entry as original HSK
                     }
 
                 processed += 1
@@ -722,7 +724,8 @@ async def download_hsk_vocabulary():
                     'level': primary_level,
                     'level_new': char_level_new,
                     'level_old': char_level_old,
-                    'frequency': 0
+                    'frequency': 0,
+                    'is_original_hsk': False  # Character component, not original HSK word
                 }
 
         # Supplement missing levels from constituent characters
