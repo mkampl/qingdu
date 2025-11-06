@@ -1099,6 +1099,8 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
                     word_info.frequency = 0
                     word_info.is_hsk = True
                     word_info.translation_source = compound_info.get('translation_source')
+                    word_info.radical = compound_info.get('radical', '')
+                    word_info.radical_pinyin = compound_info.get('radical_pinyin', '')
 
                     # Track compound word in statistics for BOTH HSK systems
                     level_new = compound_info.get('level_new')
