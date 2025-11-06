@@ -725,6 +725,32 @@ async def download_hsk_vocabulary():
         if radical_pinyin_added > 0 or radical_from_mapping > 0:
             logger.info(f"Added radical pinyin: {radical_pinyin_added} from vocabulary, {radical_from_mapping} from mapping")
 
+        # For multi-character words, combine radicals from all characters
+        multi_char_radicals_updated = 0
+        for word, word_data in hsk_vocab.items():
+            if len(word) > 1:  # Multi-character word
+                char_radicals = []
+                char_radical_pinyins = []
+
+                for char in word:
+                    if char in hsk_vocab:
+                        char_data = hsk_vocab[char]
+                        char_radical = char_data.get('radical', '')
+                        char_radical_pinyin = char_data.get('radical_pinyin', '')
+
+                        if char_radical:
+                            char_radicals.append(char_radical)
+                            char_radical_pinyins.append(char_radical_pinyin if char_radical_pinyin else '')
+
+                # If we found radicals from component characters, combine them
+                if char_radicals:
+                    word_data['radical'] = ' + '.join(char_radicals)
+                    word_data['radical_pinyin'] = ' + '.join(char_radical_pinyins)
+                    multi_char_radicals_updated += 1
+
+        if multi_char_radicals_updated > 0:
+            logger.info(f"Updated radicals for {multi_char_radicals_updated} multi-character words")
+
         # Save processed vocabulary
         vocab_file = DATA_DIR / "hsk_vocabulary.json"
         with open(vocab_file, 'w', encoding='utf-8') as f:
@@ -807,26 +833,28 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
     char_levels_old = []
     char_meanings = []
 
-    # Extract radical from first character (for compound words)
-    first_char_radical = ''
-    first_char_radical_pinyin = ''
+    # Collect radicals from all characters (for compound words)
+    char_radicals = []
+    char_radical_pinyins = []
 
     # Check if all characters are in HSK and collect their levels
-    for i, char in enumerate(chars):
+    for char in chars:
         if char in hsk_vocab:
             char_data = hsk_vocab[char]
             char_pinyins.append(char_data['pinyin'])
             char_meanings.append(char_data['meaning'])
 
-            # Get radical from first character
-            if i == 0:
-                first_char_radical = char_data.get('radical', '')
+            # Get radical from this character
+            char_radical = char_data.get('radical', '')
+            if char_radical:
+                char_radicals.append(char_radical)
                 # Try to find pinyin for the radical
-                if first_char_radical:
-                    if first_char_radical in hsk_vocab:
-                        first_char_radical_pinyin = hsk_vocab[first_char_radical].get('pinyin', '')
-                    elif first_char_radical in RADICAL_PINYIN:
-                        first_char_radical_pinyin = RADICAL_PINYIN[first_char_radical]
+                if char_radical in hsk_vocab:
+                    char_radical_pinyins.append(hsk_vocab[char_radical].get('pinyin', ''))
+                elif char_radical in RADICAL_PINYIN:
+                    char_radical_pinyins.append(RADICAL_PINYIN[char_radical])
+                else:
+                    char_radical_pinyins.append('')
 
             # Collect new HSK level
             level_new = char_data.get('level_new')
@@ -866,24 +894,28 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
 
     # Primary level (prefer new HSK)
     compound_level = compound_level_new or compound_level_old or 'new-1'
-    
+
     # Fallback meaning from characters
     fallback_meaning = ' + '.join(char_meanings)
-    
+
+    # Combine radicals from all characters
+    compound_radical = ' + '.join(char_radicals) if char_radicals else ''
+    compound_radical_pinyin = ' + '.join(char_radical_pinyins) if char_radical_pinyins else ''
+
     # Try to get proper translation online
     translation_result = await get_translation_with_source(word)
-    
+
     if translation_result:
         translation = translation_result['translation']
         source = translation_result['source']
-        
+
         # Check if translation is just pinyin (failed translation)
         # If translation contains only Latin letters and spaces, it's probably just pinyin
         # Only use fallback if translation seems invalid (too short or same as pinyin)
         if len(translation) < 3 or translation.lower() == compound_pinyin.lower().replace(' ', ''):
             translation = fallback_meaning
             source = 'hsk-chars'
-        
+
         return {
             'pinyin': compound_pinyin,
             'meaning': translation,
@@ -893,8 +925,8 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
             'level_old': compound_level_old,
             'frequency': 0,
             'translation_source': source,
-            'radical': first_char_radical,
-            'radical_pinyin': first_char_radical_pinyin
+            'radical': compound_radical,
+            'radical_pinyin': compound_radical_pinyin
         }
 
     # If online lookup completely failed, use character meanings
@@ -907,8 +939,8 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
         'level_old': compound_level_old,
         'frequency': 0,
         'translation_source': 'hsk-chars',
-        'radical': first_char_radical,
-        'radical_pinyin': first_char_radical_pinyin
+        'radical': compound_radical,
+        'radical_pinyin': compound_radical_pinyin
     }
 
 @retry(

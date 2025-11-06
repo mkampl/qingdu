@@ -379,10 +379,25 @@ function showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld, 
   // Build radical display (if available)
   let radicalDisplay = '';
   if (radical) {
-    if (radicalPinyin) {
-      radicalDisplay = `<p><strong>Radical:</strong> ${radical} (${radicalPinyin})</p>`;
+    // Check if this is a multi-character word with multiple radicals
+    if (radical.includes(' + ')) {
+      const radicals = radical.split(' + ');
+      const pinyins = radicalPinyin ? radicalPinyin.split(' + ') : [];
+
+      // Combine each radical with its pinyin
+      const radicalParts = radicals.map((rad, idx) => {
+        const py = pinyins[idx] || '';
+        return py ? `${rad} (${py})` : rad;
+      });
+
+      radicalDisplay = `<p><strong>Radical:</strong> ${radicalParts.join(' + ')}</p>`;
     } else {
-      radicalDisplay = `<p><strong>Radical:</strong> ${radical}</p>`;
+      // Single character word
+      if (radicalPinyin) {
+        radicalDisplay = `<p><strong>Radical:</strong> ${radical} (${radicalPinyin})</p>`;
+      } else {
+        radicalDisplay = `<p><strong>Radical:</strong> ${radical}</p>`;
+      }
     }
   }
 
