@@ -173,6 +173,44 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # Global vocabulary storage
 hsk_vocab = {}
 
+# Character to radical mapping (fallback for characters missing radical data in vocabulary)
+CHAR_TO_RADICAL = {
+    '汉': '氵', '语': '讠', '的': '白', '了': '乙', '我': '戈', '你': '亻',
+    '他': '亻', '她': '女', '们': '亻', '这': '⻌', '那': '阝', '个': '亻',
+    '什': '亻', '么': '丿', '时': '日', '候': '亻', '间': '门', '年': '丿',
+    '月': '月', '日': '日', '天': '大', '上': '一', '下': '一', '来': '木',
+    '去': '厶', '说': '讠', '话': '讠', '看': '手', '听': '口', '做': '亻',
+    '吃': '口', '喝': '口', '买': '乛', '卖': '十', '想': '心', '知': '矢',
+    '道': '⻌', '得': '彳', '会': '人', '能': '厶', '可': '口', '以': '亻',
+    '和': '禾', '在': '土', '有': '月', '没': '氵', '很': '彳', '太': '大',
+    '都': '阝', '还': '⻌', '就': '尢', '把': '扌', '被': '衤', '让': '讠',
+    '给': '糹', '从': '人', '到': '至', '为': '丶', '对': '又', '关': '丷',
+    '于': '二', '然': '灬', '后': '口', '前': '丷', '中': '丨', '里': '里',
+    '外': '夕', '边': '⻌', '东': '一', '西': '西', '南': '十', '北': '丨',
+    '大': '大', '小': '小', '多': '夕', '少': '小', '好': '女', '坏': '土',
+    '新': '斤', '旧': '丨', '长': '长', '短': '矢', '高': '高', '低': '亻',
+    '快': '忄', '慢': '忄', '早': '日', '晚': '日', '老': '老', '少': '小',
+    '男': '田', '女': '女', '子': '子', '父': '父', '母': '毋', '哥': '口',
+    '弟': '弓', '姐': '女', '妹': '女', '朋': '月', '友': '又', '人': '人',
+    '先': '儿', '生': '生', '学': '⺌', '校': '木', '师': '巾', '教': '攵',
+    '室': '宀', '班': '王', '书': '乛', '字': '子', '词': '讠', '句': '勹',
+    '文': '文', '章': '立', '问': '门', '题': '页', '答': '⺮', '考': '耂',
+    '试': '讠', '笔': '⺮', '纸': '糹', '本': '木', '读': '讠', '写': '冖',
+    '记': '讠', '住': '亻', '走': '走', '跑': '足', '站': '立', '坐': '土',
+    '躺': '身', '睡': '目', '起': '走', '开': '廾', '关': '丷', '进': '⻌',
+    '出': '凵', '回': '囗', '过': '⻌', '到': '至', '离': '亠', '远': '⻌',
+    '近': '⻌', '左': '工', '右': '口', '真': '十', '假': '亻', '对': '又',
+    '错': '釒', '正': '一', '反': '厂', '同': '冂', '异': '廾', '用': '用',
+    '种': '禾', '样': '木', '些': '二', '每': '母', '全': '入', '部': '阝',
+    '分': '八', '别': '刂', '处': '夂', '所': '戶', '因': '囗', '果': '木',
+    '原': '厂', '由': '丨', '经': '糹', '常': '巾', '但': '亻', '是': '日',
+    '只': '口', '而': '而', '且': '一', '或': '口', '者': '耂', '比': '比',
+    '较': '车', '最': '曰', '更': '一', '非': '非', '当': '⺌', '应': '广',
+    '该': '讠', '各': '夂', '其': '八', '他': '亻', '它': '宀', '她': '女',
+    '数': '攵', '量': '里', '次': '冫', '第': '⺮', '几': '几', '百': '白',
+    '千': '丿', '万': '一', '亿': '亻'
+}
+
 # Radical to pinyin mapping (common Chinese radicals)
 RADICAL_PINYIN = {
     '一': 'yī', '丨': 'gǔn', '丶': 'zhǔ', '丿': 'piě', '乙': 'yǐ', '乚': 'yǐ',
@@ -743,17 +781,21 @@ async def download_hsk_vocabulary():
                         char_radical = char_data.get('radical', '')
                         char_radical_pinyin = char_data.get('radical_pinyin', '')
 
+                    # If still no radical, try fallback character-to-radical mapping
+                    if not char_radical and char in CHAR_TO_RADICAL:
+                        char_radical = CHAR_TO_RADICAL[char]
+                        # Get pinyin for this radical
+                        if char_radical in RADICAL_PINYIN:
+                            char_radical_pinyin = RADICAL_PINYIN[char_radical]
+
                     # If character has radical, add it to the list
-                    # Note: We add ALL characters even if radical is empty to maintain position
-                    # We'll log missing ones
                     if char_radical:
                         char_radicals.append(char_radical)
                         char_radical_pinyins.append(char_radical_pinyin if char_radical_pinyin else '')
                     else:
-                        # Character is missing radical data - log it
-                        if char in hsk_vocab:  # Only log if character exists in vocab
-                            chars_missing_radicals += 1
-                            logger.debug(f"Character '{char}' in word '{word}' is missing radical data")
+                        # Character is still missing radical data even after fallback
+                        chars_missing_radicals += 1
+                        logger.debug(f"Character '{char}' in word '{word}' is missing radical data (not in vocab or fallback)")
 
                 # If we found at least one radical, combine them
                 # Note: This might result in fewer radicals than characters if some are missing
@@ -862,6 +904,11 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
 
             # Get radical from this character
             char_radical = char_data.get('radical', '')
+
+            # If no radical in vocabulary, try fallback mapping
+            if not char_radical and char in CHAR_TO_RADICAL:
+                char_radical = CHAR_TO_RADICAL[char]
+
             if char_radical:
                 char_radicals.append(char_radical)
                 # Try to find pinyin for the radical
