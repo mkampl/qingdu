@@ -26,8 +26,8 @@ async function loadVocabularyLists() {
     vocabDiv.appendChild(newListBtn);
 
     // Check which HSK lists already exist
-    const newHSKExists = lists.some(list => list.name === '🆕 New HSK Vocabulary');
-    const oldHSKExists = lists.some(list => list.name === '📚 Old HSK Vocabulary');
+    const newHSKExists = lists.some(list => list.name === 'New HSK Vocabulary');
+    const oldHSKExists = lists.some(list => list.name === 'Old HSK Vocabulary');
 
     // Show HSK generation buttons only if corresponding list doesn't exist
     const hskButtons = createGenerateHSKButtons(newHSKExists, oldHSKExists);
@@ -112,7 +112,7 @@ async function generateNewHSKList() {
     const vocabData = await vocabResponse.json();
 
     const hskList = {
-      name: '🆕 New HSK Vocabulary',
+      name: 'New HSK Vocabulary',
       type: 'hsk',
       sections: Array.from({ length: 9 }, (_, i) => ({
         name: `HSK ${i + 1}`,
@@ -121,8 +121,10 @@ async function generateNewHSKList() {
     };
 
     Object.entries(vocabData).forEach(([word, data]) => {
-      // Only include words that have level_new
-      if (data.level_new) {
+      // Only include words that:
+      // 1. Have level_new
+      // 2. Are not single character components (added for analysis only)
+      if (data.level_new && !(word.length === 1 && data.meaning && data.meaning.startsWith('(character'))) {
         const level = data.level_new.replace('new-', '').replace('+', '');
         const levelNum = parseInt(level);
 
@@ -162,7 +164,7 @@ async function generateOldHSKList() {
     const vocabData = await vocabResponse.json();
 
     const hskList = {
-      name: '📚 Old HSK Vocabulary',
+      name: 'Old HSK Vocabulary',
       type: 'hsk',
       sections: Array.from({ length: 6 }, (_, i) => ({
         name: `HSK ${i + 1}`,
@@ -171,8 +173,10 @@ async function generateOldHSKList() {
     };
 
     Object.entries(vocabData).forEach(([word, data]) => {
-      // Only include words that have level_old
-      if (data.level_old) {
+      // Only include words that:
+      // 1. Have level_old
+      // 2. Are not single character components (added for analysis only)
+      if (data.level_old && !(word.length === 1 && data.meaning && data.meaning.startsWith('(character'))) {
         const level = data.level_old.replace('old-', '');
         const levelNum = parseInt(level);
 
