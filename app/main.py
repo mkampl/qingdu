@@ -678,6 +678,12 @@ async def download_hsk_vocabulary():
         if radical_pinyin_added > 0:
             logger.info(f"Added radical pinyin for {radical_pinyin_added} entries")
 
+        # DEBUG: Log radical data for sample characters
+        for test_char in ['很', '好', '多', '我', '你']:
+            if test_char in hsk_vocab:
+                char_data = hsk_vocab[test_char]
+                logger.info(f"DEBUG VOCAB [{test_char}] radical: '{char_data.get('radical', 'MISSING')}' radical_pinyin: '{char_data.get('radical_pinyin', 'MISSING')}'")
+
         # Save processed vocabulary
         vocab_file = DATA_DIR / "hsk_vocabulary.json"
         with open(vocab_file, 'w', encoding='utf-8') as f:
@@ -1058,6 +1064,13 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
             word_info.radical = vocab_entry.get('radical', '')
             word_info.radical_pinyin = vocab_entry.get('radical_pinyin', '')
 
+            # DEBUG: Log radical info for common characters
+            if segment in ['很', '好', '多', '我', '你', '他', '们']:
+                logger.info(f"DEBUG [{segment}] vocab_entry radical: '{vocab_entry.get('radical', 'MISSING')}'")
+                logger.info(f"DEBUG [{segment}] vocab_entry radical_pinyin: '{vocab_entry.get('radical_pinyin', 'MISSING')}'")
+                logger.info(f"DEBUG [{segment}] word_info.radical: '{word_info.radical}'")
+                logger.info(f"DEBUG [{segment}] word_info.radical_pinyin: '{word_info.radical_pinyin}'")
+
             # Track statistics for BOTH HSK systems
             level_new = vocab_entry.get('level_new')
             if level_new:
@@ -1137,6 +1150,13 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
                     word_info.frequency = 0
                     word_info.is_hsk = True
                     word_info.translation_source = online_info.get('translation_source')
+
+        # DEBUG: Log what's actually in word_info dict for common characters
+        if segment in ['很', '好', '多', '我', '你', '他', '们']:
+            word_dict = word_info.dict()
+            logger.info(f"DEBUG [{segment}] word_dict keys: {list(word_dict.keys())}")
+            logger.info(f"DEBUG [{segment}] word_dict radical: '{word_dict.get('radical', 'NOT IN DICT')}'")
+            logger.info(f"DEBUG [{segment}] word_dict radical_pinyin: '{word_dict.get('radical_pinyin', 'NOT IN DICT')}'")
 
         words.append(word_info.dict())
 
