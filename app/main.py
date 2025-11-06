@@ -919,10 +919,6 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
         if i < len(lines) - 1:
             segments.append('\n')
 
-    # Debug logging - show what jieba segmented
-    # print(f"Analyzing text, total segments: {len(segments)}")
-    # print(f"Segmentation result: {' | '.join(segments)}")
-
     words = []
     hsk_stats_new = {f'hsk{i}': 0 for i in range(1, 10)}
     hsk_stats_old = {f'hsk{i}': 0 for i in range(1, 7)}  # Old HSK only has 6 levels
@@ -1024,15 +1020,7 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
                             total_hsk_words_old += 1
                         except ValueError:
                             pass
-                #     print(f"Compound created for '{segment}': {compound_info['meaning']}")
-                # else:
-                #     print(f"Compound method failed for '{segment}'")
             else:
-                # Debug: show which character is missing
-                # missing_chars = [char for char in chars if char not in hsk_vocab]
-                # if missing_chars:
-                #     print(f"Not HSK compound '{segment}': missing chars {missing_chars}")
-                
                 # Not an HSK compound - do online lookup for everything
                 online_info = await lookup_unknown_word(segment)
                 if online_info:
@@ -1045,17 +1033,8 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
                     word_info.frequency = 0
                     word_info.is_hsk = True
                     word_info.translation_source = online_info.get('translation_source')
-                #     print(f"Online lookup for '{segment}': {online_info['meaning']}")
-                # else:
-                #     # Debug: log segments that couldn't be looked up
-                #     if segment.strip() and not segment.isspace() and segment not in ['，', '。', '！', '？', '；', '：', '"', '"', ''', ''']:
-                #         print(f"Could not find info for: '{segment}'")
-        
+
         words.append(word_info.dict())
-    
-    # Debug: Print first word to verify translation_source
-    # if words:
-    #     print(f"DEBUG - First word data: {words[0]}")
 
     # Calculate estimated level for BOTH HSK systems
     estimated_level_new = estimate_text_level(hsk_stats_new, total_hsk_words_new)

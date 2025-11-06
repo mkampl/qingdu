@@ -173,9 +173,7 @@ async function addNewSection() {
 
     if (response.ok) {
       const result = await response.json();
-      console.log('Section added successfully:', result);
       closeAddSectionModal();
-      console.log('Now reloading list with ID:', listId);
       await viewVocabularyList(listId);
     } else {
       const error = await response.json();

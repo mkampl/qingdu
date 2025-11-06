@@ -512,6 +512,9 @@ window.onload = async function () {
   // Setup event listeners (synchronous, no await needed)
   setupEventListeners();
 
+  // Apply legend visibility setting
+  applyLegendVisibility();
+
   // Load user data if authenticated
   if (AuthState.user) {
     await loadTextsFromStorage();
@@ -866,13 +869,18 @@ function openSettingsModal() {
   const modal = document.getElementById('settingsModal');
   const pinyinSelect = document.getElementById('pinyinModeSelect');
   const hskSelect = document.getElementById('hskVersionSelect');
+  const showLegendCheckbox = document.getElementById('showLegendCheckbox');
 
   // Load current settings
   const currentPinyinMode = window.SettingsManager.get('pinyin_mode');
   const currentHSKVersion = window.SettingsManager.get('hsk_version');
+  const showLegend = window.SettingsManager.get('show_legend');
 
   pinyinSelect.value = currentPinyinMode;
   hskSelect.value = currentHSKVersion;
+  if (showLegendCheckbox) {
+    showLegendCheckbox.checked = showLegend;
+  }
 
   modal.classList.add('show');
 }
@@ -890,6 +898,19 @@ function changeHSKVersion(version) {
   // Trigger re-render of current results if any
   if (window.lastAnalysisResult) {
     displayResults(window.lastAnalysisResult);
+  }
+}
+
+function toggleLegendVisibility(checked) {
+  window.SettingsManager.update('show_legend', checked);
+  applyLegendVisibility();
+}
+
+function applyLegendVisibility() {
+  const showLegend = window.SettingsManager.get('show_legend');
+  const legendElement = document.getElementById('hskLegend');
+  if (legendElement) {
+    legendElement.style.display = showLegend ? 'block' : 'none';
   }
 }
 
@@ -1035,6 +1056,8 @@ window.deleteTextFromView = deleteTextFromView;
 window.openSettingsModal = openSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
 window.changePinyinMode = changePinyinMode;
+window.changeHSKVersion = changeHSKVersion;
+window.toggleLegendVisibility = toggleLegendVisibility;
 window.showInvitationsModal = showInvitationsModal;
 window.closeInvitationsModal = closeInvitationsModal;
 window.generateInvitation = generateInvitation;
