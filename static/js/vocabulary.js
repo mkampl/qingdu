@@ -25,9 +25,15 @@ async function loadVocabularyLists() {
     newListBtn.onclick = openCreateListModal;
     vocabDiv.appendChild(newListBtn);
 
-    // Always show HSK generation buttons (regardless of existing lists)
-    const hskButtons = createGenerateHSKButton();
-    vocabDiv.appendChild(hskButtons);
+    // Check which HSK lists already exist
+    const newHSKExists = lists.some(list => list.name === '🆕 New HSK Vocabulary');
+    const oldHSKExists = lists.some(list => list.name === '📚 Old HSK Vocabulary');
+
+    // Show HSK generation buttons only if corresponding list doesn't exist
+    const hskButtons = createGenerateHSKButtons(newHSKExists, oldHSKExists);
+    if (hskButtons) {
+      vocabDiv.appendChild(hskButtons);
+    }
 
     if (lists.length === 0) {
       const empty = document.createElement('div');
@@ -62,25 +68,36 @@ async function loadVocabularyLists() {
   }
 }
 
-// Create generate HSK buttons
-function createGenerateHSKButton() {
+// Create generate HSK buttons (only show buttons for lists that don't exist)
+function createGenerateHSKButtons(newHSKExists, oldHSKExists) {
+  // If both lists exist, don't show any buttons
+  if (newHSKExists && oldHSKExists) {
+    return null;
+  }
+
   const container = document.createElement('div');
-  container.style.cssText = 'display: flex; flex-direction: column; gap: 4px; padding: 0 10px; margin-bottom: 8px;';
+  container.style.cssText = 'display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px;';
 
-  const newHSKBtn = document.createElement('button');
-  newHSKBtn.className = 'btn btn-secondary';
-  newHSKBtn.style.cssText = 'width: 100%; font-size: 13px; padding: 6px 10px; background: #6c757d; color: white;';
-  newHSKBtn.innerHTML = '🆕 New HSK (9 levels)';
-  newHSKBtn.addEventListener('click', generateNewHSKList);
+  // Show New HSK button only if it doesn't exist
+  if (!newHSKExists) {
+    const newHSKBtn = document.createElement('button');
+    newHSKBtn.className = 'add-btn';
+    newHSKBtn.style.cssText = 'width: 100%;';
+    newHSKBtn.innerHTML = '+ Generate New HSK List';
+    newHSKBtn.addEventListener('click', generateNewHSKList);
+    container.appendChild(newHSKBtn);
+  }
 
-  const oldHSKBtn = document.createElement('button');
-  oldHSKBtn.className = 'btn btn-secondary';
-  oldHSKBtn.style.cssText = 'width: 100%; font-size: 13px; padding: 6px 10px; background: #6c757d; color: white;';
-  oldHSKBtn.innerHTML = '📚 Old HSK (6 levels)';
-  oldHSKBtn.addEventListener('click', generateOldHSKList);
+  // Show Old HSK button only if it doesn't exist
+  if (!oldHSKExists) {
+    const oldHSKBtn = document.createElement('button');
+    oldHSKBtn.className = 'add-btn';
+    oldHSKBtn.style.cssText = 'width: 100%;';
+    oldHSKBtn.innerHTML = '+ Generate Old HSK List';
+    oldHSKBtn.addEventListener('click', generateOldHSKList);
+    container.appendChild(oldHSKBtn);
+  }
 
-  container.appendChild(newHSKBtn);
-  container.appendChild(oldHSKBtn);
   return container;
 }
 
