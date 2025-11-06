@@ -195,6 +195,8 @@ class WordInfo(BaseModel):
     frequency: Optional[int] = None
     is_hsk: bool = False
     translation_source: Optional[str] = None
+    radical: Optional[str] = None
+    radical_pinyin: Optional[str] = None
 
 class LoginRequest(BaseModel):
     username: str
@@ -1053,6 +1055,8 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
             word_info.frequency = vocab_entry['frequency']
             word_info.is_hsk = True
             word_info.translation_source = TRANSLATION_SOURCE_HSK  # Mark as HSK vocabulary
+            word_info.radical = vocab_entry.get('radical', '')
+            word_info.radical_pinyin = vocab_entry.get('radical_pinyin', '')
 
             # Track statistics for BOTH HSK systems
             level_new = vocab_entry.get('level_new')
