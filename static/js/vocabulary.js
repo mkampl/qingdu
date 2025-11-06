@@ -25,13 +25,9 @@ async function loadVocabularyLists() {
     newListBtn.onclick = openCreateListModal;
     vocabDiv.appendChild(newListBtn);
 
-    // Check if HSK list exists
-    const hskExists = lists.some(list => list.type === 'hsk' || list.list_type === 'hsk');
-
-    if (!hskExists) {
-      const btn = createGenerateHSKButton();
-      vocabDiv.appendChild(btn);
-    }
+    // Always show HSK generation buttons (regardless of existing lists)
+    const hskButtons = createGenerateHSKButton();
+    vocabDiv.appendChild(hskButtons);
 
     if (lists.length === 0) {
       const empty = document.createElement('div');
@@ -69,24 +65,18 @@ async function loadVocabularyLists() {
 // Create generate HSK buttons
 function createGenerateHSKButton() {
   const container = document.createElement('div');
-  container.style.cssText = 'display: flex; flex-direction: column; gap: 8px; padding: 0 10px;';
+  container.style.cssText = 'display: flex; flex-direction: column; gap: 4px; padding: 0 10px; margin-bottom: 8px;';
 
-  const newHSKBtn = document.createElement('div');
-  newHSKBtn.className = 'sidebar-item';
-  newHSKBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-  newHSKBtn.innerHTML = `
-    <span class="sidebar-item-icon">🆕</span>
-    <span>Generate New HSK List</span>
-  `;
+  const newHSKBtn = document.createElement('button');
+  newHSKBtn.className = 'btn btn-secondary';
+  newHSKBtn.style.cssText = 'width: 100%; font-size: 13px; padding: 6px 10px; background: #6c757d; color: white;';
+  newHSKBtn.innerHTML = '🆕 New HSK (9 levels)';
   newHSKBtn.addEventListener('click', generateNewHSKList);
 
-  const oldHSKBtn = document.createElement('div');
-  oldHSKBtn.className = 'sidebar-item';
-  oldHSKBtn.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
-  oldHSKBtn.innerHTML = `
-    <span class="sidebar-item-icon">📚</span>
-    <span>Generate Old HSK List</span>
-  `;
+  const oldHSKBtn = document.createElement('button');
+  oldHSKBtn.className = 'btn btn-secondary';
+  oldHSKBtn.style.cssText = 'width: 100%; font-size: 13px; padding: 6px 10px; background: #6c757d; color: white;';
+  oldHSKBtn.innerHTML = '📚 Old HSK (6 levels)';
   oldHSKBtn.addEventListener('click', generateOldHSKList);
 
   container.appendChild(newHSKBtn);

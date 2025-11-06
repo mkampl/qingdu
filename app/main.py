@@ -540,6 +540,7 @@ async def download_hsk_vocabulary():
                     best_meaning = new_meaning if new_is_good else existing_meaning
                     best_meanings = new_entry['meanings'] if new_is_good else existing.get('meanings', [])
                     best_pinyin = new_entry['pinyin'] if new_is_good else existing.get('pinyin', '')
+                    best_radical = new_entry.get('radical') or existing.get('radical', '')
 
                     # Merge into a single entry with best data from both
                     hsk_vocab[simplified] = {
@@ -549,7 +550,8 @@ async def download_hsk_vocabulary():
                         'level_new': best_level_new,
                         'level_old': best_level_old,
                         'level': best_level,
-                        'frequency': max(existing.get('frequency', 0), new_entry.get('frequency', 0))
+                        'frequency': max(existing.get('frequency', 0), new_entry.get('frequency', 0)),
+                        'radical': best_radical
                     }
 
                 processed += 1
@@ -660,6 +662,20 @@ async def download_hsk_vocabulary():
         if supplemented_new > 0 or supplemented_old > 0:
             logger.info(f"Supplemented missing levels from characters: {supplemented_new} level_new, {supplemented_old} level_old")
 
+        # Add radical_pinyin for all entries
+        radical_pinyin_added = 0
+        for word, word_data in hsk_vocab.items():
+            radical = word_data.get('radical', '')
+            if radical and radical in hsk_vocab:
+                # The radical itself is in vocabulary, get its pinyin
+                word_data['radical_pinyin'] = hsk_vocab[radical].get('pinyin', '')
+                radical_pinyin_added += 1
+            else:
+                word_data['radical_pinyin'] = ''
+
+        if radical_pinyin_added > 0:
+            logger.info(f"Added radical pinyin for {radical_pinyin_added} entries")
+
         # Save processed vocabulary
         vocab_file = DATA_DIR / "hsk_vocabulary.json"
         with open(vocab_file, 'w', encoding='utf-8') as f:
@@ -742,12 +758,23 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
     char_levels_old = []
     char_meanings = []
 
+    # Extract radical from first character (for compound words)
+    first_char_radical = ''
+    first_char_radical_pinyin = ''
+
     # Check if all characters are in HSK and collect their levels
-    for char in chars:
+    for i, char in enumerate(chars):
         if char in hsk_vocab:
             char_data = hsk_vocab[char]
             char_pinyins.append(char_data['pinyin'])
             char_meanings.append(char_data['meaning'])
+
+            # Get radical from first character
+            if i == 0:
+                first_char_radical = char_data.get('radical', '')
+                # Try to find pinyin for the radical
+                if first_char_radical and first_char_radical in hsk_vocab:
+                    first_char_radical_pinyin = hsk_vocab[first_char_radical].get('pinyin', '')
 
             # Collect new HSK level
             level_new = char_data.get('level_new')
@@ -813,7 +840,9 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
             'level_new': compound_level_new,
             'level_old': compound_level_old,
             'frequency': 0,
-            'translation_source': source
+            'translation_source': source,
+            'radical': first_char_radical,
+            'radical_pinyin': first_char_radical_pinyin
         }
 
     # If online lookup completely failed, use character meanings
@@ -825,7 +854,9 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
         'level_new': compound_level_new,
         'level_old': compound_level_old,
         'frequency': 0,
-        'translation_source': 'hsk-chars'
+        'translation_source': 'hsk-chars',
+        'radical': first_char_radical,
+        'radical_pinyin': first_char_radical_pinyin
     }
 
 @retry(

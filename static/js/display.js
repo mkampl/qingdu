@@ -224,6 +224,7 @@ function renderWord(word, pinyinLevel) {
     data-meaning="${escapeHtml(word.meaning)}"
     data-source="${source}"
     data-radical="${escapeHtml(word.radical || '')}"
+    data-radical-pinyin="${escapeHtml(word.radical_pinyin || '')}"
     title="${word.pinyin}"
   `.trim();
 
@@ -246,8 +247,9 @@ function setupWordInteractions() {
       const meaning = wordEl.getAttribute('data-meaning');
       const source = wordEl.getAttribute('data-source');
       const radical = wordEl.getAttribute('data-radical');
+      const radicalPinyin = wordEl.getAttribute('data-radical-pinyin');
 
-      showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld, radical);
+      showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld, radical, radicalPinyin);
     };
 
     wordEl.addEventListener('click', handler);
@@ -329,7 +331,7 @@ function setupSentenceInteractions() {
 }
 
 // Show word information panel
-function showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld, radical) {
+function showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld, radical, radicalPinyin) {
   // Get current HSK version setting
   const hskVersion = window.SettingsManager?.get('hsk_version') || 'new';
 
@@ -373,7 +375,14 @@ function showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld, 
   const sourceTag = createEnhancedSourceTag(source, sourceLabel);
 
   // Build radical display (if available)
-  const radicalDisplay = radical ? `<p><strong>Radical:</strong> ${radical}</p>` : '';
+  let radicalDisplay = '';
+  if (radical) {
+    if (radicalPinyin) {
+      radicalDisplay = `<p><strong>Radical:</strong> ${radical} (${radicalPinyin})</p>`;
+    } else {
+      radicalDisplay = `<p><strong>Radical:</strong> ${radical}</p>`;
+    }
+  }
 
   const html = `
     <div style="display:flex;justify-content:space-between;align-items:center">
