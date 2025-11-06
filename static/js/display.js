@@ -223,6 +223,7 @@ function renderWord(word, pinyinLevel) {
     data-level-old="${word.level_old || ''}"
     data-meaning="${escapeHtml(word.meaning)}"
     data-source="${source}"
+    data-radical="${escapeHtml(word.radical || '')}"
     title="${word.pinyin}"
   `.trim();
 
@@ -244,8 +245,9 @@ function setupWordInteractions() {
       const pinyin = wordEl.getAttribute('data-pinyin');
       const meaning = wordEl.getAttribute('data-meaning');
       const source = wordEl.getAttribute('data-source');
+      const radical = wordEl.getAttribute('data-radical');
 
-      showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld);
+      showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld, radical);
     };
 
     wordEl.addEventListener('click', handler);
@@ -327,7 +329,7 @@ function setupSentenceInteractions() {
 }
 
 // Show word information panel
-function showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld) {
+function showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld, radical) {
   // Get current HSK version setting
   const hskVersion = window.SettingsManager?.get('hsk_version') || 'new';
 
@@ -370,6 +372,9 @@ function showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld) 
   // Create enhanced source tag
   const sourceTag = createEnhancedSourceTag(source, sourceLabel);
 
+  // Build radical display (if available)
+  const radicalDisplay = radical ? `<p><strong>Radical:</strong> ${radical}</p>` : '';
+
   const html = `
     <div style="display:flex;justify-content:space-between;align-items:center">
       <h4>${word} <span style="color:#667eea">${levelText}</span>${sourceTag}</h4>
@@ -382,6 +387,7 @@ function showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld) 
       </div>
     </div>
     <p><strong>Pinyin:</strong> ${pinyin}</p>
+    ${radicalDisplay}
     <p><strong>Meaning:</strong> ${meaning}</p>
   `;
 

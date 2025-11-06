@@ -158,9 +158,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
 DATA_DIR = BASE_DIR / "data"
+BACKUP_DIR = DATA_DIR / "backups"
 
 # Ensure directories exist
 DATA_DIR.mkdir(exist_ok=True)
+BACKUP_DIR.mkdir(exist_ok=True)
 STATIC_DIR.mkdir(exist_ok=True)
 TEMPLATES_DIR.mkdir(exist_ok=True)
 
@@ -336,6 +338,37 @@ async def startup_event():
 
     logger.info("Startup complete")
 
+def cleanup_old_backups(max_age_days: int = 30):
+    """
+    Remove backup files older than max_age_days
+
+    Args:
+        max_age_days: Maximum age of backups to keep (default: 30 days)
+    """
+    try:
+        now = datetime.now()
+        deleted_count = 0
+
+        for backup_file in BACKUP_DIR.glob("*.json"):
+            # Parse date from filename: complete_hsk_YYYY-MM-DD.json or hsk_vocabulary_YYYY-MM-DD.json
+            try:
+                date_str = backup_file.stem.split('_')[-1]  # Get last part (date)
+                file_date = datetime.strptime(date_str, '%Y-%m-%d')
+                age_days = (now - file_date).days
+
+                if age_days > max_age_days:
+                    backup_file.unlink()
+                    deleted_count += 1
+                    logger.info(f"Deleted old backup: {backup_file.name} (age: {age_days} days)")
+            except (ValueError, IndexError):
+                # Skip files that don't match expected naming pattern
+                continue
+
+        if deleted_count > 0:
+            logger.info(f"Cleanup complete: removed {deleted_count} old backup(s)")
+    except Exception as e:
+        logger.warning(f"Backup cleanup failed: {e}")
+
 @retry(
     stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
     wait=wait_exponential(multiplier=1, min=HSK_RETRY_MIN_WAIT, max=HSK_RETRY_MAX_WAIT),
@@ -354,7 +387,23 @@ async def download_hsk_vocabulary():
             response = await client.get(HSK_VOCAB_URL)
             response.raise_for_status()
             raw_data = response.json()
-        
+
+        # Backup raw GitHub source with timestamp
+        try:
+            today = datetime.now().strftime('%Y-%m-%d')
+            raw_backup_file = BACKUP_DIR / f"complete_hsk_{today}.json"
+
+            # Only create backup if one doesn't exist for today
+            if not raw_backup_file.exists():
+                with open(raw_backup_file, 'w', encoding='utf-8') as f:
+                    json.dump(raw_data, f, ensure_ascii=False, indent=2)
+                logger.info(f"Backup saved: {raw_backup_file.name}")
+
+                # Clean up old backups
+                cleanup_old_backups(max_age_days=30)
+        except Exception as e:
+            logger.warning(f"Failed to create backup (non-critical): {e}")
+
         processed = 0
         char_levels_new = {}  # Track lowest NEW HSK level for each character
         char_levels_old = {}  # Track lowest OLD HSK level for each character
@@ -429,6 +478,9 @@ async def download_hsk_vocabulary():
 
             # Need at least one level to include the word
             if (level_new or level_old) and simplified:
+                # Extract radical information
+                radical = entry.get('radical', '')
+
                 # Build new entry with both levels
                 new_entry = {
                     'pinyin': pinyin,
@@ -437,7 +489,8 @@ async def download_hsk_vocabulary():
                     'level_new': level_new,
                     'level_old': level_old,
                     'level': level_new or level_old,  # Backward compatibility
-                    'frequency': entry.get('frequency', 0)
+                    'frequency': entry.get('frequency', 0),
+                    'radical': radical
                 }
 
                 if simplified not in hsk_vocab:
@@ -607,9 +660,23 @@ async def download_hsk_vocabulary():
         if supplemented_new > 0 or supplemented_old > 0:
             logger.info(f"Supplemented missing levels from characters: {supplemented_new} level_new, {supplemented_old} level_old")
 
+        # Save processed vocabulary
         vocab_file = DATA_DIR / "hsk_vocabulary.json"
         with open(vocab_file, 'w', encoding='utf-8') as f:
             json.dump(hsk_vocab, f, ensure_ascii=False, indent=2)
+
+        # Backup processed vocabulary with timestamp
+        try:
+            today = datetime.now().strftime('%Y-%m-%d')
+            processed_backup_file = BACKUP_DIR / f"hsk_vocabulary_{today}.json"
+
+            # Only create backup if one doesn't exist for today
+            if not processed_backup_file.exists():
+                with open(processed_backup_file, 'w', encoding='utf-8') as f:
+                    json.dump(hsk_vocab, f, ensure_ascii=False, indent=2)
+                logger.info(f"Processed vocabulary backup saved: {processed_backup_file.name}")
+        except Exception as e:
+            logger.warning(f"Failed to backup processed vocabulary (non-critical): {e}")
 
         total_chars = len(set(char_levels_new.keys()) | set(char_levels_old.keys()))
         logger.info(f"Processed and saved {processed} HSK words + {total_chars} individual characters")
