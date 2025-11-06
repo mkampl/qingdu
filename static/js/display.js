@@ -120,7 +120,9 @@ function buildSentences(words) {
       level_old: word.level_old,
       pinyin: word.pinyin,
       meaning: word.meaning,
-      translation_source: word.translation_source
+      translation_source: word.translation_source,
+      radical: word.radical,
+      radical_pinyin: word.radical_pinyin
     });
 
     if (word.text.match(/[。！？]/)) {
@@ -155,16 +157,6 @@ function renderSentences(sentences, pinyinLevel) {
 
 // Render individual word
 function renderWord(word, pinyinLevel) {
-  // DEBUG: Log word object for common characters
-  if (['很', '好', '多', '我', '你', '他', '们'].includes(word.text)) {
-    console.log(`DEBUG renderWord [${word.text}]:`, {
-      radical: word.radical,
-      radical_pinyin: word.radical_pinyin,
-      has_radical: 'radical' in word,
-      has_radical_pinyin: 'radical_pinyin' in word
-    });
-  }
-
   // Get hsk_version setting to determine which level to use for coloring
   const hskVersion = window.SettingsManager?.get('hsk_version') || 'new';
 
@@ -342,16 +334,6 @@ function setupSentenceInteractions() {
 
 // Show word information panel
 function showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld, radical, radicalPinyin) {
-  // DEBUG: Log parameters
-  if (['很', '好', '多', '我', '你', '他', '们'].includes(word)) {
-    console.log(`DEBUG showWordInfo [${word}]:`, {
-      radical: radical,
-      radicalPinyin: radicalPinyin,
-      radical_type: typeof radical,
-      radicalPinyin_type: typeof radicalPinyin
-    });
-  }
-
   // Get current HSK version setting
   const hskVersion = window.SettingsManager?.get('hsk_version') || 'new';
 
