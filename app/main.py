@@ -727,22 +727,36 @@ async def download_hsk_vocabulary():
 
         # For multi-character words, combine radicals from all characters
         multi_char_radicals_updated = 0
+        chars_missing_radicals = 0
         for word, word_data in hsk_vocab.items():
             if len(word) > 1:  # Multi-character word
                 char_radicals = []
                 char_radical_pinyins = []
 
                 for char in word:
+                    char_radical = ''
+                    char_radical_pinyin = ''
+
+                    # Try to get radical from character's vocabulary entry
                     if char in hsk_vocab:
                         char_data = hsk_vocab[char]
                         char_radical = char_data.get('radical', '')
                         char_radical_pinyin = char_data.get('radical_pinyin', '')
 
-                        if char_radical:
-                            char_radicals.append(char_radical)
-                            char_radical_pinyins.append(char_radical_pinyin if char_radical_pinyin else '')
+                    # If character has radical, add it to the list
+                    # Note: We add ALL characters even if radical is empty to maintain position
+                    # We'll log missing ones
+                    if char_radical:
+                        char_radicals.append(char_radical)
+                        char_radical_pinyins.append(char_radical_pinyin if char_radical_pinyin else '')
+                    else:
+                        # Character is missing radical data - log it
+                        if char in hsk_vocab:  # Only log if character exists in vocab
+                            chars_missing_radicals += 1
+                            logger.debug(f"Character '{char}' in word '{word}' is missing radical data")
 
-                # If we found radicals from component characters, combine them
+                # If we found at least one radical, combine them
+                # Note: This might result in fewer radicals than characters if some are missing
                 if char_radicals:
                     word_data['radical'] = ' + '.join(char_radicals)
                     word_data['radical_pinyin'] = ' + '.join(char_radical_pinyins)
@@ -750,6 +764,8 @@ async def download_hsk_vocabulary():
 
         if multi_char_radicals_updated > 0:
             logger.info(f"Updated radicals for {multi_char_radicals_updated} multi-character words")
+        if chars_missing_radicals > 0:
+            logger.warning(f"Found {chars_missing_radicals} characters missing radical data in multi-character words")
 
         # Save processed vocabulary
         vocab_file = DATA_DIR / "hsk_vocabulary.json"
