@@ -155,12 +155,33 @@ function renderSentences(sentences, pinyinLevel) {
 
 // Render individual word
 function renderWord(word, pinyinLevel) {
-  if (!word.is_hsk) {
-    return word.text;
-  }
-
   // Get hsk_version setting to determine which level to use for coloring
   const hskVersion = window.SettingsManager?.get('hsk_version') || 'new';
+
+  // Make all Chinese characters clickable, even if not in HSK vocabulary
+  if (!word.is_hsk) {
+    // Check if it's a Chinese character (not punctuation or whitespace)
+    const isChinese = /[\u4e00-\u9fa5]/.test(word.text);
+
+    if (isChinese) {
+      // Make it clickable with unknown styling
+      const baseAttrs = `
+        class="hsk-word unknown"
+        data-pinyin="${escapeHtml(word.pinyin || '')}"
+        data-word="${escapeHtml(word.text)}"
+        data-level="unknown"
+        data-level-new=""
+        data-level-old=""
+        data-meaning="${escapeHtml(word.meaning || 'Unknown word')}"
+        data-source="unknown"
+        title="${word.pinyin || 'Unknown word'}"
+      `.trim();
+      return `<span ${baseAttrs}>${word.text}</span>`;
+    }
+
+    // Non-Chinese text (punctuation, numbers, etc.)
+    return word.text;
+  }
 
   // Determine which level to use for coloring
   let displayLevel;

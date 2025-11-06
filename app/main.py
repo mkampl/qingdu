@@ -1121,6 +1121,64 @@ def migrate_word_data(word_data: Dict) -> Dict:
         word_data['level_old'] = vocab_entry.get('level_old')
         # Update hsk_level to match current vocab
         word_data['hsk_level'] = vocab_entry.get('level')
+    elif word_text and len(word_text) > 1:
+        # For multi-character words not in vocabulary, try compound calculation
+        # This handles words like "很多" that are created dynamically
+        chars = list(word_text)
+        if all(char in hsk_vocab for char in chars):
+            # Calculate both levels from component characters
+            char_levels_new = []
+            char_levels_old = []
+
+            for char in chars:
+                char_data = hsk_vocab[char]
+
+                level_new = char_data.get('level_new')
+                if level_new:
+                    try:
+                        level_num = int(level_new.replace('new-', '').replace('+', ''))
+                        char_levels_new.append(level_num)
+                    except (ValueError, AttributeError):
+                        pass
+
+                level_old = char_data.get('level_old')
+                if level_old:
+                    try:
+                        level_num = int(level_old.replace('old-', ''))
+                        char_levels_old.append(level_num)
+                    except (ValueError, AttributeError):
+                        pass
+
+            # Set both levels if we found character data
+            if char_levels_new:
+                word_data['level_new'] = f'new-{max(char_levels_new)}'
+            else:
+                word_data['level_new'] = None
+
+            if char_levels_old:
+                word_data['level_old'] = f'old-{max(char_levels_old)}'
+            else:
+                word_data['level_old'] = None
+
+            # Update primary level
+            if word_data['level_new']:
+                word_data['hsk_level'] = word_data['level_new']
+            elif word_data['level_old']:
+                word_data['hsk_level'] = word_data['level_old']
+
+            return word_data
+        else:
+            # Not all characters are in HSK, fall back to guessing
+            if old_level.startswith('new-'):
+                word_data['level_new'] = old_level
+                word_data['level_old'] = None
+            elif old_level.startswith('old-'):
+                word_data['level_new'] = None
+                word_data['level_old'] = old_level
+            else:
+                # Unknown format, assume it's new HSK
+                word_data['level_new'] = old_level
+                word_data['level_old'] = None
     else:
         # Word not in current vocab or no text field
         # Assume old_level is from new HSK system (most common case)
