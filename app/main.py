@@ -737,10 +737,17 @@ async def download_hsk_vocabulary():
             if 'is_original_hsk' not in word_data:
                 word_data['is_original_hsk'] = False
 
-            # IMPORTANT: Don't supplement levels for original HSK words!
-            # Only trust the levels provided by the GitHub source.
-            # Supplementation is only for non-HSK words found during text analysis.
-            if word_data.get('is_original_hsk', False):
+            # CHANGED: Allow supplementation for original HSK words if they're missing level_old
+            # This fixes the issue where basic words like "吃饭" have level_new but no level_old
+            # in the GitHub source. We trust the source for what it provides, but supplement
+            # missing data from component characters when possible.
+            # Skip supplementation only if word already has both levels.
+            is_original = word_data.get('is_original_hsk', False)
+            has_level_new = bool(word_data.get('level_new'))
+            has_level_old = bool(word_data.get('level_old'))
+
+            # Skip if original AND has both levels (nothing to supplement)
+            if is_original and has_level_new and has_level_old:
                 continue
 
             chars = list(word)
@@ -772,21 +779,20 @@ async def download_hsk_vocabulary():
             # Try to supplement missing level_old
             if not word_data.get('level_old'):
                 char_levels_list = []
-                all_chars_have_level = True
 
+                # CHANGED: Collect level_old from any characters that have it
+                # Don't require ALL characters to have level_old (more pragmatic)
+                # If at least one character has level_old, use the maximum
                 for char in chars:
                     if char in hsk_vocab and hsk_vocab[char].get('level_old'):
                         level_str = hsk_vocab[char]['level_old'].replace('old-', '')
                         try:
                             char_levels_list.append(int(level_str))
                         except:
-                            all_chars_have_level = False
-                            break
-                    else:
-                        all_chars_have_level = False
-                        break
+                            pass  # Skip malformed level
 
-                if all_chars_have_level and char_levels_list:
+                # If at least one character has level_old, supplement the word
+                if char_levels_list:
                     max_level = max(char_levels_list)
                     word_data['level_old'] = f'old-{max_level}'
                     supplemented_old += 1
