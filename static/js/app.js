@@ -533,6 +533,9 @@ async function saveCurrentText() {
       AppState.currentTextId = data.id;
     }
 
+    // Update the displayed title in the UI
+    document.getElementById('currentTextTitle').textContent = title;
+
     // Update current tags and display
     currentTags = autoTags;
     displayTags(currentTags);
