@@ -621,38 +621,22 @@ async def download_hsk_vocabulary():
                 }
 
                 if simplified not in hsk_vocab:
+                    # First occurrence - just add it
                     hsk_vocab[simplified] = new_entry
                 else:
-                    # Merge entries - keep best data from both
+                    # Word already exists - keep the FIRST occurrence's levels (don't change them)
+                    # Only update if we can improve the meaning or fill in missing data
                     existing = hsk_vocab[simplified]
 
-                    # Compare new HSK levels - keep the lower one
-                    existing_new = existing.get('level_new')
-                    new_new = new_entry.get('level_new')
+                    # Keep existing levels (FIRST occurrence wins)
+                    best_level_new = existing.get('level_new')
+                    best_level_old = existing.get('level_old')
 
-                    best_level_new = existing_new
-                    if new_new:
-                        if not existing_new:
-                            best_level_new = new_new
-                        else:
-                            existing_new_num = int(existing_new.replace('new-', '').replace('+', ''))
-                            new_new_num = int(new_new.replace('new-', '').replace('+', ''))
-                            if new_new_num < existing_new_num:
-                                best_level_new = new_new
-
-                    # Compare old HSK levels - keep the lower one
-                    existing_old = existing.get('level_old')
-                    new_old = new_entry.get('level_old')
-
-                    best_level_old = existing_old
-                    if new_old:
-                        if not existing_old:
-                            best_level_old = new_old
-                        else:
-                            existing_old_num = int(existing_old.replace('old-', ''))
-                            new_old_num = int(new_old.replace('old-', ''))
-                            if new_old_num < existing_old_num:
-                                best_level_old = new_old
+                    # Fill in missing levels if existing entry doesn't have them
+                    if not best_level_new and new_entry.get('level_new'):
+                        best_level_new = new_entry.get('level_new')
+                    if not best_level_old and new_entry.get('level_old'):
+                        best_level_old = new_entry.get('level_old')
 
                     # Choose the best primary level (prefer new HSK)
                     best_level = best_level_new or best_level_old
@@ -669,13 +653,13 @@ async def download_hsk_vocabulary():
                     best_pinyin = new_entry['pinyin'] if new_is_good else existing.get('pinyin', '')
                     best_radical = new_entry.get('radical') or existing.get('radical', '')
 
-                    # Merge into a single entry with best data from both
+                    # Merge into a single entry - KEEP FIRST OCCURRENCE'S LEVELS
                     hsk_vocab[simplified] = {
                         'pinyin': best_pinyin,
                         'meaning': best_meaning,
                         'meanings': best_meanings,
-                        'level_new': best_level_new,
-                        'level_old': best_level_old,
+                        'level_new': best_level_new,  # First occurrence's level
+                        'level_old': best_level_old,  # First occurrence's level
                         'level': best_level,
                         'frequency': max(existing.get('frequency', 0), new_entry.get('frequency', 0)),
                         'radical': best_radical,
