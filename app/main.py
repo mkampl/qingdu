@@ -539,45 +539,48 @@ async def download_hsk_vocabulary():
         entries_with_new_only = 0
         entries_with_old_only = 0
 
+        # Track words added to each Old HSK level for debugging
+        old_level_words = {f'{i}': [] for i in range(1, 7)}
+
         for entry in raw_data:
             total_entries += 1
             if not isinstance(entry, dict):
                 continue
-            
+
             simplified = entry.get('simplified')
             if not simplified:
                 continue
-            
+
             levels = entry.get('level', [])
             if not levels:
                 continue
-            
+
             forms = entry.get('forms', [])
             if not forms:
                 continue
-            
+
             # Choose best form (prefer substantive meanings over names/abbreviations)
             best_form = None
             fallback_form = None
-            
+
             for form in forms:
                 form_meanings = form.get('meanings', [])
                 if not form_meanings:
                     continue
-                
+
                 first_meaning = form_meanings[0]
-                
+
                 if fallback_form is None:
                     fallback_form = form
-                
+
                 if first_meaning.startswith('surname ') or first_meaning.startswith('abbr. for '):
                     continue
-                
+
                 best_form = form
                 break
-            
+
             best_form = best_form or fallback_form or forms[0]
-            
+
             # Extract data from best form
             transcriptions = best_form.get('transcriptions', {})
             pinyin = transcriptions.get('pinyin', '')
@@ -623,6 +626,12 @@ async def download_hsk_vocabulary():
                 if simplified not in hsk_vocab:
                     # First occurrence - just add it
                     hsk_vocab[simplified] = new_entry
+
+                    # Track for debugging which words go into which Old HSK level
+                    if level_old:
+                        level_num = level_old.replace('old-', '')
+                        if level_num in old_level_words:
+                            old_level_words[level_num].append(simplified)
                 else:
                     # Word already exists - keep the FIRST occurrence's levels (don't change them)
                     # Only update if we can improve the meaning or fill in missing data
@@ -795,6 +804,11 @@ async def download_hsk_vocabulary():
             logger.info("OLD HSK distribution (original words only, should match GitHub source):")
             for level in sorted(old_hsk_dist.keys(), key=int):
                 logger.info(f"  Level {level}: {old_hsk_dist[level]} words")
+
+            # Show first 20 words from Level 1 for debugging
+            logger.info("First 20 words in Old HSK Level 1 (from processing):")
+            for i, word in enumerate(old_level_words.get('1', [])[:20]):
+                logger.info(f"  {i+1}. {word}")
 
         # Debug: Show level distribution for NEW HSK
         new_hsk_dist = {}
