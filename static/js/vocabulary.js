@@ -120,22 +120,36 @@ async function generateNewHSKList() {
       }))
     };
 
-    Object.entries(vocabData).forEach(([word, data]) => {
-      // Only include original HSK words (not character components added for analysis)
-      if (data.level_new && data.is_original_hsk) {
-        const level = data.level_new.replace('new-', '').replace('+', '');
-        const levelNum = parseInt(level);
+    // Debug counters
+    let totalWithNewLevel = 0;
+    let originalHSKWords = 0;
+    let filteredOut = 0;
 
-        if (levelNum >= 1 && levelNum <= 9) {
-          hskList.sections[levelNum - 1].words.push({
-            hanzi: word,
-            pinyin: data.pinyin,
-            meaning: data.meaning,
-            level: data.level_new
-          });
+    Object.entries(vocabData).forEach(([word, data]) => {
+      if (data.level_new) {
+        totalWithNewLevel++;
+
+        // Only include original HSK words (not character components added for analysis)
+        if (data.is_original_hsk === true) {
+          originalHSKWords++;
+          const level = data.level_new.replace('new-', '').replace('+', '');
+          const levelNum = parseInt(level);
+
+          if (levelNum >= 1 && levelNum <= 9) {
+            hskList.sections[levelNum - 1].words.push({
+              hanzi: word,
+              pinyin: data.pinyin,
+              meaning: data.meaning,
+              level: data.level_new
+            });
+          }
+        } else {
+          filteredOut++;
         }
       }
     });
+
+    console.log(`New HSK generation: ${totalWithNewLevel} words with level_new, ${originalHSKWords} original HSK, ${filteredOut} filtered out`);
 
     await authFetch('/api/vocabulary-lists', {
       method: 'POST',
@@ -170,22 +184,36 @@ async function generateOldHSKList() {
       }))
     };
 
-    Object.entries(vocabData).forEach(([word, data]) => {
-      // Only include original HSK words (not character components added for analysis)
-      if (data.level_old && data.is_original_hsk) {
-        const level = data.level_old.replace('old-', '');
-        const levelNum = parseInt(level);
+    // Debug counters
+    let totalWithOldLevel = 0;
+    let originalHSKWords = 0;
+    let filteredOut = 0;
 
-        if (levelNum >= 1 && levelNum <= 6) {
-          hskList.sections[levelNum - 1].words.push({
-            hanzi: word,
-            pinyin: data.pinyin,
-            meaning: data.meaning,
-            level: data.level_old
-          });
+    Object.entries(vocabData).forEach(([word, data]) => {
+      if (data.level_old) {
+        totalWithOldLevel++;
+
+        // Only include original HSK words (not character components added for analysis)
+        if (data.is_original_hsk === true) {
+          originalHSKWords++;
+          const level = data.level_old.replace('old-', '');
+          const levelNum = parseInt(level);
+
+          if (levelNum >= 1 && levelNum <= 6) {
+            hskList.sections[levelNum - 1].words.push({
+              hanzi: word,
+              pinyin: data.pinyin,
+              meaning: data.meaning,
+              level: data.level_old
+            });
+          }
+        } else {
+          filteredOut++;
         }
       }
     });
+
+    console.log(`Old HSK generation: ${totalWithOldLevel} words with level_old, ${originalHSKWords} original HSK, ${filteredOut} filtered out`);
 
     await authFetch('/api/vocabulary-lists', {
       method: 'POST',
