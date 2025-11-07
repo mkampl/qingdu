@@ -35,7 +35,17 @@ function displayResults(data) {
   }
 
   const stats = data.statistics;
-  const estimatedLevelNum = parseInt(stats.estimated_level.replace('HSK ', ''));
+
+  // Get current HSK version to use appropriate estimated level
+  const hskVersion = window.SettingsManager?.get('hsk_version') || 'new';
+  let estimatedLevel;
+  if (hskVersion === 'old') {
+    estimatedLevel = stats.estimated_level_old || stats.estimated_level;
+  } else {
+    estimatedLevel = stats.estimated_level_new || stats.estimated_level;
+  }
+
+  const estimatedLevelNum = parseInt(estimatedLevel.replace('HSK ', ''));
   const pinyinLevel = estimatedLevelNum;
 
   // Build sentences from words
@@ -71,9 +81,17 @@ function displayResults(data) {
 window.addEventListener('settingsChanged', (event) => {
   const { key } = event.detail;
 
-  // If pinyin_mode changed and we have analysis data, re-render
-  if (key === 'pinyin_mode' && window.AppState?.currentAnalysisData) {
+  // If pinyin_mode or hsk_version changed and we have analysis data, re-render
+  if ((key === 'pinyin_mode' || key === 'hsk_version') && window.AppState?.currentAnalysisData) {
     displayResults(window.AppState.currentAnalysisData);
+  }
+
+  // If hsk_version changed, update the legend even if no text is displayed
+  if (key === 'hsk_version') {
+    const legendElement = document.getElementById('hskLegendContent');
+    if (legendElement && typeof displayHSKLegend === 'function') {
+      displayHSKLegend();
+    }
   }
 });
 
@@ -98,9 +116,13 @@ function buildSentences(words) {
       text: word.text,
       is_hsk: word.is_hsk,
       level: word.hsk_level,
+      level_new: word.level_new,
+      level_old: word.level_old,
       pinyin: word.pinyin,
       meaning: word.meaning,
-      translation_source: word.translation_source
+      translation_source: word.translation_source,
+      radical: word.radical,
+      radical_pinyin: word.radical_pinyin
     });
 
     if (word.text.match(/[。！？]/)) {
@@ -135,13 +157,48 @@ function renderSentences(sentences, pinyinLevel) {
 
 // Render individual word
 function renderWord(word, pinyinLevel) {
+  // Get hsk_version setting to determine which level to use for coloring
+  const hskVersion = window.SettingsManager?.get('hsk_version') || 'new';
+
+  // Make all Chinese characters clickable, even if not in HSK vocabulary
   if (!word.is_hsk) {
+    // Check if it's a Chinese character (not punctuation or whitespace)
+    const isChinese = /[\u4e00-\u9fa5]/.test(word.text);
+
+    if (isChinese) {
+      // Make it clickable with unknown styling
+      const baseAttrs = `
+        class="hsk-word unknown"
+        data-pinyin="${escapeHtml(word.pinyin || '')}"
+        data-word="${escapeHtml(word.text)}"
+        data-level="unknown"
+        data-level-new=""
+        data-level-old=""
+        data-meaning="${escapeHtml(word.meaning || 'Unknown word')}"
+        data-source="unknown"
+        title="${word.pinyin || 'Unknown word'}"
+      `.trim();
+      return `<span ${baseAttrs}>${word.text}</span>`;
+    }
+
+    // Non-Chinese text (punctuation, numbers, etc.)
     return word.text;
   }
 
-  const levelClass = word.level.replace(/-/g, '').replace(/\+/g, 'plus');
-  const wordLevel = word.level === 'unknown' ? 999 :
-                    parseInt(word.level.replace('new-', '').replace('+', ''));
+  // Determine which level to use for coloring
+  let displayLevel;
+  if (hskVersion === 'new') {
+    // In new HSK mode: use level_new if available, otherwise fall back to level
+    displayLevel = word.level_new || word.level;
+  } else {
+    // In old HSK mode: use level_old if available
+    // If word doesn't have old HSK level, show as unknown
+    displayLevel = word.level_old || 'unknown';
+  }
+
+  const levelClass = displayLevel.replace(/-/g, '').replace(/\+/g, 'plus');
+  const wordLevel = displayLevel === 'unknown' ? 999 :
+                    parseInt(displayLevel.replace('new-', '').replace('old-', '').replace('+', ''));
 
   // Get pinyin_mode setting from SettingsManager
   const pinyinMode = window.SettingsManager?.get('pinyin_mode') || 'auto';
@@ -164,8 +221,12 @@ function renderWord(word, pinyinLevel) {
     data-pinyin="${word.pinyin}"
     data-word="${escapeHtml(word.text)}"
     data-level="${word.level}"
+    data-level-new="${word.level_new || ''}"
+    data-level-old="${word.level_old || ''}"
     data-meaning="${escapeHtml(word.meaning)}"
     data-source="${source}"
+    data-radical="${escapeHtml(word.radical || '')}"
+    data-radical-pinyin="${escapeHtml(word.radical_pinyin || '')}"
     title="${word.pinyin}"
   `.trim();
 
@@ -182,11 +243,15 @@ function setupWordInteractions() {
 
       const word = wordEl.getAttribute('data-word');
       const level = wordEl.getAttribute('data-level');
+      const levelNew = wordEl.getAttribute('data-level-new');
+      const levelOld = wordEl.getAttribute('data-level-old');
       const pinyin = wordEl.getAttribute('data-pinyin');
       const meaning = wordEl.getAttribute('data-meaning');
       const source = wordEl.getAttribute('data-source');
+      const radical = wordEl.getAttribute('data-radical');
+      const radicalPinyin = wordEl.getAttribute('data-radical-pinyin');
 
-      showWordInfo(word, level, pinyin, meaning, source);
+      showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld, radical, radicalPinyin);
     };
 
     wordEl.addEventListener('click', handler);
@@ -268,27 +333,90 @@ function setupSentenceInteractions() {
 }
 
 // Show word information panel
-function showWordInfo(word, level, pinyin, meaning, source) {
-  const displayLevel = level.replace('new-', 'HSK ').replace('+', '+');
-  const levelText = level === 'unknown' ? 'Unknown (Online lookup)' : displayLevel;
-  
-  const sourceTag = createSourceTag(source);
-  
+function showWordInfo(word, level, pinyin, meaning, source, levelNew, levelOld, radical, radicalPinyin) {
+  // Get current HSK version setting
+  const hskVersion = window.SettingsManager?.get('hsk_version') || 'new';
+
+  let levelText;
+  let sourceLabel;
+
+  // Determine which level to display based on current mode
+  if (hskVersion === 'new') {
+    // New HSK mode - show level_new if available
+    if (levelNew) {
+      const levelNum = levelNew.replace('new-', '').replace('+', '+');
+      levelText = `HSK ${levelNum}`;
+      sourceLabel = source === 'hsk-chars' ? 'Compound' : 'Vocabulary';
+    } else if (levelOld) {
+      // Word only exists in old HSK
+      levelText = 'Not in New HSK';
+      sourceLabel = 'Old HSK only';
+    } else {
+      // Truly unknown word (online lookup)
+      levelText = 'Uncategorized';
+      sourceLabel = 'Online lookup';
+    }
+  } else {
+    // Old HSK mode - show level_old if available
+    if (levelOld) {
+      const levelNum = levelOld.replace('old-', '');
+      levelText = `HSK ${levelNum}`;
+      sourceLabel = source === 'hsk-chars' ? 'Compound' : 'Vocabulary';
+    } else if (levelNew) {
+      // Word only exists in new HSK (levels 7-9)
+      levelText = 'Not in Old HSK';
+      sourceLabel = 'New HSK only';
+    } else {
+      // Truly unknown word (online lookup)
+      levelText = 'Uncategorized';
+      sourceLabel = 'Online lookup';
+    }
+  }
+
+  // Create enhanced source tag
+  const sourceTag = createEnhancedSourceTag(source, sourceLabel);
+
+  // Build radical display (if available)
+  let radicalDisplay = '';
+  if (radical) {
+    // Check if this is a multi-character word with multiple radicals
+    if (radical.includes(' + ')) {
+      const radicals = radical.split(' + ');
+      const pinyins = radicalPinyin ? radicalPinyin.split(' + ') : [];
+
+      // Combine each radical with its pinyin
+      const radicalParts = radicals.map((rad, idx) => {
+        const py = pinyins[idx] || '';
+        return py ? `${rad} (${py})` : rad;
+      });
+
+      radicalDisplay = `<p><strong>Radical:</strong> ${radicalParts.join(' + ')}</p>`;
+    } else {
+      // Single character word
+      if (radicalPinyin) {
+        radicalDisplay = `<p><strong>Radical:</strong> ${radical} (${radicalPinyin})</p>`;
+      } else {
+        radicalDisplay = `<p><strong>Radical:</strong> ${radical}</p>`;
+      }
+    }
+  }
+
   const html = `
     <div style="display:flex;justify-content:space-between;align-items:center">
       <h4>${word} <span style="color:#667eea">${levelText}</span>${sourceTag}</h4>
       <div>
         <button class="tts-btn" onclick="speakWord('${escapeHtml(word)}')">🔊 Play</button>
-        <button class="btn" style="margin:0 0 0 10px;padding:8px 16px;font-size:14px" 
+        <button class="btn" style="margin:0 0 0 10px;padding:8px 16px;font-size:14px"
                 onclick="saveWordToList('${escapeHtml(word)}','${escapeHtml(level)}','${escapeHtml(pinyin)}','${escapeHtml(meaning)}')">
           Save to List
         </button>
       </div>
     </div>
     <p><strong>Pinyin:</strong> ${pinyin}</p>
+    ${radicalDisplay}
     <p><strong>Meaning:</strong> ${meaning}</p>
   `;
-  
+
   document.getElementById('wordInfo').innerHTML = html;
   document.getElementById('wordInfo').style.display = 'block';
   document.getElementById('sentenceInfo').style.display = 'none';
@@ -326,26 +454,99 @@ async function showSentence(sentence) {
 
 // Display statistics
 function displayStatistics(stats, pinyinLevel) {
-  const distribution = Object.entries(stats.hsk_distribution)
+  // Get current HSK version to display appropriate statistics
+  const hskVersion = window.SettingsManager?.get('hsk_version') || 'new';
+
+  // Choose statistics based on current HSK mode
+  let hskWords, hskDistribution, estimatedLevel;
+  if (hskVersion === 'old') {
+    hskWords = stats.hsk_words_old || stats.hsk_words;
+    hskDistribution = stats.hsk_distribution_old || stats.hsk_distribution;
+    estimatedLevel = stats.estimated_level_old || stats.estimated_level;
+  } else {
+    hskWords = stats.hsk_words_new || stats.hsk_words;
+    hskDistribution = stats.hsk_distribution_new || stats.hsk_distribution;
+    estimatedLevel = stats.estimated_level_new || stats.estimated_level;
+  }
+
+  const distribution = Object.entries(hskDistribution)
     .filter(([_, count]) => count > 0)
     .map(([key, count]) => `${key.toUpperCase()}: ${count}`)
     .join(', ');
-  
+
   const html = `
     <p><strong>Characters:</strong> ${stats.total_characters}</p>
     <p><strong>Words:</strong> ${stats.total_words}</p>
-    <p><strong>HSK Words:</strong> ${stats.hsk_words}</p>
-    <p><strong>Estimated Level:</strong> ${stats.estimated_level} (Pinyin for HSK ${pinyinLevel + 1}+)</p>
+    <p><strong>HSK Words:</strong> ${hskWords}</p>
+    <p><strong>Estimated Level:</strong> ${estimatedLevel} (Pinyin for HSK ${pinyinLevel + 1}+)</p>
     <p><strong>Distribution:</strong> ${distribution}</p>
   `;
-  
+
   document.getElementById('statsContent').innerHTML = html;
+
+  // Also display HSK legend
+  displayHSKLegend();
 }
 
-// Create source tag
+// Display HSK level color legend
+function displayHSKLegend() {
+  const hskVersion = window.SettingsManager?.get('hsk_version') || 'new';
+
+  let levels;
+  let prefix;
+
+  if (hskVersion === 'old') {
+    levels = [1, 2, 3, 4, 5, 6];
+    prefix = 'old-';
+  } else {
+    levels = [1, 2, 3, 4, 5, 6, 7, '7+'];
+    prefix = 'new-';
+  }
+
+  const legendItems = levels.map(level => {
+    const cssClass = `${prefix}${level}`.replace('+', 'plus');
+    const displayLevel = hskVersion === 'old' ? `Old HSK ${level}` : `New HSK ${level}`;
+
+    return `
+      <div style="display: flex; align-items: center; margin-bottom: 8px;">
+        <span class="hsk-word ${cssClass}" style="padding: 4px 12px; border-radius: 4px; min-width: 60px; text-align: center; font-weight: 500;">样本</span>
+        <span style="margin-left: 10px; color: #666;">${displayLevel}</span>
+      </div>
+    `;
+  }).join('');
+
+  const html = `
+    <div style="font-size: 13px;">
+      <p style="color: #999; margin-bottom: 10px;">Color coding based on ${hskVersion === 'old' ? 'Old HSK (Pre-2021)' : 'New HSK (2021)'}</p>
+      ${legendItems}
+    </div>
+  `;
+
+  document.getElementById('hskLegendContent').innerHTML = html;
+}
+
+// Create enhanced source tag with detailed labels
+function createEnhancedSourceTag(source, sourceLabel) {
+  if (!sourceLabel) return '';
+
+  // Map source labels to emojis
+  const sourceIcons = {
+    'Vocabulary': '📚',
+    'Compound': '🧩',
+    'Online lookup': '🌐',
+    'Old HSK only': '📖',
+    'New HSK only': '📗'
+  };
+
+  const icon = sourceIcons[sourceLabel] || '📝';
+
+  return `<span style="font-size:11px;color:#666;margin-left:8px">(${icon} ${sourceLabel})</span>`;
+}
+
+// Create source tag (legacy function for backwards compatibility)
 function createSourceTag(source, cached = false) {
   if (!source || source === 'null' || source === '') return '';
-  
+
   const sourceLabels = {
     'deepl': '🟢 DeepL',
     'google': '🔵 Google',
@@ -353,10 +554,10 @@ function createSourceTag(source, cached = false) {
     'hsk-chars': '📚 HSK',
     'hsk': '📚 HSK'
   };
-  
+
   const label = sourceLabels[source] || source;
   const cacheText = cached ? ' - cached' : '';
-  
+
   return `<span style="font-size:11px;color:#666;margin-left:8px">(${label}${cacheText})</span>`;
 }
 
@@ -399,24 +600,20 @@ function setupReadingProgress() {
   if (!readingArea || !progressBar) return;
   
   readingArea.addEventListener('scroll', () => {
-    console.log('SCROLL EVENT - isRestoring:', isRestoringProgress); // DEBUG
-    
     // Don't save if we're currently restoring
     if (isRestoringProgress) {
-      console.log('Skipping scroll event during restore'); // DEBUG
       return;
     }
-    
+
     const scrollTop = readingArea.scrollTop;
     const scrollHeight = readingArea.scrollHeight - readingArea.clientHeight;
-    
+
     if (scrollHeight <= 0) {
       progressBar.style.width = '100%';
       return;
     }
-    
+
     const progress = (scrollTop / scrollHeight) * 100;
-    console.log('Setting bar to:', progress); // DEBUG
     progressBar.style.width = `${Math.min(progress, 100)}%`;
     
     if (window.AppState?.currentTextId && progress >= 1) {
@@ -441,7 +638,6 @@ function saveReadingProgress(textId, progress) {
       });
     } catch (e) {
       // Silent fail - progress tracking is not critical
-      console.log('Progress save failed:', e);
     }
   }, 2000); // Save every 2 seconds max
 }
@@ -449,35 +645,29 @@ function saveReadingProgress(textId, progress) {
 // Restore reading progress when loading text
 function restoreReadingProgress() {
   const progress = window.AppState?.currentReadingProgress;
-  console.log('=== RESTORE called with progress:', progress); // DEBUG
-  
+
   if (!progress || progress === 0) {
     return;
   }
-  
+
   const readingArea = document.getElementById('readingArea');
   if (!readingArea) return;
-  
+
   isRestoringProgress = true;
-  console.log('Set isRestoringProgress = true'); // DEBUG
-  
+
   setTimeout(() => {
     const progressBar = document.getElementById('readingProgressBar');
     const scrollHeight = readingArea.scrollHeight - readingArea.clientHeight;
     const scrollTo = (progress / 100) * scrollHeight;
-    
-    console.log('About to scroll to:', scrollTo, 'and set bar to:', progress); // DEBUG
-    
+
     readingArea.scrollTop = scrollTo;
-    
+
     if (progressBar) {
       progressBar.style.width = `${progress}%`;
-      console.log('Bar width set to:', progress); // DEBUG
     }
-    
+
     setTimeout(() => {
       isRestoringProgress = false;
-      console.log('Set isRestoringProgress = false'); // DEBUG
     }, 1000);
   }, 400);
 }

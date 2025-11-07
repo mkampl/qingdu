@@ -25,12 +25,14 @@ async function loadVocabularyLists() {
     newListBtn.onclick = openCreateListModal;
     vocabDiv.appendChild(newListBtn);
 
-    // Check if HSK list exists
-    const hskExists = lists.some(list => list.type === 'hsk' || list.list_type === 'hsk');
+    // Check which HSK lists already exist
+    const newHSKExists = lists.some(list => list.name === 'New HSK Vocabulary');
+    const oldHSKExists = lists.some(list => list.name === 'Old HSK Vocabulary');
 
-    if (!hskExists) {
-      const btn = createGenerateHSKButton();
-      vocabDiv.appendChild(btn);
+    // Show HSK generation buttons only if corresponding list doesn't exist
+    const hskButtons = createGenerateHSKButtons(newHSKExists, oldHSKExists);
+    if (hskButtons) {
+      vocabDiv.appendChild(hskButtons);
     }
 
     if (lists.length === 0) {
@@ -66,59 +68,143 @@ async function loadVocabularyLists() {
   }
 }
 
-// Create generate HSK button
-function createGenerateHSKButton() {
-  const btn = document.createElement('div');
-  btn.className = 'sidebar-item';
-  btn.innerHTML = `
-    <span class="sidebar-item-icon">⚡</span>
-    <span>Generate HSK List</span>
-  `;
-  btn.addEventListener('click', generateHSKList);
-  return btn;
+// Create generate HSK buttons (only show buttons for lists that don't exist)
+function createGenerateHSKButtons(newHSKExists, oldHSKExists) {
+  // If both lists exist, don't show any buttons
+  if (newHSKExists && oldHSKExists) {
+    return null;
+  }
+
+  const container = document.createElement('div');
+  container.style.cssText = 'display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px;';
+
+  // Show New HSK button only if it doesn't exist
+  if (!newHSKExists) {
+    const newHSKBtn = document.createElement('button');
+    newHSKBtn.className = 'add-btn';
+    newHSKBtn.style.cssText = 'width: 100%;';
+    newHSKBtn.innerHTML = '+ Generate New HSK List';
+    newHSKBtn.addEventListener('click', generateNewHSKList);
+    container.appendChild(newHSKBtn);
+  }
+
+  // Show Old HSK button only if it doesn't exist
+  if (!oldHSKExists) {
+    const oldHSKBtn = document.createElement('button');
+    oldHSKBtn.className = 'add-btn';
+    oldHSKBtn.style.cssText = 'width: 100%;';
+    oldHSKBtn.innerHTML = '+ Generate Old HSK List';
+    oldHSKBtn.addEventListener('click', generateOldHSKList);
+    container.appendChild(oldHSKBtn);
+  }
+
+  return container;
 }
 
-// Generate HSK list
-async function generateHSKList() {
-  if (!confirm('This will load all 11,000+ HSK words. Continue?')) return;
-  
-  document.getElementById('vocabularyLists').innerHTML = '<div class="loading">Generating HSK list...</div>';
-  
+// Generate New HSK list (9 levels)
+async function generateNewHSKList() {
+  if (!confirm('This will load all New HSK words (9 levels). Continue?')) return;
+
+  document.getElementById('vocabularyLists').innerHTML = '<div class="loading">Generating New HSK list...</div>';
+
   try {
     const vocabResponse = await fetch('/api/get-hsk-vocabulary');
     const vocabData = await vocabResponse.json();
-    
+
     const hskList = {
-      name: 'HSK Vocabulary',
+      name: 'New HSK Vocabulary',
       type: 'hsk',
-      sections: Array.from({ length: 7 }, (_, i) => ({
-        name: i === 6 ? 'HSK 7+' : `HSK ${i + 1}`,
+      sections: Array.from({ length: 9 }, (_, i) => ({
+        name: `HSK ${i + 1}`,
         words: []
       }))
     };
 
     Object.entries(vocabData).forEach(([word, data]) => {
-      const level = data.level.replace('new-', '').replace('old-', '').replace('+', '');
-      const levelNum = parseInt(level);
+      if (data.level_new) {
+        // Only include original HSK words (not character components added for analysis)
+        if (data.is_original_hsk === true) {
+          const level = data.level_new.replace('new-', '').replace('+', '');
+          const levelNum = parseInt(level);
 
-      if (levelNum >= 1 && levelNum <= 7) {
-        hskList.sections[levelNum - 1].words.push({
-          hanzi: word,
-          pinyin: data.pinyin,
-          meaning: data.meaning,
-          level: data.level
-        });
+          if (levelNum >= 1 && levelNum <= 9) {
+            hskList.sections[levelNum - 1].words.push({
+              hanzi: word,
+              pinyin: data.pinyin,
+              meaning: data.meaning,
+              level: data.level_new
+            });
+          }
+        }
       }
     });
-    
+
+    // Filter out empty sections (e.g., HSK 8 and 9 if source only has 7+)
+    hskList.sections = hskList.sections.filter(section => section.words.length > 0);
+
     await authFetch('/api/vocabulary-lists', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(hskList)
     });
-    
+
     loadVocabularyLists();
-    alert('HSK list generated successfully!');
+    alert('New HSK list generated successfully!');
+  } catch (error) {
+    alert('Error: ' + error.message);
+    loadVocabularyLists();
+  }
+}
+
+// Generate Old HSK list (6 levels)
+async function generateOldHSKList() {
+  if (!confirm('This will load all Old HSK words (6 levels). Continue?')) return;
+
+  document.getElementById('vocabularyLists').innerHTML = '<div class="loading">Generating Old HSK list...</div>';
+
+  try {
+    const vocabResponse = await fetch('/api/get-hsk-vocabulary');
+    const vocabData = await vocabResponse.json();
+
+    const hskList = {
+      name: 'Old HSK Vocabulary',
+      type: 'hsk',
+      sections: Array.from({ length: 6 }, (_, i) => ({
+        name: `HSK ${i + 1}`,
+        words: []
+      }))
+    };
+
+    Object.entries(vocabData).forEach(([word, data]) => {
+      if (data.level_old) {
+        // Only include original HSK words (not character components added for analysis)
+        if (data.is_original_hsk === true) {
+          const level = data.level_old.replace('old-', '');
+          const levelNum = parseInt(level);
+
+          if (levelNum >= 1 && levelNum <= 6) {
+            hskList.sections[levelNum - 1].words.push({
+              hanzi: word,
+              pinyin: data.pinyin,
+              meaning: data.meaning,
+              level: data.level_old
+            });
+          }
+        }
+      }
+    });
+
+    // Filter out empty sections
+    hskList.sections = hskList.sections.filter(section => section.words.length > 0);
+
+    await authFetch('/api/vocabulary-lists', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(hskList)
+    });
+
+    loadVocabularyLists();
+    alert('Old HSK list generated successfully!');
   } catch (error) {
     alert('Error: ' + error.message);
     loadVocabularyLists();
@@ -184,6 +270,7 @@ async function viewVocabularyList(listId) {
     
     document.getElementById('inputSection').classList.add('collapsed');
     document.getElementById('resultsSection').classList.remove('show');
+    document.getElementById('savedTextsSection').classList.add('hidden');
     document.getElementById('listViewSection').classList.remove('hidden');
     toggleSidebar();
   } catch (error) {

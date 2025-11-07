@@ -396,9 +396,28 @@ async function saveCurrentText() {
   const title = AppState.currentInputText.split(/[。！？\n]/)[0] ||
     AppState.currentInputText.substring(0, 50);
 
-  // Auto-generate HSK level tag
+  // Auto-generate HSK level tags - include both new and old if available
   const estimatedLevel = AppState.currentAnalysisData.statistics?.estimated_level || 'Unknown';
-  const autoTags = [estimatedLevel]; // e.g., "HSK 3"
+  const autoTags = [];
+
+  // Always add the primary estimated level
+  if (estimatedLevel !== 'Unknown') {
+    // Check if this is a new HSK level (default)
+    if (estimatedLevel.startsWith('HSK ')) {
+      const levelNum = estimatedLevel.replace('HSK ', '');
+      autoTags.push(`New ${estimatedLevel}`); // e.g., "New HSK 3"
+
+      // Try to find a corresponding old HSK level
+      // This is approximate since we don't have a direct mapping here
+      // We just tag it as being analyzed, the specific word mappings are already in the analysis
+      // For now, we'll just add the new HSK tag
+    } else {
+      autoTags.push(estimatedLevel);
+    }
+  }
+
+  // Add a tag indicating both HSK systems are supported
+  autoTags.push('HSK Dual-System');
 
   try {
     let response;
@@ -492,6 +511,9 @@ window.onload = async function () {
 
   // Setup event listeners (synchronous, no await needed)
   setupEventListeners();
+
+  // Apply legend visibility setting
+  applyLegendVisibility();
 
   // Load user data if authenticated
   if (AuthState.user) {
@@ -845,11 +867,20 @@ async function deleteTextFromView(index) {
 // Settings Modal Functions
 function openSettingsModal() {
   const modal = document.getElementById('settingsModal');
-  const select = document.getElementById('pinyinModeSelect');
+  const pinyinSelect = document.getElementById('pinyinModeSelect');
+  const hskSelect = document.getElementById('hskVersionSelect');
+  const showLegendCheckbox = document.getElementById('showLegendCheckbox');
 
-  // Load current pinyin mode
-  const currentMode = window.SettingsManager.get('pinyin_mode');
-  select.value = currentMode;
+  // Load current settings
+  const currentPinyinMode = window.SettingsManager.get('pinyin_mode');
+  const currentHSKVersion = window.SettingsManager.get('hsk_version');
+  const showLegend = window.SettingsManager.get('show_legend');
+
+  pinyinSelect.value = currentPinyinMode;
+  hskSelect.value = currentHSKVersion;
+  if (showLegendCheckbox) {
+    showLegendCheckbox.checked = showLegend;
+  }
 
   modal.classList.add('show');
 }
@@ -860,6 +891,27 @@ function closeSettingsModal() {
 
 function changePinyinMode(mode) {
   window.SettingsManager.update('pinyin_mode', mode);
+}
+
+function changeHSKVersion(version) {
+  window.SettingsManager.update('hsk_version', version);
+  // Trigger re-render of current results if any
+  if (window.lastAnalysisResult) {
+    displayResults(window.lastAnalysisResult);
+  }
+}
+
+function toggleLegendVisibility(checked) {
+  window.SettingsManager.update('show_legend', checked);
+  applyLegendVisibility();
+}
+
+function applyLegendVisibility() {
+  const showLegend = window.SettingsManager.get('show_legend');
+  const legendElement = document.getElementById('hskLegend');
+  if (legendElement) {
+    legendElement.style.display = showLegend ? 'block' : 'none';
+  }
 }
 
 // Invitations Modal Functions
@@ -1004,6 +1056,8 @@ window.deleteTextFromView = deleteTextFromView;
 window.openSettingsModal = openSettingsModal;
 window.closeSettingsModal = closeSettingsModal;
 window.changePinyinMode = changePinyinMode;
+window.changeHSKVersion = changeHSKVersion;
+window.toggleLegendVisibility = toggleLegendVisibility;
 window.showInvitationsModal = showInvitationsModal;
 window.closeInvitationsModal = closeInvitationsModal;
 window.generateInvitation = generateInvitation;
