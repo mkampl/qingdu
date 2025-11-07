@@ -4,6 +4,7 @@ const AppState = {
   currentSentenceText: '',
   currentTextId: null,
   currentInputText: '',
+  currentTextTitle: null, // Store the title from DB (for saved texts)
   currentReadingProgress: 0, // NEW
   textWasEdited: false, // Track if text was modified after analysis
   sidebarOpen: false,
@@ -78,6 +79,7 @@ function showNewTextInput() {
   // Clear current state
   AppState.currentTextId = null;
   AppState.currentInputText = '';
+  AppState.currentTextTitle = null;
   AppState.currentAnalysisData = null;
   AppState.currentReadingProgress = 0;
   AppState.textWasEdited = false;
@@ -380,9 +382,16 @@ async function analyzeText() {
     document.getElementById('inputSection').classList.add('collapsed');
     document.getElementById('saveTextBtn').disabled = false;
 
-    // Set title to first sentence
-    const firstSentence = text.split(/[。！？\n]/)[0] || text.substring(0, 50);
-    document.getElementById('currentTextTitle').textContent = firstSentence;
+    // Set title - use existing title if available (from DB), otherwise generate from first sentence
+    if (AppState.currentTextTitle) {
+      // Preserve the title from DB (user may have manually edited it)
+      document.getElementById('currentTextTitle').textContent = AppState.currentTextTitle;
+    } else {
+      // Generate new title from first sentence
+      const firstSentence = text.split(/[。！？\n]/)[0] || text.substring(0, 50);
+      document.getElementById('currentTextTitle').textContent = firstSentence;
+      AppState.currentTextTitle = firstSentence; // Store for later use
+    }
 
   } catch (error) {
     // Clear progress interval and hide loading overlay on error
@@ -453,9 +462,12 @@ async function saveCurrentText() {
       document.getElementById('resultsSection').classList.add('show');
       document.getElementById('inputSection').classList.add('collapsed');
 
-      // Update title
-      const firstSentence = currentText.split(/[。！？\n]/)[0] || currentText.substring(0, 50);
-      document.getElementById('currentTextTitle').textContent = firstSentence;
+      // Update title - preserve existing title if available, otherwise generate new one
+      if (!AppState.currentTextTitle) {
+        const firstSentence = currentText.split(/[。！？\n]/)[0] || currentText.substring(0, 50);
+        AppState.currentTextTitle = firstSentence;
+      }
+      document.getElementById('currentTextTitle').textContent = AppState.currentTextTitle;
 
     } catch (error) {
       clearInterval(progressInterval);
@@ -471,8 +483,9 @@ async function saveCurrentText() {
     return;
   }
 
-  const title = AppState.currentInputText.split(/[。！？\n]/)[0] ||
-    AppState.currentInputText.substring(0, 50);
+  // Use existing title if available (from DB or previously set), otherwise generate from first sentence
+  const title = AppState.currentTextTitle ||
+    (AppState.currentInputText.split(/[。！？\n]/)[0] || AppState.currentInputText.substring(0, 50));
 
   // Auto-generate HSK level tags - include both new and old if available
   const estimatedLevel = AppState.currentAnalysisData.statistics?.estimated_level || 'Unknown';
@@ -557,6 +570,7 @@ function clearAll() {
   AppState.currentSentenceText = '';
   AppState.currentTextId = null;
   AppState.currentInputText = '';
+  AppState.currentTextTitle = null;
   AppState.textWasEdited = false;
 }
 function toggleUserMenu() {
@@ -764,6 +778,9 @@ function editCurrentTextTitle() {
         body: JSON.stringify({ title: newTitle })
       });
 
+      // Update the title in AppState so it persists through re-analysis
+      AppState.currentTextTitle = newTitle;
+
       const h3 = document.createElement('h3');
       h3.id = 'currentTextTitle';
       h3.ondblclick = editCurrentTextTitle;
@@ -898,6 +915,7 @@ async function loadTextFromView(index) {
   AppState.currentAnalysisData = text.analysisData;
   AppState.currentTextId = text.id;
   AppState.currentInputText = text.content;
+  AppState.currentTextTitle = text.title || null; // Store title from DB
   AppState.currentReadingProgress = text.reading_progress || 0; // NEW
 
   displayResults(text.analysisData);
@@ -925,6 +943,7 @@ async function editTextFromView(index) {
   // Store the text ID and title for updating after re-analysis
   AppState.currentTextId = text.id;
   AppState.currentInputText = text.content;
+  AppState.currentTextTitle = text.title || null; // Preserve title from DB
 
   // Show input section
   document.getElementById('inputSection').classList.remove('collapsed');
