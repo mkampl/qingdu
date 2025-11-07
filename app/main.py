@@ -538,6 +538,7 @@ async def download_hsk_vocabulary():
         entries_with_both = 0
         entries_with_new_only = 0
         entries_with_old_only = 0
+        non_core_filtered = 0  # Count entries marked as non-core vocabulary
 
         for entry in raw_data:
             total_entries += 1
@@ -606,6 +607,33 @@ async def download_hsk_vocabulary():
                 # Extract radical information
                 radical = entry.get('radical', '')
 
+                # Check if this is core vocabulary or supplementary
+                # Filter out surnames, abbreviations, variants, and other non-core entries
+                is_core_vocab = True
+                first_meaning = meanings[0].lower() if meanings else ''
+
+                # List of patterns that indicate non-core vocabulary
+                non_core_patterns = [
+                    'surname',
+                    'abbr. for',
+                    'abbr.',
+                    'variant of',
+                    'old variant',
+                    'archaic variant',
+                    'see also',
+                    'also written',
+                    'literary variant',
+                    'old form of',
+                    'ancient form',
+                    'CL:',  # Classifier only entries
+                ]
+
+                for pattern in non_core_patterns:
+                    if first_meaning.startswith(pattern):
+                        is_core_vocab = False
+                        non_core_filtered += 1
+                        break
+
                 # Build new entry with both levels
                 new_entry = {
                     'pinyin': pinyin,
@@ -616,7 +644,7 @@ async def download_hsk_vocabulary():
                     'level': level_new or level_old,  # Backward compatibility
                     'frequency': entry.get('frequency', 0),
                     'radical': radical,
-                    'is_original_hsk': True  # Mark as original HSK word from source
+                    'is_original_hsk': is_core_vocab  # Only mark as original if it's core vocabulary
                 }
 
                 if simplified not in hsk_vocab:
@@ -668,6 +696,9 @@ async def download_hsk_vocabulary():
                     best_pinyin = new_entry['pinyin'] if new_is_good else existing.get('pinyin', '')
                     best_radical = new_entry.get('radical') or existing.get('radical', '')
 
+                    # For is_original_hsk, use OR logic - if either entry is core vocab, the merged entry is core
+                    best_is_original = existing.get('is_original_hsk', False) or new_entry.get('is_original_hsk', False)
+
                     # Merge into a single entry with best data from both
                     hsk_vocab[simplified] = {
                         'pinyin': best_pinyin,
@@ -678,7 +709,7 @@ async def download_hsk_vocabulary():
                         'level': best_level,
                         'frequency': max(existing.get('frequency', 0), new_entry.get('frequency', 0)),
                         'radical': best_radical,
-                        'is_original_hsk': True  # Mark merged entry as original HSK
+                        'is_original_hsk': best_is_original  # Use OR logic for core vocabulary status
                     }
 
                 processed += 1
@@ -888,6 +919,7 @@ async def download_hsk_vocabulary():
         total_chars = len(set(char_levels_new.keys()) | set(char_levels_old.keys()))
         logger.info(f"Processed and saved {processed} HSK words + {total_chars} individual characters")
         logger.info(f"Level distribution from source: {entries_with_both} with both, {entries_with_new_only} new only, {entries_with_old_only} old only (out of {total_entries} total entries)")
+        logger.info(f"Non-core vocabulary filtered: {non_core_filtered} entries (surnames, abbreviations, variants, etc.)")
 
     except httpx.HTTPStatusError as e:
         logger.error(f"HTTP error downloading vocabulary: {e.response.status_code}", exc_info=True)
