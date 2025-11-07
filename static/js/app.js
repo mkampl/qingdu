@@ -80,6 +80,7 @@ function showNewTextInput() {
   AppState.currentInputText = '';
   AppState.currentAnalysisData = null;
   AppState.currentReadingProgress = 0;
+  AppState.textWasEdited = false;
   currentTags = [];
 
   // Reset UI
@@ -324,9 +325,9 @@ async function analyzeText() {
     return;
   }
 
-  // Reset state for new text
+  // Update current text but preserve textId if editing an existing saved text
+  // (textId is only reset when explicitly clicking "New Text")
   AppState.currentInputText = text;
-  AppState.currentTextId = null;
   AppState.currentReadingProgress = 0;
   currentTags = [];
 
@@ -551,6 +552,9 @@ function clearAll() {
   document.getElementById('resultsSection').classList.remove('show');
   AppState.currentAnalysisData = null;
   AppState.currentSentenceText = '';
+  AppState.currentTextId = null;
+  AppState.currentInputText = '';
+  AppState.textWasEdited = false;
 }
 function toggleUserMenu() {
   const dropdown = document.getElementById('userMenuDropdown');
