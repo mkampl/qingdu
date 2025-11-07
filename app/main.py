@@ -739,6 +739,10 @@ async def download_hsk_vocabulary():
             if len(word) == 1 or word_data.get('meaning', '').startswith('(character'):
                 continue
 
+            # Ensure is_original_hsk flag exists (default to False if not set)
+            if 'is_original_hsk' not in word_data:
+                word_data['is_original_hsk'] = False
+
             chars = list(word)
 
             # Try to supplement missing level_new
@@ -789,6 +793,11 @@ async def download_hsk_vocabulary():
 
         if supplemented_new > 0 or supplemented_old > 0:
             logger.info(f"Supplemented missing levels from characters: {supplemented_new} level_new, {supplemented_old} level_old")
+
+        # Count original HSK words vs character components for debugging
+        original_count = sum(1 for w in hsk_vocab.values() if w.get('is_original_hsk', False))
+        component_count = sum(1 for w in hsk_vocab.values() if not w.get('is_original_hsk', False))
+        logger.info(f"Vocabulary breakdown: {original_count} original HSK words, {component_count} character components/supplemented")
 
         # Add radical_pinyin for all entries
         radical_pinyin_added = 0
