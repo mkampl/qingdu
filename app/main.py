@@ -737,6 +737,12 @@ async def download_hsk_vocabulary():
             if 'is_original_hsk' not in word_data:
                 word_data['is_original_hsk'] = False
 
+            # IMPORTANT: Don't supplement levels for original HSK words!
+            # Only trust the levels provided by the GitHub source.
+            # Supplementation is only for non-HSK words found during text analysis.
+            if word_data.get('is_original_hsk', False):
+                continue
+
             chars = list(word)
 
             # Try to supplement missing level_new
