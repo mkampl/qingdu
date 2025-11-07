@@ -1457,6 +1457,9 @@ def migrate_word_data(word_data: Dict) -> Dict:
         word_data['level_old'] = vocab_entry.get('level_old')
         # Update hsk_level to match current vocab
         word_data['hsk_level'] = vocab_entry.get('level')
+        # Add radical information if available
+        word_data['radical'] = vocab_entry.get('radical', '')
+        word_data['radical_pinyin'] = vocab_entry.get('radical_pinyin', '')
     elif word_text and len(word_text) > 1:
         # For multi-character words not in vocabulary, try compound calculation
         # This handles words like "很多" that are created dynamically
@@ -1502,6 +1505,12 @@ def migrate_word_data(word_data: Dict) -> Dict:
             elif word_data['level_old']:
                 word_data['hsk_level'] = word_data['level_old']
 
+            # Add radical information from the first character
+            first_char = chars[0]
+            first_char_data = hsk_vocab[first_char]
+            word_data['radical'] = first_char_data.get('radical', '')
+            word_data['radical_pinyin'] = first_char_data.get('radical_pinyin', '')
+
             return word_data
         else:
             # Not all characters are in HSK, fall back to guessing
@@ -1528,6 +1537,12 @@ def migrate_word_data(word_data: Dict) -> Dict:
             # Unknown format, assume it's new HSK
             word_data['level_new'] = old_level
             word_data['level_old'] = None
+
+    # Ensure radical fields exist (even if empty)
+    if 'radical' not in word_data:
+        word_data['radical'] = ''
+    if 'radical_pinyin' not in word_data:
+        word_data['radical_pinyin'] = ''
 
     return word_data
 
