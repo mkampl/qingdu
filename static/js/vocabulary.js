@@ -151,6 +151,9 @@ async function generateNewHSKList() {
 
     console.log(`New HSK generation: ${totalWithNewLevel} words with level_new, ${originalHSKWords} original HSK, ${filteredOut} filtered out`);
 
+    // Filter out empty sections (e.g., HSK 8 and 9 if source only has 7+)
+    hskList.sections = hskList.sections.filter(section => section.words.length > 0);
+
     await authFetch('/api/vocabulary-lists', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -214,6 +217,9 @@ async function generateOldHSKList() {
     });
 
     console.log(`Old HSK generation: ${totalWithOldLevel} words with level_old, ${originalHSKWords} original HSK, ${filteredOut} filtered out`);
+
+    // Filter out empty sections
+    hskList.sections = hskList.sections.filter(section => section.words.length > 0);
 
     await authFetch('/api/vocabulary-lists', {
       method: 'POST',
