@@ -120,18 +120,10 @@ async function generateNewHSKList() {
       }))
     };
 
-    // Debug counters
-    let totalWithNewLevel = 0;
-    let originalHSKWords = 0;
-    let filteredOut = 0;
-
     Object.entries(vocabData).forEach(([word, data]) => {
       if (data.level_new) {
-        totalWithNewLevel++;
-
         // Only include original HSK words (not character components added for analysis)
         if (data.is_original_hsk === true) {
-          originalHSKWords++;
           const level = data.level_new.replace('new-', '').replace('+', '');
           const levelNum = parseInt(level);
 
@@ -143,13 +135,9 @@ async function generateNewHSKList() {
               level: data.level_new
             });
           }
-        } else {
-          filteredOut++;
         }
       }
     });
-
-    console.log(`New HSK generation: ${totalWithNewLevel} words with level_new, ${originalHSKWords} original HSK, ${filteredOut} filtered out`);
 
     // Filter out empty sections (e.g., HSK 8 and 9 if source only has 7+)
     hskList.sections = hskList.sections.filter(section => section.words.length > 0);
@@ -187,18 +175,10 @@ async function generateOldHSKList() {
       }))
     };
 
-    // Debug counters
-    let totalWithOldLevel = 0;
-    let originalHSKWords = 0;
-    let filteredOut = 0;
-
     Object.entries(vocabData).forEach(([word, data]) => {
       if (data.level_old) {
-        totalWithOldLevel++;
-
         // Only include original HSK words (not character components added for analysis)
         if (data.is_original_hsk === true) {
-          originalHSKWords++;
           const level = data.level_old.replace('old-', '');
           const levelNum = parseInt(level);
 
@@ -210,13 +190,9 @@ async function generateOldHSKList() {
               level: data.level_old
             });
           }
-        } else {
-          filteredOut++;
         }
       }
     });
-
-    console.log(`Old HSK generation: ${totalWithOldLevel} words with level_old, ${originalHSKWords} original HSK, ${filteredOut} filtered out`);
 
     // Filter out empty sections
     hskList.sections = hskList.sections.filter(section => section.words.length > 0);
