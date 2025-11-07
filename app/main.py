@@ -784,6 +784,30 @@ async def download_hsk_vocabulary():
         component_count = sum(1 for w in hsk_vocab.values() if not w.get('is_original_hsk', False))
         logger.info(f"Vocabulary breakdown: {original_count} original HSK words, {component_count} character components/supplemented")
 
+        # Debug: Show level distribution for OLD HSK (matching helper script output)
+        old_hsk_dist = {}
+        for word, data in hsk_vocab.items():
+            if data.get('level_old') and data.get('is_original_hsk', False):
+                level_num = data['level_old'].replace('old-', '')
+                old_hsk_dist[level_num] = old_hsk_dist.get(level_num, 0) + 1
+
+        if old_hsk_dist:
+            logger.info("OLD HSK distribution (original words only, should match GitHub source):")
+            for level in sorted(old_hsk_dist.keys(), key=int):
+                logger.info(f"  Level {level}: {old_hsk_dist[level]} words")
+
+        # Debug: Show level distribution for NEW HSK
+        new_hsk_dist = {}
+        for word, data in hsk_vocab.items():
+            if data.get('level_new') and data.get('is_original_hsk', False):
+                level_num = data['level_new'].replace('new-', '').replace('+', '')
+                new_hsk_dist[level_num] = new_hsk_dist.get(level_num, 0) + 1
+
+        if new_hsk_dist:
+            logger.info("NEW HSK distribution (original words only):")
+            for level in sorted(new_hsk_dist.keys(), key=int):
+                logger.info(f"  Level {level}: {new_hsk_dist[level]} words")
+
         # Add radical_pinyin for all entries
         radical_pinyin_added = 0
         radical_from_mapping = 0
