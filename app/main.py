@@ -1505,11 +1505,31 @@ def migrate_word_data(word_data: Dict) -> Dict:
             elif word_data['level_old']:
                 word_data['hsk_level'] = word_data['level_old']
 
-            # Add radical information from the first character
-            first_char = chars[0]
-            first_char_data = hsk_vocab[first_char]
-            word_data['radical'] = first_char_data.get('radical', '')
-            word_data['radical_pinyin'] = first_char_data.get('radical_pinyin', '')
+            # Collect radicals from all characters (same as create_compound_from_hsk)
+            char_radicals = []
+            char_radical_pinyins = []
+
+            for char in chars:
+                char_data = hsk_vocab[char]
+                char_radical = char_data.get('radical', '')
+
+                # If no radical in vocabulary, try fallback mapping
+                if not char_radical and char in CHAR_TO_RADICAL:
+                    char_radical = CHAR_TO_RADICAL[char]
+
+                if char_radical:
+                    char_radicals.append(char_radical)
+                    # Try to find pinyin for the radical
+                    if char_radical in hsk_vocab:
+                        char_radical_pinyins.append(hsk_vocab[char_radical].get('pinyin', ''))
+                    elif char_radical in RADICAL_PINYIN:
+                        char_radical_pinyins.append(RADICAL_PINYIN[char_radical])
+                    else:
+                        char_radical_pinyins.append('')
+
+            # Combine radicals from all characters with " + " separator
+            word_data['radical'] = ' + '.join(char_radicals) if char_radicals else ''
+            word_data['radical_pinyin'] = ' + '.join(char_radical_pinyins) if char_radical_pinyins else ''
 
             return word_data
         else:
