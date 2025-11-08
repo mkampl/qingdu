@@ -577,30 +577,61 @@ async function exportVocabularyList(listId, listName) {
 // Export vocabulary list as Anki .apkg
 async function exportVocabularyListAnki(listId, listName) {
   const btn = event?.target || document.querySelector(`button[onclick*="exportVocabularyListAnki(${listId}"]`);
-  
+
   if (!btn) {
     alert('Button not found');
     return;
   }
-  
+
   const originalText = btn.innerHTML;
-  
+
   try {
     btn.innerHTML = '⏳ Generating...';
     btn.disabled = true;
-    
-    const response = await authFetch(`/api/vocabulary-lists/${listId}/export-anki`);
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Export failed');
-    }
-    
-    // Check for export stats in headers
-    const stats = response.headers.get('X-Export-Stats');
-    const rateLimited = response.headers.get('X-Rate-Limited') === 'true';
-    
-    const blob = await response.blob();
+
+    // Use XMLHttpRequest instead of fetch for better large file handling in Chrome
+    const blob = await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', `/api/vocabulary-lists/${listId}/export-anki`, true);
+      xhr.responseType = 'blob';
+
+      // Add authorization header
+      if (AuthState.token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${AuthState.token}`);
+      }
+
+      // Store headers for later access
+      let exportStats = null;
+      let rateLimited = false;
+
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          // Get headers before returning blob
+          exportStats = xhr.getResponseHeader('X-Export-Stats');
+          rateLimited = xhr.getResponseHeader('X-Rate-Limited') === 'true';
+
+          // Attach stats to blob for later use
+          const blobWithStats = xhr.response;
+          blobWithStats._stats = exportStats;
+          blobWithStats._rateLimited = rateLimited;
+
+          resolve(blobWithStats);
+        } else if (xhr.status === 401) {
+          logout();
+          reject(new Error('Session expired, please login again'));
+        } else {
+          reject(new Error(`Export failed with status ${xhr.status}`));
+        }
+      };
+
+      xhr.onerror = function() {
+        reject(new Error('Network error during export'));
+      };
+
+      xhr.send();
+    });
+
+    // Download the blob
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -609,20 +640,23 @@ async function exportVocabularyListAnki(listId, listName) {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
-    
+
     btn.innerHTML = originalText;
     btn.disabled = false;
-    
+
     // Show stats if available
+    const stats = blob._stats;
+    const rateLimited = blob._rateLimited;
+
     if (stats) {
       const [total, cached, generated, failed] = stats.split('|').map(Number);
-      
+
       let message = `Export complete!\n\n`;
       message += `📊 Statistics:\n`;
       message += `Total cards: ${total}\n`;
       message += `Audio from cache: ${cached}\n`;
       message += `Audio generated: ${generated}\n`;
-      
+
       if (failed > 0) {
         message += `\n⚠️ AUDIO MISSING: ${failed} cards\n\n`;
         if (rateLimited) {
@@ -632,7 +666,7 @@ async function exportVocabularyListAnki(listId, listName) {
         message += `✅ All audio is cached now.\n`;
         message += `Try export again in 12-24 hours.`;
       }
-      
+
       alert(message);
     } else {
       alert('Export complete!');
