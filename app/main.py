@@ -26,7 +26,8 @@ from app.auth import (
     create_access_token,
     get_current_user,
     require_auth,
-    require_admin
+    require_admin,
+    require_auth_flexible
 )
 import uuid
 from datetime import datetime, timedelta
@@ -2665,7 +2666,7 @@ async def delete_word_from_list(
 @app.get("/api/vocabulary-lists/{list_id}/export-anki")
 async def export_vocabulary_list_anki(
     list_id: int,
-    user: User = Depends(require_auth),
+    user: User = Depends(require_auth_flexible),
     db: Session = Depends(get_db)
 ):
     """Export vocabulary list as Anki .apkg file with stroke animations and subdecks"""

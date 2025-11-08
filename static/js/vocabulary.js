@@ -589,89 +589,51 @@ async function exportVocabularyListAnki(listId, listName) {
     btn.innerHTML = '⏳ Generating...';
     btn.disabled = true;
 
-    // Use XMLHttpRequest instead of fetch for better large file handling in Chrome
-    const blob = await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', `/api/vocabulary-lists/${listId}/export-anki`, true);
-      xhr.responseType = 'blob';
+    // For large files in Chrome, use direct download via hidden form instead of blob
+    // This avoids Chrome's memory limitations with large binary responses
 
-      // Add authorization header
-      if (AuthState.token) {
-        xhr.setRequestHeader('Authorization', `Bearer ${AuthState.token}`);
-      }
+    // Create hidden form
+    const form = document.createElement('form');
+    form.method = 'GET';
+    form.action = `/api/vocabulary-lists/${listId}/export-anki`;
+    form.style.display = 'none';
+    form.target = 'download_iframe';
 
-      // Store headers for later access
-      let exportStats = null;
-      let rateLimited = false;
-
-      xhr.onload = function() {
-        if (xhr.status === 200) {
-          // Get headers before returning blob
-          exportStats = xhr.getResponseHeader('X-Export-Stats');
-          rateLimited = xhr.getResponseHeader('X-Rate-Limited') === 'true';
-
-          // Attach stats to blob for later use
-          const blobWithStats = xhr.response;
-          blobWithStats._stats = exportStats;
-          blobWithStats._rateLimited = rateLimited;
-
-          resolve(blobWithStats);
-        } else if (xhr.status === 401) {
-          logout();
-          reject(new Error('Session expired, please login again'));
-        } else {
-          reject(new Error(`Export failed with status ${xhr.status}`));
-        }
-      };
-
-      xhr.onerror = function() {
-        reject(new Error('Network error during export'));
-      };
-
-      xhr.send();
-    });
-
-    // Download the blob
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${listName.replace(/ /g, '_')}.apkg`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-
-    // Show stats if available
-    const stats = blob._stats;
-    const rateLimited = blob._rateLimited;
-
-    if (stats) {
-      const [total, cached, generated, failed] = stats.split('|').map(Number);
-
-      let message = `Export complete!\n\n`;
-      message += `📊 Statistics:\n`;
-      message += `Total cards: ${total}\n`;
-      message += `Audio from cache: ${cached}\n`;
-      message += `Audio generated: ${generated}\n`;
-
-      if (failed > 0) {
-        message += `\n⚠️ AUDIO MISSING: ${failed} cards\n\n`;
-        if (rateLimited) {
-          message += `❌ Rate limit reached!\n`;
-          message += `Google blocked further requests.\n\n`;
-        }
-        message += `✅ All audio is cached now.\n`;
-        message += `Try export again in 12-24 hours.`;
-      }
-
-      alert(message);
-    } else {
-      alert('Export complete!');
+    // Create hidden iframe for download
+    let iframe = document.getElementById('download_iframe');
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'download_iframe';
+      iframe.name = 'download_iframe';
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
     }
-    
+
+    // Add auth token as hidden input (will be sent as URL parameter)
+    // Note: This is less secure but necessary for iframe downloads
+    if (AuthState.token) {
+      const tokenInput = document.createElement('input');
+      tokenInput.type = 'hidden';
+      tokenInput.name = 'token';
+      tokenInput.value = AuthState.token;
+      form.appendChild(tokenInput);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+
+    // Clean up form after submission
+    setTimeout(() => {
+      document.body.removeChild(form);
+    }, 1000);
+
+    // Reset button after a delay (we can't detect download completion reliably)
+    setTimeout(() => {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+      alert('Export started! Check your downloads folder.');
+    }, 2000);
+
   } catch (error) {
     // Restore button state
     if (btn) {
