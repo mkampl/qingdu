@@ -4,7 +4,9 @@ const AppState = {
   currentSentenceText: '',
   currentTextId: null,
   currentInputText: '',
+  currentTextTitle: null, // Store the title from DB (for saved texts)
   currentReadingProgress: 0, // NEW
+  textWasEdited: false, // Track if text was modified after analysis
   sidebarOpen: false,
   longPressTimer: null,
 };
@@ -52,6 +54,15 @@ function setupEventListeners() {
     document.getElementById('textInput').focus();
   });
 
+  // Track text changes in input textarea
+  document.getElementById('textInput').addEventListener('input', () => {
+    const currentText = document.getElementById('textInput').value;
+    // Mark as edited if text differs from stored input text
+    if (currentText !== AppState.currentInputText) {
+      AppState.textWasEdited = true;
+    }
+  });
+
   // Overlay click (close sidebar)
   document.getElementById('overlay').addEventListener('click', toggleSidebar);
 }
@@ -68,8 +79,10 @@ function showNewTextInput() {
   // Clear current state
   AppState.currentTextId = null;
   AppState.currentInputText = '';
+  AppState.currentTextTitle = null;
   AppState.currentAnalysisData = null;
   AppState.currentReadingProgress = 0;
+  AppState.textWasEdited = false;
   currentTags = [];
 
   // Reset UI
@@ -314,9 +327,9 @@ async function analyzeText() {
     return;
   }
 
-  // Reset state for new text
+  // Update current text but preserve textId if editing an existing saved text
+  // (textId is only reset when explicitly clicking "New Text")
   AppState.currentInputText = text;
-  AppState.currentTextId = null;
   AppState.currentReadingProgress = 0;
   currentTags = [];
 
@@ -352,6 +365,7 @@ async function analyzeText() {
 
     const data = await response.json();
     AppState.currentAnalysisData = data;
+    AppState.textWasEdited = false; // Reset edit flag after successful analysis
 
     // Jump to 100%
     clearInterval(progressInterval);
@@ -368,9 +382,16 @@ async function analyzeText() {
     document.getElementById('inputSection').classList.add('collapsed');
     document.getElementById('saveTextBtn').disabled = false;
 
-    // Set title to first sentence
-    const firstSentence = text.split(/[。！？\n]/)[0] || text.substring(0, 50);
-    document.getElementById('currentTextTitle').textContent = firstSentence;
+    // Set title - use existing title if available (from DB), otherwise generate from first sentence
+    if (AppState.currentTextTitle) {
+      // Preserve the title from DB (user may have manually edited it)
+      document.getElementById('currentTextTitle').textContent = AppState.currentTextTitle;
+    } else {
+      // Generate new title from first sentence
+      const firstSentence = text.split(/[。！？\n]/)[0] || text.substring(0, 50);
+      document.getElementById('currentTextTitle').textContent = firstSentence;
+      AppState.currentTextTitle = firstSentence; // Store for later use
+    }
 
   } catch (error) {
     // Clear progress interval and hide loading overlay on error
@@ -388,13 +409,83 @@ async function analyzeText() {
 
 // Save current text
 async function saveCurrentText() {
-  if (!AppState.currentInputText || !AppState.currentAnalysisData) {
+  // Get current text from input (might have been edited)
+  const currentText = document.getElementById('textInput').value.trim();
+
+  if (!currentText) {
     alert('No text to save');
     return;
   }
 
-  const title = AppState.currentInputText.split(/[。！？\n]/)[0] ||
-    AppState.currentInputText.substring(0, 50);
+  // Check if text was edited - if so, need to re-analyze before saving
+  if (AppState.textWasEdited || currentText !== AppState.currentInputText) {
+    // Show loading overlay for re-analysis
+    const progressBar = document.getElementById('analysisProgressBar');
+    const progressText = document.getElementById('progressText');
+    progressBar.style.width = '0%';
+    progressText.textContent = '0%';
+    document.getElementById('loadingOverlay').classList.add('show');
+
+    // Simulate progress
+    let progressInterval = simulateProgress(progressBar, progressText, 75, 1500);
+
+    try {
+      // Re-analyze the edited text
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: currentText })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Update analysis data and input text
+      AppState.currentAnalysisData = data;
+      AppState.currentInputText = currentText;
+      AppState.textWasEdited = false;
+
+      // Jump to 100%
+      clearInterval(progressInterval);
+      progressBar.style.width = '100%';
+      progressText.textContent = '100%';
+
+      // Wait a moment, then hide overlay
+      await new Promise(resolve => setTimeout(resolve, 300));
+      document.getElementById('loadingOverlay').classList.remove('show');
+
+      // Update display with new analysis
+      displayResults(data);
+      document.getElementById('resultsSection').classList.add('show');
+      document.getElementById('inputSection').classList.add('collapsed');
+
+      // Update title - preserve existing title if available, otherwise generate new one
+      if (!AppState.currentTextTitle) {
+        const firstSentence = currentText.split(/[。！？\n]/)[0] || currentText.substring(0, 50);
+        AppState.currentTextTitle = firstSentence;
+      }
+      document.getElementById('currentTextTitle').textContent = AppState.currentTextTitle;
+
+    } catch (error) {
+      clearInterval(progressInterval);
+      document.getElementById('loadingOverlay').classList.remove('show');
+      alert('Failed to re-analyze text: ' + error.message);
+      return;
+    }
+  }
+
+  // Now save (with current or newly analyzed data)
+  if (!AppState.currentAnalysisData) {
+    alert('No analysis data to save');
+    return;
+  }
+
+  // Use existing title if available (from DB or previously set), otherwise generate from first sentence
+  const title = AppState.currentTextTitle ||
+    (AppState.currentInputText.split(/[。！？\n]/)[0] || AppState.currentInputText.substring(0, 50));
 
   // Auto-generate HSK level tags - include both new and old if available
   const estimatedLevel = AppState.currentAnalysisData.statistics?.estimated_level || 'Unknown';
@@ -455,6 +546,9 @@ async function saveCurrentText() {
       AppState.currentTextId = data.id;
     }
 
+    // Update the displayed title in the UI
+    document.getElementById('currentTextTitle').textContent = title;
+
     // Update current tags and display
     currentTags = autoTags;
     displayTags(currentTags);
@@ -474,6 +568,10 @@ function clearAll() {
   document.getElementById('resultsSection').classList.remove('show');
   AppState.currentAnalysisData = null;
   AppState.currentSentenceText = '';
+  AppState.currentTextId = null;
+  AppState.currentInputText = '';
+  AppState.currentTextTitle = null;
+  AppState.textWasEdited = false;
 }
 function toggleUserMenu() {
   const dropdown = document.getElementById('userMenuDropdown');
@@ -680,6 +778,9 @@ function editCurrentTextTitle() {
         body: JSON.stringify({ title: newTitle })
       });
 
+      // Update the title in AppState so it persists through re-analysis
+      AppState.currentTextTitle = newTitle;
+
       const h3 = document.createElement('h3');
       h3.id = 'currentTextTitle';
       h3.ondblclick = editCurrentTextTitle;
@@ -814,6 +915,7 @@ async function loadTextFromView(index) {
   AppState.currentAnalysisData = text.analysisData;
   AppState.currentTextId = text.id;
   AppState.currentInputText = text.content;
+  AppState.currentTextTitle = text.title || null; // Store title from DB
   AppState.currentReadingProgress = text.reading_progress || 0; // NEW
 
   displayResults(text.analysisData);
@@ -841,11 +943,24 @@ async function editTextFromView(index) {
   // Store the text ID and title for updating after re-analysis
   AppState.currentTextId = text.id;
   AppState.currentInputText = text.content;
+  AppState.currentTextTitle = text.title || null; // Preserve title from DB
 
   // Show input section
   document.getElementById('inputSection').classList.remove('collapsed');
   document.getElementById('resultsSection').classList.remove('show');
   document.getElementById('savedTextsSection').classList.add('hidden');
+  document.getElementById('textInput').focus();
+}
+
+// Edit current text from analysis view
+function editCurrentText() {
+  // Load current analyzed text back into input area
+  const currentText = AppState.currentInputText || document.getElementById('textInput').value;
+  document.getElementById('textInput').value = currentText;
+
+  // Show input section and hide results
+  document.getElementById('inputSection').classList.remove('collapsed');
+  document.getElementById('resultsSection').classList.remove('show');
   document.getElementById('textInput').focus();
 }
 
