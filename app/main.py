@@ -117,6 +117,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Export-Stats", "X-Rate-Limited", "Content-Disposition"],
 )
 
 # Request ID Middleware for tracking requests
@@ -2845,14 +2846,15 @@ async def export_vocabulary_list_anki(
         logger.info(f"Export complete: {words_processed} words, {audio_cached} cached, {audio_generated} generated, {audio_failed} failed")
         if rate_limited:
             logger.warning(f"Rate limit reached. {audio_failed} cards created without audio.")
-        
-        # Return file
+
+        # Return file using Response with explicit Content-Length
         from fastapi.responses import Response
         return Response(
             content=apkg_content,
             media_type="application/octet-stream",
             headers={
                 "Content-Disposition": f"attachment; filename={output_filename}",
+                "Content-Length": str(len(apkg_content)),
                 "X-Export-Stats": f"{words_processed}|{audio_cached}|{audio_generated}|{audio_failed}",
                 "X-Rate-Limited": "true" if rate_limited else "false"
             }
