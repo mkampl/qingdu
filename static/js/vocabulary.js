@@ -574,7 +574,45 @@ async function exportVocabularyList(listId, listName) {
     alert('Failed to export: ' + error.message);
   }
 }
-// Export vocabulary list as Anki .apkg
+// Helper function to trigger download via iframe
+function triggerAnkiDownload(listId) {
+  // Create hidden form
+  const form = document.createElement('form');
+  form.method = 'GET';
+  form.action = `/api/vocabulary-lists/${listId}/export-anki`;
+  form.style.display = 'none';
+  form.target = 'download_iframe';
+
+  // Create hidden iframe for download
+  let iframe = document.getElementById('download_iframe');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = 'download_iframe';
+    iframe.name = 'download_iframe';
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+  }
+
+  // Add auth token as hidden input (will be sent as URL parameter)
+  // Note: This is less secure but necessary for iframe downloads
+  if (AuthState.token) {
+    const tokenInput = document.createElement('input');
+    tokenInput.type = 'hidden';
+    tokenInput.name = 'token';
+    tokenInput.value = AuthState.token;
+    form.appendChild(tokenInput);
+  }
+
+  document.body.appendChild(form);
+  form.submit();
+
+  // Clean up form after submission
+  setTimeout(() => {
+    document.body.removeChild(form);
+  }, 1000);
+}
+
+// Export vocabulary list as Anki .apkg with two-phase audio preparation
 async function exportVocabularyListAnki(listId, listName) {
   const btn = event?.target || document.querySelector(`button[onclick*="exportVocabularyListAnki(${listId}"]`);
 
@@ -586,53 +624,145 @@ async function exportVocabularyListAnki(listId, listName) {
   const originalText = btn.innerHTML;
 
   try {
-    btn.innerHTML = '⏳ Generating...';
+    // Phase 1: Check audio status (fast)
+    btn.innerHTML = '⏳ Checking audio...';
     btn.disabled = true;
 
-    // For large files in Chrome, use direct download via hidden form instead of blob
-    // This avoids Chrome's memory limitations with large binary responses
+    const checkResponse = await authFetch(`/api/vocabulary-lists/${listId}/check-audio`);
 
-    // Create hidden form
-    const form = document.createElement('form');
-    form.method = 'GET';
-    form.action = `/api/vocabulary-lists/${listId}/export-anki`;
-    form.style.display = 'none';
-    form.target = 'download_iframe';
-
-    // Create hidden iframe for download
-    let iframe = document.getElementById('download_iframe');
-    if (!iframe) {
-      iframe = document.createElement('iframe');
-      iframe.id = 'download_iframe';
-      iframe.name = 'download_iframe';
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
+    if (!checkResponse.ok) {
+      throw new Error('Failed to check audio status');
     }
 
-    // Add auth token as hidden input (will be sent as URL parameter)
-    // Note: This is less secure but necessary for iframe downloads
-    if (AuthState.token) {
-      const tokenInput = document.createElement('input');
-      tokenInput.type = 'hidden';
-      tokenInput.name = 'token';
-      tokenInput.value = AuthState.token;
-      form.appendChild(tokenInput);
+    const audioStatus = await checkResponse.json();
+
+    // If all audio is ready, download immediately
+    if (audioStatus.ready) {
+      btn.innerHTML = '⏳ Downloading...';
+      triggerAnkiDownload(listId);
+
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        alert('Export started! Check your downloads folder.');
+      }, 2000);
+      return;
     }
 
-    document.body.appendChild(form);
-    form.submit();
+    // Audio is missing - show dialog with options
+    btn.innerHTML = originalText;
+    btn.disabled = false;
 
-    // Clean up form after submission
-    setTimeout(() => {
-      document.body.removeChild(form);
-    }, 1000);
+    const message = `Audio Status:
+• Total words: ${audioStatus.total}
+• Cached: ${audioStatus.cached}
+• Missing: ${audioStatus.missing}
+• Estimated generation time: ${audioStatus.estimated_time}
 
-    // Reset button after a delay (we can't detect download completion reliably)
-    setTimeout(() => {
-      btn.innerHTML = originalText;
-      btn.disabled = false;
-      alert('Export started! Check your downloads folder.');
-    }, 2000);
+What would you like to do?
+
+1. Generate missing audio and download (recommended)
+2. Download without audio
+3. Cancel`;
+
+    const choice = prompt(message + '\n\nEnter 1, 2, or 3:', '1');
+
+    if (!choice || choice === '3') {
+      return; // User cancelled
+    }
+
+    if (choice === '2') {
+      // Download without audio
+      btn.innerHTML = '⏳ Downloading...';
+      btn.disabled = true;
+      triggerAnkiDownload(listId);
+
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        alert('Export started! (without audio)\nCheck your downloads folder.');
+      }, 2000);
+      return;
+    }
+
+    if (choice === '1') {
+      // Phase 2: Generate missing audio
+      btn.innerHTML = '⏳ Generating audio...';
+      btn.disabled = true;
+
+      const prepareResponse = await authFetch(`/api/vocabulary-lists/${listId}/prepare-export`, {
+        method: 'POST'
+      });
+
+      if (!prepareResponse.ok) {
+        throw new Error('Failed to prepare audio');
+      }
+
+      const prepareResult = await prepareResponse.json();
+
+      // Check if generation was successful
+      if (prepareResult.rate_limited) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+
+        const rateLimitMsg = `Audio generation was rate limited.
+
+Status:
+• Generated: ${prepareResult.generated}
+• Still missing: ${prepareResult.failed}
+
+The audio service has rate limits. Please try again in a few minutes.
+
+Download anyway (some words will be missing audio)?`;
+
+        if (confirm(rateLimitMsg)) {
+          btn.innerHTML = '⏳ Downloading...';
+          btn.disabled = true;
+          triggerAnkiDownload(listId);
+
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            alert('Export started! (partial audio)\nCheck your downloads folder.');
+          }, 2000);
+        }
+        return;
+      }
+
+      if (!prepareResult.ready) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+
+        alert(`Audio generation encountered errors.
+
+Generated: ${prepareResult.generated}
+Failed: ${prepareResult.failed}
+
+Some audio files could not be generated. Please try again later.`);
+        return;
+      }
+
+      // All audio generated successfully - auto-download
+      btn.innerHTML = '✓ Audio ready! Downloading...';
+      triggerAnkiDownload(listId);
+
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        alert(`Audio generation complete!
+
+Generated: ${prepareResult.generated} new audio files
+Total: ${prepareResult.total} words
+
+Export started! Check your downloads folder.`);
+      }, 2000);
+      return;
+    }
+
+    // Invalid choice
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+    alert('Invalid choice. Export cancelled.');
 
   } catch (error) {
     // Restore button state

@@ -2663,6 +2663,137 @@ async def delete_word_from_list(
 
     return {"message": "Word deleted"}
 
+@app.get("/api/vocabulary-lists/{list_id}/check-audio")
+async def check_audio_status(
+    list_id: int,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Check audio cache status for vocabulary list (fast, no generation)"""
+    vocab_list = db.query(VocabularyList).filter(
+        VocabularyList.id == list_id,
+        VocabularyList.user_id == user.id
+    ).first()
+
+    if not vocab_list:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+
+    # Create cache directory
+    audio_cache_dir = DATA_DIR / "audio_cache"
+    audio_cache_dir.mkdir(exist_ok=True)
+
+    # Count total words and check cache status
+    total_words = 0
+    cached_count = 0
+    missing_words = []
+
+    for section in sections:
+        words = section.get('words', [])
+        for word_data in words:
+            hanzi = word_data.get('hanzi', '')
+            if not hanzi:
+                continue
+
+            total_words += 1
+            unicode_ids = "_".join(str(ord(char)) for char in hanzi)
+            cache_filename = f"{unicode_ids}_zh.mp3"
+            cache_path = audio_cache_dir / cache_filename
+
+            if cache_path.exists() and cache_path.stat().st_size > 0:
+                cached_count += 1
+            else:
+                missing_words.append(hanzi)
+
+    missing_count = len(missing_words)
+    estimated_seconds = missing_count * 0.5  # Rough estimate: 0.5s per word
+
+    return {
+        "total": total_words,
+        "cached": cached_count,
+        "missing": missing_count,
+        "estimated_time": f"~{int(estimated_seconds)}s" if missing_count > 0 else "0s",
+        "ready": missing_count == 0
+    }
+
+@app.post("/api/vocabulary-lists/{list_id}/prepare-export")
+async def prepare_export_audio(
+    list_id: int,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Generate missing audio files before export"""
+    vocab_list = db.query(VocabularyList).filter(
+        VocabularyList.id == list_id,
+        VocabularyList.user_id == user.id
+    ).first()
+
+    if not vocab_list:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+
+    # Create cache directory
+    audio_cache_dir = DATA_DIR / "audio_cache"
+    audio_cache_dir.mkdir(exist_ok=True)
+
+    # Generate missing audio files
+    total_words = 0
+    generated_count = 0
+    failed_count = 0
+    consecutive_failures = 0
+    rate_limited = False
+
+    for section in sections:
+        words = section.get('words', [])
+        for word_data in words:
+            hanzi = word_data.get('hanzi', '')
+            if not hanzi:
+                continue
+
+            total_words += 1
+            unicode_ids = "_".join(str(ord(char)) for char in hanzi)
+            cache_filename = f"{unicode_ids}_zh.mp3"
+            cache_path = audio_cache_dir / cache_filename
+
+            # Skip if already cached
+            if cache_path.exists() and cache_path.stat().st_size > 0:
+                continue
+
+            # Stop if rate limited
+            if consecutive_failures >= 5:
+                rate_limited = True
+                failed_count += 1
+                continue
+
+            # Try to generate audio
+            try:
+                tts = gTTS(hanzi, lang='zh')
+                tts.save(str(cache_path))
+                generated_count += 1
+                consecutive_failures = 0
+                logger.info(f"Generated audio for: {hanzi}")
+            except Exception as e:
+                failed_count += 1
+                consecutive_failures += 1
+                logger.warning(f"Failed to generate audio for {hanzi}: {e}")
+
+                if consecutive_failures >= 5:
+                    rate_limited = True
+                    logger.error("Rate limit reached during audio preparation")
+
+    cached_count = total_words - generated_count - failed_count
+
+    return {
+        "total": total_words,
+        "cached": cached_count,
+        "generated": generated_count,
+        "failed": failed_count,
+        "rate_limited": rate_limited,
+        "ready": failed_count == 0
+    }
+
 @app.get("/api/vocabulary-lists/{list_id}/export-anki")
 async def export_vocabulary_list_anki(
     list_id: int,
@@ -2674,12 +2805,12 @@ async def export_vocabulary_list_anki(
         VocabularyList.id == list_id,
         VocabularyList.user_id == user.id
     ).first()
-    
+
     if not vocab_list:
         raise HTTPException(status_code=404, detail="List not found")
-    
+
     sections = json.loads(vocab_list.sections) if vocab_list.sections else []
-    
+
     # Create cache directory for audio files
     audio_cache_dir = DATA_DIR / "audio_cache"
     audio_cache_dir.mkdir(exist_ok=True)
