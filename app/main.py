@@ -173,7 +173,8 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # Global vocabulary storage
-hsk_vocab = {}
+hsk_vocab = {}  # For text analysis - includes supplementation and character components
+hsk_lists_original = {}  # For list generation - only original HSK words without supplementation
 
 # Character to radical mapping (fallback for characters missing radical data in vocabulary)
 CHAR_TO_RADICAL = {
@@ -507,7 +508,7 @@ async def download_hsk_vocabulary():
     Download and process HSK vocabulary from GitHub
     Includes automatic retry with exponential backoff for network errors
     """
-    global hsk_vocab
+    global hsk_vocab, hsk_lists_original
 
     try:
         async with httpx.AsyncClient(timeout=HSK_DOWNLOAD_TIMEOUT) as client:
@@ -628,6 +629,8 @@ async def download_hsk_vocabulary():
                 if simplified not in hsk_vocab:
                     # First occurrence - just add it
                     hsk_vocab[simplified] = new_entry
+                    # Also add to original lists (for list generation without supplementation)
+                    hsk_lists_original[simplified] = new_entry.copy()
 
                     # Track for debugging which words go into which Old HSK level
                     if level_old:
@@ -665,7 +668,7 @@ async def download_hsk_vocabulary():
                     best_radical = new_entry.get('radical') or existing.get('radical', '')
 
                     # Merge into a single entry - KEEP FIRST OCCURRENCE'S LEVELS
-                    hsk_vocab[simplified] = {
+                    merged_entry = {
                         'pinyin': best_pinyin,
                         'meaning': best_meaning,
                         'meanings': best_meanings,
@@ -676,6 +679,9 @@ async def download_hsk_vocabulary():
                         'radical': best_radical,
                         'is_original_hsk': True  # All entries from GitHub source are official
                     }
+                    hsk_vocab[simplified] = merged_entry
+                    # Also update original lists (for list generation without supplementation)
+                    hsk_lists_original[simplified] = merged_entry.copy()
 
                 processed += 1
 
@@ -1698,11 +1704,19 @@ async def vocabulary_stats():
 
 @app.get("/api/get-hsk-vocabulary")
 async def get_hsk_vocabulary():
-    """Get complete HSK vocabulary for client-side list generation"""
+    """Get complete HSK vocabulary for text analysis (includes supplementation)"""
     if not hsk_vocab:
         raise HTTPException(status_code=503, detail="Vocabulary not loaded yet")
 
     return hsk_vocab
+
+@app.get("/api/get-hsk-lists-original")
+async def get_hsk_lists_original():
+    """Get original HSK vocabulary for list generation (no supplementation)"""
+    if not hsk_lists_original:
+        raise HTTPException(status_code=503, detail="Vocabulary not loaded yet")
+
+    return hsk_lists_original
 
 @app.get("/api/debug/vocab-sample")
 async def debug_vocab_sample():

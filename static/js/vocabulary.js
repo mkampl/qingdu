@@ -108,7 +108,7 @@ async function generateNewHSKList() {
   document.getElementById('vocabularyLists').innerHTML = '<div class="loading">Generating New HSK list...</div>';
 
   try {
-    const vocabResponse = await fetch('/api/get-hsk-vocabulary');
+    const vocabResponse = await fetch('/api/get-hsk-lists-original');
     const vocabData = await vocabResponse.json();
 
     const hskList = {
@@ -163,7 +163,7 @@ async function generateOldHSKList() {
   document.getElementById('vocabularyLists').innerHTML = '<div class="loading">Generating Old HSK list...</div>';
 
   try {
-    const vocabResponse = await fetch('/api/get-hsk-vocabulary');
+    const vocabResponse = await fetch('/api/get-hsk-lists-original');
     const vocabData = await vocabResponse.json();
 
     const hskList = {
