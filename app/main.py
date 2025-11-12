@@ -26,7 +26,8 @@ from app.auth import (
     create_access_token,
     get_current_user,
     require_auth,
-    require_admin
+    require_admin,
+    require_auth_flexible
 )
 import uuid
 from datetime import datetime, timedelta
@@ -117,6 +118,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Export-Stats", "X-Rate-Limited", "Content-Disposition"],
 )
 
 # Request ID Middleware for tracking requests
@@ -171,7 +173,8 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # Global vocabulary storage
-hsk_vocab = {}
+hsk_vocab = {}  # For text analysis - includes supplementation and character components
+hsk_lists_original = {}  # For list generation - only original HSK words without supplementation
 
 # Character to radical mapping (fallback for characters missing radical data in vocabulary)
 CHAR_TO_RADICAL = {
@@ -505,7 +508,7 @@ async def download_hsk_vocabulary():
     Download and process HSK vocabulary from GitHub
     Includes automatic retry with exponential backoff for network errors
     """
-    global hsk_vocab
+    global hsk_vocab, hsk_lists_original
 
     try:
         async with httpx.AsyncClient(timeout=HSK_DOWNLOAD_TIMEOUT) as client:
@@ -626,6 +629,8 @@ async def download_hsk_vocabulary():
                 if simplified not in hsk_vocab:
                     # First occurrence - just add it
                     hsk_vocab[simplified] = new_entry
+                    # Also add to original lists (for list generation without supplementation)
+                    hsk_lists_original[simplified] = new_entry.copy()
 
                     # Track for debugging which words go into which Old HSK level
                     if level_old:
@@ -663,7 +668,7 @@ async def download_hsk_vocabulary():
                     best_radical = new_entry.get('radical') or existing.get('radical', '')
 
                     # Merge into a single entry - KEEP FIRST OCCURRENCE'S LEVELS
-                    hsk_vocab[simplified] = {
+                    merged_entry = {
                         'pinyin': best_pinyin,
                         'meaning': best_meaning,
                         'meanings': best_meanings,
@@ -674,6 +679,9 @@ async def download_hsk_vocabulary():
                         'radical': best_radical,
                         'is_original_hsk': True  # All entries from GitHub source are official
                     }
+                    hsk_vocab[simplified] = merged_entry
+                    # Also update original lists (for list generation without supplementation)
+                    hsk_lists_original[simplified] = merged_entry.copy()
 
                 processed += 1
 
@@ -737,17 +745,18 @@ async def download_hsk_vocabulary():
             if 'is_original_hsk' not in word_data:
                 word_data['is_original_hsk'] = False
 
-            # CHANGED: Allow supplementation for original HSK words if they're missing level_old
-            # This fixes the issue where basic words like "吃饭" have level_new but no level_old
-            # in the GitHub source. We trust the source for what it provides, but supplement
-            # missing data from component characters when possible.
-            # Skip supplementation only if word already has both levels.
-            is_original = word_data.get('is_original_hsk', False)
+            # Supplementation strategy for dual data structure approach:
+            # - hsk_lists_original: Already populated with original data (no supplementation)
+            # - hsk_vocab: Supplement missing levels for better text analysis
+            #
+            # Allow supplementation for original HSK words if they're missing levels.
+            # This fixes cases like "吃饭" which has level_new but no level_old in source.
+            # Skip supplementation only if word already has BOTH levels.
             has_level_new = bool(word_data.get('level_new'))
             has_level_old = bool(word_data.get('level_old'))
 
-            # Skip if original AND has both levels (nothing to supplement)
-            if is_original and has_level_new and has_level_old:
+            # Skip if has both levels (nothing to supplement)
+            if has_level_new and has_level_old:
                 continue
 
             chars = list(word)
@@ -1700,11 +1709,19 @@ async def vocabulary_stats():
 
 @app.get("/api/get-hsk-vocabulary")
 async def get_hsk_vocabulary():
-    """Get complete HSK vocabulary for client-side list generation"""
+    """Get complete HSK vocabulary for text analysis (includes supplementation)"""
     if not hsk_vocab:
         raise HTTPException(status_code=503, detail="Vocabulary not loaded yet")
 
     return hsk_vocab
+
+@app.get("/api/get-hsk-lists-original")
+async def get_hsk_lists_original():
+    """Get original HSK vocabulary for list generation (no supplementation)"""
+    if not hsk_lists_original:
+        raise HTTPException(status_code=503, detail="Vocabulary not loaded yet")
+
+    return hsk_lists_original
 
 @app.get("/api/debug/vocab-sample")
 async def debug_vocab_sample():
@@ -2661,10 +2678,141 @@ async def delete_word_from_list(
 
     return {"message": "Word deleted"}
 
+@app.get("/api/vocabulary-lists/{list_id}/check-audio")
+async def check_audio_status(
+    list_id: int,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Check audio cache status for vocabulary list (fast, no generation)"""
+    vocab_list = db.query(VocabularyList).filter(
+        VocabularyList.id == list_id,
+        VocabularyList.user_id == user.id
+    ).first()
+
+    if not vocab_list:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+
+    # Create cache directory
+    audio_cache_dir = DATA_DIR / "audio_cache"
+    audio_cache_dir.mkdir(exist_ok=True)
+
+    # Count total words and check cache status
+    total_words = 0
+    cached_count = 0
+    missing_words = []
+
+    for section in sections:
+        words = section.get('words', [])
+        for word_data in words:
+            hanzi = word_data.get('hanzi', '')
+            if not hanzi:
+                continue
+
+            total_words += 1
+            unicode_ids = "_".join(str(ord(char)) for char in hanzi)
+            cache_filename = f"{unicode_ids}_zh.mp3"
+            cache_path = audio_cache_dir / cache_filename
+
+            if cache_path.exists() and cache_path.stat().st_size > 0:
+                cached_count += 1
+            else:
+                missing_words.append(hanzi)
+
+    missing_count = len(missing_words)
+    estimated_seconds = missing_count * 0.5  # Rough estimate: 0.5s per word
+
+    return {
+        "total": total_words,
+        "cached": cached_count,
+        "missing": missing_count,
+        "estimated_time": f"~{int(estimated_seconds)}s" if missing_count > 0 else "0s",
+        "ready": missing_count == 0
+    }
+
+@app.post("/api/vocabulary-lists/{list_id}/prepare-export")
+async def prepare_export_audio(
+    list_id: int,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
+):
+    """Generate missing audio files before export"""
+    vocab_list = db.query(VocabularyList).filter(
+        VocabularyList.id == list_id,
+        VocabularyList.user_id == user.id
+    ).first()
+
+    if not vocab_list:
+        raise HTTPException(status_code=404, detail="List not found")
+
+    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+
+    # Create cache directory
+    audio_cache_dir = DATA_DIR / "audio_cache"
+    audio_cache_dir.mkdir(exist_ok=True)
+
+    # Generate missing audio files
+    total_words = 0
+    generated_count = 0
+    failed_count = 0
+    consecutive_failures = 0
+    rate_limited = False
+
+    for section in sections:
+        words = section.get('words', [])
+        for word_data in words:
+            hanzi = word_data.get('hanzi', '')
+            if not hanzi:
+                continue
+
+            total_words += 1
+            unicode_ids = "_".join(str(ord(char)) for char in hanzi)
+            cache_filename = f"{unicode_ids}_zh.mp3"
+            cache_path = audio_cache_dir / cache_filename
+
+            # Skip if already cached
+            if cache_path.exists() and cache_path.stat().st_size > 0:
+                continue
+
+            # Stop if rate limited
+            if consecutive_failures >= 5:
+                rate_limited = True
+                failed_count += 1
+                continue
+
+            # Try to generate audio
+            try:
+                tts = gTTS(hanzi, lang='zh')
+                tts.save(str(cache_path))
+                generated_count += 1
+                consecutive_failures = 0
+                logger.info(f"Generated audio for: {hanzi}")
+            except Exception as e:
+                failed_count += 1
+                consecutive_failures += 1
+                logger.warning(f"Failed to generate audio for {hanzi}: {e}")
+
+                if consecutive_failures >= 5:
+                    rate_limited = True
+                    logger.error("Rate limit reached during audio preparation")
+
+    cached_count = total_words - generated_count - failed_count
+
+    return {
+        "total": total_words,
+        "cached": cached_count,
+        "generated": generated_count,
+        "failed": failed_count,
+        "rate_limited": rate_limited,
+        "ready": failed_count == 0
+    }
+
 @app.get("/api/vocabulary-lists/{list_id}/export-anki")
 async def export_vocabulary_list_anki(
     list_id: int,
-    user: User = Depends(require_auth),
+    user: User = Depends(require_auth_flexible),
     db: Session = Depends(get_db)
 ):
     """Export vocabulary list as Anki .apkg file with stroke animations and subdecks"""
@@ -2672,12 +2820,12 @@ async def export_vocabulary_list_anki(
         VocabularyList.id == list_id,
         VocabularyList.user_id == user.id
     ).first()
-    
+
     if not vocab_list:
         raise HTTPException(status_code=404, detail="List not found")
-    
+
     sections = json.loads(vocab_list.sections) if vocab_list.sections else []
-    
+
     # Create cache directory for audio files
     audio_cache_dir = DATA_DIR / "audio_cache"
     audio_cache_dir.mkdir(exist_ok=True)
@@ -2845,14 +2993,15 @@ async def export_vocabulary_list_anki(
         logger.info(f"Export complete: {words_processed} words, {audio_cached} cached, {audio_generated} generated, {audio_failed} failed")
         if rate_limited:
             logger.warning(f"Rate limit reached. {audio_failed} cards created without audio.")
-        
-        # Return file
+
+        # Return file using Response with explicit Content-Length
         from fastapi.responses import Response
         return Response(
             content=apkg_content,
             media_type="application/octet-stream",
             headers={
                 "Content-Disposition": f"attachment; filename={output_filename}",
+                "Content-Length": str(len(apkg_content)),
                 "X-Export-Stats": f"{words_processed}|{audio_cached}|{audio_generated}|{audio_failed}",
                 "X-Rate-Limited": "true" if rate_limited else "false"
             }
