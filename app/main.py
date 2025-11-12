@@ -745,13 +745,18 @@ async def download_hsk_vocabulary():
             if 'is_original_hsk' not in word_data:
                 word_data['is_original_hsk'] = False
 
-            # IMPORTANT: Don't supplement levels for original HSK words!
-            # Only trust the levels provided by the GitHub source.
-            # Supplementation is only for non-HSK words found during text analysis
-            # (e.g., compound words like "吃饭" that aren't separate entries in the source).
-            # If a word is in the original HSK source but has no level_old, it means
-            # that word was not in the Old HSK system (e.g., modern vocabulary).
-            if word_data.get('is_original_hsk', False):
+            # Supplementation strategy for dual data structure approach:
+            # - hsk_lists_original: Already populated with original data (no supplementation)
+            # - hsk_vocab: Supplement missing levels for better text analysis
+            #
+            # Allow supplementation for original HSK words if they're missing levels.
+            # This fixes cases like "吃饭" which has level_new but no level_old in source.
+            # Skip supplementation only if word already has BOTH levels.
+            has_level_new = bool(word_data.get('level_new'))
+            has_level_old = bool(word_data.get('level_old'))
+
+            # Skip if has both levels (nothing to supplement)
+            if has_level_new and has_level_old:
                 continue
 
             chars = list(word)
