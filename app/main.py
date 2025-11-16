@@ -66,6 +66,7 @@ from app.core.constants import (
     TRANSLATION_SOURCE_HSK_CHARS,
     TRANSLATION_SOURCE_CACHE,
 )
+from app.konfuzius_parser import parse_konfuzius_old_hsk
 
 # Load environment variables
 load_dotenv()
@@ -910,6 +911,44 @@ async def download_hsk_vocabulary():
             logger.info(f"Updated radicals for {multi_char_radicals_updated} multi-character words")
         if chars_missing_radicals > 0:
             logger.warning(f"Found {chars_missing_radicals} characters missing radical data in multi-character words")
+
+        # Load and apply Konfuzius Institut Old HSK levels (authoritative source)
+        konfuzius_file = DATA_DIR / "konfuzius" / "old_hsk_levels.txt"
+        if konfuzius_file.exists():
+            try:
+                konfuzius_vocab = parse_konfuzius_old_hsk(konfuzius_file)
+                konfuzius_applied = 0
+                konfuzius_updated = 0  # Words where level changed
+
+                for hanzi, konfuzius_level in konfuzius_vocab.items():
+                    # Apply to hsk_vocab (for text analysis)
+                    if hanzi in hsk_vocab:
+                        old_level = hsk_vocab[hanzi].get('level_old')
+                        if old_level != konfuzius_level:
+                            konfuzius_updated += 1
+                        hsk_vocab[hanzi]['level_old'] = konfuzius_level
+                        konfuzius_applied += 1
+
+                    # Also apply to hsk_lists_original (for list generation)
+                    if hanzi in hsk_lists_original:
+                        hsk_lists_original[hanzi]['level_old'] = konfuzius_level
+
+                logger.info(f"Applied Konfuzius Institut Old HSK levels: {konfuzius_applied} words total, {konfuzius_updated} updated from GitHub source")
+
+                # Show corrected distribution for Old HSK (from Konfuzius)
+                konfuzius_dist = {}
+                for level in konfuzius_vocab.values():
+                    level_num = level.replace('old-', '')
+                    konfuzius_dist[level_num] = konfuzius_dist.get(level_num, 0) + 1
+
+                logger.info("Konfuzius Institut Old HSK distribution:")
+                for level in sorted(konfuzius_dist.keys(), key=int):
+                    logger.info(f"  Level {level}: {konfuzius_dist[level]} words")
+
+            except Exception as e:
+                logger.error(f"Failed to load Konfuzius Old HSK levels (non-critical): {e}")
+        else:
+            logger.warning(f"Konfuzius Old HSK file not found: {konfuzius_file}")
 
         # Save processed vocabulary
         vocab_file = DATA_DIR / "hsk_vocabulary.json"
