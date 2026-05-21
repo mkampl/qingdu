@@ -1203,34 +1203,8 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
         }
     }
 
-def estimate_text_level(hsk_stats: Dict, total_hsk_words: int) -> str:
-    """
-    Estimate text difficulty based on HSK word distribution
+from app.services.levels import estimate_text_level  # noqa: E402,F401
 
-    Args:
-        hsk_stats: Dictionary with HSK level counts
-        total_hsk_words: Total number of HSK words in text
-
-    Returns:
-        Estimated HSK level as string (e.g., "HSK 3" or "HSK 9+")
-    """
-    if total_hsk_words == 0:
-        return "Unknown"
-
-    # Calculate cumulative percentage approach
-    # Text level = highest level where you'd understand TEXT_LEVEL_THRESHOLD% of words
-    cumulative_words = 0
-
-    for level in range(1, 10):
-        cumulative_words += hsk_stats.get(f'hsk{level}', 0)
-        percentage = (cumulative_words / total_hsk_words) * 100
-
-        # If you know up to this level and understand TEXT_LEVEL_THRESHOLD% of words
-        if percentage >= TEXT_LEVEL_THRESHOLD:
-            return f"HSK {level}"
-
-    # If even HSK 9 doesn't cover TEXT_LEVEL_THRESHOLD%, it's beyond HSK
-    return "HSK 9+"
 
 def migrate_word_data(word_data: Dict) -> Dict:
     """
