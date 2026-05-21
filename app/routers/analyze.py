@@ -1,5 +1,3 @@
-from typing import Dict
-
 from fastapi import APIRouter, HTTPException, Request
 
 from app.core.constants import ANALYZE_RATE_LIMIT
@@ -52,7 +50,7 @@ router = APIRouter(tags=["Analysis"])
     },
 )
 @limiter.limit(ANALYZE_RATE_LIMIT)
-async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
+async def analyze_text(request: Request, data: TextAnalysisRequest) -> dict:
     if not hsk_vocab:
         raise HTTPException(status_code=503, detail="Vocabulary not loaded yet")
 

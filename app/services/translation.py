@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import Dict, Optional
 
 import httpx
 from cachetools import TTLCache
@@ -30,7 +29,7 @@ async def _call_translation_api(
     return response
 
 
-async def get_translation_with_source(text: str) -> Optional[Dict]:
+async def get_translation_with_source(text: str) -> dict | None:
     """
     Get translation with multiple API support and source tracking.
     Priority: DeepL > Google > MyMemory.
@@ -67,9 +66,7 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
             async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
                 url = "https://translation.googleapis.com/language/translate/v2"
                 params = {"key": google_key, "q": text, "target": "en", "source": "zh"}
-                response = await _call_translation_api(
-                    client, url, method="POST", params=params
-                )
+                response = await _call_translation_api(client, url, method="POST", params=params)
                 result = response.json()
                 if result.get("data", {}).get("translations"):
                     return {
@@ -77,9 +74,7 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
                         "source": TRANSLATION_SOURCE_GOOGLE,
                     }
         except httpx.HTTPStatusError as e:
-            logger.warning(
-                f"Google Translate API error {e.response.status_code} for '{text}'"
-            )
+            logger.warning(f"Google Translate API error {e.response.status_code} for '{text}'")
         except (httpx.TimeoutException, httpx.NetworkError) as e:
             logger.warning(f"Google Translate API network error for '{text}': {e}")
         except Exception as e:

@@ -1,9 +1,7 @@
-from typing import Dict
-
 from app.core.constants import TEXT_LEVEL_THRESHOLD
 
 
-def estimate_text_level(hsk_stats: Dict, total_hsk_words: int) -> str:
+def estimate_text_level(hsk_stats: dict, total_hsk_words: int) -> str:
     """
     Estimate text difficulty based on HSK word distribution.
 

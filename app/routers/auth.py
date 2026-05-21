@@ -95,9 +95,7 @@ async def change_password(
     db: Session = Depends(get_db),
 ):
     if not verify_password(data.old_password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid old password"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid old password")
     if len(data.new_password) < MIN_PASSWORD_LENGTH:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -115,9 +113,7 @@ async def signup_with_invite(
     db: Session = Depends(get_db),
 ):
     """Register a new user with an invitation token."""
-    invitation = (
-        db.query(InvitationToken).filter(InvitationToken.token == data.token).first()
-    )
+    invitation = db.query(InvitationToken).filter(InvitationToken.token == data.token).first()
     if not invitation:
         raise HTTPException(status_code=400, detail="Invalid invitation token")
     if invitation.claimed_at:
@@ -128,9 +124,7 @@ async def signup_with_invite(
     if db.query(User).filter(User.username == data.username).first():
         raise HTTPException(status_code=400, detail="Username already taken")
     if len(data.password) < 8:
-        raise HTTPException(
-            status_code=400, detail="Password must be at least 8 characters"
-        )
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
 
     new_user = User(
         username=data.username,

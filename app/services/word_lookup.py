@@ -9,7 +9,7 @@ Two strategies:
   online result looks like pinyin or is too short to be useful).
 """
 
-from typing import Dict, Optional
+import contextlib
 
 from pypinyin import Style, lazy_pinyin
 
@@ -19,7 +19,7 @@ from app.services.translation import get_translation_with_source
 from app.state import hsk_vocab, unknown_word_cache
 
 
-async def lookup_unknown_word(word: str) -> Optional[Dict]:
+async def lookup_unknown_word(word: str) -> dict | None:
     """Look up an unknown word online and cache the result."""
     if word in unknown_word_cache:
         return unknown_word_cache[word]
@@ -41,7 +41,7 @@ async def lookup_unknown_word(word: str) -> Optional[Dict]:
     return word_info
 
 
-async def create_compound_from_hsk(word: str) -> Optional[Dict]:
+async def create_compound_from_hsk(word: str) -> dict | None:
     """
     Build compound word info from in-HSK characters. Returns None unless every
     character of the word is present in `hsk_vocab`.
@@ -83,10 +83,8 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
         level_old = char_data.get("level_old")
         if level_old:
             level_old_str = level_old.replace("old-", "")
-            try:
+            with contextlib.suppress(ValueError):
                 char_levels_old.append(int(level_old_str))
-            except ValueError:
-                pass
 
     compound_pinyin = " ".join(char_pinyins)
     compound_level_new = f"new-{max(char_levels_new)}" if char_levels_new else None
@@ -94,9 +92,7 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
     compound_level = compound_level_new or compound_level_old or "new-1"
     fallback_meaning = " + ".join(char_meanings)
     compound_radical = " + ".join(char_radicals) if char_radicals else ""
-    compound_radical_pinyin = (
-        " + ".join(char_radical_pinyins) if char_radical_pinyins else ""
-    )
+    compound_radical_pinyin = " + ".join(char_radical_pinyins) if char_radical_pinyins else ""
 
     translation_result = await get_translation_with_source(word)
     if translation_result:
@@ -104,10 +100,7 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
         source = translation_result["source"]
         # If the "translation" is just romanised pinyin or too short to be useful,
         # fall back to gluing character glosses together.
-        if (
-            len(translation) < 3
-            or translation.lower() == compound_pinyin.lower().replace(" ", "")
-        ):
+        if len(translation) < 3 or translation.lower() == compound_pinyin.lower().replace(" ", ""):
             translation = fallback_meaning
             source = "hsk-chars"
 

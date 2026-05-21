@@ -17,4 +17,4 @@ async def text_to_speech(text: str):
             headers={"Cache-Control": "public, max-age=86400"},
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"TTS failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"TTS failed: {e!s}") from e

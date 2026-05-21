@@ -1,5 +1,3 @@
-from typing import Dict
-
 from fastapi import APIRouter, HTTPException, Request
 
 from app.core.constants import TRANSLATE_RATE_LIMIT, TRANSLATION_SOURCE_CACHE
@@ -12,7 +10,7 @@ router = APIRouter(tags=["Translation"])
 
 @router.post("/api/translate")
 @limiter.limit(TRANSLATE_RATE_LIMIT)
-async def translate_text(request: Request, data: TranslationRequest) -> Dict:
+async def translate_text(request: Request, data: TranslationRequest) -> dict:
     """Translate Chinese text to a target language."""
     text = data.text.strip()
     if not text:

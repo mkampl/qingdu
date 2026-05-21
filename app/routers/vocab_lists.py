@@ -174,9 +174,7 @@ async def rename_section(
     old_name = section_data.get("old_name")
     new_name = section_data.get("new_name", "").strip()
     if not old_name or not new_name:
-        raise HTTPException(
-            status_code=400, detail="Both old_name and new_name required"
-        )
+        raise HTTPException(status_code=400, detail="Both old_name and new_name required")
 
     sections = json.loads(vocab_list.sections) if vocab_list.sections else []
     section = next((s for s in sections if s["name"] == old_name), None)
@@ -225,9 +223,7 @@ async def update_word_in_list(
     old_hanzi = word_data.get("old_hanzi")
     new_word = word_data.get("word")
     if not section_name or not old_hanzi or not new_word:
-        raise HTTPException(
-            status_code=400, detail="section_name, old_hanzi, and word required"
-        )
+        raise HTTPException(status_code=400, detail="section_name, old_hanzi, and word required")
 
     sections = json.loads(vocab_list.sections) if vocab_list.sections else []
     section = next((s for s in sections if s["name"] == section_name), None)

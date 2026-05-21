@@ -4,14 +4,14 @@ new-HSK / old-HSK shape. Run on saved texts and vocabulary lists at
 read time so old user content keeps working.
 """
 
-from typing import Dict, List
+import contextlib
 
 from app.core.radicals import CHAR_TO_RADICAL, RADICAL_PINYIN
 from app.services.levels import estimate_text_level
 from app.state import hsk_vocab
 
 
-def migrate_word_data(word_data: Dict) -> Dict:
+def migrate_word_data(word_data: dict) -> dict:
     """
     Migrate a single word dict to the dual-HSK shape (`level_new`, `level_old`).
     Idempotent — returns the input untouched if it already has either field.
@@ -41,25 +41,15 @@ def migrate_word_data(word_data: Dict) -> Dict:
                 char_data = hsk_vocab[char]
                 level_new = char_data.get("level_new")
                 if level_new:
-                    try:
-                        char_levels_new.append(
-                            int(level_new.replace("new-", "").replace("+", ""))
-                        )
-                    except (ValueError, AttributeError):
-                        pass
+                    with contextlib.suppress(ValueError, AttributeError):
+                        char_levels_new.append(int(level_new.replace("new-", "").replace("+", "")))
                 level_old = char_data.get("level_old")
                 if level_old:
-                    try:
+                    with contextlib.suppress(ValueError, AttributeError):
                         char_levels_old.append(int(level_old.replace("old-", "")))
-                    except (ValueError, AttributeError):
-                        pass
 
-            word_data["level_new"] = (
-                f"new-{max(char_levels_new)}" if char_levels_new else None
-            )
-            word_data["level_old"] = (
-                f"old-{max(char_levels_old)}" if char_levels_old else None
-            )
+            word_data["level_new"] = f"new-{max(char_levels_new)}" if char_levels_new else None
+            word_data["level_old"] = f"old-{max(char_levels_old)}" if char_levels_old else None
 
             if word_data["level_new"]:
                 word_data["hsk_level"] = word_data["level_new"]
@@ -95,7 +85,7 @@ def migrate_word_data(word_data: Dict) -> Dict:
     return word_data
 
 
-def _assign_legacy_level(word_data: Dict, old_level: str) -> None:
+def _assign_legacy_level(word_data: dict, old_level: str) -> None:
     """Best-effort assignment when we can't look up component characters."""
     if old_level.startswith("new-"):
         word_data["level_new"] = old_level
@@ -108,7 +98,7 @@ def _assign_legacy_level(word_data: Dict, old_level: str) -> None:
         word_data["level_old"] = None
 
 
-def migrate_analysis_data(analysis_data: Dict) -> Dict:
+def migrate_analysis_data(analysis_data: dict) -> dict:
     """
     Migrate a saved analysis blob to the dual-HSK shape and recompute the
     statistics summary for both new and old HSK systems.
@@ -168,7 +158,7 @@ def migrate_analysis_data(analysis_data: Dict) -> Dict:
     return analysis_data
 
 
-def migrate_vocabulary_sections(sections: List[Dict]) -> List[Dict]:
+def migrate_vocabulary_sections(sections: list[dict]) -> list[dict]:
     """Migrate every word in every section of a vocabulary list."""
     if not sections:
         return sections

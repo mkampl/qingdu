@@ -18,9 +18,7 @@ async def generate_invitation(
 ):
     """Generate a new invitation token (skips quota check if quota is -1)."""
     used_count = (
-        db.query(InvitationToken)
-        .filter(InvitationToken.created_by_user_id == user.id)
-        .count()
+        db.query(InvitationToken).filter(InvitationToken.created_by_user_id == user.id).count()
     )
 
     if user.invite_quota >= 0 and used_count >= user.invite_quota:
@@ -37,17 +35,13 @@ async def generate_invitation(
     token = str(uuid.uuid4())
     expires_at = datetime.utcnow() + timedelta(days=30)
 
-    invitation = InvitationToken(
-        token=token, created_by_user_id=user.id, expires_at=expires_at
-    )
+    invitation = InvitationToken(token=token, created_by_user_id=user.id, expires_at=expires_at)
     db.add(invitation)
     db.commit()
     db.refresh(invitation)
 
     base_url = (
-        str(request.url).split("/api")[0]
-        if hasattr(request, "url")
-        else "http://localhost:8000"
+        str(request.url).split("/api")[0] if hasattr(request, "url") else "http://localhost:8000"
     )
     invite_url = f"{base_url}/?invite={token}"
 
@@ -56,9 +50,7 @@ async def generate_invitation(
         "token": token,
         "invite_url": invite_url,
         "expires_at": invitation.expires_at.isoformat(),
-        "remaining_quota": (
-            -1 if user.invite_quota == -1 else user.invite_quota - used_count - 1
-        ),
+        "remaining_quota": (-1 if user.invite_quota == -1 else user.invite_quota - used_count - 1),
     }
 
 
@@ -106,9 +98,7 @@ async def get_my_invitations(
         "quota": {
             "total": user.invite_quota,
             "used": used_count,
-            "remaining": (
-                -1 if user.invite_quota == -1 else user.invite_quota - used_count
-            ),
+            "remaining": (-1 if user.invite_quota == -1 else user.invite_quota - used_count),
         },
     }
 
@@ -116,9 +106,7 @@ async def get_my_invitations(
 @router.get("/api/invitations/validate/{token}")
 async def validate_invitation(token: str, db: Session = Depends(get_db)):
     """Public endpoint — checks if an invitation token is usable."""
-    invitation = (
-        db.query(InvitationToken).filter(InvitationToken.token == token).first()
-    )
+    invitation = db.query(InvitationToken).filter(InvitationToken.token == token).first()
     if not invitation:
         return {"valid": False, "reason": "not_found"}
     if invitation.claimed_at:
@@ -126,9 +114,7 @@ async def validate_invitation(token: str, db: Session = Depends(get_db)):
     if invitation.expires_at < datetime.utcnow():
         return {"valid": False, "reason": "expired"}
 
-    creator = (
-        db.query(User).filter(User.id == invitation.created_by_user_id).first()
-    )
+    creator = db.query(User).filter(User.id == invitation.created_by_user_id).first()
     return {
         "valid": True,
         "invited_by": creator.username if creator else "Unknown",

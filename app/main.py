@@ -143,18 +143,18 @@ def _validate_environment() -> None:
     logger.info(f"ALLOWED_ORIGINS: {os.getenv('ALLOWED_ORIGINS', '*')}")
     logger.info(f"DEEPL_API_KEY configured: {bool(os.getenv('DEEPL_API_KEY'))}")
     logger.info(
-        f"GOOGLE_TRANSLATE_API_KEY configured: "
-        f"{bool(os.getenv('GOOGLE_TRANSLATE_API_KEY'))}"
+        f"GOOGLE_TRANSLATE_API_KEY configured: {bool(os.getenv('GOOGLE_TRANSLATE_API_KEY'))}"
     )
 
 
 @app.on_event("startup")
 async def startup_event() -> None:
     """Load HSK vocabulary, init the DB, and warm up jieba."""
-    from app import state as _state
-    import jieba
     import json
 
+    import jieba
+
+    from app import state as _state
     from app.core.constants import HSK_WORD_BASE_FREQ
     from app.core.paths import DATA_DIR
 
@@ -171,14 +171,12 @@ async def startup_event() -> None:
         if vocab_file.exists():
             logger.warning("Falling back to cached vocabulary...")
             try:
-                with open(vocab_file, "r", encoding="utf-8") as f:
+                with open(vocab_file, encoding="utf-8") as f:
                     _state.hsk_vocab.clear()
                     _state.hsk_vocab.update(json.load(f))
                 logger.info(f"Loaded {len(hsk_vocab)} HSK words from cache")
             except Exception as cache_error:
-                logger.error(
-                    f"Failed to load from cache: {cache_error}", exc_info=True
-                )
+                logger.error(f"Failed to load from cache: {cache_error}", exc_info=True)
                 logger.warning(
                     "Application will start without vocabulary - some features may not work"
                 )
@@ -197,9 +195,7 @@ async def startup_event() -> None:
             base_freq = max(data.get("frequency", 0) * 100, HSK_WORD_BASE_FREQ)
             jieba.add_word(word, freq=base_freq)
             added_to_jieba += 1
-    logger.info(
-        f"Added {added_to_jieba} multi-character HSK words with priority to jieba"
-    )
+    logger.info(f"Added {added_to_jieba} multi-character HSK words with priority to jieba")
 
     logger.info("Initializing database...")
     init_db()
@@ -208,6 +204,7 @@ async def startup_event() -> None:
     # Bootstrap default admin if no users exist.
     from app.auth import get_password_hash
     from app.database import SessionLocal, User
+
     db = SessionLocal()
     try:
         user_count = db.query(User).count()
@@ -221,9 +218,7 @@ async def startup_event() -> None:
             )
             db.add(admin_user)
             db.commit()
-            logger.warning(
-                "Initial admin user created: admin / admin123 (CHANGE PASSWORD!)"
-            )
+            logger.warning("Initial admin user created: admin / admin123 (CHANGE PASSWORD!)")
         else:
             logger.info(f"Found {user_count} existing user(s)")
     except Exception as e:

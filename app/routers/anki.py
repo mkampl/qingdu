@@ -70,9 +70,7 @@ async def check_audio_status(
         "total": total_words,
         "cached": cached_count,
         "missing": missing_count,
-        "estimated_time": (
-            f"~{int(estimated_seconds)}s" if missing_count > 0 else "0s"
-        ),
+        "estimated_time": (f"~{int(estimated_seconds)}s" if missing_count > 0 else "0s"),
         "ready": missing_count == 0,
     }
 
@@ -159,13 +157,11 @@ async def export_vocabulary_list_anki(
         template_path = DATA_DIR / "hanzi_template.json"
         if not template_path.exists():
             raise HTTPException(status_code=500, detail="Template file not found")
-        with open(template_path, "r", encoding="utf-8") as f:
+        with open(template_path, encoding="utf-8") as f:
             template_data = json.load(f)
 
         qfmt = template_data["qfmt"].replace("__HANZI_WRITER_VERSION__", "2.2")
-        qfmt = qfmt.replace("__CHARACTER_WIDTH__", "250").replace(
-            "__CHARACTER_HEIGHT__", "250"
-        )
+        qfmt = qfmt.replace("__CHARACTER_WIDTH__", "250").replace("__CHARACTER_HEIGHT__", "250")
         afmt = template_data["afmt"].replace("__HANZI_WRITER_VERSION__", "2.2")
         afmt = afmt.replace("__STROKE_ANIMATION_SPEED__", "1")
         afmt = afmt.replace("__DELAY_BETWEEN_STROKES__", "150")
@@ -210,9 +206,7 @@ async def export_vocabulary_list_anki(
                     unicode_ids = "_".join(str(ord(char)) for char in hanzi)
                     cache_filename = f"{unicode_ids}_zh.mp3"
                     cache_path = audio_cache_dir / cache_filename
-                    mp3_filename = os.path.join(
-                        temp_dir, f"{unicode_ids}_pronunciation.mp3"
-                    )
+                    mp3_filename = os.path.join(temp_dir, f"{unicode_ids}_pronunciation.mp3")
 
                     if cache_path.exists() and cache_path.stat().st_size > 0:
                         shutil.copy2(cache_path, mp3_filename)
@@ -276,9 +270,7 @@ async def export_vocabulary_list_anki(
             f"{audio_generated} generated, {audio_failed} failed"
         )
         if rate_limited:
-            logger.warning(
-                f"Rate limit reached. {audio_failed} cards created without audio."
-            )
+            logger.warning(f"Rate limit reached. {audio_failed} cards created without audio.")
 
         return Response(
             content=apkg_content,
@@ -296,7 +288,7 @@ async def export_vocabulary_list_anki(
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
         logger.error(f"Export error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {e!s}") from e
 
 
 @router.get("/api/vocabulary-lists/{list_id}/export")
@@ -309,7 +301,7 @@ async def export_vocabulary_list_csv(
     vocab_list = _owned_list(db, user, list_id)
     sections = json.loads(vocab_list.sections) if vocab_list.sections else []
     csv_lines = [
-        f"{w.get('hanzi','')};{w.get('pinyin','')};{w.get('meaning','')};{w.get('level','')}"
+        f"{w.get('hanzi', '')};{w.get('pinyin', '')};{w.get('meaning', '')};{w.get('level', '')}"
         for section in sections
         for w in section.get("words", [])
     ]
@@ -318,8 +310,6 @@ async def export_vocabulary_list_csv(
         content=csv_content,
         media_type="text/csv; charset=utf-8",
         headers={
-            "Content-Disposition": (
-                f"attachment; filename={vocab_list.name.replace(' ', '_')}.csv"
-            )
+            "Content-Disposition": (f"attachment; filename={vocab_list.name.replace(' ', '_')}.csv")
         },
     )

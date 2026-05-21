@@ -1,4 +1,3 @@
-from typing import List, Optional
 from pydantic import BaseModel
 
 
@@ -13,17 +12,17 @@ class TranslationRequest(BaseModel):
 
 class WordInfo(BaseModel):
     text: str
-    hsk_level: Optional[str] = None
-    level_new: Optional[str] = None
-    level_old: Optional[str] = None
-    pinyin: Optional[str] = None
-    meaning: Optional[str] = None
-    meanings: Optional[List[str]] = None
-    frequency: Optional[int] = None
+    hsk_level: str | None = None
+    level_new: str | None = None
+    level_old: str | None = None
+    pinyin: str | None = None
+    meaning: str | None = None
+    meanings: list[str] | None = None
+    frequency: int | None = None
     is_hsk: bool = False
-    translation_source: Optional[str] = None
-    radical: Optional[str] = None
-    radical_pinyin: Optional[str] = None
+    translation_source: str | None = None
+    radical: str | None = None
+    radical_pinyin: str | None = None
 
 
 class LoginRequest(BaseModel):

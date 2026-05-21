@@ -70,11 +70,7 @@ async def delete_text(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    text = (
-        db.query(SavedText)
-        .filter(SavedText.id == text_id, SavedText.user_id == user.id)
-        .first()
-    )
+    text = db.query(SavedText).filter(SavedText.id == text_id, SavedText.user_id == user.id).first()
     if text:
         db.delete(text)
         db.commit()
@@ -90,11 +86,7 @@ async def update_text(
     db: Session = Depends(get_db),
 ):
     """Update title/tags/reading_progress/content/analysis_data on a saved text."""
-    text = (
-        db.query(SavedText)
-        .filter(SavedText.id == text_id, SavedText.user_id == user.id)
-        .first()
-    )
+    text = db.query(SavedText).filter(SavedText.id == text_id, SavedText.user_id == user.id).first()
     if not text:
         raise HTTPException(status_code=404, detail="Text not found")
 

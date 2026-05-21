@@ -9,6 +9,7 @@ and writes the result to disk for offline restart.
 Mutates `app.state.hsk_vocab` and `app.state.hsk_lists_original` in place.
 """
 
+import contextlib
 import json
 import logging
 from datetime import datetime
@@ -50,9 +51,7 @@ def cleanup_old_backups(max_age_days: int = 30) -> None:
                 if age_days > max_age_days:
                     backup_file.unlink()
                     deleted_count += 1
-                    logger.info(
-                        f"Deleted old backup: {backup_file.name} (age: {age_days} days)"
-                    )
+                    logger.info(f"Deleted old backup: {backup_file.name} (age: {age_days} days)")
             except (ValueError, IndexError):
                 # Filename doesn't match expected pattern; skip.
                 continue
@@ -107,9 +106,7 @@ def _backup_raw(raw_data: list) -> None:
         logger.warning(f"Failed to create backup (non-critical): {e}")
 
 
-def _add_character_components(
-    char_levels_new: dict, char_levels_old: dict
-) -> None:
+def _add_character_components(char_levels_new: dict, char_levels_old: dict) -> None:
     """For each single character seen in source, ensure an entry exists in vocab."""
     all_chars = set(char_levels_new) | set(char_levels_old)
     for char in all_chars:
@@ -176,10 +173,8 @@ def _supplement_missing_levels() -> None:
             for char in chars:
                 if char in hsk_vocab and hsk_vocab[char].get("level_old"):
                     level_str = hsk_vocab[char]["level_old"].replace("old-", "")
-                    try:
+                    with contextlib.suppress(ValueError):
                         char_levels_list.append(int(level_str))
-                    except ValueError:
-                        pass
             if char_levels_list:
                 word_data["level_old"] = f"old-{max(char_levels_list)}"
                 supplemented_old += 1
@@ -240,17 +235,13 @@ def _combine_multi_char_radicals() -> None:
                 char_radical_pinyins.append(char_radical_pinyin)
             else:
                 chars_missing_radicals += 1
-                logger.debug(
-                    f"Character '{char}' in word '{word}' is missing radical data"
-                )
+                logger.debug(f"Character '{char}' in word '{word}' is missing radical data")
         if char_radicals:
             word_data["radical"] = " + ".join(char_radicals)
             word_data["radical_pinyin"] = " + ".join(char_radical_pinyins)
             multi_char_radicals_updated += 1
     if multi_char_radicals_updated:
-        logger.info(
-            f"Updated radicals for {multi_char_radicals_updated} multi-character words"
-        )
+        logger.info(f"Updated radicals for {multi_char_radicals_updated} multi-character words")
     if chars_missing_radicals:
         logger.warning(
             f"Found {chars_missing_radicals} characters missing radical data in "
@@ -392,10 +383,11 @@ async def download_hsk_vocabulary() -> None:
                     best_level_old = existing.get("level_old") or new_entry.get("level_old")
                     existing_meaning = existing.get("meaning", "")
                     new_meaning = new_entry["meaning"]
-                    existing_is_bad = "abbr." in existing_meaning or "variant of" in existing_meaning
                     new_is_good = "abbr." not in new_meaning and "variant of" not in new_meaning
                     best_meaning = new_meaning if new_is_good else existing_meaning
-                    best_meanings = new_entry["meanings"] if new_is_good else existing.get("meanings", [])
+                    best_meanings = (
+                        new_entry["meanings"] if new_is_good else existing.get("meanings", [])
+                    )
                     best_pinyin = new_entry["pinyin"] if new_is_good else existing.get("pinyin", "")
                     best_radical = new_entry.get("radical") or existing.get("radical", "")
                     merged_entry = {
@@ -432,9 +424,7 @@ async def download_hsk_vocabulary() -> None:
 
         # Debug breakdown — original HSK vs supplementary entries.
         original_count = sum(1 for w in hsk_vocab.values() if w.get("is_original_hsk", False))
-        component_count = sum(
-            1 for w in hsk_vocab.values() if not w.get("is_original_hsk", False)
-        )
+        component_count = sum(1 for w in hsk_vocab.values() if not w.get("is_original_hsk", False))
         logger.info(
             f"Vocabulary breakdown: {original_count} original HSK words, "
             f"{component_count} character components/supplemented"
@@ -472,8 +462,7 @@ async def download_hsk_vocabulary() -> None:
 
         total_chars = len(set(char_levels_new) | set(char_levels_old))
         logger.info(
-            f"Processed and saved {processed} HSK words + "
-            f"{total_chars} individual characters"
+            f"Processed and saved {processed} HSK words + {total_chars} individual characters"
         )
         logger.info(
             f"Level distribution from source: {entries_with_both} with both, "
@@ -482,9 +471,7 @@ async def download_hsk_vocabulary() -> None:
         )
 
     except httpx.HTTPStatusError as e:
-        logger.error(
-            f"HTTP error downloading vocabulary: {e.response.status_code}", exc_info=True
-        )
+        logger.error(f"HTTP error downloading vocabulary: {e.response.status_code}", exc_info=True)
         raise
     except (httpx.TimeoutException, httpx.NetworkError) as e:
         logger.error(f"Network error downloading vocabulary: {e}", exc_info=True)

@@ -6,7 +6,6 @@ The route handler in `app.routers.analyze` is a thin wrapper around
 """
 
 import logging
-from typing import Dict, Optional
 
 import jieba
 
@@ -19,12 +18,12 @@ from app.state import hsk_vocab
 logger = logging.getLogger(__name__)
 
 
-def get_word_info(word: str) -> Optional[Dict]:
+def get_word_info(word: str) -> dict | None:
     """Look up a word in the HSK vocab. Returns None if not found."""
     return hsk_vocab.get(word)
 
 
-def _increment_level(stats: dict, total: int, level: Optional[str], prefix: str) -> int:
+def _increment_level(stats: dict, total: int, level: str | None, prefix: str) -> int:
     """
     Increment the stats bucket for `level` (e.g. "new-3" -> "hsk3").
     Returns the new total (caller does `total = _increment_level(...)`).
@@ -41,7 +40,7 @@ def _increment_level(stats: dict, total: int, level: Optional[str], prefix: str)
         return total
 
 
-async def analyze_chinese_text(text: str) -> Dict:
+async def analyze_chinese_text(text: str) -> dict:
     """
     Segment `text` with jieba, look each word up in the HSK vocab (falling back
     to compound-from-characters or an online lookup), and return per-word data
