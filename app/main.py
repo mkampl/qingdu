@@ -31,6 +31,7 @@ from app.routers import (
     texts,
     translate,
     tts,
+    v2,
     vocab,
     vocab_lists,
 )
@@ -126,6 +127,9 @@ app.include_router(invitations.router)
 app.include_router(admin.router)
 app.include_router(vocab_lists.router)
 app.include_router(anki.router)
+
+# Vue 3 SPA mounted at /v2 (no-op if frontend/dist isn't built yet).
+v2.mount(app)
 
 
 def _validate_environment() -> None:

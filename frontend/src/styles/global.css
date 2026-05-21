@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+/* Design tokens — calmer palette than the legacy ff6b6b/ffa500 + 667eea/764ba2.
+   Warm neutrals + one accent. Light + dark variants toggled by `class="dark"` on <html>. */
+@theme {
+  --color-bg: oklch(0.99 0.005 80);
+  --color-bg-elevated: oklch(0.97 0.008 80);
+  --color-bg-sunken: oklch(0.94 0.01 80);
+  --color-fg: oklch(0.22 0.02 60);
+  --color-fg-muted: oklch(0.5 0.015 60);
+  --color-fg-subtle: oklch(0.7 0.01 60);
+  --color-border: oklch(0.88 0.008 70);
+  --color-accent: oklch(0.58 0.13 25);
+  --color-accent-fg: oklch(0.99 0.005 80);
+
+  /* HSK level colours — kept distinguishable but desaturated from the legacy palette. */
+  --color-hsk-1: oklch(0.92 0.08 145);
+  --color-hsk-2: oklch(0.92 0.07 230);
+  --color-hsk-3: oklch(0.92 0.08 75);
+  --color-hsk-4: oklch(0.92 0.07 330);
+  --color-hsk-5: oklch(0.92 0.08 285);
+  --color-hsk-6: oklch(0.92 0.08 25);
+  --color-hsk-7: oklch(0.88 0.02 60);
+  --color-hsk-8: oklch(0.92 0.08 110);
+  --color-hsk-9: oklch(0.93 0.06 95);
+  --color-hsk-unknown: oklch(0.9 0.005 80);
+
+  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-cn: "Noto Sans SC", "Segoe UI", system-ui, sans-serif;
+  --font-cn-serif: "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+}
+
+@layer base {
+  html.dark {
+    --color-bg: oklch(0.16 0.01 60);
+    --color-bg-elevated: oklch(0.21 0.012 60);
+    --color-bg-sunken: oklch(0.12 0.01 60);
+    --color-fg: oklch(0.95 0.005 80);
+    --color-fg-muted: oklch(0.7 0.01 70);
+    --color-fg-subtle: oklch(0.55 0.01 70);
+    --color-border: oklch(0.3 0.012 60);
+    --color-accent: oklch(0.7 0.12 25);
+    --color-accent-fg: oklch(0.16 0.01 60);
+
+    --color-hsk-1: oklch(0.4 0.06 145);
+    --color-hsk-2: oklch(0.4 0.05 230);
+    --color-hsk-3: oklch(0.45 0.06 75);
+    --color-hsk-4: oklch(0.4 0.05 330);
+    --color-hsk-5: oklch(0.4 0.06 285);
+    --color-hsk-6: oklch(0.4 0.06 25);
+    --color-hsk-7: oklch(0.35 0.015 60);
+    --color-hsk-8: oklch(0.4 0.06 110);
+    --color-hsk-9: oklch(0.42 0.05 95);
+    --color-hsk-unknown: oklch(0.3 0.005 80);
+  }
+
+  body {
+    font-family: var(--font-sans);
+  }
+
+  .text-cn {
+    font-family: var(--font-cn);
+  }
+}

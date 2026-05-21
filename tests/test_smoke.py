@@ -7,8 +7,12 @@ def test_app_imports(app_module):
 
 
 def test_route_count(app_module):
-    """The route count is a coarse regression detector — bump intentionally."""
-    assert len(app_module.routes) == 48
+    """The route count is a coarse regression detector — bump intentionally.
+
+    48 = API/page routes alone. +3 when the Vite frontend is built into
+    `frontend/dist/` (two SPA fallbacks + a /v2/assets static mount).
+    """
+    assert len(app_module.routes) in (48, 51)
 
 
 def test_router_tags_present(app_module):
