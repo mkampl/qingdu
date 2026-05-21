@@ -317,42 +317,25 @@ RADICAL_PINYIN = {
     '龟': 'guī', '龠': 'yuè'
 }
 
-# TTL Caches with size limits
-translation_cache = TTLCache(maxsize=TRANSLATION_CACHE_SIZE, ttl=TRANSLATION_CACHE_TTL)
+# Pydantic request/response schemas live in app.schemas now.
+from app.schemas import (
+    ChangePasswordRequest,
+    CreateUserRequest,
+    LoginRequest,
+    SignupWithInviteRequest,
+    TextAnalysisRequest,
+    TranslationRequest,
+    UpdateInviteQuotaRequest,
+    WordInfo,
+)
+# Translation provider chain lives in app.services.translation.
+from app.services.translation import (
+    _call_translation_api,
+    get_translation_with_source,
+    translation_cache,
+)
+
 unknown_word_cache = TTLCache(maxsize=UNKNOWN_WORD_CACHE_SIZE, ttl=UNKNOWN_WORD_CACHE_TTL)
-
-class TextAnalysisRequest(BaseModel):
-    text: str
-
-class TranslationRequest(BaseModel):
-    text: str
-    target_lang: str = "en"
-
-class WordInfo(BaseModel):
-    text: str
-    hsk_level: Optional[str] = None
-    level_new: Optional[str] = None
-    level_old: Optional[str] = None
-    pinyin: Optional[str] = None
-    meaning: Optional[str] = None
-    meanings: Optional[List[str]] = None
-    frequency: Optional[int] = None
-    is_hsk: bool = False
-    translation_source: Optional[str] = None
-    radical: Optional[str] = None
-    radical_pinyin: Optional[str] = None
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-class CreateUserRequest(BaseModel):
-    username: str
-    password: str
-
-class ChangePasswordRequest(BaseModel):
-    old_password: str
-    new_password: str
 
 def validate_environment():
     """
@@ -1153,103 +1136,6 @@ async def create_compound_from_hsk(word: str) -> Optional[Dict]:
     retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
     reraise=True
 )
-async def _call_translation_api(client: httpx.AsyncClient, url: str, method: str = 'POST', **kwargs) -> httpx.Response:
-    """
-    Make HTTP request with retry logic for network errors
-    """
-    if method.upper() == 'POST':
-        response = await client.post(url, **kwargs)
-    else:
-        response = await client.get(url, **kwargs)
-    response.raise_for_status()
-    return response
-
-async def get_translation_with_source(text: str) -> Optional[Dict]:
-    """
-    Get translation with multiple API support and source tracking
-    Priority: DeepL > Google > MyMemory
-    Includes automatic retry for network errors
-    """
-    # Check for API keys from environment
-    deepl_key = os.getenv('DEEPL_API_KEY')
-    google_key = os.getenv('GOOGLE_TRANSLATE_API_KEY')
-
-    # Try DeepL first if available.
-    # Note: DeepL deprecated form-body `auth_key` in Nov 2025 — use the
-    # Authorization header (`DeepL-Auth-Key <key>`) instead.
-    if deepl_key:
-        try:
-            async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
-                url = "https://api-free.deepl.com/v2/translate"
-                headers = {"Authorization": f"DeepL-Auth-Key {deepl_key}"}
-                data = {
-                    'text': text,
-                    'target_lang': 'EN',
-                    'source_lang': 'ZH'
-                }
-                response = await _call_translation_api(client, url, method='POST', headers=headers, data=data)
-                result = response.json()
-
-                if result.get('translations'):
-                    return {
-                        'translation': result['translations'][0]['text'],
-                        'source': TRANSLATION_SOURCE_DEEPL
-                    }
-        except httpx.HTTPStatusError as e:
-            body = e.response.text[:300] if e.response is not None else ''
-            logger.error(f"DeepL API error {e.response.status_code} for '{text}': {body}")
-        except (httpx.TimeoutException, httpx.NetworkError) as e:
-            logger.warning(f"DeepL API network error for '{text}': {e}")
-        except Exception as e:
-            logger.error(f"DeepL API failed for '{text}': {e}", exc_info=True)
-
-    # Try Google Translate if available
-    if google_key:
-        try:
-            async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
-                url = f"https://translation.googleapis.com/language/translate/v2"
-                params = {
-                    'key': google_key,
-                    'q': text,
-                    'target': 'en',
-                    'source': 'zh'
-                }
-                response = await _call_translation_api(client, url, method='POST', params=params)
-                result = response.json()
-
-                if result.get('data', {}).get('translations'):
-                    return {
-                        'translation': result['data']['translations'][0]['translatedText'],
-                        'source': TRANSLATION_SOURCE_GOOGLE
-                    }
-        except httpx.HTTPStatusError as e:
-            logger.warning(f"Google Translate API error {e.response.status_code} for '{text}'")
-        except (httpx.TimeoutException, httpx.NetworkError) as e:
-            logger.warning(f"Google Translate API network error for '{text}': {e}")
-        except Exception as e:
-            logger.debug(f"Google Translate API failed for '{text}': {e}")
-
-    # Fallback to free MyMemory API
-    try:
-        async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
-            url = f"https://api.mymemory.translated.net/get?q={text}&langpair=zh|en"
-            response = await _call_translation_api(client, url, method='GET')
-            result = response.json()
-
-            if result.get('responseStatus') == 200:
-                return {
-                    'translation': result['responseData']['translatedText'],
-                    'source': TRANSLATION_SOURCE_MYMEMORY
-                }
-    except httpx.HTTPStatusError as e:
-        logger.warning(f"MyMemory API error {e.response.status_code} for '{text}'")
-    except (httpx.TimeoutException, httpx.NetworkError) as e:
-        logger.warning(f"MyMemory API network error for '{text}': {e}")
-    except Exception as e:
-        logger.debug(f"MyMemory API failed for '{text}': {e}")
-
-    return None
-
 @app.post("/api/analyze",
     summary="Analyze Chinese text",
     description="Analyzes Chinese text and returns HSK level information for each word, including pinyin, meaning, and statistics.",
@@ -2235,11 +2121,6 @@ async def validate_invitation(
     }
 
 # Signup with invitation
-class SignupWithInviteRequest(BaseModel):
-    token: str
-    username: str
-    password: str
-
 @app.post("/api/auth/signup-with-invite")
 async def signup_with_invite(
     data: SignupWithInviteRequest,
@@ -3120,9 +3001,6 @@ async def toggle_admin_status(
     db.commit()
 
     return {"message": f"User is now {'admin' if user.is_admin else 'regular user'}"}
-
-class UpdateInviteQuotaRequest(BaseModel):
-    invite_quota: int
 
 @app.patch("/api/admin/users/{user_id}/invite-quota")
 async def update_user_invite_quota(
