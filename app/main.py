@@ -1174,18 +1174,20 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
     deepl_key = os.getenv('DEEPL_API_KEY')
     google_key = os.getenv('GOOGLE_TRANSLATE_API_KEY')
 
-    # Try DeepL first if available
+    # Try DeepL first if available.
+    # Note: DeepL deprecated form-body `auth_key` in Nov 2025 — use the
+    # Authorization header (`DeepL-Auth-Key <key>`) instead.
     if deepl_key:
         try:
             async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
                 url = "https://api-free.deepl.com/v2/translate"
+                headers = {"Authorization": f"DeepL-Auth-Key {deepl_key}"}
                 data = {
-                    'auth_key': deepl_key,
                     'text': text,
                     'target_lang': 'EN',
                     'source_lang': 'ZH'
                 }
-                response = await _call_translation_api(client, url, method='POST', data=data)
+                response = await _call_translation_api(client, url, method='POST', headers=headers, data=data)
                 result = response.json()
 
                 if result.get('translations'):
@@ -1194,11 +1196,12 @@ async def get_translation_with_source(text: str) -> Optional[Dict]:
                         'source': TRANSLATION_SOURCE_DEEPL
                     }
         except httpx.HTTPStatusError as e:
-            logger.warning(f"DeepL API error {e.response.status_code} for '{text}'")
+            body = e.response.text[:300] if e.response is not None else ''
+            logger.error(f"DeepL API error {e.response.status_code} for '{text}': {body}")
         except (httpx.TimeoutException, httpx.NetworkError) as e:
             logger.warning(f"DeepL API network error for '{text}': {e}")
         except Exception as e:
-            logger.debug(f"DeepL API failed for '{text}': {e}")
+            logger.error(f"DeepL API failed for '{text}': {e}", exc_info=True)
 
     # Try Google Translate if available
     if google_key:
