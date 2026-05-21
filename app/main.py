@@ -173,9 +173,9 @@ TEMPLATES_DIR.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-# Global vocabulary storage
-hsk_vocab = {}  # For text analysis - includes supplementation and character components
-hsk_lists_original = {}  # For list generation - only original HSK words without supplementation
+# Shared mutable application state lives in app.state.
+from app.state import hsk_vocab, hsk_lists_original, unknown_word_cache
+from app import state as _state  # used to rebind dicts via clear/update
 
 # Character/radical lookup tables live in app.core.radicals.
 from app.core.radicals import CHAR_TO_RADICAL, RADICAL_PINYIN
@@ -199,7 +199,7 @@ from app.services.translation import (
     translation_cache,
 )
 
-unknown_word_cache = TTLCache(maxsize=UNKNOWN_WORD_CACHE_SIZE, ttl=UNKNOWN_WORD_CACHE_TTL)
+# unknown_word_cache lives in app.state and is re-imported at the top.
 
 def validate_environment():
     """
@@ -229,7 +229,6 @@ async def startup_event():
     # Validate environment first
     validate_environment()
 
-    global hsk_vocab
     vocab_file = DATA_DIR / "hsk_vocabulary.json"
 
     # Always try to download fresh vocabulary from GitHub on startup
@@ -245,7 +244,10 @@ async def startup_event():
             logger.warning("Falling back to cached vocabulary...")
             try:
                 with open(vocab_file, 'r', encoding='utf-8') as f:
-                    hsk_vocab = json.load(f)
+                    # Mutate the shared state dict in place — rebinding would
+                    # disconnect us from importers (services, routers).
+                    _state.hsk_vocab.clear()
+                    _state.hsk_vocab.update(json.load(f))
                 logger.info(f"Loaded {len(hsk_vocab)} HSK words from cache")
             except Exception as cache_error:
                 logger.error(f"Failed to load from cache: {cache_error}", exc_info=True)
@@ -356,7 +358,8 @@ async def download_hsk_vocabulary():
     Download and process HSK vocabulary from GitHub
     Includes automatic retry with exponential backoff for network errors
     """
-    global hsk_vocab, hsk_lists_original
+    # hsk_vocab and hsk_lists_original are mutated in place via subscript
+    # assignment, so no `global` declaration is needed — they live in app.state.
 
     try:
         async with httpx.AsyncClient(timeout=HSK_DOWNLOAD_TIMEOUT) as client:
@@ -837,162 +840,8 @@ async def home(request: Request):
         "vocab_count": len(hsk_vocab)
     })
 
-async def lookup_unknown_word(word: str) -> Optional[Dict]:
-    """
-    Look up unknown word online using translation API and pypinyin
-    """
-    # Check cache first
-    if word in unknown_word_cache:
-        return unknown_word_cache[word]
-    
-    # Get pinyin using pypinyin
-    pinyin_result = lazy_pinyin(word, style=Style.TONE)
-    word_pinyin = ' '.join(pinyin_result)
-    
-    # Try online translation
-    translation_result = await get_translation_with_source(word)
-    
-    if translation_result:
-        word_info = {
-            'pinyin': word_pinyin,
-            'meaning': translation_result['translation'],
-            'meanings': [translation_result['translation']],
-            'level': 'unknown',
-            'frequency': 0,
-            'translation_source': translation_result.get('source', TRANSLATION_SOURCE_MYMEMORY)
-        }
-        
-        # Cache the result
-        unknown_word_cache[word] = word_info
-        return word_info
-    
-    return None
+from app.services.word_lookup import create_compound_from_hsk, lookup_unknown_word  # noqa: E402,F401
 
-async def create_compound_from_hsk(word: str) -> Optional[Dict]:
-    """
-    Create compound word info from HSK characters with online translation
-    Uses highest HSK level from component characters
-    """
-    chars = list(word)
-    char_pinyins = []
-    char_levels_new = []
-    char_levels_old = []
-    char_meanings = []
-
-    # Collect radicals from all characters (for compound words)
-    char_radicals = []
-    char_radical_pinyins = []
-
-    # Check if all characters are in HSK and collect their levels
-    for char in chars:
-        if char in hsk_vocab:
-            char_data = hsk_vocab[char]
-            char_pinyins.append(char_data['pinyin'])
-            char_meanings.append(char_data['meaning'])
-
-            # Get radical from this character
-            char_radical = char_data.get('radical', '')
-
-            # If no radical in vocabulary, try fallback mapping
-            if not char_radical and char in CHAR_TO_RADICAL:
-                char_radical = CHAR_TO_RADICAL[char]
-
-            if char_radical:
-                char_radicals.append(char_radical)
-                # Try to find pinyin for the radical
-                if char_radical in hsk_vocab:
-                    char_radical_pinyins.append(hsk_vocab[char_radical].get('pinyin', ''))
-                elif char_radical in RADICAL_PINYIN:
-                    char_radical_pinyins.append(RADICAL_PINYIN[char_radical])
-                else:
-                    char_radical_pinyins.append('')
-
-            # Collect new HSK level
-            level_new = char_data.get('level_new')
-            if level_new:
-                level_new_str = level_new.replace('new-', '').replace('+', '')
-                try:
-                    char_levels_new.append(int(level_new_str))
-                except:
-                    char_levels_new.append(1)
-
-            # Collect old HSK level
-            level_old = char_data.get('level_old')
-            if level_old:
-                level_old_str = level_old.replace('old-', '')
-                try:
-                    char_levels_old.append(int(level_old_str))
-                except:
-                    pass  # Character doesn't have old HSK level
-        else:
-            return None
-
-    # Build pinyin from HSK characters
-    compound_pinyin = ' '.join(char_pinyins)
-
-    # Calculate compound levels from component characters
-    # Use highest level from each HSK system
-    compound_level_new = None
-    compound_level_old = None
-
-    if char_levels_new:
-        max_new = max(char_levels_new)
-        compound_level_new = f'new-{max_new}'
-
-    if char_levels_old:
-        max_old = max(char_levels_old)
-        compound_level_old = f'old-{max_old}'
-
-    # Primary level (prefer new HSK)
-    compound_level = compound_level_new or compound_level_old or 'new-1'
-
-    # Fallback meaning from characters
-    fallback_meaning = ' + '.join(char_meanings)
-
-    # Combine radicals from all characters
-    compound_radical = ' + '.join(char_radicals) if char_radicals else ''
-    compound_radical_pinyin = ' + '.join(char_radical_pinyins) if char_radical_pinyins else ''
-
-    # Try to get proper translation online
-    translation_result = await get_translation_with_source(word)
-
-    if translation_result:
-        translation = translation_result['translation']
-        source = translation_result['source']
-
-        # Check if translation is just pinyin (failed translation)
-        # If translation contains only Latin letters and spaces, it's probably just pinyin
-        # Only use fallback if translation seems invalid (too short or same as pinyin)
-        if len(translation) < 3 or translation.lower() == compound_pinyin.lower().replace(' ', ''):
-            translation = fallback_meaning
-            source = 'hsk-chars'
-
-        return {
-            'pinyin': compound_pinyin,
-            'meaning': translation,
-            'meanings': [translation],
-            'level': compound_level,
-            'level_new': compound_level_new,
-            'level_old': compound_level_old,
-            'frequency': 0,
-            'translation_source': source,
-            'radical': compound_radical,
-            'radical_pinyin': compound_radical_pinyin
-        }
-
-    # If online lookup completely failed, use character meanings
-    return {
-        'pinyin': compound_pinyin,
-        'meaning': fallback_meaning,
-        'meanings': char_meanings,
-        'level': compound_level,
-        'level_new': compound_level_new,
-        'level_old': compound_level_old,
-        'frequency': 0,
-        'translation_source': 'hsk-chars',
-        'radical': compound_radical,
-        'radical_pinyin': compound_radical_pinyin
-    }
 
 @retry(
     stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
@@ -1206,256 +1055,11 @@ async def analyze_text(request: Request, data: TextAnalysisRequest) -> Dict:
 from app.services.levels import estimate_text_level  # noqa: E402,F401
 
 
-def migrate_word_data(word_data: Dict) -> Dict:
-    """
-    Migrate old word data format to new dual HSK system format.
-
-    Old format: { "hsk_level": "new-3", ... }
-    New format: { "hsk_level": "new-3", "level_new": "new-3", "level_old": "old-2", ... }
-
-    Args:
-        word_data: Word data dictionary (may be old or new format)
-
-    Returns:
-        Migrated word data with level_new and level_old fields
-    """
-    # Check if already migrated (has level_new or level_old)
-    if 'level_new' in word_data or 'level_old' in word_data:
-        return word_data
-
-    # Get the old hsk_level value
-    old_level = word_data.get('hsk_level') or word_data.get('level')
-
-    # If no level at all, return as-is
-    if not old_level:
-        return word_data
-
-    # Try to look up the word in current vocabulary to get both levels
-    word_text = word_data.get('text') or word_data.get('word')
-    if word_text and word_text in hsk_vocab:
-        vocab_entry = hsk_vocab[word_text]
-        word_data['level_new'] = vocab_entry.get('level_new')
-        word_data['level_old'] = vocab_entry.get('level_old')
-        # Update hsk_level to match current vocab
-        word_data['hsk_level'] = vocab_entry.get('level')
-        # Add radical information if available
-        word_data['radical'] = vocab_entry.get('radical', '')
-        word_data['radical_pinyin'] = vocab_entry.get('radical_pinyin', '')
-    elif word_text and len(word_text) > 1:
-        # For multi-character words not in vocabulary, try compound calculation
-        # This handles words like "很多" that are created dynamically
-        chars = list(word_text)
-        if all(char in hsk_vocab for char in chars):
-            # Calculate both levels from component characters
-            char_levels_new = []
-            char_levels_old = []
-
-            for char in chars:
-                char_data = hsk_vocab[char]
-
-                level_new = char_data.get('level_new')
-                if level_new:
-                    try:
-                        level_num = int(level_new.replace('new-', '').replace('+', ''))
-                        char_levels_new.append(level_num)
-                    except (ValueError, AttributeError):
-                        pass
-
-                level_old = char_data.get('level_old')
-                if level_old:
-                    try:
-                        level_num = int(level_old.replace('old-', ''))
-                        char_levels_old.append(level_num)
-                    except (ValueError, AttributeError):
-                        pass
-
-            # Set both levels if we found character data
-            if char_levels_new:
-                word_data['level_new'] = f'new-{max(char_levels_new)}'
-            else:
-                word_data['level_new'] = None
-
-            if char_levels_old:
-                word_data['level_old'] = f'old-{max(char_levels_old)}'
-            else:
-                word_data['level_old'] = None
-
-            # Update primary level
-            if word_data['level_new']:
-                word_data['hsk_level'] = word_data['level_new']
-            elif word_data['level_old']:
-                word_data['hsk_level'] = word_data['level_old']
-
-            # Collect radicals from all characters (same as create_compound_from_hsk)
-            char_radicals = []
-            char_radical_pinyins = []
-
-            for char in chars:
-                char_data = hsk_vocab[char]
-                char_radical = char_data.get('radical', '')
-
-                # If no radical in vocabulary, try fallback mapping
-                if not char_radical and char in CHAR_TO_RADICAL:
-                    char_radical = CHAR_TO_RADICAL[char]
-
-                if char_radical:
-                    char_radicals.append(char_radical)
-                    # Try to find pinyin for the radical
-                    if char_radical in hsk_vocab:
-                        char_radical_pinyins.append(hsk_vocab[char_radical].get('pinyin', ''))
-                    elif char_radical in RADICAL_PINYIN:
-                        char_radical_pinyins.append(RADICAL_PINYIN[char_radical])
-                    else:
-                        char_radical_pinyins.append('')
-
-            # Combine radicals from all characters with " + " separator
-            word_data['radical'] = ' + '.join(char_radicals) if char_radicals else ''
-            word_data['radical_pinyin'] = ' + '.join(char_radical_pinyins) if char_radical_pinyins else ''
-
-            return word_data
-        else:
-            # Not all characters are in HSK, fall back to guessing
-            if old_level.startswith('new-'):
-                word_data['level_new'] = old_level
-                word_data['level_old'] = None
-            elif old_level.startswith('old-'):
-                word_data['level_new'] = None
-                word_data['level_old'] = old_level
-            else:
-                # Unknown format, assume it's new HSK
-                word_data['level_new'] = old_level
-                word_data['level_old'] = None
-    else:
-        # Word not in current vocab or no text field
-        # Assume old_level is from new HSK system (most common case)
-        if old_level.startswith('new-'):
-            word_data['level_new'] = old_level
-            word_data['level_old'] = None
-        elif old_level.startswith('old-'):
-            word_data['level_new'] = None
-            word_data['level_old'] = old_level
-        else:
-            # Unknown format, assume it's new HSK
-            word_data['level_new'] = old_level
-            word_data['level_old'] = None
-
-    # Ensure radical fields exist (even if empty)
-    if 'radical' not in word_data:
-        word_data['radical'] = ''
-    if 'radical_pinyin' not in word_data:
-        word_data['radical_pinyin'] = ''
-
-    return word_data
-
-def migrate_analysis_data(analysis_data: Dict) -> Dict:
-    """
-    Migrate saved analysis data to new dual HSK system format.
-    Recalculates statistics for both New and Old HSK systems.
-
-    Args:
-        analysis_data: Analysis data containing words array
-
-    Returns:
-        Migrated analysis data with updated statistics
-    """
-    if not analysis_data or 'words' not in analysis_data:
-        return analysis_data
-
-    # Migrate each word in the words array
-    migrated_words = []
-    for word in analysis_data['words']:
-        migrated_word = migrate_word_data(word)
-        migrated_words.append(migrated_word)
-
-    analysis_data['words'] = migrated_words
-
-    # Recalculate statistics for BOTH HSK systems from migrated words
-    hsk_stats_new = {f'hsk{i}': 0 for i in range(1, 10)}
-    hsk_stats_old = {f'hsk{i}': 0 for i in range(1, 7)}
-    total_hsk_words_new = 0
-    total_hsk_words_old = 0
-
-    for word in migrated_words:
-        # Skip non-HSK words (punctuation, line breaks, etc.)
-        if not word.get('is_hsk'):
-            continue
-
-        # Count New HSK statistics
-        level_new = word.get('level_new')
-        if level_new:
-            level_new_num = level_new.replace('new-', '').replace('+', '')
-            try:
-                level_key = f'hsk{int(level_new_num)}'
-                if level_key in hsk_stats_new:
-                    hsk_stats_new[level_key] += 1
-                total_hsk_words_new += 1
-            except ValueError:
-                pass
-
-        # Count Old HSK statistics
-        level_old = word.get('level_old')
-        if level_old:
-            level_old_num = level_old.replace('old-', '')
-            try:
-                level_key = f'hsk{int(level_old_num)}'
-                if level_key in hsk_stats_old:
-                    hsk_stats_old[level_key] += 1
-                total_hsk_words_old += 1
-            except ValueError:
-                pass
-
-    # Estimate text level for both systems
-    estimated_level_new = estimate_text_level(hsk_stats_new, total_hsk_words_new)
-    estimated_level_old = estimate_text_level(hsk_stats_old, total_hsk_words_old)
-
-    # Update statistics object with both HSK systems
-    if 'statistics' not in analysis_data:
-        analysis_data['statistics'] = {}
-
-    stats = analysis_data['statistics']
-
-    # New HSK statistics
-    stats['hsk_words_new'] = total_hsk_words_new
-    stats['hsk_distribution_new'] = hsk_stats_new
-    stats['estimated_level_new'] = estimated_level_new
-
-    # Old HSK statistics
-    stats['hsk_words_old'] = total_hsk_words_old
-    stats['hsk_distribution_old'] = hsk_stats_old
-    stats['estimated_level_old'] = estimated_level_old
-
-    # Legacy fields (for backwards compatibility, use new HSK)
-    stats['hsk_words'] = total_hsk_words_new
-    stats['hsk_distribution'] = hsk_stats_new
-    stats['estimated_level'] = estimated_level_new
-
-    return analysis_data
-
-def migrate_vocabulary_sections(sections: List[Dict]) -> List[Dict]:
-    """
-    Migrate vocabulary list sections to new dual HSK system format.
-
-    Args:
-        sections: List of sections containing words
-
-    Returns:
-        Migrated sections
-    """
-    if not sections:
-        return sections
-
-    migrated_sections = []
-    for section in sections:
-        if 'words' in section and section['words']:
-            migrated_words = []
-            for word in section['words']:
-                migrated_word = migrate_word_data(word)
-                migrated_words.append(migrated_word)
-            section['words'] = migrated_words
-        migrated_sections.append(section)
-
-    return migrated_sections
-
+from app.services.migrations import (
+    migrate_analysis_data,
+    migrate_vocabulary_sections,
+    migrate_word_data,
+)  # noqa: E402
 @app.get("/api/vocabulary-stats")
 async def vocabulary_stats():
     """Get vocabulary statistics"""
