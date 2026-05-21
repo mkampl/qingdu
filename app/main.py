@@ -501,27 +501,20 @@ async def health_check():
         "vocab_count": len(hsk_vocab)
     }
 
+from app.services.tts import fetch_chinese_tts  # noqa: E402
+
+
 @app.get("/api/tts/{text}")
 async def text_to_speech(text: str):
     """Text-to-speech proxy for Google Translate TTS"""
     try:
-        url = f"https://translate.google.com/translate_tts?ie=UTF-8&q={text}&tl=zh-CN&client=gtx"
-        
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(url, headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            })
-            response.raise_for_status()
-            
-            from fastapi.responses import Response
-            return Response(
-                content=response.content,
-                media_type="audio/mpeg",
-                headers={
-                    "Cache-Control": "public, max-age=86400"
-                }
-            )
-    
+        audio = await fetch_chinese_tts(text)
+        from fastapi.responses import Response
+        return Response(
+            content=audio,
+            media_type="audio/mpeg",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"TTS failed: {str(e)}")
 
