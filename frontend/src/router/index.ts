@@ -19,6 +19,11 @@ export const router = createRouter({
       component: () => import("@/views/VocabListsView.vue"),
     },
     {
+      path: "/discover",
+      name: "discover",
+      component: () => import("@/views/DiscoverView.vue"),
+    },
+    {
       path: "/vocab/:id",
       name: "vocab",
       component: () => import("@/views/VocabListView.vue"),

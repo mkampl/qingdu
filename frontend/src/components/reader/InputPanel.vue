@@ -14,6 +14,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "update:modelValue", value: string): void;
   (e: "analyze"): void;
+  (e: "import-url"): void;
   (e: "expand"): void;
   (e: "clear"): void;
 }>();
@@ -143,7 +144,7 @@ function onKeydown(e: KeyboardEvent) {
         @keydown="onKeydown"
       />
 
-      <!-- Bottom rail: counters + analyze action -->
+      <!-- Bottom rail: counters + import + analyze action -->
       <div
         class="flex items-center justify-between gap-3 border-t border-border-subtle bg-bg-sunken/70 px-4 py-2.5"
       >
@@ -157,6 +158,24 @@ function onKeydown(e: KeyboardEvent) {
           >{{ submitShortcutLabel }}</kbd>
           to analyze
         </span>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-fg-muted transition-colors hover:text-fg hover:bg-bg-sunken"
+            title="Paste a URL to import an article"
+            @click="emit('import-url')"
+          >
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+              <path
+                d="M4 3h4v4M7.5 3.5L3 8M2 6v3h3"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            Import URL
+          </button>
         <Button
           variant="primary"
           size="sm"
@@ -184,6 +203,7 @@ function onKeydown(e: KeyboardEvent) {
           </template>
           <template v-else>Analyzing…</template>
         </Button>
+        </div>
       </div>
     </div>
   </section>

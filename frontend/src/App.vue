@@ -60,6 +60,13 @@ onMounted(async () => {
           >
             Vocabulary
           </RouterLink>
+          <RouterLink
+            to="/discover"
+            class="rounded-md px-3 py-1.5 text-sm text-fg-muted hover:text-fg hover:bg-bg-sunken"
+            active-class="text-fg bg-bg-sunken"
+          >
+            Discover
+          </RouterLink>
         </nav>
         <div class="ml-auto flex items-center gap-1">
           <button

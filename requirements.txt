@@ -13,6 +13,10 @@ pypinyin==0.49.0
 # HTTP Client
 httpx==0.25.2
 
+# Article extraction — server-side Readability-style cleaner so the user
+# can paste any URL and get just the article body in the reader.
+trafilatura==1.12.2
+
 # Utilities
 python-multipart==0.0.6
 pydantic==2.5.0

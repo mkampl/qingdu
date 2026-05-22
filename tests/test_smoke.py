@@ -9,12 +9,11 @@ def test_app_imports(app_module):
 def test_route_count(app_module):
     """The route count is a coarse regression detector — bump intentionally.
 
-    47 = API routes alone (no Pages router; legacy templates retired;
-    includes /api/admin/translate-providers healthcheck).
+    48 = API routes alone (includes /api/admin/translate-providers + /api/extract).
     +5 when the Vite frontend is built into `frontend/dist/`: /v2 redirect,
     /v2/{rest} redirect, / SPA shell, /{rest:path} SPA shell, /assets mount.
     """
-    assert len(app_module.routes) in (47, 52)
+    assert len(app_module.routes) in (48, 53)
 
 
 def test_router_tags_present(app_module):

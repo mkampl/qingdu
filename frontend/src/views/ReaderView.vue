@@ -11,6 +11,7 @@ import { ApiError, saveText, updateText } from "@/api/client";
 import { submitShortcutLabel } from "@/utils/platform";
 
 import ChopMark from "@/components/reader/ChopMark.vue";
+import ImportUrlModal from "@/components/reader/ImportUrlModal.vue";
 import InputPanel from "@/components/reader/InputPanel.vue";
 import ReadingProgress from "@/components/reader/ReadingProgress.vue";
 import ReadingText from "@/components/reader/ReadingText.vue";
@@ -106,6 +107,31 @@ function onClear() {
   saved.value = false;
   showEditor.value = true;
   placeholderSeeded.value = false;
+}
+
+// --- Import from URL ----------------------------------------------------
+
+const importOpen = ref(false);
+
+function openImport() {
+  importOpen.value = true;
+}
+
+function onImported(payload: { content: string; title: string | null }) {
+  // Replace whatever was in the editor; the user explicitly asked for a
+  // new article. Don't auto-analyse — let them glance at the body first.
+  localInput.value = payload.content;
+  // Drop any link to a saved record — this is a fresh import.
+  analysis.reset();
+  reader.reset();
+  saved.value = false;
+  showEditor.value = true;
+  placeholderSeeded.value = false;
+  if (payload.title) {
+    toasts.success(`Imported “${payload.title}”.`);
+  } else {
+    toasts.success("Article imported.");
+  }
 }
 
 // Best-effort title from the first sentence (clipped). Used for FRESH saves;
@@ -466,6 +492,7 @@ onBeforeUnmount(() => {
           @analyze="onAnalyze"
           @expand="onExpand"
           @clear="onClear"
+          @import-url="openImport"
         />
 
         <!-- Cold-start banner: HSK vocab still loading on the backend. -->
@@ -552,5 +579,10 @@ onBeforeUnmount(() => {
 
     <!-- Word info popover, mounted at the body root via Teleport. -->
     <WordPopover />
+    <ImportUrlModal
+      :open="importOpen"
+      @close="importOpen = false"
+      @import="onImported"
+    />
   </div>
 </template>

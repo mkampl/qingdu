@@ -353,3 +353,17 @@ export const exportVocabularyListAnki = (id: number) =>
 
 export const exportVocabularyListCsv = (id: number) =>
   downloadBlob(`/api/vocabulary-lists/${id}/export`);
+
+// --- Article extraction -----------------------------------------------------
+
+export interface ExtractedArticle {
+  url: string;
+  title: string | null;
+  byline: string | null;
+  excerpt: string | null;
+  content: string;
+  char_count: number;
+}
+
+export const extractArticle = (url: string) =>
+  request<ExtractedArticle>("/api/extract", { body: { url } });
