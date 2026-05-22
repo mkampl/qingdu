@@ -78,8 +78,25 @@ function onKeydown(e: KeyboardEvent) {
       </svg>
       Edit text
     </button>
+    <span class="h-3 w-px bg-border-subtle" aria-hidden="true" />
+    <button
+      type="button"
+      class="inline-flex items-center gap-2 rounded-md px-2 py-1 text-xs font-medium text-fg-muted transition-colors hover:text-fg hover:bg-bg-sunken"
+      title="Discard the current text and start fresh"
+      @click="emit('clear')"
+    >
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path
+          d="M6 2v8M2 6h8"
+          stroke="currentColor"
+          stroke-width="1.4"
+          stroke-linecap="round"
+        />
+      </svg>
+      New text
+    </button>
     <span
-      class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+      class="ml-auto font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
     >
       {{ characterCount }} chars · {{ wordCountEstimate }} hanzi
     </span>
