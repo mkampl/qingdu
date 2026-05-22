@@ -43,6 +43,19 @@ export const useAnalysisStore = defineStore("analysis", () => {
     error.value = null;
   }
 
+  /**
+   * Hydrate the store from a previously-saved text without re-hitting
+   * /api/analyze. Used when opening a saved text from the library so the
+   * reader matches what the user actually saved.
+   */
+  function loadSaved(text: string, data: AnalysisResponse) {
+    if (activeRequest) activeRequest.abort();
+    inputText.value = text;
+    result.value = data;
+    error.value = null;
+    loading.value = false;
+  }
+
   return {
     inputText,
     result,
@@ -51,5 +64,6 @@ export const useAnalysisStore = defineStore("analysis", () => {
     hasResult,
     analyze,
     reset,
+    loadSaved,
   };
 });
