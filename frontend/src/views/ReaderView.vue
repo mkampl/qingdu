@@ -10,6 +10,7 @@ import { useVocabStatsStore } from "@/stores/vocab-stats";
 import { ApiError, saveText, updateText } from "@/api/client";
 import { submitShortcutLabel } from "@/utils/platform";
 
+import AnalysingCard from "@/components/reader/AnalysingCard.vue";
 import ChopMark from "@/components/reader/ChopMark.vue";
 import ImportUrlModal from "@/components/reader/ImportUrlModal.vue";
 import InputPanel from "@/components/reader/InputPanel.vue";
@@ -523,15 +524,23 @@ onBeforeUnmount(() => {
 
         <!-- The analysed reading text. -->
         <article ref="articleRef" class="relative">
+          <!-- Analysing state — shown WHILE the request is in flight so the
+               page doesn't go blank under the input panel. Replaced by
+               ReadingText once analysis.result lands. -->
+          <AnalysingCard
+            v-if="analysis.loading"
+            :text-length="(localInput || analysis.inputText).length"
+          />
+
           <ReadingText
-            v-if="analysis.result"
+            v-else-if="analysis.result"
             :analysis="analysis.result"
             @sections="(s) => (sections = s)"
           />
 
           <!-- Empty state: a quiet invitation. -->
           <div
-            v-else-if="!analysis.loading"
+            v-else
             class="flex flex-col items-start gap-4 border-t border-border-subtle pt-10 text-fg-muted"
           >
             <span

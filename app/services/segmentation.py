@@ -5,7 +5,9 @@ The route handler in `app.routers.analyze` is a thin wrapper around
 `analyze_chinese_text` — keep all the segmentation logic here.
 """
 
+import asyncio
 import logging
+import time
 
 import jieba
 
@@ -16,6 +18,13 @@ from app.services.word_lookup import create_compound_from_hsk, lookup_unknown_wo
 from app.state import hsk_vocab
 
 logger = logging.getLogger(__name__)
+
+# How many unknown-word lookups we'll fire in parallel. Each lookup hits the
+# DeepL/Google/MyMemory chain via a single httpx client, so the real
+# concurrency on each provider is at most this. Pick conservatively — too
+# high and we'll trip DeepL/MyMemory rate limits, too low and long imports
+# remain slow. 8 is empirically fine for a single learner.
+_LOOKUP_CONCURRENCY = 8
 
 
 def get_word_info(word: str) -> dict | None:
@@ -40,6 +49,68 @@ def _increment_level(stats: dict, total: int, level: str | None, prefix: str) ->
         return total
 
 
+def _needs_lookup(segment: str) -> str | None:
+    """
+    Return the *kind* of lookup this segment needs, or None if it doesn't.
+
+    'compound' -> create_compound_from_hsk (every char is in HSK)
+    'unknown'  -> lookup_unknown_word
+    None       -> in HSK directly, single char, or whitespace/linebreak
+    """
+    if not segment or segment == "\n":
+        return None
+    if get_word_info(segment) is not None:
+        return None
+    if len(segment) <= 1:
+        return None
+    if all(char in hsk_vocab for char in segment):
+        return "compound"
+    return "unknown"
+
+
+async def _resolve_unknowns(
+    segments: list[str],
+) -> dict[str, dict | None]:
+    """
+    Collect unique segments that need online lookup, fire all the calls
+    concurrently (bounded by _LOOKUP_CONCURRENCY), and return a map of
+    segment -> resolved info dict. Sequential lookups dominated total time
+    for imported articles; this is where the speedup comes from.
+    """
+    unique = {}  # ordered: insertion order = first occurrence in text
+    for seg in segments:
+        kind = _needs_lookup(seg)
+        if kind and seg not in unique:
+            unique[seg] = kind
+
+    if not unique:
+        return {}
+
+    started = time.monotonic()
+    sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
+
+    async def _resolve(seg: str, kind: str) -> tuple[str, dict | None]:
+        async with sem:
+            if kind == "compound":
+                info = await create_compound_from_hsk(seg)
+            else:
+                info = await lookup_unknown_word(seg)
+            return seg, info
+
+    results = await asyncio.gather(
+        *(_resolve(seg, kind) for seg, kind in unique.items()),
+        return_exceptions=False,
+    )
+    elapsed = time.monotonic() - started
+    logger.info(
+        "Resolved %d unknown segments in %.2fs (concurrency=%d)",
+        len(unique),
+        elapsed,
+        _LOOKUP_CONCURRENCY,
+    )
+    return dict(results)
+
+
 async def analyze_chinese_text(text: str) -> dict:
     """
     Segment `text` with jieba, look each word up in the HSK vocab (falling back
@@ -58,6 +129,11 @@ async def analyze_chinese_text(text: str) -> dict:
             segments.extend(list(jieba.cut(line)))
         if i < len(lines) - 1:
             segments.append("\n")
+
+    # Pass 1: kick off every online lookup concurrently. The result is a
+    # dict keyed by segment text, so the per-segment loop below is pure
+    # local work — no awaits, no head-of-line blocking.
+    resolved = await _resolve_unknowns(segments)
 
     words: list = []
     hsk_stats_new = {f"hsk{i}": 0 for i in range(1, 10)}
@@ -103,46 +179,47 @@ async def analyze_chinese_text(text: str) -> dict:
                 hsk_stats_old, total_hsk_words_old, vocab_entry.get("level_old"), "old-"
             )
         elif len(segment) > 1:
-            # Unknown multi-character word — try compound first, then online.
-            chars = list(segment)
-            if all(char in hsk_vocab for char in chars):
-                compound_info = await create_compound_from_hsk(segment)
-                if compound_info:
-                    word_info.hsk_level = compound_info["level"]
-                    word_info.level_new = compound_info.get("level_new")
-                    word_info.level_old = compound_info.get("level_old")
-                    word_info.pinyin = compound_info["pinyin"]
-                    word_info.meaning = compound_info["meaning"]
-                    word_info.meanings = compound_info["meanings"]
+            info = resolved.get(segment)
+            if info:
+                # Compound (every char in HSK) brings both new and old levels;
+                # generic unknowns don't, so we branch on the presence of
+                # 'level_new'/'level_old' fields rather than re-deriving the
+                # 'compound' vs 'unknown' decision here.
+                is_compound = info.get("level_new") is not None or info.get("level_old") is not None
+                if is_compound:
+                    word_info.hsk_level = info["level"]
+                    word_info.level_new = info.get("level_new")
+                    word_info.level_old = info.get("level_old")
+                    word_info.pinyin = info["pinyin"]
+                    word_info.meaning = info["meaning"]
+                    word_info.meanings = info["meanings"]
                     word_info.frequency = 0
                     word_info.is_hsk = True
-                    word_info.translation_source = compound_info.get("translation_source")
-                    word_info.radical = compound_info.get("radical", "")
-                    word_info.radical_pinyin = compound_info.get("radical_pinyin", "")
+                    word_info.translation_source = info.get("translation_source")
+                    word_info.radical = info.get("radical", "")
+                    word_info.radical_pinyin = info.get("radical_pinyin", "")
                     total_hsk_words_new = _increment_level(
                         hsk_stats_new,
                         total_hsk_words_new,
-                        compound_info.get("level_new"),
+                        info.get("level_new"),
                         "new-",
                     )
                     total_hsk_words_old = _increment_level(
                         hsk_stats_old,
                         total_hsk_words_old,
-                        compound_info.get("level_old"),
+                        info.get("level_old"),
                         "old-",
                     )
-            else:
-                online_info = await lookup_unknown_word(segment)
-                if online_info:
+                else:
                     word_info.hsk_level = "unknown"
                     word_info.level_new = None
                     word_info.level_old = None
-                    word_info.pinyin = online_info["pinyin"]
-                    word_info.meaning = online_info["meaning"]
-                    word_info.meanings = online_info["meanings"]
+                    word_info.pinyin = info["pinyin"]
+                    word_info.meaning = info["meaning"]
+                    word_info.meanings = info["meanings"]
                     word_info.frequency = 0
                     word_info.is_hsk = True
-                    word_info.translation_source = online_info.get("translation_source")
+                    word_info.translation_source = info.get("translation_source")
 
         words.append(word_info.dict())
 
