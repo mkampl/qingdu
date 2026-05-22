@@ -1,0 +1,27 @@
+# Development overrides. Layered on top of docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# What this adds vs production:
+#   - host source mounts for hot-reload (no rebuild needed for code edits)
+#   - uvicorn --reload (RELOAD=true) so the server picks up changes
+#   - permissive CORS so the Vite dev server on :5173 can call the API
+#   - LOG_LEVEL=DEBUG by default
+services:
+  web:
+    volumes:
+      - ./app:/app/app
+      - ./static:/app/static
+      - ./frontend/dist:/app/frontend/dist
+      - ./data:/app/data
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+      - RELOAD=true
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload

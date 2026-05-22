@@ -1,8 +1,11 @@
+import os
+
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.auth import get_password_hash, require_admin
-from app.core.constants import MIN_PASSWORD_LENGTH
+from app.core.constants import API_TIMEOUT, MIN_PASSWORD_LENGTH
 from app.database import User, get_db
 from app.schemas import CreateUserRequest, UpdateInviteQuotaRequest
 
@@ -128,4 +131,113 @@ async def update_user_invite_quota(
         "user_id": user.id,
         "username": user.username,
         "invite_quota": user.invite_quota,
+    }
+
+
+# --- Translation-provider healthcheck ----------------------------------------
+#
+# Probes each provider individually with a known Chinese phrase ('你好') so an
+# admin can confirm DeepL/Google/MyMemory are reachable + accepting the auth
+# we send. Surfaces deprecations (like the Nov-2025 DeepL form-body auth
+# retirement) before users notice them in the silent-fallback chain.
+
+_PROBE_TEXT = "你好"
+
+
+async def _probe_deepl() -> dict:
+    key = os.getenv("DEEPL_API_KEY")
+    if not key:
+        return {"status": "not_configured", "detail": "DEEPL_API_KEY is empty"}
+    try:
+        async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
+            response = await client.post(
+                "https://api-free.deepl.com/v2/translate",
+                headers={"Authorization": f"DeepL-Auth-Key {key}"},
+                data={"text": _PROBE_TEXT, "target_lang": "EN", "source_lang": "ZH"},
+            )
+        if response.is_success:
+            data = response.json()
+            translation = (data.get("translations") or [{}])[0].get("text", "")
+            return {"status": "ok", "http_status": response.status_code, "translation": translation}
+        return {
+            "status": "error",
+            "http_status": response.status_code,
+            "detail": response.text[:300],
+        }
+    except Exception as e:
+        return {"status": "error", "detail": str(e)[:300]}
+
+
+async def _probe_google() -> dict:
+    key = os.getenv("GOOGLE_TRANSLATE_API_KEY")
+    if not key:
+        return {"status": "not_configured", "detail": "GOOGLE_TRANSLATE_API_KEY is empty"}
+    try:
+        async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
+            response = await client.post(
+                "https://translation.googleapis.com/language/translate/v2",
+                params={
+                    "key": key,
+                    "q": _PROBE_TEXT,
+                    "target": "en",
+                    "source": "zh",
+                },
+            )
+        if response.is_success:
+            data = response.json()
+            translation = ((data.get("data") or {}).get("translations") or [{}])[0].get(
+                "translatedText", ""
+            )
+            return {"status": "ok", "http_status": response.status_code, "translation": translation}
+        return {
+            "status": "error",
+            "http_status": response.status_code,
+            "detail": response.text[:300],
+        }
+    except Exception as e:
+        return {"status": "error", "detail": str(e)[:300]}
+
+
+async def _probe_mymemory() -> dict:
+    try:
+        async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
+            response = await client.get(
+                f"https://api.mymemory.translated.net/get?q={_PROBE_TEXT}&langpair=zh|en"
+            )
+        if response.is_success:
+            data = response.json()
+            translation = (data.get("responseData") or {}).get("translatedText", "")
+            return {"status": "ok", "http_status": response.status_code, "translation": translation}
+        return {
+            "status": "error",
+            "http_status": response.status_code,
+            "detail": response.text[:300],
+        }
+    except Exception as e:
+        return {"status": "error", "detail": str(e)[:300]}
+
+
+@router.get("/api/admin/translate-providers")
+async def translate_providers_healthcheck(
+    admin: User = Depends(require_admin),
+):
+    """Probe each translation provider with the same Chinese phrase.
+
+    The translation chain silently falls through on failure (DeepL -> Google
+    -> MyMemory). This endpoint surfaces which providers actually work,
+    catching API deprecations + bad keys before users hit them.
+    """
+    _ = admin  # auth dependency only; we don't read it
+    deepl, google, mymemory = (
+        await _probe_deepl(),
+        await _probe_google(),
+        await _probe_mymemory(),
+    )
+    return {
+        "probe": _PROBE_TEXT,
+        "providers": {
+            "deepl": deepl,
+            "google": google,
+            "mymemory": mymemory,
+        },
     }

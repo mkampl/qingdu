@@ -73,16 +73,26 @@ app = FastAPI(
     license_info={"name": "MIT"},
 )
 
-# CORS
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[origin.strip() for origin in allowed_origins],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["X-Export-Stats", "X-Rate-Limited", "Content-Disposition"],
-)
+# CORS. The SPA and the API live on the same origin in production, so no
+# cross-origin requests need to be allowed at all — empty ALLOWED_ORIGINS
+# (the default) yields an empty allow-list. Operators who actually need
+# CORS (Vite dev server, staging tooling) set ALLOWED_ORIGINS explicitly,
+# either to '*' or a comma-separated whitelist.
+_cors_env = os.getenv("ALLOWED_ORIGINS", "").strip()
+if _cors_env:
+    allowed_origins = [origin.strip() for origin in _cors_env.split(",") if origin.strip()]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=[
+            "X-Export-Stats",
+            "X-Rate-Limited",
+            "Content-Disposition",
+        ],
+    )
 
 
 @app.middleware("http")
@@ -207,23 +217,49 @@ async def startup_event() -> None:
     logger.info("Database initialized")
 
     # Bootstrap default admin if no users exist.
+    import secrets
+
     from app.auth import get_password_hash
+    from app.core.paths import DATA_DIR
     from app.database import SessionLocal, User
 
     db = SessionLocal()
     try:
         user_count = db.query(User).count()
         if user_count == 0:
+            # Per-deploy random password. Written once to disk so the operator
+            # can recover it after a fresh container start, and printed loudly
+            # to the startup logs. Keeps a public deployment from shipping a
+            # well-known default ('admin123').
+            password = secrets.token_urlsafe(16)
             admin_user = User(
                 username="admin",
-                password_hash=get_password_hash("admin123"),
+                password_hash=get_password_hash(password),
                 is_admin=True,
                 must_change_password=True,
                 invite_quota=-1,
             )
             db.add(admin_user)
             db.commit()
-            logger.warning("Initial admin user created: admin / admin123 (CHANGE PASSWORD!)")
+
+            try:
+                bootstrap_file = DATA_DIR / "admin_bootstrap.txt"
+                bootstrap_file.write_text(
+                    f"username: admin\npassword: {password}\n",
+                    encoding="utf-8",
+                )
+                bootstrap_file.chmod(0o600)
+            except Exception:
+                # Disk write is convenience, not correctness — logs always win.
+                pass
+
+            banner = "=" * 60
+            logger.warning(banner)
+            logger.warning("Initial admin user created — CHANGE PASSWORD ON FIRST LOGIN")
+            logger.warning("  username: admin")
+            logger.warning(f"  password: {password}")
+            logger.warning("Also written to /app/data/admin_bootstrap.txt (mode 0600).")
+            logger.warning(banner)
         else:
             logger.info(f"Found {user_count} existing user(s)")
     except Exception as e:

@@ -22,18 +22,28 @@ A modern web application for analyzing Chinese text difficulty based on HSK (Han
 ```bash
 git clone https://github.com/mkampl/qingdu.git
 cd qingdu
-docker-compose up -d
+docker compose up -d --build
 ```
 
-Access the app at `http://localhost:8000`
+Access the app at `http://localhost:8000`.
 
-**Default admin credentials:** `admin` / `admin123` (must change on first login)
+On first boot, a random admin password is generated and written to
+`./data/admin_bootstrap.txt` (mode 0600) plus printed loudly to the startup
+logs. The user is forced to change it on first login.
 
-### Manual Setup
+For local development with hot-reload + the Vite dev server on `:5173`, layer
+the dev compose file:
 
 ```bash
-pip install -r requirements.txt
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
+
+### Contributing
+
+Install pre-commit hooks so your local edits match what CI gates on:
+
+```bash
+pip install pre-commit && pre-commit install
 ```
 
 See [SETUP.md](SETUP.md) for detailed setup instructions including optional API keys for better translation quality.

@@ -1,5 +1,5 @@
-version: '3.8'
-
+# Production compose. No host source mounts — the image is the artefact.
+# Use docker-compose.dev.yml for local development.
 services:
   web:
     build: .
@@ -7,22 +7,19 @@ services:
     ports:
       - "${PORT:-8000}:8000"
     volumes:
-      # Mount code for development (remove in production)
-      - ./app:/app/app
-      - ./templates:/app/templates
-      - ./static:/app/static
-      # Persistent data
+      # Only persistent data is mounted. The application code lives inside
+      # the image so a pull-and-restart-without-rebuild can't end up running
+      # whatever happens to be on disk in /root/qingdu/app.
       - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      # Security - REQUIRED
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in .env file}
-      # Translation API keys (optional)
       - DEEPL_API_KEY=${DEEPL_API_KEY:-}
       - GOOGLE_TRANSLATE_API_KEY=${GOOGLE_TRANSLATE_API_KEY:-}
-      # CORS Configuration
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+      # CORS: leave unset in production to default to the public origin
+      # (see app/main.py). Override via .env / Ansible for staging hosts.
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
       - WORKERS=2
       - RELOAD=false
     env_file:

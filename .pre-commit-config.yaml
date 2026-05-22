@@ -1,0 +1,33 @@
+# Mirrors what CI checks (.github/workflows/ci.yml) — keeps "Run failed"
+# notifications off your GitHub. Install with:
+#
+#   pip install pre-commit && pre-commit install
+#
+# Then every `git commit` runs ruff format + ruff check on staged Python
+# and the standard whitespace checks. Use `pre-commit run --all-files` to
+# format the whole tree at once.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      # Auto-formats staged Python — the same command CI's `ruff format --check`
+      # gates on.
+      - id: ruff-format
+        files: ^(app|tests)/
+      # Catches lint issues (unused imports, B-rules, etc.). --fix lets ruff
+      # apply the safe ones inline.
+      - id: ruff
+        args: [--fix]
+        files: ^(app|tests)/
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.md$
+      - id: end-of-file-fixer
+        exclude: \.svg$
+      - id: check-yaml
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-merge-conflict

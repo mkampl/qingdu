@@ -5,15 +5,22 @@ import { RouterLink, RouterView } from "vue-router";
 import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
 import { useSettingsStore } from "@/stores/settings";
+import { useShortcutsStore } from "@/stores/shortcuts";
 
 import AuthControls from "@/components/auth/AuthControls.vue";
 import InvitationsModal from "@/components/InvitationsModal.vue";
 import SettingsModal from "@/components/SettingsModal.vue";
+import ShortcutsOverlay from "@/components/ShortcutsOverlay.vue";
 import Toaster from "@/components/ui/Toaster.vue";
+
+import { useKeyboardShortcuts } from "@/composables/use-keyboard-shortcuts";
 
 const settings = useSettingsStore();
 const auth = useAuthStore();
 const modals = useAppModalsStore();
+const shortcuts = useShortcutsStore();
+
+useKeyboardShortcuts();
 
 onMounted(async () => {
   settings.hydrate();
@@ -169,10 +176,25 @@ onMounted(async () => {
           </svg>
           Support
         </a>
+        <span aria-hidden="true">·</span>
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 transition-colors hover:text-accent"
+          @click="shortcuts.openOverlay()"
+          title="Show keyboard shortcuts"
+        >
+          <kbd
+            class="rounded border border-border-subtle bg-bg-elevated px-1 font-sans text-[10px] leading-3 text-fg-muted"
+          >
+            ?
+          </kbd>
+          Shortcuts
+        </button>
       </div>
     </footer>
     <Toaster />
     <SettingsModal />
     <InvitationsModal />
+    <ShortcutsOverlay />
   </div>
 </template>
