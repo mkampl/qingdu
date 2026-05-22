@@ -6,7 +6,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReaderStore } from "@/stores/reader";
 import { useToastStore } from "@/stores/toast";
-import { ApiError, saveText } from "@/api/client";
+import { ApiError, saveText, updateText } from "@/api/client";
 import { submitShortcutLabel } from "@/utils/platform";
 
 import ChopMark from "@/components/reader/ChopMark.vue";
@@ -98,11 +98,14 @@ const onSave = async () => {
   }
   saving.value = true;
   try {
-    await saveText({
+    const result = await saveText({
       title: derivedTitle.value,
       content: analysis.inputText,
       analysis_data: analysis.result,
     });
+    // Adopt the new record id so subsequent scroll triggers a PATCH instead of
+    // a no-op (and a re-save wouldn't create a duplicate row).
+    analysis.adoptSavedId(result.id);
     saved.value = true;
     justSaved.value = true;
     toasts.success("Text saved.");
@@ -136,6 +139,98 @@ function onGlobalKey(e: KeyboardEvent) {
 }
 onMounted(() => document.addEventListener("keydown", onGlobalKey));
 onBeforeUnmount(() => document.removeEventListener("keydown", onGlobalKey));
+
+// --- Reading-progress persistence ---------------------------------------
+//
+// When the user opens a saved text, the analysis store carries its id +
+// last-known progress. We:
+//   1. Restore scroll to roughly that position once the article element is
+//      laid out (next-tick after ReadingText renders).
+//   2. Debounce-PATCH /api/texts/:id with the current scroll fraction so
+//      Saved Texts cards reflect real progress instead of always 0%.
+//   3. Cancel any pending PATCH if the user navigates away.
+
+const liveProgress = ref(0);
+let progressFlushTimer: ReturnType<typeof setTimeout> | null = null;
+let lastPersistedProgress: number | null = null;
+
+function schedulePersist(value: number) {
+  if (!analysis.savedTextId) return;
+  // Skip noise: only persist when the value moves by ≥ 1%, plus the natural
+  // 100% milestone, so we don't hammer the API on micro-scrolls.
+  if (
+    lastPersistedProgress !== null &&
+    Math.abs(value - lastPersistedProgress) < 0.01 &&
+    !(value >= 0.99 && lastPersistedProgress < 0.99)
+  ) {
+    return;
+  }
+  if (progressFlushTimer) clearTimeout(progressFlushTimer);
+  progressFlushTimer = setTimeout(() => {
+    void persistProgress(value);
+  }, 1500);
+}
+
+async function persistProgress(value: number) {
+  const id = analysis.savedTextId;
+  if (!id) return;
+  try {
+    await updateText(id, { reading_progress: value });
+    lastPersistedProgress = value;
+  } catch {
+    // Silent — the next scroll will retry on the same debounce window.
+  }
+}
+
+function onProgress(value: number) {
+  liveProgress.value = value;
+  schedulePersist(value);
+}
+
+// Restore scroll position after the article renders. We can't jump to a
+// pixel offset deterministically (the article height isn't known until
+// after layout), so we restore by setting window.scrollTo to a multiple
+// of the article's bounding height, matching what ReadingProgress.compute
+// would compute.
+function restoreScroll() {
+  const target = analysis.initialProgress;
+  if (target <= 0 || !articleRef.value) return;
+  // Defer to next paint so the article has its final layout height.
+  requestAnimationFrame(() => {
+    const el = articleRef.value;
+    if (!el) return;
+    const viewportH = window.innerHeight;
+    const total = el.getBoundingClientRect().height;
+    if (total <= viewportH) return;
+    const maxScroll = total - viewportH;
+    const top = el.offsetTop + Math.round(target * maxScroll);
+    window.scrollTo({ top, behavior: "instant" as ScrollBehavior });
+  });
+}
+
+// When a saved text is loaded (id changes), restore its progress.
+watch(
+  () => analysis.savedTextId,
+  (id) => {
+    if (id !== null) {
+      lastPersistedProgress = analysis.initialProgress;
+      // Wait one tick for ReadingText to render before measuring layout.
+      nextTick(restoreScroll);
+    } else {
+      lastPersistedProgress = null;
+    }
+  },
+);
+
+onBeforeUnmount(() => {
+  // Best-effort flush so closing the tab on unsaved progress still persists.
+  if (progressFlushTimer) {
+    clearTimeout(progressFlushTimer);
+    if (analysis.savedTextId !== null) {
+      void persistProgress(liveProgress.value);
+    }
+  }
+});
 </script>
 
 <template>
@@ -157,7 +252,7 @@ onBeforeUnmount(() => document.removeEventListener("keydown", onGlobalKey));
           class="pointer-events-none absolute -left-6 top-0 hidden h-full md:block"
           aria-hidden="true"
         >
-          <ReadingProgress :target="articleRef" />
+          <ReadingProgress :target="articleRef" @progress="onProgress" />
         </div>
 
         <!-- Header strip: the small kicker + chop. -->

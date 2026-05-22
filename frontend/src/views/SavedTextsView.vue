@@ -76,7 +76,12 @@ const total = computed(() =>
 function open(text: SavedTextSummary) {
   // Hydrate the analysis store with the saved data and jump to the reader so
   // the user sees exactly what they saved — no re-analyse round-trip.
-  analysis.loadSaved(text.content, text.analysisData);
+  // Pass id + normalized progress so the reader can persist updates and
+  // restore the user's scroll position.
+  analysis.loadSaved(text.content, text.analysisData, {
+    id: text.id,
+    progress: normalizeProgress(text.reading_progress),
+  });
   reader.reset();
   void router.push("/");
 }

@@ -8,27 +8,40 @@ const props = defineProps<{
   target: HTMLElement | null;
 }>();
 
+const emit = defineEmits<{
+  /** Fires whenever the computed scroll-progress fraction (0..1) changes. */
+  (e: "progress", value: number): void;
+}>();
+
 const progress = ref(0);
 const everCompleted = ref(false);
 
 function compute() {
   const el = props.target;
   if (!el) {
-    progress.value = 0;
+    if (progress.value !== 0) {
+      progress.value = 0;
+      emit("progress", 0);
+    }
     return;
   }
   const rect = el.getBoundingClientRect();
   const viewportH = window.innerHeight;
   const start = rect.top;
   const total = rect.height;
+  let next: number;
   if (total <= viewportH) {
-    progress.value = start < 0 ? 1 : 0;
+    next = start < 0 ? 1 : 0;
   } else {
     // 0 when the top of the article is at the top of the viewport,
     // 1 when the bottom of the article is at the bottom of the viewport.
     const scrolled = -start;
     const maxScroll = total - viewportH;
-    progress.value = Math.max(0, Math.min(1, scrolled / maxScroll));
+    next = Math.max(0, Math.min(1, scrolled / maxScroll));
+  }
+  if (next !== progress.value) {
+    progress.value = next;
+    emit("progress", next);
   }
   // Once the reader reaches the end of a text, the chop stays stamped — even
   // if they scroll back up — until the article changes.

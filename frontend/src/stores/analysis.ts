@@ -9,6 +9,17 @@ export const useAnalysisStore = defineStore("analysis", () => {
   const result = ref<AnalysisResponse | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  /**
+   * Backend id of the saved-text record this analysis represents. Set when
+   * `loadSaved()` is called from the library; null when the user is reading
+   * a fresh analysis they haven't saved yet (so we don't try to PATCH).
+   */
+  const savedTextId = ref<number | null>(null);
+  /**
+   * 0..1 fraction — last-known reading progress for the loaded saved text.
+   * Used by ReaderView to restore scroll position after the article renders.
+   */
+  const initialProgress = ref<number>(0);
   let activeRequest: AbortController | null = null;
 
   const hasResult = computed(() => result.value !== null);
@@ -28,6 +39,9 @@ export const useAnalysisStore = defineStore("analysis", () => {
     loading.value = true;
     try {
       result.value = await api.analyze(text, activeRequest.signal);
+      // A fresh analysis isn't a saved record yet.
+      savedTextId.value = null;
+      initialProgress.value = 0;
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
       error.value = e instanceof Error ? e.message : "Analysis failed";
@@ -41,6 +55,8 @@ export const useAnalysisStore = defineStore("analysis", () => {
     inputText.value = "";
     result.value = null;
     error.value = null;
+    savedTextId.value = null;
+    initialProgress.value = 0;
   }
 
   /**
@@ -48,12 +64,23 @@ export const useAnalysisStore = defineStore("analysis", () => {
    * /api/analyze. Used when opening a saved text from the library so the
    * reader matches what the user actually saved.
    */
-  function loadSaved(text: string, data: AnalysisResponse) {
+  function loadSaved(
+    text: string,
+    data: AnalysisResponse,
+    options: { id: number; progress?: number } | null = null,
+  ) {
     if (activeRequest) activeRequest.abort();
     inputText.value = text;
     result.value = data;
     error.value = null;
     loading.value = false;
+    savedTextId.value = options?.id ?? null;
+    initialProgress.value = Math.max(0, Math.min(1, options?.progress ?? 0));
+  }
+
+  /** Mark the current analysis as saved (called by ReaderView after POST /save). */
+  function adoptSavedId(id: number) {
+    savedTextId.value = id;
   }
 
   return {
@@ -61,9 +88,12 @@ export const useAnalysisStore = defineStore("analysis", () => {
     result,
     loading,
     error,
+    savedTextId,
+    initialProgress,
     hasResult,
     analyze,
     reset,
     loadSaved,
+    adoptSavedId,
   };
 });
