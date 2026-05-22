@@ -1,0 +1,28 @@
+import { createRouter, createWebHistory } from "vue-router";
+
+export const router = createRouter({
+  history: createWebHistory("/v2/"),
+  routes: [
+    {
+      path: "/",
+      name: "reader",
+      component: () => import("@/views/ReaderView.vue"),
+    },
+    {
+      path: "/texts",
+      name: "texts",
+      component: () => import("@/views/SavedTextsView.vue"),
+    },
+    {
+      path: "/vocab/:id",
+      name: "vocab",
+      component: () => import("@/views/VocabListView.vue"),
+      props: true,
+    },
+    {
+      path: "/admin",
+      name: "admin",
+      component: () => import("@/views/AdminView.vue"),
+    },
+  ],
+});
