@@ -2,11 +2,15 @@
 import { RouterLink, RouterView } from "vue-router";
 import { onMounted } from "vue";
 import { useSettingsStore } from "@/stores/settings";
+import { useAuthStore } from "@/stores/auth";
+import Toaster from "@/components/ui/Toaster.vue";
 
 const settings = useSettingsStore();
+const auth = useAuthStore();
 
-onMounted(() => {
+onMounted(async () => {
   settings.hydrate();
+  await auth.hydrate();
 });
 </script>
 
@@ -51,5 +55,6 @@ onMounted(() => {
     <main class="flex-1 overflow-y-auto">
       <RouterView />
     </main>
+    <Toaster />
   </div>
 </template>
