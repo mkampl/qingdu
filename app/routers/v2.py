@@ -51,9 +51,6 @@ async def v2_spa(request: Request, rest: str | None = None):
     # (favicons, manifest, etc. would normally come from /static, but allow it).
     if rest:
         candidate: Path = V2_DIST / rest
-        if (
-            candidate.is_file()
-            and candidate.resolve().is_relative_to(V2_DIST.resolve())
-        ):
+        if candidate.is_file() and candidate.resolve().is_relative_to(V2_DIST.resolve()):
             return FileResponse(candidate)
     return FileResponse(index)
