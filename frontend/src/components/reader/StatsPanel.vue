@@ -113,6 +113,35 @@ const coveragePct = computed(() => {
       </div>
     </section>
 
+    <!-- HSK colour legend — opt-in via Settings. Two columns of swatches so
+         it stays compact in the margin panel. -->
+    <section
+      v-if="settings.showLegend"
+      class="border-t border-border-subtle pt-5"
+    >
+      <p
+        class="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-fg-subtle"
+      >
+        Levels
+      </p>
+      <ul class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+        <li
+          v-for="n in settings.hskVersion === 'old' ? 6 : 9"
+          :key="n"
+          class="flex items-center gap-2"
+        >
+          <span
+            class="inline-block size-2.5 rounded-sm"
+            :style="{
+              backgroundColor: `color-mix(in oklch, var(--color-hsk-${n}), transparent 40%)`,
+              boxShadow: `inset 0 0 0 1px color-mix(in oklch, var(--color-hsk-${n}), transparent 10%)`,
+            }"
+          />
+          <span class="text-fg-muted">HSK {{ n }}</span>
+        </li>
+      </ul>
+    </section>
+
     <!-- Save action — always rendered. Anonymous users are prompted to
          sign in by ReaderView when they click. -->
     <section class="border-t border-border-subtle pt-5">

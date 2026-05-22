@@ -148,3 +148,20 @@ export interface MyInvitationsResponse {
   invitations: InvitationSummary[];
   quota: { total: number; used: number; remaining: number };
 }
+
+export interface GenerateInvitationResponse {
+  id: number;
+  token: string;
+  invite_url: string;
+  expires_at: string;
+  remaining_quota: number;
+}
+
+export interface AdminUserSummary {
+  id: number;
+  username: string;
+  is_admin: boolean;
+  invite_quota: number;
+  last_active: string;
+  created_at: string;
+}

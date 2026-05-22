@@ -2,12 +2,14 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
+import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useToastStore } from "@/stores/toast";
 
 const auth = useAuthStore();
 const modals = useAuthModalsStore();
+const appModals = useAppModalsStore();
 const toasts = useToastStore();
 const router = useRouter();
 
@@ -43,6 +45,16 @@ onBeforeUnmount(() => {
 function openChangePassword() {
   close();
   modals.openChangePassword();
+}
+
+function openInvitations() {
+  close();
+  appModals.openInvitations();
+}
+
+function openSettings() {
+  close();
+  appModals.openSettings();
 }
 
 function goAdmin() {
@@ -121,6 +133,22 @@ async function logout() {
             type="button"
             role="menuitem"
             class="block w-full px-4 py-2 text-left text-sm text-fg hover:bg-bg-sunken"
+            @click="openInvitations"
+          >
+            My invitations
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            class="block w-full px-4 py-2 text-left text-sm text-fg hover:bg-bg-sunken"
+            @click="openSettings"
+          >
+            Settings
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            class="block w-full px-4 py-2 text-left text-sm text-fg hover:bg-bg-sunken"
             @click="openChangePassword"
           >
             Change password
@@ -133,11 +161,6 @@ async function logout() {
             @click="goAdmin"
           >
             Admin panel
-            <span
-              class="ml-1 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
-            >
-              soon
-            </span>
           </button>
         </div>
 

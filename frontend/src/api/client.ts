@@ -7,7 +7,9 @@
  */
 
 import type {
+  AdminUserSummary,
   AnalysisResponse,
+  GenerateInvitationResponse,
   HealthResponse,
   LoginResponse,
   MeResponse,
@@ -138,13 +140,46 @@ export const signupWithInvite = (
 // --- Invitations -------------------------------------------------------------
 
 export const generateInvitation = () =>
-  request<{ invite_url: string; expires_at: string; remaining_quota: number }>(
-    "/api/invitations/generate",
-    { method: "POST" },
-  );
+  request<GenerateInvitationResponse>("/api/invitations/generate", {
+    method: "POST",
+  });
 
 export const myInvitations = () =>
   request<MyInvitationsResponse>("/api/invitations/my-invitations");
+
+// --- Admin -------------------------------------------------------------------
+
+export const adminListUsers = () =>
+  request<AdminUserSummary[]>("/api/admin/users");
+
+export const adminCreateUser = (input: { username: string; password: string }) =>
+  request<{ message: string }>("/api/admin/users", { body: input });
+
+export const adminDeleteUser = (id: number) =>
+  request<{ message: string }>(`/api/admin/users/${id}`, { method: "DELETE" });
+
+export const adminResetPassword = (id: number, newPassword: string) =>
+  request<{ message: string }>(
+    `/api/admin/users/${id}/reset-password`,
+    { body: { new_password: newPassword } },
+  );
+
+export const adminToggleAdmin = (id: number) =>
+  request<{ message: string }>(
+    `/api/admin/users/${id}/toggle-admin`,
+    { method: "POST" },
+  );
+
+export const adminUpdateInviteQuota = (id: number, quota: number) =>
+  request<{
+    message: string;
+    user_id: number;
+    username: string;
+    invite_quota: number;
+  }>(`/api/admin/users/${id}/invite-quota`, {
+    method: "PATCH",
+    body: { invite_quota: quota },
+  });
 
 // --- Saved texts -------------------------------------------------------------
 
