@@ -16,6 +16,8 @@ import InputPanel from "@/components/reader/InputPanel.vue";
 import ReadingProgress from "@/components/reader/ReadingProgress.vue";
 import ReadingText from "@/components/reader/ReadingText.vue";
 import StatsPanel from "@/components/reader/StatsPanel.vue";
+import TocSidebar from "@/components/reader/TocSidebar.vue";
+import type { Section } from "@/components/reader/utils";
 import WordPopover from "@/components/reader/WordPopover.vue";
 
 const analysis = useAnalysisStore();
@@ -28,6 +30,7 @@ const toasts = useToastStore();
 const localInput = ref<string>(analysis.inputText);
 const showEditor = ref<boolean>(!analysis.hasResult);
 const articleRef = ref<HTMLElement | null>(null);
+const sections = ref<Section[]>([]);
 
 const saved = ref(false);
 const saving = ref(false);
@@ -523,6 +526,7 @@ onBeforeUnmount(() => {
           <ReadingText
             v-if="analysis.result"
             :analysis="analysis.result"
+            @sections="(s) => (sections = s)"
           />
 
           <!-- Empty state: a quiet invitation. -->
@@ -562,8 +566,16 @@ onBeforeUnmount(() => {
       >
         <aside
           v-if="analysis.result"
-          class="md:sticky md:top-6 md:self-start md:max-h-[calc(100vh-3rem)] md:overflow-y-auto md:pr-1 scrollbar-quiet"
+          class="md:sticky md:top-6 md:self-start md:max-h-[calc(100vh-3rem)] md:overflow-y-auto md:pr-1 scrollbar-quiet space-y-8"
         >
+          <!-- TOC — only rendered when the text is long enough that the
+               sentences split into 3+ sections (see detectSections). -->
+          <TocSidebar
+            v-if="sections.length"
+            :sections="sections"
+            :article-el="articleRef"
+          />
+
           <StatsPanel
             :statistics="analysis.result.statistics"
             :can-save="auth.isAuthed"

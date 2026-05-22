@@ -7,14 +7,20 @@ import { useSettingsStore } from "@/stores/settings";
 
 import SentenceTranslation from "./SentenceTranslation.vue";
 import {
+  detectSections,
   groupIntoSentences,
   hskCssVar,
   levelForVersion,
   shouldShowPinyin,
+  type Section,
   type Sentence,
 } from "./utils";
 
 const props = defineProps<{ analysis: AnalysisResponse }>();
+const emit = defineEmits<{
+  /** Fires whenever the section list changes — ReaderView passes it to the TOC. */
+  (e: "sections", value: Section[]): void;
+}>();
 
 const reader = useReaderStore();
 const settings = useSettingsStore();
@@ -22,6 +28,29 @@ const settings = useSettingsStore();
 const sentences = computed<Sentence[]>(() =>
   groupIntoSentences(props.analysis.words),
 );
+
+const sections = computed<Section[]>(() => detectSections(sentences.value));
+
+import { nextTick, watch } from "vue";
+watch(
+  sections,
+  (next) => {
+    // Let the TOC pick up section changes (text replaced, re-analysed, etc.).
+    emit("sections", next);
+    // The DOM-anchor IDs are stable across renders, so we don't need to
+    // resync scroll position here — Vue's diff keeps positions intact.
+    void nextTick();
+  },
+  { immediate: true },
+);
+
+/** Map from sentence index -> section index, for the "this sentence starts
+ *  a new section" lookup in the template. */
+const sectionStartAt = computed<Map<number, Section>>(() => {
+  const m = new Map<number, Section>();
+  for (const s of sections.value) m.set(s.startSentenceIdx, s);
+  return m;
+});
 
 const estimatedLevel = computed(() => {
   if (settings.hskVersion === "old") {
@@ -91,9 +120,20 @@ function selectedWordKey(): string | null {
     :style="{ fontSize: '20px' }"
     aria-label="Analysed text"
   >
+    <template v-for="(sentence, idx) in sentences" :key="sentence.key">
+      <!-- Section anchor + heading. We render a real heading element so it's
+           reachable by screen readers and the URL hash navigation, and so
+           IntersectionObserver in TocSidebar can pin the "current" entry. -->
+      <h2
+        v-if="sectionStartAt.get(idx)"
+        :id="sectionStartAt.get(idx)!.key"
+        class="reader-section-anchor mb-2 mt-8 scroll-mt-24 font-display text-[11px] font-medium uppercase tracking-[0.22em] text-fg-subtle first:mt-0"
+        :data-section-key="sectionStartAt.get(idx)!.key"
+      >
+        <span class="text-fg-muted">{{ sectionStartAt.get(idx)!.title }}</span>
+      </h2>
+
     <p
-      v-for="(sentence, idx) in sentences"
-      :key="sentence.key"
       class="mb-2.5 leading-[2.4]"
       :class="{ 'mt-4': sentence.endsWithLineBreak && idx > 0 }"
     >
@@ -149,5 +189,6 @@ function selectedWordKey(): string | null {
         />
       </Transition>
     </p>
+    </template>
   </article>
 </template>

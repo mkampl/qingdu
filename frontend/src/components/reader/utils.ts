@@ -163,3 +163,81 @@ export function levelDisplayName(level: HskLevel | null | undefined): string {
   const n = levelNumber(level);
   return n === null ? String(level) : `HSK ${n}`;
 }
+
+/* --- Section detection ----------------------------------------------------
+ *
+ * Long texts (articles, book chapters, anything imported from /discover)
+ * need internal navigation. We detect sections by walking the already-
+ * sentence-grouped output and grouping consecutive sentences into chunks
+ * of roughly TARGET_SECTION_CHARS, breaking at paragraph boundaries
+ * (`endsWithLineBreak`) so a section never starts mid-paragraph.
+ *
+ * The section title is the first ~28 chars of the section's opening
+ * sentence — for narrative prose this consistently gives a sense of
+ * "what this part is about", and for headings-style text where the
+ * heading sits on its own paragraph, it surfaces the actual heading.
+ */
+
+export interface Section {
+  /** v-for key — index in the sections array, stable across renders. */
+  key: string;
+  /** Display title — first sentence snippet of this section. */
+  title: string;
+  /** Index of the first sentence in the parent `sentences` array. */
+  startSentenceIdx: number;
+}
+
+/** Target chars per section. Smaller -> finer TOC, more clicks. */
+const TARGET_SECTION_CHARS = 480;
+/** Below this total length, we don't bother with sections at all. */
+const MIN_TEXT_LENGTH_FOR_TOC = 900;
+/** A useful TOC needs at least this many sections; below it we suppress it. */
+const MIN_SECTION_COUNT = 3;
+
+export function detectSections(sentences: Sentence[]): Section[] {
+  if (!sentences.length) return [];
+
+  const totalChars = sentences.reduce((sum, s) => sum + s.text.length, 0);
+  if (totalChars < MIN_TEXT_LENGTH_FOR_TOC) return [];
+
+  const sections: Section[] = [];
+  let pendingStart = 0;
+  let acc = 0;
+
+  function flushAt(idx: number) {
+    const first = sentences[pendingStart];
+    if (!first) return;
+    sections.push({
+      key: `sec-${sections.length}`,
+      title: snippetTitle(first.text),
+      startSentenceIdx: pendingStart,
+    });
+    pendingStart = idx;
+    acc = 0;
+  }
+
+  for (let i = 0; i < sentences.length; i++) {
+    const sentence = sentences[i];
+    acc += sentence.text.length;
+    // Only close a section at a paragraph boundary so we don't slice prose
+    // mid-thought. The last sentence is implicitly a boundary too.
+    const atBoundary = sentence.endsWithLineBreak || i === sentences.length - 1;
+    if (atBoundary && acc >= TARGET_SECTION_CHARS) {
+      flushAt(i + 1);
+    }
+  }
+  // Tail
+  if (pendingStart < sentences.length) flushAt(sentences.length);
+
+  // Suppress trivial TOCs — a 2-section TOC looks broken.
+  return sections.length >= MIN_SECTION_COUNT ? sections : [];
+}
+
+function snippetTitle(text: string, max = 28): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return "—";
+  // Strip leading markdown-ish headers if present (trafilatura sometimes
+  // leaves '#' lines in the markdown output).
+  const noHeading = clean.replace(/^#+\s*/, "");
+  return noHeading.length > max ? `${noHeading.slice(0, max)}…` : noHeading;
+}
