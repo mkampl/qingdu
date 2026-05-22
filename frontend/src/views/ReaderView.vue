@@ -6,6 +6,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReaderStore } from "@/stores/reader";
 import { useToastStore } from "@/stores/toast";
+import { useVocabStatsStore } from "@/stores/vocab-stats";
 import { ApiError, saveText, updateText } from "@/api/client";
 import { submitShortcutLabel } from "@/utils/platform";
 
@@ -18,6 +19,7 @@ import WordPopover from "@/components/reader/WordPopover.vue";
 
 const analysis = useAnalysisStore();
 const reader = useReaderStore();
+const vocabStats = useVocabStatsStore();
 const auth = useAuthStore();
 const authModals = useAuthModalsStore();
 const toasts = useToastStore();
@@ -42,13 +44,30 @@ onMounted(() => {
     localInput.value = STARTER_TEXT;
     placeholderSeeded.value = true;
   }
+  // Cold-start guard: if the backend is still loading HSK vocab, the user's
+  // click on Analyze would 503. Kick off a poll so we know when it's ready
+  // and can show a friendly banner in the meantime.
+  void vocabStats.startPolling();
 });
+onBeforeUnmount(() => vocabStats.stop());
 
 watch(
   () => analysis.hasResult,
   (hasResult) => {
     if (hasResult) showEditor.value = false;
   },
+);
+
+// When a saved text is loaded, mirror that into the local "saved" flag so
+// the Save button doesn't initially say "Save text" for an already-stored
+// record. Reset to false when the loaded record changes / is cleared.
+watch(
+  () => analysis.savedTextId,
+  (id) => {
+    saved.value = id !== null;
+    justSaved.value = false;
+  },
+  { immediate: true },
 );
 
 async function onAnalyze() {
@@ -89,6 +108,23 @@ function onClear() {
   placeholderSeeded.value = false;
 }
 
+// Best-effort title from the first sentence (clipped). Used for FRESH saves;
+// loaded saved texts use their stored title (analysis.savedTextTitle).
+const derivedTitle = computed(() => {
+  const text = analysis.inputText.trim();
+  if (!text) return "Untitled";
+  const firstLine = text.split("\n")[0];
+  const firstSentence = firstLine.split(/[。！？!?]/)[0] ?? firstLine;
+  return firstSentence.length > 40
+    ? `${firstSentence.slice(0, 40)}…`
+    : firstSentence || firstLine;
+});
+
+/** Title shown in the reader header — stored value if loaded, derived otherwise. */
+const displayTitle = computed(
+  () => analysis.savedTextTitle ?? derivedTitle.value,
+);
+
 const onSave = async () => {
   if (!analysis.result) return;
   if (!auth.isAuthed) {
@@ -98,17 +134,27 @@ const onSave = async () => {
   }
   saving.value = true;
   try {
-    const result = await saveText({
-      title: derivedTitle.value,
-      content: analysis.inputText,
-      analysis_data: analysis.result,
-    });
-    // Adopt the new record id so subsequent scroll triggers a PATCH instead of
-    // a no-op (and a re-save wouldn't create a duplicate row).
-    analysis.adoptSavedId(result.id);
+    if (analysis.savedTextId !== null) {
+      // Update the existing record (re-analysed / edited).
+      await updateText(analysis.savedTextId, {
+        title: analysis.savedTextTitle ?? derivedTitle.value,
+        content: analysis.inputText,
+        analysis_data: analysis.result,
+        tags: analysis.savedTextTags,
+      });
+      analysis.markSynced();
+      toasts.success("Text updated.");
+    } else {
+      const result = await saveText({
+        title: derivedTitle.value,
+        content: analysis.inputText,
+        analysis_data: analysis.result,
+      });
+      analysis.adoptSavedId(result.id, derivedTitle.value, []);
+      toasts.success("Text saved.");
+    }
     saved.value = true;
     justSaved.value = true;
-    toasts.success("Text saved.");
     setTimeout(() => (justSaved.value = false), 1200);
   } catch (e) {
     toasts.error(
@@ -119,16 +165,70 @@ const onSave = async () => {
   }
 };
 
-// Best-effort title from the first sentence (clipped).
-const derivedTitle = computed(() => {
-  const text = analysis.inputText.trim();
-  if (!text) return "Untitled";
-  const firstLine = text.split("\n")[0];
-  const firstSentence = firstLine.split(/[。！？!?]/)[0] ?? firstLine;
-  return firstSentence.length > 40
-    ? `${firstSentence.slice(0, 40)}…`
-    : firstSentence || firstLine;
-});
+// --- Inline title rename --------------------------------------------------
+
+const renamingTitle = ref(false);
+const titleDraft = ref("");
+
+function beginRenameTitle() {
+  if (analysis.savedTextId === null) return; // only saved texts can be renamed
+  titleDraft.value = displayTitle.value;
+  renamingTitle.value = true;
+}
+
+async function commitRenameTitle() {
+  if (analysis.savedTextId === null) return;
+  const next = titleDraft.value.trim();
+  if (!next || next === analysis.savedTextTitle) {
+    renamingTitle.value = false;
+    return;
+  }
+  try {
+    await updateText(analysis.savedTextId, { title: next });
+    analysis.updateSavedTitle(next);
+    toasts.success("Title updated.");
+  } catch (e) {
+    toasts.error(
+      e instanceof ApiError ? e.message : "Couldn't rename.",
+    );
+  } finally {
+    renamingTitle.value = false;
+  }
+}
+
+// --- Tag editor -----------------------------------------------------------
+
+const newTagDraft = ref("");
+const tagSaving = ref(false);
+
+async function syncTags(next: string[]) {
+  if (analysis.savedTextId === null) return;
+  tagSaving.value = true;
+  try {
+    await updateText(analysis.savedTextId, { tags: next });
+    analysis.updateSavedTags(next);
+  } catch (e) {
+    toasts.error(
+      e instanceof ApiError ? e.message : "Couldn't update tags.",
+    );
+  } finally {
+    tagSaving.value = false;
+  }
+}
+
+async function addTag() {
+  const tag = newTagDraft.value.trim();
+  if (!tag || analysis.savedTextTags.includes(tag)) {
+    newTagDraft.value = "";
+    return;
+  }
+  await syncTags([...analysis.savedTextTags, tag]);
+  newTagDraft.value = "";
+}
+
+async function removeTag(tag: string) {
+  await syncTags(analysis.savedTextTags.filter((t) => t !== tag));
+}
 
 // Keyboard: ESC closes any open word popover (handled in WordPopover) and
 // also closes an open sentence translation when no popover is open.
@@ -255,22 +355,54 @@ onBeforeUnmount(() => {
           <ReadingProgress :target="articleRef" @progress="onProgress" />
         </div>
 
-        <!-- Header strip: the small kicker + chop. -->
-        <header class="mb-6 flex items-center justify-between gap-4">
-          <div class="flex items-baseline gap-3">
+        <!-- Header strip: kicker · title · edited pill · chop. -->
+        <header class="mb-3 flex items-center justify-between gap-4">
+          <div class="flex min-w-0 flex-1 items-baseline gap-3">
             <span
               class="font-display text-[11px] font-medium uppercase tracking-[0.22em] text-fg-subtle"
             >
               Reader
             </span>
-            <span class="h-px w-12 bg-border-subtle" aria-hidden="true" />
-            <span
-              v-if="analysis.hasResult"
-              class="text-cn-serif truncate max-w-[16rem] text-[12px] italic text-fg-subtle"
-              :title="derivedTitle"
-            >
-              {{ derivedTitle }}
-            </span>
+            <span class="h-px w-12 shrink-0 bg-border-subtle" aria-hidden="true" />
+
+            <!-- Title — inline-editable for saved texts. -->
+            <template v-if="analysis.hasResult">
+              <input
+                v-if="renamingTitle"
+                v-model="titleDraft"
+                type="text"
+                class="text-cn-serif w-full max-w-md rounded-sm border-b border-accent bg-transparent text-[13px] italic text-fg focus:outline-none"
+                autofocus
+                @blur="commitRenameTitle"
+                @keydown.enter.prevent="commitRenameTitle"
+                @keydown.escape.prevent="renamingTitle = false"
+              />
+              <button
+                v-else-if="analysis.savedTextId !== null"
+                type="button"
+                class="text-cn-serif truncate text-left text-[13px] italic text-fg-muted transition-colors hover:text-accent"
+                :title="`${displayTitle} — click to rename`"
+                @click="beginRenameTitle"
+              >
+                {{ displayTitle }}
+              </button>
+              <span
+                v-else
+                class="text-cn-serif truncate text-[12px] italic text-fg-subtle"
+                :title="displayTitle"
+              >
+                {{ displayTitle }}
+              </span>
+
+              <!-- Edited pill — only when the loaded saved text has drifted. -->
+              <span
+                v-if="analysis.isEdited"
+                class="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-accent"
+                title="The text has been edited since you saved it — click Save to update."
+              >
+                edited
+              </span>
+            </template>
           </div>
           <Transition
             enter-active-class="transition duration-300 ease-out"
@@ -285,6 +417,46 @@ onBeforeUnmount(() => {
           </Transition>
         </header>
 
+        <!-- Tag row — only when viewing a saved text. -->
+        <div
+          v-if="analysis.hasResult && analysis.savedTextId !== null"
+          class="mb-5 flex flex-wrap items-center gap-1.5"
+        >
+          <span
+            v-for="tag in analysis.savedTextTags"
+            :key="tag"
+            class="inline-flex items-center gap-1 rounded-full bg-bg-sunken px-2.5 py-0.5 text-xs font-medium text-fg-muted"
+          >
+            {{ tag }}
+            <button
+              type="button"
+              class="text-fg-subtle hover:text-fg disabled:opacity-50"
+              :aria-label="`Remove ${tag}`"
+              :disabled="tagSaving"
+              @click="removeTag(tag)"
+            >
+              <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                <path
+                  d="M2 2l5 5M7 2l-5 5"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </span>
+          <input
+            v-model="newTagDraft"
+            type="text"
+            placeholder="+ Add tag"
+            class="min-w-[6rem] max-w-[10rem] rounded-full border border-border-subtle bg-transparent px-2.5 py-0.5 text-xs text-fg placeholder:text-fg-subtle focus:border-accent focus:outline-none"
+            :disabled="tagSaving"
+            @keydown.enter.prevent="addTag"
+            @keydown.escape.prevent="newTagDraft = ''"
+            @blur="addTag"
+          />
+        </div>
+
         <!-- Input / Edit affordance. -->
         <InputPanel
           v-model="localInput"
@@ -295,6 +467,21 @@ onBeforeUnmount(() => {
           @expand="onExpand"
           @clear="onClear"
         />
+
+        <!-- Cold-start banner: HSK vocab still loading on the backend. -->
+        <div
+          v-if="!vocabStats.ready"
+          class="mb-6 flex items-center gap-3 rounded-md border border-border-subtle bg-bg-elevated px-4 py-3 text-sm text-fg-muted"
+          role="status"
+        >
+          <span
+            class="inline-block size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+            aria-hidden="true"
+          />
+          <span class="font-display italic">
+            Loading HSK vocabulary on the server — analysis will work in a few seconds.
+          </span>
+        </div>
 
         <!-- Error banner -->
         <div
@@ -355,6 +542,8 @@ onBeforeUnmount(() => {
             :can-save="auth.isAuthed"
             :saved="saved"
             :saving="saving"
+            :is-update="analysis.savedTextId !== null"
+            :is-edited="analysis.isEdited"
             @save="onSave"
           />
         </aside>

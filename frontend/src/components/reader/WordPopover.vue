@@ -2,13 +2,21 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import * as api from "@/api/client";
+import { ApiError } from "@/api/client";
+import { useAuthStore } from "@/stores/auth";
 import { useReaderStore } from "@/stores/reader";
 import { useSettingsStore } from "@/stores/settings";
+import { useToastStore } from "@/stores/toast";
+import { useVocabListsStore } from "@/stores/vocab-lists";
+
 import HskChip from "./HskChip.vue";
 import { levelForVersion } from "./utils";
 
 const reader = useReaderStore();
 const settings = useSettingsStore();
+const auth = useAuthStore();
+const vocabLists = useVocabListsStore();
+const toasts = useToastStore();
 
 const word = computed(() => reader.selectedWord);
 const anchor = computed(() => reader.selectedAnchor);
@@ -84,7 +92,86 @@ async function playTts() {
 }
 
 watch(word, (next) => {
-  if (next) ttsLoading.value = false;
+  if (next) {
+    ttsLoading.value = false;
+    addToListExpanded.value = false;
+    addToListSelectedId.value = null;
+    addToListSection.value = "Main";
+    addToListError.value = null;
+  }
+});
+
+// --- Add-to-vocab-list ----------------------------------------------------
+//
+// Inline expanding panel inside the popover. First click loads the user's
+// vocab lists (cached in the store), shows them as a picker. Section field
+// defaults to 'Main' but uses the first existing section if the picked list
+// already has one.
+
+const addToListExpanded = ref(false);
+const addToListSelectedId = ref<number | null>(null);
+const addToListSection = ref("Main");
+const addToListSubmitting = ref(false);
+const addToListError = ref<string | null>(null);
+const addToListAdded = ref(false);
+
+async function expandAddToList() {
+  addToListExpanded.value = true;
+  addToListAdded.value = false;
+  addToListError.value = null;
+  await vocabLists.ensureLoaded();
+  // Pre-select a sensible default: the only list, or the first one.
+  if (
+    addToListSelectedId.value === null &&
+    vocabLists.lists.length > 0
+  ) {
+    selectList(vocabLists.lists[0].id);
+  }
+}
+
+function selectList(id: number) {
+  addToListSelectedId.value = id;
+  const list = vocabLists.lists.find((l) => l.id === id);
+  const firstSection = list?.sections?.[0]?.name;
+  // Stick with the user's draft if they've already changed it; otherwise
+  // fall back to the first existing section name or 'Main'.
+  if (addToListSection.value === "Main" && firstSection) {
+    addToListSection.value = firstSection;
+  }
+}
+
+async function submitAddToList() {
+  if (!word.value || !addToListSelectedId.value || addToListSubmitting.value) return;
+  const sectionName = addToListSection.value.trim() || "Main";
+  addToListSubmitting.value = true;
+  addToListError.value = null;
+  try {
+    await api.addWordToList(addToListSelectedId.value, {
+      section_name: sectionName,
+      hanzi: word.value.text,
+      meaning: word.value.meaning ?? "",
+    });
+    addToListAdded.value = true;
+    toasts.success(`Added 「${word.value.text}」 to “${currentListName.value}”.`);
+    // Invalidate so the next open picks up the new word (e.g. for section
+    // defaults on the same list).
+    vocabLists.invalidate();
+    setTimeout(() => {
+      addToListExpanded.value = false;
+      addToListAdded.value = false;
+    }, 700);
+  } catch (e) {
+    addToListError.value =
+      e instanceof ApiError ? e.message : "Couldn't add the word.";
+  } finally {
+    addToListSubmitting.value = false;
+  }
+}
+
+const currentListName = computed(() => {
+  const id = addToListSelectedId.value;
+  if (id === null) return "";
+  return vocabLists.lists.find((l) => l.id === id)?.name ?? "";
 });
 
 function translateSentenceFromWord() {
@@ -217,6 +304,169 @@ const wordLevel = computed(() =>
             <span v-if="word.radical_pinyin" class="text-fg-muted">
               {{ word.radical_pinyin }}
             </span>
+          </div>
+
+          <!-- Add to vocab list — signed-in users only. Expands inline so the
+               popover doesn't grow until the user asks for it. -->
+          <div
+            v-if="auth.isAuthed"
+            class="mt-4 border-t border-border-subtle pt-3"
+          >
+            <template v-if="!addToListExpanded">
+              <button
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg-elevated px-2.5 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:text-fg hover:bg-bg-sunken"
+                @click="expandAddToList"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path
+                    d="M5 1.5v7M1.5 5h7"
+                    stroke="currentColor"
+                    stroke-width="1.4"
+                    stroke-linecap="round"
+                  />
+                </svg>
+                Add to vocab list
+              </button>
+            </template>
+
+            <div v-else class="space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span
+                  class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+                >
+                  Add 「{{ word.text }}」 to
+                </span>
+                <button
+                  type="button"
+                  class="text-fg-subtle hover:text-fg"
+                  aria-label="Cancel"
+                  @click="addToListExpanded = false"
+                >
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                    <path
+                      d="M2.5 2.5l6 6M8.5 2.5l-6 6"
+                      stroke="currentColor"
+                      stroke-width="1.4"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <div
+                v-if="vocabLists.loading"
+                class="flex items-center gap-2 text-xs text-fg-muted"
+              >
+                <span
+                  class="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                />
+                Loading lists…
+              </div>
+
+              <div
+                v-else-if="vocabLists.error"
+                class="text-xs text-red-700 dark:text-red-300"
+              >
+                {{ vocabLists.error }}
+              </div>
+
+              <div
+                v-else-if="vocabLists.isEmpty"
+                class="text-xs italic text-fg-muted"
+              >
+                No vocab lists yet —
+                <router-link to="/vocab" class="font-medium text-accent hover:underline">
+                  create one
+                </router-link>
+                .
+              </div>
+
+              <template v-else>
+                <!-- List picker — compact scrollable group -->
+                <div
+                  class="max-h-24 overflow-y-auto rounded-md border border-border-subtle"
+                >
+                  <button
+                    v-for="vl in vocabLists.lists"
+                    :key="vl.id"
+                    type="button"
+                    class="block w-full px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-bg-sunken"
+                    :class="
+                      addToListSelectedId === vl.id
+                        ? 'bg-bg-sunken font-medium text-fg'
+                        : 'text-fg-muted'
+                    "
+                    @click="selectList(vl.id)"
+                  >
+                    {{ vl.name }}
+                    <span
+                      class="ml-1 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
+                    >
+                      {{
+                        (vl.sections ?? [])
+                          .reduce((sum, s) => sum + (s.words?.length ?? 0), 0)
+                      }} words
+                    </span>
+                  </button>
+                </div>
+
+                <!-- Section input -->
+                <label class="block">
+                  <span
+                    class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+                  >
+                    Section
+                  </span>
+                  <input
+                    v-model="addToListSection"
+                    type="text"
+                    class="block w-full rounded-md border border-border bg-bg-elevated px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none"
+                    autocomplete="off"
+                    @keydown.enter.prevent="submitAddToList"
+                  />
+                </label>
+
+                <p
+                  v-if="addToListError"
+                  class="text-xs text-red-700 dark:text-red-300"
+                >
+                  {{ addToListError }}
+                </p>
+
+                <button
+                  type="button"
+                  class="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+                  :disabled="
+                    addToListSelectedId === null ||
+                    addToListSubmitting ||
+                    addToListAdded
+                  "
+                  @click="submitAddToList"
+                >
+                  <span
+                    v-if="addToListSubmitting"
+                    class="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                  />
+                  <svg
+                    v-else-if="addToListAdded"
+                    width="11"
+                    height="11"
+                    viewBox="0 0 11 11"
+                    fill="none"
+                  >
+                    <path
+                      d="M2 5.5l2.5 2.5L9 3"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                  {{ addToListAdded ? "Added" : "Add" }}
+                </button>
+              </template>
+            </div>
           </div>
 
           <!-- Footer row: translate-sentence action + source pill. -->

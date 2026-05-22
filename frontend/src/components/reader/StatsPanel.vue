@@ -13,6 +13,10 @@ const props = defineProps<{
   canSave?: boolean;
   saved?: boolean;
   saving?: boolean;
+  /** True when the analysis is linked to an existing saved-text record. */
+  isUpdate?: boolean;
+  /** True when the loaded saved-text content has been edited locally. */
+  isEdited?: boolean;
 }>();
 
 const emit = defineEmits<{ (e: "save"): void }>();
@@ -142,17 +146,34 @@ const coveragePct = computed(() => {
       </ul>
     </section>
 
-    <!-- Save action — always rendered. Anonymous users are prompted to
-         sign in by ReaderView when they click. -->
+    <!-- Save action — label and disabled state reflect:
+           - anonymous           -> 'Sign in to save'
+           - fresh analysis      -> 'Save text' (primary)
+           - just saved          -> 'Saved' (disabled)
+           - loaded saved text   -> 'Saved' (disabled)
+           - loaded + edited     -> 'Update' (primary, enabled)
+    -->
     <section class="border-t border-border-subtle pt-5">
       <Button
         :variant="canSave ? 'primary' : 'secondary'"
         full
         :loading="saving"
-        :disabled="saved"
+        :disabled="!canSave || (saved && !isEdited)"
         @click="emit('save')"
       >
-        <template v-if="saved">
+        <template v-if="!canSave">Sign in to save</template>
+        <template v-else-if="isEdited">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path
+              d="M2 9.5l8-8M2 9.5l3 0M2 9.5l0-3"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linecap="round"
+            />
+          </svg>
+          Update
+        </template>
+        <template v-else-if="saved">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <path
               d="M2 6.5l3 3 5-7"
@@ -164,13 +185,20 @@ const coveragePct = computed(() => {
           </svg>
           Saved
         </template>
-        <template v-else-if="canSave">Save text</template>
-        <template v-else>Sign in to save</template>
+        <template v-else>Save text</template>
       </Button>
       <p
         class="mt-2 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
       >
-        {{ canSave ? "Adds to your library" : "Texts you save show up here later" }}
+        {{
+          !canSave
+            ? "Texts you save show up here later"
+            : isEdited
+              ? "Save your edits to this text"
+              : isUpdate
+                ? "In your library"
+                : "Adds to your library"
+        }}
       </p>
     </section>
   </aside>

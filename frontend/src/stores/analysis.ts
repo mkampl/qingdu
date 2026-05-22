@@ -15,6 +15,12 @@ export const useAnalysisStore = defineStore("analysis", () => {
    * a fresh analysis they haven't saved yet (so we don't try to PATCH).
    */
   const savedTextId = ref<number | null>(null);
+  /** Title of the loaded saved text — editable in the reader header. */
+  const savedTextTitle = ref<string | null>(null);
+  /** Tags array of the loaded saved text — editable in the reader header. */
+  const savedTextTags = ref<string[]>([]);
+  /** Original content snapshot — drives the "edited" pill when inputText drifts. */
+  const savedTextOriginalContent = ref<string | null>(null);
   /**
    * 0..1 fraction — last-known reading progress for the loaded saved text.
    * Used by ReaderView to restore scroll position after the article renders.
@@ -23,6 +29,17 @@ export const useAnalysisStore = defineStore("analysis", () => {
   let activeRequest: AbortController | null = null;
 
   const hasResult = computed(() => result.value !== null);
+  /**
+   * True when the user is reading a saved text but has edited its content
+   * (so the in-DB snapshot is stale relative to the analysis they see now).
+   * The reader shows an "edited" pill — Save updates the existing record.
+   */
+  const isEdited = computed(
+    () =>
+      savedTextId.value !== null &&
+      savedTextOriginalContent.value !== null &&
+      inputText.value !== savedTextOriginalContent.value,
+  );
 
   async function analyze(text: string) {
     inputText.value = text;
@@ -39,9 +56,9 @@ export const useAnalysisStore = defineStore("analysis", () => {
     loading.value = true;
     try {
       result.value = await api.analyze(text, activeRequest.signal);
-      // A fresh analysis isn't a saved record yet.
-      savedTextId.value = null;
-      initialProgress.value = 0;
+      // NOTE: savedTextId is intentionally preserved across re-analyse so the
+      // user can edit a saved text + re-analyse + Save (which updates the
+      // same record). Use reset() to fully decouple from a saved record.
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
       error.value = e instanceof Error ? e.message : "Analysis failed";
@@ -56,6 +73,9 @@ export const useAnalysisStore = defineStore("analysis", () => {
     result.value = null;
     error.value = null;
     savedTextId.value = null;
+    savedTextTitle.value = null;
+    savedTextTags.value = [];
+    savedTextOriginalContent.value = null;
     initialProgress.value = 0;
   }
 
@@ -67,7 +87,12 @@ export const useAnalysisStore = defineStore("analysis", () => {
   function loadSaved(
     text: string,
     data: AnalysisResponse,
-    options: { id: number; progress?: number } | null = null,
+    options: {
+      id: number;
+      progress?: number;
+      title?: string;
+      tags?: string[];
+    } | null = null,
   ) {
     if (activeRequest) activeRequest.abort();
     inputText.value = text;
@@ -75,12 +100,33 @@ export const useAnalysisStore = defineStore("analysis", () => {
     error.value = null;
     loading.value = false;
     savedTextId.value = options?.id ?? null;
+    savedTextTitle.value = options?.title ?? null;
+    savedTextTags.value = options?.tags ?? [];
+    savedTextOriginalContent.value = text;
     initialProgress.value = Math.max(0, Math.min(1, options?.progress ?? 0));
   }
 
-  /** Mark the current analysis as saved (called by ReaderView after POST /save). */
-  function adoptSavedId(id: number) {
+  /**
+   * Mark the current analysis as saved (called by ReaderView after POST /save).
+   * Snapshots the current input as the "original" so the edited-pill behaves
+   * right immediately after a fresh save.
+   */
+  function adoptSavedId(id: number, title: string, tags: string[]) {
     savedTextId.value = id;
+    savedTextTitle.value = title;
+    savedTextTags.value = tags;
+    savedTextOriginalContent.value = inputText.value;
+  }
+
+  function updateSavedTitle(title: string) {
+    savedTextTitle.value = title;
+  }
+  function updateSavedTags(tags: string[]) {
+    savedTextTags.value = tags;
+  }
+  /** Called after a successful Save-update to refresh the "original" snapshot. */
+  function markSynced() {
+    savedTextOriginalContent.value = inputText.value;
   }
 
   return {
@@ -89,11 +135,18 @@ export const useAnalysisStore = defineStore("analysis", () => {
     loading,
     error,
     savedTextId,
+    savedTextTitle,
+    savedTextTags,
+    savedTextOriginalContent,
     initialProgress,
     hasResult,
+    isEdited,
     analyze,
     reset,
     loadSaved,
     adoptSavedId,
+    updateSavedTitle,
+    updateSavedTags,
+    markSynced,
   };
 });
