@@ -6,6 +6,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useReaderStore } from "@/stores/reader";
 import { useToastStore } from "@/stores/toast";
 import { ApiError, saveText } from "@/api/client";
+import { submitShortcutLabel } from "@/utils/platform";
 
 import ChopMark from "@/components/reader/ChopMark.vue";
 import InputPanel from "@/components/reader/InputPanel.vue";
@@ -228,9 +229,13 @@ onBeforeUnmount(() => document.removeEventListener("keydown", onGlobalKey));
               sentence you select.
             </p>
             <p
-              class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+              class="text-[12px] text-fg-subtle"
             >
-              ⌘⏎ to analyse
+              Press
+              <kbd
+                class="mx-0.5 rounded border border-border-subtle bg-bg-elevated px-1.5 py-0.5 font-sans text-[10px] font-medium text-fg-muted"
+              >{{ submitShortcutLabel }}</kbd>
+              to analyse.
             </p>
           </div>
         </article>

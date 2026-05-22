@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 
 import Button from "@/components/ui/Button.vue";
+import { submitShortcutLabel } from "@/utils/platform";
 
 const props = defineProps<{
   modelValue: string;
@@ -113,17 +114,6 @@ function onKeydown(e: KeyboardEvent) {
     <div
       class="relative overflow-hidden rounded-md border border-border bg-bg-elevated shadow-sm"
     >
-      <!-- Faint horizontal ruled lines using a repeating gradient, like
-           writer's paper. Pure CSS, no images. -->
-      <div
-        class="pointer-events-none absolute inset-0 opacity-[0.06]"
-        :style="{
-          backgroundImage:
-            'repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.8em - 1px), var(--color-fg-muted) calc(1.8em - 1px), var(--color-fg-muted) 1.8em)',
-        }"
-        aria-hidden="true"
-      />
-
       <textarea
         ref="textareaRef"
         :value="modelValue"
@@ -146,8 +136,8 @@ function onKeydown(e: KeyboardEvent) {
           {{ characterCount }} chars · {{ wordCountEstimate }} hanzi
           <span class="mx-1.5 text-fg-subtle/40">·</span>
           <kbd
-            class="rounded border border-border-subtle bg-bg-elevated px-1 py-0.5 font-mono text-[9px] text-fg-muted"
-          >⌘⏎</kbd>
+            class="rounded border border-border-subtle bg-bg-elevated px-1.5 py-0.5 font-sans text-[10px] font-medium tracking-normal normal-case text-fg-muted"
+          >{{ submitShortcutLabel }}</kbd>
           to analyze
         </span>
         <Button
