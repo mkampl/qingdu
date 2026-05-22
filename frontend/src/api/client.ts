@@ -188,3 +188,133 @@ export const createVocabularyList = (input: {
   request<{ id: number; message: string }>("/api/vocabulary-lists", {
     body: input,
   });
+
+export const updateVocabularyList = (
+  id: number,
+  patch: { name?: string; sections?: unknown[] },
+) =>
+  request<{ message: string }>(`/api/vocabulary-lists/${id}`, {
+    method: "PUT",
+    body: patch,
+  });
+
+export const deleteVocabularyList = (id: number) =>
+  request<{ message: string }>(`/api/vocabulary-lists/${id}`, {
+    method: "DELETE",
+  });
+
+export const addWordToList = (
+  id: number,
+  input: { section_name: string; hanzi: string; meaning: string },
+) =>
+  request<{ message: string; pinyin?: string }>(
+    `/api/vocabulary-lists/${id}/words`,
+    { body: input },
+  );
+
+export const updateWordInList = (
+  id: number,
+  input: {
+    section_name: string;
+    old_hanzi: string;
+    word: { hanzi: string; meaning: string };
+  },
+) =>
+  request<{ message: string; pinyin?: string }>(
+    `/api/vocabulary-lists/${id}/words`,
+    { method: "PUT", body: input },
+  );
+
+export const deleteWordFromList = (
+  id: number,
+  input: { section_name: string; hanzi: string },
+) =>
+  request<{ message: string }>(`/api/vocabulary-lists/${id}/words`, {
+    method: "DELETE",
+    body: input,
+  });
+
+export const addSectionToList = (id: number, name: string) =>
+  request<{ message: string; name: string; total_sections: number }>(
+    `/api/vocabulary-lists/${id}/sections`,
+    { body: { name } },
+  );
+
+export const renameSection = (
+  id: number,
+  input: { old_name: string; new_name: string },
+) =>
+  request<{ message: string }>(`/api/vocabulary-lists/${id}/sections`, {
+    method: "PUT",
+    body: input,
+  });
+
+export const deleteSection = (id: number, name: string) =>
+  request<{ message: string; word_count: number }>(
+    `/api/vocabulary-lists/${id}/sections/${encodeURIComponent(name)}`,
+    { method: "DELETE" },
+  );
+
+// --- Anki / audio export -----------------------------------------------------
+
+export interface AudioStatus {
+  total: number;
+  cached: number;
+  missing: number;
+  estimated_time: string;
+  ready: boolean;
+}
+
+export const checkAudioStatus = (id: number) =>
+  request<AudioStatus>(`/api/vocabulary-lists/${id}/check-audio`);
+
+export interface PrepareExportResult {
+  total: number;
+  cached: number;
+  generated: number;
+  failed: number;
+  rate_limited: boolean;
+  ready: boolean;
+}
+
+export const prepareExportAudio = (id: number) =>
+  request<PrepareExportResult>(
+    `/api/vocabulary-lists/${id}/prepare-export`,
+    { method: "POST" },
+  );
+
+/**
+ * Download a Blob with the JWT attached. Used for the .apkg + CSV exports;
+ * the backend honours both Bearer header and `?token=` query, but the
+ * header approach keeps the token out of server logs.
+ */
+async function downloadBlob(url: string): Promise<{ blob: Blob; filename: string; stats?: string; rateLimited?: boolean }> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    let detail: unknown = null;
+    try { detail = await response.json(); } catch { detail = null; }
+    const message =
+      typeof detail === "object" && detail && "detail" in detail
+        ? String((detail as { detail: unknown }).detail)
+        : `API ${response.status}`;
+    throw new ApiError(response.status, detail, message);
+  }
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const match = /filename=(?:"([^"]+)"|([^;]+))/.exec(disposition);
+  const filename = (match?.[1] ?? match?.[2] ?? "download").trim();
+  return {
+    blob: await response.blob(),
+    filename,
+    stats: response.headers.get("X-Export-Stats") ?? undefined,
+    rateLimited: response.headers.get("X-Rate-Limited") === "true",
+  };
+}
+
+export const exportVocabularyListAnki = (id: number) =>
+  downloadBlob(`/api/vocabulary-lists/${id}/export-anki`);
+
+export const exportVocabularyListCsv = (id: number) =>
+  downloadBlob(`/api/vocabulary-lists/${id}/export`);

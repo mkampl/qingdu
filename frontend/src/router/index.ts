@@ -14,6 +14,11 @@ export const router = createRouter({
       component: () => import("@/views/SavedTextsView.vue"),
     },
     {
+      path: "/vocab",
+      name: "vocab-index",
+      component: () => import("@/views/VocabListsView.vue"),
+    },
+    {
       path: "/vocab/:id",
       name: "vocab",
       component: () => import("@/views/VocabListView.vue"),
