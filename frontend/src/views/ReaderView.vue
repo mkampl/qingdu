@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 
 import { useAnalysisStore } from "@/stores/analysis";
 import { useAuthStore } from "@/stores/auth";
+import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReaderStore } from "@/stores/reader";
 import { useToastStore } from "@/stores/toast";
 import { ApiError, saveText } from "@/api/client";
@@ -18,6 +19,7 @@ import WordPopover from "@/components/reader/WordPopover.vue";
 const analysis = useAnalysisStore();
 const reader = useReaderStore();
 const auth = useAuthStore();
+const authModals = useAuthModalsStore();
 const toasts = useToastStore();
 
 const localInput = ref<string>(analysis.inputText);
@@ -90,7 +92,8 @@ function onClear() {
 const onSave = async () => {
   if (!analysis.result) return;
   if (!auth.isAuthed) {
-    toasts.info("Log in to save texts to your library.");
+    toasts.info("Sign in to save texts to your library.");
+    authModals.openLogin();
     return;
   }
   saving.value = true;

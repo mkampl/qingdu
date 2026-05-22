@@ -3,6 +3,7 @@ import { RouterLink, RouterView } from "vue-router";
 import { onMounted } from "vue";
 import { useSettingsStore } from "@/stores/settings";
 import { useAuthStore } from "@/stores/auth";
+import AuthControls from "@/components/auth/AuthControls.vue";
 import Toaster from "@/components/ui/Toaster.vue";
 
 const settings = useSettingsStore();
@@ -49,6 +50,7 @@ onMounted(async () => {
           >
             {{ settings.theme === "dark" ? "☀" : "☾" }}
           </button>
+          <AuthControls />
         </div>
       </div>
     </header>

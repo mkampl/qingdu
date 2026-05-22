@@ -113,10 +113,11 @@ const coveragePct = computed(() => {
       </div>
     </section>
 
-    <!-- Save action -->
-    <section v-if="canSave" class="border-t border-border-subtle pt-5">
+    <!-- Save action — always rendered. Anonymous users are prompted to
+         sign in by ReaderView when they click. -->
+    <section class="border-t border-border-subtle pt-5">
       <Button
-        variant="primary"
+        :variant="canSave ? 'primary' : 'secondary'"
         full
         :loading="saving"
         :disabled="saved"
@@ -134,12 +135,13 @@ const coveragePct = computed(() => {
           </svg>
           Saved
         </template>
-        <template v-else>Save text</template>
+        <template v-else-if="canSave">Save text</template>
+        <template v-else>Sign in to save</template>
       </Button>
       <p
         class="mt-2 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
       >
-        Adds to your library
+        {{ canSave ? "Adds to your library" : "Texts you save show up here later" }}
       </p>
     </section>
   </aside>
