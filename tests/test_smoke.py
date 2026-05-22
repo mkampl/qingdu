@@ -9,14 +9,15 @@ def test_app_imports(app_module):
 def test_route_count(app_module):
     """The route count is a coarse regression detector — bump intentionally.
 
-    48 = API/page routes alone. +3 when the Vite frontend is built into
-    `frontend/dist/` (two SPA fallbacks + a /v2/assets static mount).
+    46 = API routes alone (no Pages router; legacy templates retired).
+    +5 when the Vite frontend is built into `frontend/dist/`: /v2 redirect,
+    /v2/{rest} redirect, / SPA shell, /{rest:path} SPA shell, /assets mount.
     """
-    assert len(app_module.routes) in (48, 51)
+    assert len(app_module.routes) in (46, 51)
 
 
 def test_router_tags_present(app_module):
-    """All 12 routers should be wired."""
+    """The 11 API routers should be wired (Pages was retired at cutover)."""
     tags = set()
     for r in app_module.routes:
         if hasattr(r, "tags") and r.tags:
@@ -27,7 +28,6 @@ def test_router_tags_present(app_module):
         "Anki Export",
         "Authentication",
         "Invitations",
-        "Pages",
         "Saved Texts",
         "System",
         "TTS",

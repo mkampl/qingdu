@@ -24,12 +24,12 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Create necessary directories
-RUN mkdir -p /app/data /app/static /app/templates
+RUN mkdir -p /app/data /app/static
 
-# Copy application code
+# Copy application code + favicons/manifest (still served at /static).
+# The Vue 3 frontend supersedes the legacy templates — see Stage 1 build.
 COPY app/ /app/app/
 COPY static/ /app/static/
-COPY templates/ /app/templates/
 
 # Copy the Vite build artefact from the frontend stage.
 COPY --from=frontend-build /build/dist /app/frontend/dist

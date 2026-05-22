@@ -7,7 +7,7 @@ import { fileURLToPath, URL } from "node:url";
 // /app directory. (The Docker image copies frontend/dist via a multi-stage build —
 // see Dockerfile.) Base path is /v2/ so all asset URLs resolve under that prefix.
 export default defineConfig({
-  base: "/v2/",
+  base: "/",
   plugins: [vue(), tailwindcss()],
   resolve: {
     alias: {

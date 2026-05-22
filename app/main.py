@@ -27,11 +27,10 @@ from app.routers import (
     auth,
     health,
     invitations,
-    pages,
+    spa,
     texts,
     translate,
     tts,
-    v2,
     vocab,
     vocab_lists,
 )
@@ -114,8 +113,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
-# Routers
-app.include_router(pages.router)
+# Routers — order matters: specific API routes first, SPA fallback last.
 app.include_router(health.router)
 app.include_router(analyze.router)
 app.include_router(translate.router)
@@ -128,8 +126,11 @@ app.include_router(admin.router)
 app.include_router(vocab_lists.router)
 app.include_router(anki.router)
 
-# Vue 3 SPA mounted at /v2 (no-op if frontend/dist isn't built yet).
-v2.mount(app)
+# Vue 3 SPA at /. Includes a catch-all /{rest:path} route, so this MUST be
+# the last router registered or it will swallow API paths. Also registers
+# /v2 + /v2/{rest:path} -> 301 redirect for back-compat with the staging URLs.
+# No-op if frontend/dist isn't built yet (e.g. CI).
+spa.mount(app)
 
 
 def _validate_environment() -> None:

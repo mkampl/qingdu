@@ -71,9 +71,11 @@ async function generateInvite() {
 }
 
 async function copyInviteUrl(invitation: InvitationSummary) {
-  // Reconstruct the URL from the full_token — same shape the backend uses.
+  // The SPA picks up the `invite` query param via AuthControls regardless of
+  // path; keep the URL on the root so it stays clean. (Legacy /v2/?invite=…
+  // links still resolve thanks to the backend's 301 redirect.)
   const origin = window.location.origin;
-  const url = `${origin}/v2/?invite=${invitation.full_token}`;
+  const url = `${origin}/?invite=${invitation.full_token}`;
   try {
     await navigator.clipboard.writeText(url);
     toasts.success("Invite link copied.");
