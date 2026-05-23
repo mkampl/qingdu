@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onMounted } from "vue";
-import { RouterLink, RouterView } from "vue-router";
+import { onMounted, ref, watch } from "vue";
+import { RouterLink, RouterView, useRoute } from "vue-router";
 
 import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
@@ -19,8 +19,35 @@ const settings = useSettingsStore();
 const auth = useAuthStore();
 const modals = useAppModalsStore();
 const shortcuts = useShortcutsStore();
+const route = useRoute();
 
 useKeyboardShortcuts();
+
+// Mobile nav drawer state — visible only via the hamburger on narrow viewports.
+const mobileNavOpen = ref(false);
+
+watch(
+  () => route.fullPath,
+  () => {
+    // Close on any navigation so a tap on a drawer link doesn't leave the
+    // drawer open over the new view.
+    mobileNavOpen.value = false;
+  },
+);
+
+function onDrawerKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape") mobileNavOpen.value = false;
+}
+
+watch(mobileNavOpen, (open) => {
+  if (typeof document === "undefined") return;
+  document.body.style.overflow = open ? "hidden" : "";
+  if (open) {
+    document.addEventListener("keydown", onDrawerKeydown);
+  } else {
+    document.removeEventListener("keydown", onDrawerKeydown);
+  }
+});
 
 onMounted(async () => {
   settings.hydrate();
@@ -31,7 +58,26 @@ onMounted(async () => {
 <template>
   <div class="flex h-full flex-col">
     <header class="border-b border-border bg-bg-elevated">
-      <div class="mx-auto flex max-w-6xl items-center gap-6 px-6 py-3">
+      <div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:gap-6 sm:px-6">
+        <!-- Hamburger — only visible below sm (where the inline nav is hidden). -->
+        <button
+          type="button"
+          class="-ml-1 inline-flex items-center justify-center rounded-md p-2 text-fg-muted hover:text-fg hover:bg-bg-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:hidden"
+          :aria-expanded="mobileNavOpen"
+          aria-label="Open navigation menu"
+          aria-controls="mobile-nav-drawer"
+          @click="mobileNavOpen = true"
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path
+              d="M3 5h12M3 9h12M3 13h12"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+
         <RouterLink
           to="/"
           class="text-cn text-xl font-semibold tracking-tight"
@@ -203,5 +249,112 @@ onMounted(async () => {
     <SettingsModal />
     <InvitationsModal />
     <ShortcutsOverlay />
+
+    <!-- Mobile navigation drawer. Teleports to body so it overlays everything,
+         only meaningful below sm where the inline nav is hidden. -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition-opacity duration-200"
+        leave-active-class="transition-opacity duration-150"
+        enter-from-class="opacity-0"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="mobileNavOpen"
+          class="fixed inset-0 z-50 sm:hidden"
+          aria-modal="true"
+          role="dialog"
+          aria-label="Navigation"
+        >
+          <!-- Backdrop -->
+          <div
+            class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            @click="mobileNavOpen = false"
+            aria-hidden="true"
+          />
+          <!-- Drawer panel -->
+          <Transition
+            enter-active-class="transition-transform duration-250 ease-out"
+            leave-active-class="transition-transform duration-200 ease-in"
+            enter-from-class="-translate-x-full"
+            leave-to-class="-translate-x-full"
+            appear
+          >
+            <nav
+              v-if="mobileNavOpen"
+              id="mobile-nav-drawer"
+              class="absolute inset-y-0 left-0 flex w-[min(18rem,80vw)] flex-col bg-bg-elevated shadow-2xl ring-1 ring-border"
+            >
+              <header
+                class="flex items-center justify-between border-b border-border-subtle px-5 py-3"
+              >
+                <span
+                  class="text-cn text-lg font-semibold tracking-tight"
+                >
+                  轻读 <span class="text-fg-muted font-normal">QingDu</span>
+                </span>
+                <button
+                  type="button"
+                  class="rounded-md p-2 text-fg-muted hover:text-fg hover:bg-bg-sunken"
+                  aria-label="Close navigation"
+                  @click="mobileNavOpen = false"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M4 4l8 8M12 4l-8 8"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+              </header>
+
+              <ul class="flex-1 py-3">
+                <li v-for="link in [
+                  { to: '/', label: 'Reader' },
+                  { to: '/texts', label: 'Saved Texts' },
+                  { to: '/vocab', label: 'Vocabulary' },
+                  { to: '/discover', label: 'Discover' },
+                ]" :key="link.to">
+                  <RouterLink
+                    :to="link.to"
+                    class="block px-5 py-3 font-display text-base text-fg-muted hover:bg-bg-sunken hover:text-fg"
+                    active-class="bg-bg-sunken text-fg font-medium"
+                  >
+                    {{ link.label }}
+                  </RouterLink>
+                </li>
+              </ul>
+
+              <!-- Pinch of meta access in the drawer's tail so the hamburger
+                   surfaces everything the header would offer on desktop. -->
+              <footer class="border-t border-border-subtle px-5 py-3">
+                <button
+                  type="button"
+                  class="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-fg-muted hover:text-fg hover:bg-bg-sunken"
+                  @click="modals.openSettings(); mobileNavOpen = false"
+                >
+                  <span>Settings</span>
+                  <span class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+                    ⚙
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="mt-1 flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-fg-muted hover:text-fg hover:bg-bg-sunken"
+                  @click="settings.toggleTheme(); mobileNavOpen = false"
+                >
+                  <span>{{ settings.theme === "dark" ? "Light mode" : "Dark mode" }}</span>
+                  <span class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+                    {{ settings.theme === "dark" ? "☀" : "☾" }}
+                  </span>
+                </button>
+              </footer>
+            </nav>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
