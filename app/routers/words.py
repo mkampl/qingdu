@@ -120,9 +120,21 @@ async def bulk_mark_known(
     section-complete LingQ-style action. Idempotent: words already known are
     no-ops; words in other states are overwritten.
     """
-    words = [w.strip() for w in payload.words if w and w.strip()]
+    # Dedup at the boundary — callers may include the same word twice (e.g.
+    # multiple sentences in the same section). Without this we'd try to
+    # insert the same (user_id, word) row twice and trip the unique index.
+    seen: set[str] = set()
+    words: list[str] = []
+    for w in payload.words:
+        if not w:
+            continue
+        stripped = w.strip()
+        if not stripped or stripped in seen:
+            continue
+        seen.add(stripped)
+        words.append(stripped)
     if not words:
-        return {"updated": 0}
+        return {"updated": 0, "total": 0}
 
     existing = {
         r.word: r

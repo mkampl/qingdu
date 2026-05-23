@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.auth import get_current_user, require_auth
 from app.database import Base, User, get_db
@@ -18,7 +19,14 @@ from app.database import Base, User, get_db
 
 @pytest.fixture
 def words_client(app_module, monkeypatch):
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    # StaticPool keeps a single shared connection, which is required for
+    # SQLite ':memory:' — otherwise every new SQLAlchemy connection sees a
+    # fresh empty database and 'no such table: users' fires.
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
     Base.metadata.create_all(bind=engine)
     TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
