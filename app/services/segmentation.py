@@ -13,9 +13,12 @@ import jieba
 
 from app.core.constants import TRANSLATION_SOURCE_HSK
 from app.schemas import WordInfo
+from app.services import grammar
 from app.services.levels import estimate_text_level
 from app.services.word_lookup import create_compound_from_hsk, lookup_unknown_word
 from app.state import hsk_vocab
+
+_SENTENCE_END_CHARS = "。！？!?…"
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +112,37 @@ async def _resolve_unknowns(
         _LOOKUP_CONCURRENCY,
     )
     return dict(results)
+
+
+def _group_sentences(segments: list[str]) -> list[tuple[int, grammar.Sentence]]:
+    """
+    Walk the segmented tokens (in 1:1 correspondence with the response's
+    `words` array) and group them into sentences for grammar detection.
+    Returns (absolute_word_offset, Sentence) tuples so the detector can
+    emit globally-positioned spans.
+    """
+    out: list[tuple[int, grammar.Sentence]] = []
+    cur_words: list[str] = []
+    cur_text: list[str] = []
+    cur_start = 0
+    for i, seg in enumerate(segments):
+        if seg == "\n":
+            if cur_words:
+                out.append((cur_start, grammar.Sentence(words=cur_words, text="".join(cur_text))))
+                cur_words = []
+                cur_text = []
+            cur_start = i + 1
+            continue
+        cur_words.append(seg)
+        cur_text.append(seg)
+        if any(p in seg for p in _SENTENCE_END_CHARS):
+            out.append((cur_start, grammar.Sentence(words=cur_words, text="".join(cur_text))))
+            cur_words = []
+            cur_text = []
+            cur_start = i + 1
+    if cur_words:
+        out.append((cur_start, grammar.Sentence(words=cur_words, text="".join(cur_text))))
+    return out
 
 
 async def analyze_chinese_text(text: str) -> dict:
@@ -226,8 +260,27 @@ async def analyze_chinese_text(text: str) -> dict:
     estimated_level_new = estimate_text_level(hsk_stats_new, total_hsk_words_new)
     estimated_level_old = estimate_text_level(hsk_stats_old, total_hsk_words_old)
 
+    # Grammar patterns: rule-based, cheap, runs after segmentation. Spans
+    # carry absolute word indices so the SPA can map them straight onto
+    # its already-rendered word elements.
+    pattern_matches, pattern_metas = grammar.detect_patterns(_group_sentences(segments))
+    grammar_payload = {
+        "matches": [
+            {
+                "pattern_id": m.pattern_id,
+                "sentence_idx": m.sentence_idx,
+                "start_word_idx": m.start_word_idx,
+                "end_word_idx": m.end_word_idx,
+                "span_text": m.span_text,
+            }
+            for m in pattern_matches
+        ],
+        "patterns": pattern_metas,
+    }
+
     return {
         "words": words,
+        "grammar": grammar_payload,
         "statistics": {
             "total_characters": len(text),
             "total_words": len(segments),

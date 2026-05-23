@@ -62,9 +62,36 @@ export interface AnalysisStatistics {
   estimated_level: string;
 }
 
+export interface GrammarPatternMeta {
+  id: string;
+  title: string;
+  pinyin: string;
+  hsk_level: number;
+  explanation: string;
+  example: string;
+  example_translation: string;
+}
+
+export interface GrammarMatch {
+  pattern_id: string;
+  sentence_idx: number;
+  /** Absolute index into AnalysisResponse.words for the first token. */
+  start_word_idx: number;
+  /** Absolute index into AnalysisResponse.words for the last token (inclusive). */
+  end_word_idx: number;
+  span_text: string;
+}
+
+export interface GrammarPayload {
+  matches: GrammarMatch[];
+  patterns: GrammarPatternMeta[];
+}
+
 export interface AnalysisResponse {
   words: WordInfo[];
   statistics: AnalysisStatistics;
+  /** Optional — older saved analyses pre-Phase D won't have this. */
+  grammar?: GrammarPayload;
 }
 
 export interface TranslateResponse {

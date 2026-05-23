@@ -15,6 +15,9 @@ export interface Sentence {
   text: string;
   /** Sentences derived from a soft line break are rendered on their own line. */
   endsWithLineBreak: boolean;
+  /** Absolute index of `words[0]` within the parent analysis.words array.
+   *  Used by Phase D grammar matches to address tokens globally. */
+  baseIdx: number;
 }
 
 const SENTENCE_END = /[。！？!?…\n]/;
@@ -28,6 +31,9 @@ export function groupIntoSentences(words: WordInfo[]): Sentence[] {
   const sentences: Sentence[] = [];
   let current: WordInfo[] = [];
   let id = 0;
+  // Absolute index into `words` where the current sentence's first token lives.
+  let nextBaseIdx = 0;
+  let absoluteIdx = 0;
 
   const flush = (endsWithLineBreak: boolean) => {
     if (!current.length) return;
@@ -40,16 +46,21 @@ export function groupIntoSentences(words: WordInfo[]): Sentence[] {
         .join("")
         .trim(),
       endsWithLineBreak,
+      baseIdx: nextBaseIdx,
     });
     current = [];
+    nextBaseIdx = absoluteIdx;
   };
 
   for (const w of words) {
     if (w.translation_source === "linebreak" || w.text === "\n") {
       flush(true);
+      absoluteIdx += 1;
+      nextBaseIdx = absoluteIdx;
       continue;
     }
     current.push(w);
+    absoluteIdx += 1;
     if (SENTENCE_END.test(w.text)) {
       flush(false);
     }

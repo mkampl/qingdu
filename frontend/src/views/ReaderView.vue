@@ -12,6 +12,7 @@ import { submitShortcutLabel } from "@/utils/platform";
 
 import AnalysingCard from "@/components/reader/AnalysingCard.vue";
 import ChopMark from "@/components/reader/ChopMark.vue";
+import GrammarPanel from "@/components/reader/GrammarPanel.vue";
 import ImportUrlModal from "@/components/reader/ImportUrlModal.vue";
 import InputPanel from "@/components/reader/InputPanel.vue";
 import PlayerBar from "@/components/reader/PlayerBar.vue";
@@ -608,6 +609,11 @@ onBeforeUnmount(() => {
             :is-edited="analysis.isEdited"
             @save="onSave"
           />
+
+          <!-- Grammar patterns detected in the current text. Only renders
+               itself when the analysis carries grammar matches; renders
+               nothing for older saved analyses pre-Phase D. -->
+          <GrammarPanel :grammar="analysis.result.grammar" />
         </aside>
       </Transition>
     </div>

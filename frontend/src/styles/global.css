@@ -230,6 +230,18 @@ html.dark .hsk-wash {
   border-radius: 0 2px 2px 0;
 }
 
+/* Grammar-pattern span — a tiny dotted base rule. Quiet enough to leave
+   alone while reading, present enough to be noticed once. The decoration
+   is offset below the pinyin row so it doesn't collide with tones. */
+[data-grammar="true"] > .hanzi {
+  text-decoration: underline dotted var(--color-accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+[data-grammar="true"].text-fg {
+  border-bottom: 1px dotted var(--color-accent);
+}
+
 /* Subtle scroll appearance for staggered word reveals. */
 @keyframes ink-settle {
   from {

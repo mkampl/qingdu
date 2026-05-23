@@ -44,6 +44,20 @@ function userStateFor(word: WordInfo): string | null {
   return userWords.stateOf(word.text) ?? word.user_state ?? null;
 }
 
+/** Per-token grammar-span lookup. True if this absolute token index lives
+ *  inside any matched grammar pattern from the analysis response. */
+const grammarSpanSet = computed<Set<number>>(() => {
+  const set = new Set<number>();
+  const matches = props.analysis.grammar?.matches;
+  if (!matches) return set;
+  for (const m of matches) {
+    for (let i = m.start_word_idx; i <= m.end_word_idx; i++) {
+      set.add(i);
+    }
+  }
+  return set;
+});
+
 /** True if this token is a learnable Chinese word — excludes punctuation,
  *  linebreaks, and other render-only tokens. */
 function isLearnableWord(word: WordInfo): boolean {
@@ -306,7 +320,12 @@ watch(
       >
         <template v-for="(word, wi) in sentence.words" :key="`${sentence.key}-${wi}`">
           <!-- Plain punctuation: render as raw text. -->
-          <span v-if="isPunctOnly(word)" class="text-fg">{{ word.text }}</span>
+          <span
+            v-if="isPunctOnly(word)"
+            class="text-fg"
+            :data-word-idx="sentence.baseIdx + wi"
+            :data-grammar="grammarSpanSet.has(sentence.baseIdx + wi) || undefined"
+          >{{ word.text }}</span>
 
           <!-- Word with ruby pinyin + HSK wash. Multi-character or HSK words
                always go through the .ruby wrapper so layout stays consistent. -->
@@ -314,6 +333,8 @@ watch(
             v-else
             class="ruby ink-settle"
             :data-no-pinyin="!wordShowsPinyin(word) || undefined"
+            :data-word-idx="sentence.baseIdx + wi"
+            :data-grammar="grammarSpanSet.has(sentence.baseIdx + wi) || undefined"
             :style="{ animationDelay: `${Math.min(wi, 30) * 8}ms` }"
             @click.stop="onWordClick(word, $event, sentence)"
           >
