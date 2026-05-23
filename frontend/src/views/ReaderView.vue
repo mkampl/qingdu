@@ -14,12 +14,14 @@ import AnalysingCard from "@/components/reader/AnalysingCard.vue";
 import ChopMark from "@/components/reader/ChopMark.vue";
 import ImportUrlModal from "@/components/reader/ImportUrlModal.vue";
 import InputPanel from "@/components/reader/InputPanel.vue";
+import PlayerBar from "@/components/reader/PlayerBar.vue";
 import ReadingProgress from "@/components/reader/ReadingProgress.vue";
 import ReadingText from "@/components/reader/ReadingText.vue";
 import StatsPanel from "@/components/reader/StatsPanel.vue";
 import TocSidebar from "@/components/reader/TocSidebar.vue";
 import type { Section } from "@/components/reader/utils";
 import WordPopover from "@/components/reader/WordPopover.vue";
+import { useAudioPlayerStore } from "@/stores/audio-player";
 
 const analysis = useAnalysisStore();
 const reader = useReaderStore();
@@ -27,6 +29,7 @@ const vocabStats = useVocabStatsStore();
 const auth = useAuthStore();
 const authModals = useAuthModalsStore();
 const toasts = useToastStore();
+const audioPlayer = useAudioPlayerStore();
 
 const localInput = ref<string>(analysis.inputText);
 const showEditor = ref<boolean>(!analysis.hasResult);
@@ -366,9 +369,12 @@ onBeforeUnmount(() => {
 <template>
   <div class="relative">
     <!-- The reading column + sticky margin panel. Generous outer padding so
-         the text breathes; the margin panel sits to the right on ≥ md. -->
+         the text breathes; the margin panel sits to the right on ≥ md.
+         In listen mode we collapse the right column so the text takes the
+         whole frame — auto-scrolled narration with no marginalia. -->
     <div
-      class="mx-auto grid max-w-6xl grid-cols-1 gap-x-12 gap-y-8 px-5 pt-10 pb-24 sm:px-8 md:grid-cols-[1fr_320px] md:pt-14 lg:px-10"
+      class="mx-auto grid max-w-6xl grid-cols-1 gap-x-12 gap-y-8 px-5 pt-10 pb-24 sm:px-8 md:pt-14 lg:px-10"
+      :class="audioPlayer.listenMode ? 'md:grid-cols-1' : 'md:grid-cols-[1fr_320px]'"
     >
       <!-- LEFT: reading column. We keep its own max-width tight so line length
            stays in the comfortable 60-72ch range for Chinese reading. -->
@@ -487,8 +493,10 @@ onBeforeUnmount(() => {
           />
         </div>
 
-        <!-- Input / Edit affordance. -->
+        <!-- Input / Edit affordance. Hidden in Listen mode so the text owns
+             the column. -->
         <InputPanel
+          v-if="!audioPlayer.listenMode"
           v-model="localInput"
           :loading="analysis.loading"
           :collapsed="!showEditor"
@@ -538,6 +546,12 @@ onBeforeUnmount(() => {
             @sections="(s) => (sections = s)"
           />
 
+          <!-- Continuous narration player. Only shows once we have an
+               analysed text — gates on .result so the empty state stays
+               clean. Sticks to the bottom of the viewport so it stays
+               reachable as you scroll. -->
+          <PlayerBar v-if="analysis.result" :analysis="analysis.result" />
+
           <!-- Empty state: a quiet invitation. -->
           <div
             v-else
@@ -567,14 +581,14 @@ onBeforeUnmount(() => {
       </main>
 
       <!-- RIGHT: marginalia / stats panel. Sticky on desktop, in-flow on
-           mobile (appears below the reading content). -->
+           mobile (appears below the reading content). Hidden in Listen mode. -->
       <Transition
         enter-active-class="transition duration-300 ease-out"
         enter-from-class="opacity-0 translate-y-2"
         enter-to-class="opacity-100 translate-y-0"
       >
         <aside
-          v-if="analysis.result"
+          v-if="analysis.result && !audioPlayer.listenMode"
           class="md:sticky md:top-6 md:self-start md:max-h-[calc(100vh-3rem)] md:overflow-y-auto md:pr-1 scrollbar-quiet space-y-8"
         >
           <!-- TOC — only rendered when the text is long enough that the

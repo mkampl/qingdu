@@ -23,6 +23,7 @@ const emit = defineEmits<{
   (e: "sections", value: Section[]): void;
 }>();
 
+import { useAudioPlayerStore } from "@/stores/audio-player";
 import { useAuthStore } from "@/stores/auth";
 import { useToastStore } from "@/stores/toast";
 
@@ -31,6 +32,7 @@ const settings = useSettingsStore();
 const userWords = useUserWordsStore();
 const auth = useAuthStore();
 const toasts = useToastStore();
+const audioPlayer = useAudioPlayerStore();
 
 /**
  * Per-word state lookup. Prefers the user's live store (so optimistic updates
@@ -221,6 +223,39 @@ function onSentenceClick(sentence: Sentence) {
 function selectedWordKey(): string | null {
   return reader.selectedWord?.text ?? null;
 }
+
+/** Clicked from the highlighted sentence to jump playback there. */
+function onJumpSentence(sentenceKey: string, event: MouseEvent) {
+  // Only intercept Alt-click as "jump here" so plain click still opens
+  // the translation card (existing behavior).
+  if (!event.altKey) return;
+  event.preventDefault();
+  event.stopPropagation();
+  void audioPlayer.jumpTo(sentenceKey);
+}
+
+// Auto-scroll the active sentence into view while the player advances.
+// We use scrollIntoView with 'center' so the user can see the next line
+// before it's read, and 'smooth' so we don't yank attention.
+watch(
+  () => audioPlayer.currentKey,
+  (key) => {
+    if (!key || !audioPlayer.playing) return;
+    void nextTick(() => {
+      const el = document.querySelector(
+        `[data-sentence-key="${key}"]`,
+      ) as HTMLElement | null;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      // Already comfortably in view? leave it alone.
+      if (rect.top > viewportHeight * 0.25 && rect.bottom < viewportHeight * 0.7) {
+        return;
+      }
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  },
+);
 </script>
 
 <template>
@@ -247,11 +282,25 @@ function selectedWordKey(): string | null {
       :class="{ 'mt-4': sentence.endsWithLineBreak && idx > 0 }"
     >
       <span
-        class="sentence inline px-1 -mx-1 align-baseline"
+        class="sentence inline px-1 -mx-1 align-baseline transition-colors"
+        :class="{
+          'bg-accent/15 rounded-md':
+            audioPlayer.currentKey === sentence.key && audioPlayer.playing,
+        }"
         :data-open="reader.openSentenceKey === sentence.key || undefined"
+        :data-sentence-key="sentence.key"
         :role="sentence.text ? 'button' : undefined"
         :tabindex="sentence.text ? 0 : -1"
-        @click="onSentenceClick(sentence)"
+        :title="
+          audioPlayer.hasQueue && sentence.text
+            ? 'Click to translate · Alt-click to play from here'
+            : undefined
+        "
+        @click="
+          $event.altKey
+            ? onJumpSentence(sentence.key, $event)
+            : onSentenceClick(sentence)
+        "
         @keydown.enter.prevent="onSentenceClick(sentence)"
         @keydown.space.prevent="onSentenceClick(sentence)"
       >
