@@ -34,6 +34,7 @@ from app.routers import (
     tts,
     vocab,
     vocab_lists,
+    words,
 )
 from app.services.hsk_loader import download_hsk_vocabulary
 from app.state import hsk_vocab
@@ -137,6 +138,7 @@ app.include_router(admin.router)
 app.include_router(vocab_lists.router)
 app.include_router(anki.router)
 app.include_router(extract.router)
+app.include_router(words.router)
 
 # Vue 3 SPA at /. Includes a catch-all /{rest:path} route, so this MUST be
 # the last router registered or it will swallow API paths. Also registers

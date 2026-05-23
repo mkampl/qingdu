@@ -43,6 +43,8 @@ export interface WordInfo {
   translation_source?: TranslationSource;
   radical?: string;
   radical_pinyin?: string;
+  /** Per-user state from /api/analyze when authenticated. Undefined = new. */
+  user_state?: "learning" | "known" | "ignored";
 }
 
 export interface AnalysisStatistics {

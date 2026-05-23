@@ -3,10 +3,12 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import * as api from "@/api/client";
 import { ApiError } from "@/api/client";
+import type { UserWordState } from "@/api/client";
 import { useAuthStore } from "@/stores/auth";
 import { useReaderStore } from "@/stores/reader";
 import { useSettingsStore } from "@/stores/settings";
 import { useToastStore } from "@/stores/toast";
+import { useUserWordsStore } from "@/stores/userWords";
 import { useVocabListsStore } from "@/stores/vocab-lists";
 
 import HskChip from "./HskChip.vue";
@@ -15,6 +17,7 @@ import { levelForVersion } from "./utils";
 const reader = useReaderStore();
 const settings = useSettingsStore();
 const auth = useAuthStore();
+const userWords = useUserWordsStore();
 const vocabLists = useVocabListsStore();
 const toasts = useToastStore();
 
@@ -187,6 +190,47 @@ function translateSentenceFromWord() {
 const wordLevel = computed(() =>
   word.value ? levelForVersion(word.value, settings.hskVersion) : null,
 );
+
+// --- Word-state control ----------------------------------------------------
+//
+// LingQ-style: opening the popover for a 'new' word implicitly promotes it
+// to 'learning' so the next time it appears the reader can color it as
+// known-in-progress. Explicit known/ignored choices come from the buttons.
+
+const currentState = computed<UserWordState | null>(() => {
+  return word.value ? userWords.stateOf(word.value.text) : null;
+});
+
+watch(word, async (next) => {
+  if (!next || !auth.isAuthed) return;
+  // Skip linebreaks and other non-CJK tokens — we keep state for words only.
+  if (!next.text || next.text === "\n") return;
+  if (currentState.value === null) {
+    try {
+      await userWords.setState(next.text, "learning");
+    } catch {
+      /* network error shouldn't block the popover */
+    }
+  }
+});
+
+async function setWordState(state: UserWordState) {
+  if (!word.value) return;
+  // Toggle off if the user clicks the currently active state.
+  if (currentState.value === state) {
+    try {
+      await userWords.clearState(word.value.text);
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
+  try {
+    await userWords.setState(word.value.text, state);
+  } catch {
+    toasts.error("Couldn't update word state");
+  }
+}
 </script>
 
 <template>
@@ -286,6 +330,53 @@ const wordLevel = computed(() =>
                 {{ m }}
               </li>
             </ul>
+          </div>
+
+          <!-- Word state — LingQ-style progress tracker. Authenticated only;
+               anonymous users still get meaning + radical without the gate. -->
+          <div
+            v-if="auth.isAuthed && word.text && word.text !== '\n'"
+            class="mt-4 grid grid-cols-3 gap-1.5 border-t border-border-subtle pt-3"
+          >
+            <button
+              type="button"
+              :aria-pressed="currentState === 'learning'"
+              class="rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors"
+              :class="
+                currentState === 'learning'
+                  ? 'border-amber-500 bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200'
+                  : 'border-border bg-bg-elevated text-fg-muted hover:bg-bg-sunken hover:text-fg'
+              "
+              @click="setWordState('learning')"
+            >
+              Learning
+            </button>
+            <button
+              type="button"
+              :aria-pressed="currentState === 'known'"
+              class="rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors"
+              :class="
+                currentState === 'known'
+                  ? 'border-emerald-500 bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200'
+                  : 'border-border bg-bg-elevated text-fg-muted hover:bg-bg-sunken hover:text-fg'
+              "
+              @click="setWordState('known')"
+            >
+              I know this
+            </button>
+            <button
+              type="button"
+              :aria-pressed="currentState === 'ignored'"
+              class="rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors"
+              :class="
+                currentState === 'ignored'
+                  ? 'border-fg-subtle bg-bg-sunken text-fg'
+                  : 'border-border bg-bg-elevated text-fg-muted hover:bg-bg-sunken hover:text-fg'
+              "
+              @click="setWordState('ignored')"
+            >
+              Ignore
+            </button>
           </div>
 
           <!-- Radical -->

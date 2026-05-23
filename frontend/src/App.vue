@@ -6,6 +6,7 @@ import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
 import { useSettingsStore } from "@/stores/settings";
 import { useShortcutsStore } from "@/stores/shortcuts";
+import { useUserWordsStore } from "@/stores/userWords";
 
 import AuthControls from "@/components/auth/AuthControls.vue";
 import InvitationsModal from "@/components/InvitationsModal.vue";
@@ -19,7 +20,14 @@ const settings = useSettingsStore();
 const auth = useAuthStore();
 const modals = useAppModalsStore();
 const shortcuts = useShortcutsStore();
+const userWords = useUserWordsStore();
 const route = useRoute();
+
+function compactNumber(n: number): string {
+  if (n < 1000) return n.toLocaleString();
+  if (n < 10_000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  return `${Math.round(n / 1000)}k`;
+}
 
 useKeyboardShortcuts();
 
@@ -115,6 +123,31 @@ onMounted(async () => {
           </RouterLink>
         </nav>
         <div class="ml-auto flex items-center gap-1">
+          <!-- Known-words badge — at-a-glance progress. Hidden on the very
+               narrowest screens to keep the header from wrapping. -->
+          <span
+            v-if="auth.isAuthed && userWords.hydrated"
+            class="hidden items-center gap-1 rounded-full border border-border-subtle bg-bg-sunken/60 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted sm:inline-flex"
+            :title="`${userWords.stats.known.toLocaleString()} known · ${userWords.stats.learning.toLocaleString()} learning${userWords.stats.ignored ? ` · ${userWords.stats.ignored.toLocaleString()} ignored` : ''}`"
+          >
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden="true">
+              <path
+                d="M1.5 4.5l1.8 1.8 4.2-4.2"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span class="tabular-nums">{{ compactNumber(userWords.stats.known) }}</span>
+            <span
+              v-if="userWords.stats.learning > 0"
+              class="text-accent tabular-nums"
+              :title="`${userWords.stats.learning.toLocaleString()} learning`"
+            >
+              · {{ compactNumber(userWords.stats.learning) }}
+            </span>
+          </span>
           <button
             type="button"
             class="rounded-md p-2 text-fg-muted hover:text-fg hover:bg-bg-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"

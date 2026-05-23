@@ -1,7 +1,18 @@
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, create_engine
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    create_engine,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
@@ -25,6 +36,7 @@ class User(Base):
     vocabulary_lists = relationship(
         "VocabularyList", back_populates="user", cascade="all, delete-orphan"
     )
+    user_words = relationship("UserWord", back_populates="user", cascade="all, delete-orphan")
     created_invitations = relationship(
         "InvitationToken",
         foreign_keys="InvitationToken.created_by_user_id",
@@ -65,6 +77,63 @@ class VocabularyList(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="vocabulary_lists")
+
+
+class UserWord(Base):
+    """
+    Per-user state for a Chinese word. Absence of a row means 'new' (the user
+    has never interacted with this word). Rows are created lazily — typically
+    the first time a user clicks on a word or bulk-marks a section known.
+
+    SRS columns (ease, due_at, last_reviewed_at) are reserved for Phase B and
+    left at their defaults until the review loop is wired up; carrying them
+    here from the start avoids a migration when Phase B lands.
+    """
+
+    __tablename__ = "user_words"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    word = Column(String(64), nullable=False)
+    # 'learning' | 'known' | 'ignored' — 'new' is absence-of-row.
+    state = Column(String(16), nullable=False, default="learning")
+    seen_count = Column(Integer, default=1)
+    # SM-2-style ease * 100. FSRS may replace this in Phase B.
+    ease = Column(Integer, default=250)
+    due_at = Column(DateTime, nullable=True)
+    last_reviewed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="user_words")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "word", name="uq_user_word"),
+        Index("ix_user_words_user_state", "user_id", "state"),
+    )
+
+
+class UserWordEvent(Base):
+    """
+    Append-only log of word-state interactions. Powers analytics, undo, and
+    future ML. We keep it separate from `user_words` so the read path for the
+    reader stays one indexed lookup per user.
+    """
+
+    __tablename__ = "user_word_events"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    word = Column(String(64), nullable=False)
+    # 'seen' | 'state_change' | 'bulk_mark_known' | 'review'
+    event_type = Column(String(32), nullable=False)
+    new_state = Column(String(16), nullable=True)
+    source_text_id = Column(
+        Integer, ForeignKey("saved_texts.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (Index("ix_user_word_events_user_created", "user_id", "created_at"),)
 
 
 class InvitationToken(Base):

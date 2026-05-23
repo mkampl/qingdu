@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 
 import type { AnalysisResponse, WordInfo } from "@/api/types";
 import { useReaderStore } from "@/stores/reader";
 import { useSettingsStore } from "@/stores/settings";
+import { useUserWordsStore } from "@/stores/userWords";
 
 import SentenceTranslation from "./SentenceTranslation.vue";
 import {
@@ -22,8 +23,33 @@ const emit = defineEmits<{
   (e: "sections", value: Section[]): void;
 }>();
 
+import { useAuthStore } from "@/stores/auth";
+import { useToastStore } from "@/stores/toast";
+
 const reader = useReaderStore();
 const settings = useSettingsStore();
+const userWords = useUserWordsStore();
+const auth = useAuthStore();
+const toasts = useToastStore();
+
+/**
+ * Per-word state lookup. Prefers the user's live store (so optimistic updates
+ * from WordPopover repaint immediately) and falls back to the user_state field
+ * stamped onto the analysis payload (so a fresh /api/analyze that landed
+ * before the store hydrated still colors correctly on first paint).
+ */
+function userStateFor(word: WordInfo): string | null {
+  return userWords.stateOf(word.text) ?? word.user_state ?? null;
+}
+
+/** True if this token is a learnable Chinese word — excludes punctuation,
+ *  linebreaks, and other render-only tokens. */
+function isLearnableWord(word: WordInfo): boolean {
+  if (!word.text || word.text === "\n") return false;
+  if (word.translation_source === "linebreak") return false;
+  // Must contain at least one CJK character to be worth tracking.
+  return /[一-鿿]/.test(word.text);
+}
 
 const sentences = computed<Sentence[]>(() =>
   groupIntoSentences(props.analysis.words),
@@ -31,7 +57,6 @@ const sentences = computed<Sentence[]>(() =>
 
 const sections = computed<Section[]>(() => detectSections(sentences.value));
 
-import { nextTick, watch } from "vue";
 watch(
   sections,
   (next) => {
@@ -52,6 +77,67 @@ const sectionStartAt = computed<Map<number, Section>>(() => {
   return m;
 });
 
+/** Map from sentence index -> [start, endExclusive] of the section that ends
+ *  at that sentence (i.e. the "render the page-complete button after this
+ *  sentence" lookup). Empty when there are no sections (short texts). */
+const sectionEndAt = computed<Map<number, { start: number; end: number }>>(() => {
+  const m = new Map<number, { start: number; end: number }>();
+  const total = sentences.value.length;
+  for (let i = 0; i < sections.value.length; i++) {
+    const start = sections.value[i].startSentenceIdx;
+    const end =
+      i + 1 < sections.value.length
+        ? sections.value[i + 1].startSentenceIdx
+        : total;
+    // We render the button after the last sentence in the range, i.e. end-1.
+    if (end > start) m.set(end - 1, { start, end });
+  }
+  return m;
+});
+
+/** For the no-sections case (short texts), still expose a "mark all" prompt
+ *  at the very end so the user can quickly clear a paragraph too. */
+const showTailBulkAction = computed(
+  () => sections.value.length === 0 && sentences.value.length > 0,
+);
+
+function collectUnknownWordsInRange(start: number, end: number): string[] {
+  const out = new Set<string>();
+  for (let i = start; i < end; i++) {
+    const s = sentences.value[i];
+    if (!s) continue;
+    for (const w of s.words) {
+      if (!isLearnableWord(w)) continue;
+      const state = userStateFor(w);
+      if (state === "known" || state === "ignored") continue;
+      out.add(w.text);
+    }
+  }
+  return Array.from(out);
+}
+
+const bulkMarkingRange = ref<string | null>(null);
+async function bulkMarkRange(start: number, end: number) {
+  const key = `${start}-${end}`;
+  if (bulkMarkingRange.value === key) return;
+  const words = collectUnknownWordsInRange(start, end);
+  if (!words.length) {
+    toasts.info("Nothing left to mark — all words here are already known.");
+    return;
+  }
+  bulkMarkingRange.value = key;
+  try {
+    const result = await userWords.bulkMarkKnown(words);
+    toasts.success(
+      `Marked ${result.updated.toLocaleString()} word${result.updated === 1 ? "" : "s"} as known.`,
+    );
+  } catch {
+    toasts.error("Couldn't mark these words as known.");
+  } finally {
+    bulkMarkingRange.value = null;
+  }
+}
+
 const estimatedLevel = computed(() => {
   if (settings.hskVersion === "old") {
     return (
@@ -70,8 +156,31 @@ function wordHskColor(word: WordInfo): string | null {
   return hskCssVar(levelForVersion(word, settings.hskVersion));
 }
 
+/**
+ * Resolve the wash color for a word given the active colorMode:
+ *   - 'off'      → no color, ever.
+ *   - 'hsk'      → corpus-level color (legacy behavior).
+ *   - 'progress' → user-state-driven. Known/ignored words read as plain text;
+ *                  learning words get an amber wash; new words fall back to
+ *                  their HSK color when known, otherwise stay neutral. This
+ *                  matches LingQ's blue/yellow/white scheme but uses the HSK
+ *                  rainbow for the "new" tier so the difficulty signal stays.
+ */
+function washColor(word: WordInfo): string | null {
+  if (word.translation_source === "linebreak") return null;
+  if (settings.colorMode === "off") return null;
+  if (settings.colorMode === "hsk") return wordHskColor(word);
+
+  // progress mode
+  const state = userStateFor(word);
+  if (state === "known" || state === "ignored") return null;
+  if (state === "learning") return "var(--color-accent)";
+  // 'new' (or no state yet): show HSK color for an at-a-glance difficulty cue.
+  return wordHskColor(word);
+}
+
 function hskStyle(word: WordInfo): Record<string, string> | undefined {
-  const color = wordHskColor(word);
+  const color = washColor(word);
   return color ? ({ "--hsk-color": color } as Record<string, string>) : undefined;
 }
 
@@ -189,6 +298,60 @@ function selectedWordKey(): string | null {
         />
       </Transition>
     </p>
+
+    <!-- Section-complete bulk action. Renders after the last sentence of each
+         detected section (LingQ-style "page-complete"). Auth-only. -->
+    <div
+      v-if="auth.isAuthed && sectionEndAt.has(idx)"
+      class="mb-6 mt-2 flex justify-end"
+    >
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-bg-elevated px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+        :disabled="bulkMarkingRange !== null"
+        @click="
+          bulkMarkRange(
+            sectionEndAt.get(idx)!.start,
+            sectionEndAt.get(idx)!.end,
+          )
+        "
+      >
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+          <path
+            d="M2 5.5l2.5 2.5L9 3"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        Mark remaining as known
+      </button>
+    </div>
     </template>
+
+    <!-- Tail bulk action — only when the text is too short to have sections. -->
+    <div
+      v-if="auth.isAuthed && showTailBulkAction"
+      class="mt-4 flex justify-end"
+    >
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-bg-elevated px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+        :disabled="bulkMarkingRange !== null"
+        @click="bulkMarkRange(0, sentences.length)"
+      >
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+          <path
+            d="M2 5.5l2.5 2.5L9 3"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        Mark remaining as known
+      </button>
+    </div>
   </article>
 </template>

@@ -23,6 +23,10 @@ class WordInfo(BaseModel):
     translation_source: str | None = None
     radical: str | None = None
     radical_pinyin: str | None = None
+    # Per-user state ('learning' | 'known' | 'ignored'). None = 'new' or
+    # request was anonymous. Populated by the analyze router when there's
+    # an authenticated user.
+    user_state: str | None = None
 
 
 class LoginRequest(BaseModel):
@@ -48,3 +52,19 @@ class SignupWithInviteRequest(BaseModel):
 
 class UpdateInviteQuotaRequest(BaseModel):
     invite_quota: int
+
+
+# --- User word state (Phase A) ---
+
+VALID_WORD_STATES = frozenset({"learning", "known", "ignored"})
+
+
+class WordStateUpdate(BaseModel):
+    word: str
+    state: str  # 'learning' | 'known' | 'ignored'
+    source_text_id: int | None = None
+
+
+class BulkMarkKnownRequest(BaseModel):
+    words: list[str]
+    source_text_id: int | None = None

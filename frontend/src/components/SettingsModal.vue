@@ -2,7 +2,7 @@
 import { computed } from "vue";
 
 import { useAppModalsStore } from "@/stores/app-modals";
-import { useSettingsStore, type HskVersion, type PinyinMode } from "@/stores/settings";
+import { useSettingsStore, type ColorMode, type HskVersion, type PinyinMode } from "@/stores/settings";
 
 import Modal from "@/components/ui/Modal.vue";
 
@@ -26,6 +26,20 @@ const theme = computed({
   get: () => settings.theme,
   set: (v: "light" | "dark") => (settings.theme = v),
 });
+const colorMode = computed<ColorMode>({
+  get: () => settings.colorMode,
+  set: (v) => (settings.colorMode = v),
+});
+
+const colorOptions: { value: ColorMode; label: string; hint: string }[] = [
+  {
+    value: "progress",
+    label: "By progress",
+    hint: "Color reflects your state — known words read plain, learning highlighted",
+  },
+  { value: "hsk", label: "By HSK", hint: "Color every word by its HSK level" },
+  { value: "off", label: "Off", hint: "Plain text, no highlights" },
+];
 
 const pinyinOptions: { value: PinyinMode; label: string; hint: string }[] = [
   {
@@ -64,6 +78,38 @@ const hskOptions: { value: HskVersion; label: string; hint: string }[] = [
     </template>
 
     <div class="space-y-7">
+      <!-- Word color mode -->
+      <fieldset>
+        <legend
+          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          Word coloring
+        </legend>
+        <div class="space-y-2">
+          <label
+            v-for="opt in colorOptions"
+            :key="opt.value"
+            class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
+            :class="{
+              'border-accent bg-bg-sunken': colorMode === opt.value,
+            }"
+          >
+            <input
+              v-model="colorMode"
+              type="radio"
+              :value="opt.value"
+              class="mt-1 accent-accent"
+            />
+            <span class="flex-1">
+              <span class="block font-display text-base text-fg">
+                {{ opt.label }}
+              </span>
+              <span class="block text-xs text-fg-muted">{{ opt.hint }}</span>
+            </span>
+          </label>
+        </div>
+      </fieldset>
+
       <!-- Pinyin -->
       <fieldset>
         <legend

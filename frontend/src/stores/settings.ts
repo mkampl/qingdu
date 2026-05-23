@@ -4,6 +4,7 @@ import { ref, watch } from "vue";
 export type Theme = "light" | "dark";
 export type PinyinMode = "auto" | "on" | "off";
 export type HskVersion = "new" | "old";
+export type ColorMode = "progress" | "hsk" | "off";
 
 const STORAGE_KEY = "qingdu.settings.v2";
 
@@ -12,6 +13,7 @@ interface Persisted {
   pinyinMode: PinyinMode;
   hskVersion: HskVersion;
   showLegend: boolean;
+  colorMode: ColorMode;
 }
 
 function loadFromStorage(): Persisted {
@@ -35,6 +37,10 @@ function defaults(): Persisted {
     pinyinMode: "auto",
     hskVersion: "new",
     showLegend: false,
+    // 'progress' = color by user state (new/learning/known); the LingQ-style
+    // default once a learner has a few interactions. 'hsk' keeps the old
+    // corpus-level coloring; 'off' is plain text for distraction-free reading.
+    colorMode: "progress",
   };
 }
 
@@ -43,6 +49,7 @@ export const useSettingsStore = defineStore("settings", () => {
   const pinyinMode = ref<PinyinMode>("auto");
   const hskVersion = ref<HskVersion>("new");
   const showLegend = ref(false);
+  const colorMode = ref<ColorMode>("progress");
   let hydrated = false;
 
   function applyTheme(value: Theme) {
@@ -57,6 +64,7 @@ export const useSettingsStore = defineStore("settings", () => {
     pinyinMode.value = persisted.pinyinMode;
     hskVersion.value = persisted.hskVersion;
     showLegend.value = persisted.showLegend;
+    colorMode.value = persisted.colorMode;
     applyTheme(theme.value);
     hydrated = true;
   }
@@ -68,11 +76,12 @@ export const useSettingsStore = defineStore("settings", () => {
       pinyinMode: pinyinMode.value,
       hskVersion: hskVersion.value,
       showLegend: showLegend.value,
+      colorMode: colorMode.value,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }
 
-  watch([theme, pinyinMode, hskVersion, showLegend], () => {
+  watch([theme, pinyinMode, hskVersion, showLegend, colorMode], () => {
     if (hydrated) persist();
   });
 
@@ -87,6 +96,7 @@ export const useSettingsStore = defineStore("settings", () => {
     pinyinMode,
     hskVersion,
     showLegend,
+    colorMode,
     hydrate,
     toggleTheme,
   };

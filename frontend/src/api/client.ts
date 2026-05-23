@@ -367,3 +367,46 @@ export interface ExtractedArticle {
 
 export const extractArticle = (url: string) =>
   request<ExtractedArticle>("/api/extract", { body: { url } });
+
+// --- User word state (Phase A) ---------------------------------------------
+
+export type UserWordState = "learning" | "known" | "ignored";
+
+export interface WordStatesResponse {
+  states: Record<string, UserWordState>;
+}
+
+export interface WordStatsResponse {
+  learning: number;
+  known: number;
+  ignored: number;
+}
+
+export const listUserWordStates = () =>
+  request<WordStatesResponse>("/api/words/state");
+
+export const setUserWordState = (
+  word: string,
+  state: UserWordState,
+  source_text_id?: number | null,
+) =>
+  request<{ word: string; state: UserWordState }>("/api/words/state", {
+    body: { word, state, source_text_id: source_text_id ?? null },
+  });
+
+export const clearUserWordState = (word: string) =>
+  request<{ word: string; state: "new" }>(
+    `/api/words/state?word=${encodeURIComponent(word)}`,
+    { method: "DELETE" },
+  );
+
+export const bulkMarkKnown = (
+  words: string[],
+  source_text_id?: number | null,
+) =>
+  request<{ updated: number; total: number }>(
+    "/api/words/bulk-mark-known",
+    { body: { words, source_text_id: source_text_id ?? null } },
+  );
+
+export const getWordStats = () => request<WordStatsResponse>("/api/words/stats");
