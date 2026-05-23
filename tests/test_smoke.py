@@ -9,15 +9,15 @@ def test_app_imports(app_module):
 def test_route_count(app_module):
     """The route count is a coarse regression detector — bump intentionally.
 
-    53 = API routes alone (adds 5 /api/words/* routes on top of the prior 48).
+    56 = API routes alone (Phase B adds 3 /api/review/* on top of Phase A's 53).
     +5 when the Vite frontend is built into `frontend/dist/`: /v2 redirect,
     /v2/{rest} redirect, / SPA shell, /{rest:path} SPA shell, /assets mount.
     """
-    assert len(app_module.routes) in (53, 58)
+    assert len(app_module.routes) in (56, 61)
 
 
 def test_router_tags_present(app_module):
-    """The 12 API routers should be wired (Pages was retired at cutover)."""
+    """The 13 API routers should be wired (Pages was retired at cutover)."""
     tags = set()
     for r in app_module.routes:
         if hasattr(r, "tags") and r.tags:
@@ -35,6 +35,7 @@ def test_router_tags_present(app_module):
         "Vocabulary",
         "Vocabulary Lists",
         "Words",
+        "Review",
     }
     assert expected.issubset(tags), f"Missing tags: {expected - tags}"
 

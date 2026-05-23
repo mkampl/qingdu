@@ -4,6 +4,7 @@ import { RouterLink, RouterView, useRoute } from "vue-router";
 
 import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
+import { useReviewStore } from "@/stores/review";
 import { useSettingsStore } from "@/stores/settings";
 import { useShortcutsStore } from "@/stores/shortcuts";
 import { useUserWordsStore } from "@/stores/userWords";
@@ -21,6 +22,7 @@ const auth = useAuthStore();
 const modals = useAppModalsStore();
 const shortcuts = useShortcutsStore();
 const userWords = useUserWordsStore();
+const review = useReviewStore();
 const route = useRoute();
 
 function compactNumber(n: number): string {
@@ -113,6 +115,21 @@ onMounted(async () => {
             active-class="text-fg bg-bg-sunken"
           >
             Vocabulary
+          </RouterLink>
+          <RouterLink
+            v-if="auth.isAuthed"
+            to="/review"
+            class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-fg-muted hover:text-fg hover:bg-bg-sunken"
+            active-class="text-fg bg-bg-sunken"
+          >
+            Review
+            <span
+              v-if="review.dueNow > 0"
+              class="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1.5 py-px font-mono text-[10px] font-medium leading-none tracking-tight text-accent-fg tabular-nums"
+              :title="`${review.dueNow.toLocaleString()} cards due now`"
+            >
+              {{ review.dueNow > 99 ? "99+" : review.dueNow }}
+            </span>
           </RouterLink>
           <RouterLink
             to="/discover"
@@ -344,18 +361,33 @@ onMounted(async () => {
               </header>
 
               <ul class="flex-1 py-3">
-                <li v-for="link in [
-                  { to: '/', label: 'Reader' },
-                  { to: '/texts', label: 'Saved Texts' },
-                  { to: '/vocab', label: 'Vocabulary' },
-                  { to: '/discover', label: 'Discover' },
-                ]" :key="link.to">
+                <li
+                  v-for="link in [
+                    { to: '/', label: 'Reader', badge: 0 },
+                    { to: '/texts', label: 'Saved Texts', badge: 0 },
+                    { to: '/vocab', label: 'Vocabulary', badge: 0 },
+                    {
+                      to: '/review',
+                      label: 'Review',
+                      badge: auth.isAuthed ? review.dueNow : 0,
+                      gated: true,
+                    },
+                    { to: '/discover', label: 'Discover', badge: 0 },
+                  ].filter((l) => !l.gated || auth.isAuthed)"
+                  :key="link.to"
+                >
                   <RouterLink
                     :to="link.to"
-                    class="block px-5 py-3 font-display text-base text-fg-muted hover:bg-bg-sunken hover:text-fg"
+                    class="flex items-center justify-between gap-2 px-5 py-3 font-display text-base text-fg-muted hover:bg-bg-sunken hover:text-fg"
                     active-class="bg-bg-sunken text-fg font-medium"
                   >
-                    {{ link.label }}
+                    <span>{{ link.label }}</span>
+                    <span
+                      v-if="link.badge > 0"
+                      class="inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-accent px-2 py-px font-mono text-[10px] font-medium leading-none text-accent-fg tabular-nums"
+                    >
+                      {{ link.badge > 99 ? "99+" : link.badge }}
+                    </span>
                   </RouterLink>
                 </li>
               </ul>

@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 
 import * as api from "@/api/client";
 import type { User } from "@/api/types";
+import { useReviewStore } from "@/stores/review";
 import { useUserWordsStore } from "@/stores/userWords";
 
 export const useAuthStore = defineStore("auth", () => {
@@ -29,6 +30,7 @@ export const useAuthStore = defineStore("auth", () => {
     if (user.value) {
       // Fire-and-forget; the reader still renders before this resolves.
       useUserWordsStore().hydrate();
+      useReviewStore().refreshStats();
     }
   }
 
@@ -40,6 +42,7 @@ export const useAuthStore = defineStore("auth", () => {
       api.setToken(result.access_token);
       user.value = result.user;
       useUserWordsStore().hydrate(true);
+      useReviewStore().refreshStats();
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Login failed";
       throw e;
@@ -60,6 +63,7 @@ export const useAuthStore = defineStore("auth", () => {
       api.setToken(result.access_token);
       user.value = result.user;
       useUserWordsStore().hydrate(true);
+      useReviewStore().refreshStats();
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Signup failed";
       throw e;
@@ -77,6 +81,7 @@ export const useAuthStore = defineStore("auth", () => {
       api.setToken(null);
       user.value = null;
       useUserWordsStore().reset();
+      useReviewStore().reset();
     }
   }
 

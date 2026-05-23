@@ -410,3 +410,51 @@ export const bulkMarkKnown = (
   );
 
 export const getWordStats = () => request<WordStatsResponse>("/api/words/stats");
+
+// --- Review (Phase B) ------------------------------------------------------
+
+export type ReviewMode = "recognition" | "dictation" | "cloze";
+export type ReviewGrade = 1 | 2 | 3 | 4;
+
+export interface ReviewCard {
+  word: string;
+  pinyin: string;
+  meaning: string;
+  meanings: string[];
+  hsk_level: string | null;
+  stability: number | null;
+  difficulty: number | null;
+  due_at: string | null;
+}
+
+export interface ReviewQueueResponse {
+  mode: ReviewMode;
+  cards: ReviewCard[];
+}
+
+export interface ReviewStatsResponse {
+  due_now: number;
+  due_today: number;
+  learning: number;
+  reviewed_today: number;
+}
+
+export const getReviewQueue = (mode: ReviewMode = "recognition", limit = 20) =>
+  request<ReviewQueueResponse>(
+    `/api/review/queue?mode=${mode}&limit=${limit}`,
+  );
+
+export const gradeReviewCard = (
+  word: string,
+  grade: ReviewGrade,
+  mode: ReviewMode = "recognition",
+) =>
+  request<{
+    word: string;
+    due_at: string | null;
+    stability: number | null;
+    difficulty: number | null;
+  }>("/api/review/grade", { body: { word, grade, mode } });
+
+export const getReviewStats = () =>
+  request<ReviewStatsResponse>("/api/review/stats");

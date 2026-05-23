@@ -5,6 +5,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -98,8 +99,15 @@ class UserWord(Base):
     # 'learning' | 'known' | 'ignored' — 'new' is absence-of-row.
     state = Column(String(16), nullable=False, default="learning")
     seen_count = Column(Integer, default=1)
-    # SM-2-style ease * 100. FSRS may replace this in Phase B.
+    # SM-2-style ease * 100. Legacy; FSRS uses stability/difficulty below.
     ease = Column(Integer, default=250)
+    # FSRS-4.5 state. `fsrs_state` carries the full Card JSON for round-tripping
+    # (state machine + step + last_review timestamps). `stability` / `difficulty`
+    # / `due_at` mirror the same numbers so we can SELECT for "due now" without
+    # decoding every row's JSON.
+    stability = Column(Float, nullable=True)
+    difficulty = Column(Float, nullable=True)
+    fsrs_state = Column(Text, nullable=True)
     due_at = Column(DateTime, nullable=True)
     last_reviewed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -110,6 +118,8 @@ class UserWord(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "word", name="uq_user_word"),
         Index("ix_user_words_user_state", "user_id", "state"),
+        # Hot path: "what's due right now for user X" — used by /api/review/queue.
+        Index("ix_user_words_user_due", "user_id", "due_at"),
     )
 
 
@@ -128,6 +138,8 @@ class UserWordEvent(Base):
     # 'seen' | 'state_change' | 'bulk_mark_known' | 'review'
     event_type = Column(String(32), nullable=False)
     new_state = Column(String(16), nullable=True)
+    # 1-4 when event_type == 'review' (FSRS Rating: Again/Hard/Good/Easy).
+    grade = Column(Integer, nullable=True)
     source_text_id = Column(
         Integer, ForeignKey("saved_texts.id", ondelete="SET NULL"), nullable=True
     )
@@ -189,6 +201,31 @@ def init_db():
                     conn.execute(
                         text("ALTER TABLE users ADD COLUMN invite_quota INTEGER DEFAULT 5")
                     )
+                    conn.commit()
+
+        # Phase B — FSRS columns on user_words + grade on user_word_events.
+        # Both tables are net-new in Phase A so most deployments will pick
+        # these up via create_all above; the ALTERs only matter for the brief
+        # window where a Phase A deployment landed before Phase B.
+        if inspector.has_table("user_words"):
+            uw_cols = {col["name"] for col in inspector.get_columns("user_words")}
+            needed = [
+                ("stability", "FLOAT"),
+                ("difficulty", "FLOAT"),
+                ("fsrs_state", "TEXT"),
+            ]
+            with engine.connect() as conn:
+                for name, sql_type in needed:
+                    if name not in uw_cols:
+                        logger.info("Adding %s column to user_words", name)
+                        conn.execute(text(f"ALTER TABLE user_words ADD COLUMN {name} {sql_type}"))
+                conn.commit()
+        if inspector.has_table("user_word_events"):
+            ev_cols = {col["name"] for col in inspector.get_columns("user_word_events")}
+            if "grade" not in ev_cols:
+                logger.info("Adding grade column to user_word_events")
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE user_word_events ADD COLUMN grade INTEGER"))
                     conn.commit()
     except Exception as e:
         logger.error(f"Error updating database schema: {e}")

@@ -24,6 +24,11 @@ export const router = createRouter({
       component: () => import("@/views/DiscoverView.vue"),
     },
     {
+      path: "/review",
+      name: "review",
+      component: () => import("@/views/ReviewView.vue"),
+    },
+    {
       path: "/vocab/:id",
       name: "vocab",
       component: () => import("@/views/VocabListView.vue"),
