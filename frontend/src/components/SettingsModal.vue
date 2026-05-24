@@ -43,7 +43,7 @@ const colorOptions: { value: ColorMode; label: string; hint: string }[] = [
   {
     value: "progress",
     label: "By progress",
-    hint: "Color reflects your state — known words read plain, learning highlighted",
+    hint: "Blue = new to you · accent = learning · plain = known/ignored",
   },
   { value: "hsk", label: "By HSK", hint: "Color every word by its HSK level" },
   { value: "off", label: "Off", hint: "Plain text, no highlights" },

@@ -175,12 +175,14 @@ function wordHskColor(word: WordInfo): string | null {
 /**
  * Resolve the wash color for a word given the active colorMode:
  *   - 'off'      → no color, ever.
- *   - 'hsk'      → corpus-level color (legacy behavior).
- *   - 'progress' → user-state-driven. Known/ignored words read as plain text;
- *                  learning words get an amber wash; new words fall back to
- *                  their HSK color when known, otherwise stay neutral. This
- *                  matches LingQ's blue/yellow/white scheme but uses the HSK
- *                  rainbow for the "new" tier so the difficulty signal stays.
+ *   - 'hsk'      → corpus-level rainbow by HSK band.
+ *   - 'progress' → LingQ-style three-state: new=blue, learning=accent
+ *                  (warm amber/coral), known/ignored=plain text. The three
+ *                  modes must be visually distinguishable at a glance —
+ *                  earlier this branch fell back to HSK colors for "new",
+ *                  which made progress and hsk look identical until the
+ *                  user had marked many words. (Punctuation and other
+ *                  non-CJK tokens stay uncolored.)
  */
 function washColor(word: WordInfo): string | null {
   if (word.translation_source === "linebreak") return null;
@@ -188,11 +190,12 @@ function washColor(word: WordInfo): string | null {
   if (settings.colorMode === "hsk") return wordHskColor(word);
 
   // progress mode
+  if (!isLearnableWord(word)) return null;
   const state = userStateFor(word);
   if (state === "known" || state === "ignored") return null;
   if (state === "learning") return "var(--color-accent)";
-  // 'new' (or no state yet): show HSK color for an at-a-glance difficulty cue.
-  return wordHskColor(word);
+  // 'new' (no row in user_words yet): the LingQ blue.
+  return "var(--color-progress-new)";
 }
 
 function hskStyle(word: WordInfo): Record<string, string> | undefined {
