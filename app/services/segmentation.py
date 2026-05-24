@@ -145,15 +145,25 @@ def _group_sentences(segments: list[str]) -> list[tuple[int, grammar.Sentence]]:
     return out
 
 
-async def analyze_chinese_text(text: str) -> dict:
+async def analyze_chinese_text(
+    text: str,
+    glossary: dict[str, dict] | None = None,
+) -> dict:
     """
     Segment `text` with jieba, look each word up in the HSK vocab (falling back
     to compound-from-characters or an online lookup), and return per-word data
     plus aggregate statistics across both HSK systems.
+
+    `glossary`, if provided, is a {word: {pinyin, meaning, list_name}} map
+    built by the caller from the user's glossary-flagged vocabulary lists.
+    On glossary hit, the word's pinyin + meaning come from the user instead
+    of HSK / online lookup; HSK level (when the word is also in HSK) is
+    still attached so the corpus difficulty signal stays honest.
     """
     text = text.strip()
     if not text:
         return {"words": [], "statistics": {}}
+    glossary = glossary or {}
 
     # Split by line breaks first so we can preserve them in the output.
     lines = text.split("\n")
@@ -192,6 +202,30 @@ async def analyze_chinese_text(text: str) -> dict:
             continue
 
         word_info = WordInfo(text=segment)
+
+        # Glossary takes priority over HSK lookup. HSK metadata (level,
+        # radical) is still attached so the difficulty signal + radical
+        # popover work — only the meaning/pinyin/source get overridden.
+        glossary_hit = glossary.get(segment)
+        if glossary_hit:
+            vocab_entry = get_word_info(segment) or {}
+            word_info.hsk_level = vocab_entry.get("level", "")
+            word_info.level_new = vocab_entry.get("level_new")
+            word_info.level_old = vocab_entry.get("level_old")
+            word_info.pinyin = glossary_hit.get("pinyin", "") or vocab_entry.get("pinyin", "")
+            word_info.meaning = glossary_hit.get("meaning", "")
+            word_info.meanings = glossary_hit.get("meanings") or [glossary_hit.get("meaning", "")]
+            word_info.frequency = vocab_entry.get("frequency", 0)
+            word_info.is_hsk = True  # ensures the reader treats it as a clickable, colored word
+            word_info.translation_source = "glossary"
+            word_info.glossary_source = glossary_hit.get("list_name")
+            word_info.radical = vocab_entry.get("radical", "")
+            word_info.radical_pinyin = vocab_entry.get("radical_pinyin", "")
+            # Don't roll glossary hits into HSK stats — keeps the chart honest
+            # about what's in the corpus vs what's overridden.
+            words.append(word_info.dict())
+            continue
+
         vocab_entry = get_word_info(segment)
 
         if vocab_entry:

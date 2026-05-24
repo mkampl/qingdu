@@ -185,6 +185,7 @@ const onSave = async () => {
         content: analysis.inputText,
         analysis_data: analysis.result,
         tags: analysis.savedTextTags,
+        glossary_list_ids: analysis.glossaryListIds,
       });
       analysis.markSynced();
       toasts.success("Text updated.");
@@ -193,6 +194,7 @@ const onSave = async () => {
         title: derivedTitle.value,
         content: analysis.inputText,
         analysis_data: analysis.result,
+        glossary_list_ids: analysis.glossaryListIds,
       });
       analysis.adoptSavedId(result.id, derivedTitle.value, []);
       toasts.success("Text saved.");

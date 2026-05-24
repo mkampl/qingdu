@@ -25,6 +25,7 @@ export type TranslationSource =
   | "deepl"
   | "google"
   | "mymemory"
+  | "glossary"
   | "hsk"
   | "hsk-chars"
   | "cache"
@@ -45,6 +46,9 @@ export interface WordInfo {
   radical_pinyin?: string;
   /** Per-user state from /api/analyze when authenticated. Undefined = new. */
   user_state?: "learning" | "known" | "ignored";
+  /** Phase #99 — name of the user's glossary list this word came from
+   *  (translation_source === "glossary"). The popover surfaces it. */
+  glossary_source?: string | null;
 }
 
 export interface AnalysisStatistics {
@@ -149,6 +153,9 @@ export interface SavedTextSummary {
   comprehension_score: number | null;
   /** Public share token if this text has been shared (Phase G3). */
   share_token: string | null;
+  /** Phase #99 — per-text glossary picker selection. null = use all
+   *  glossary-flagged lists, [] = none, [3,5] = only those. */
+  glossary_list_ids: number[] | null;
 }
 
 export interface VocabularyListSummary {
@@ -156,6 +163,9 @@ export interface VocabularyListSummary {
   name: string;
   type: string;
   sections: VocabularySection[];
+  /** Phase #99 — when true, this list's entries override HSK lookup during
+   *  analysis. Toggled from the list's edit page. */
+  apply_as_glossary?: boolean;
 }
 
 export interface VocabularySection {

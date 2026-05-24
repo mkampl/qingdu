@@ -187,6 +187,14 @@ function wordHskColor(word: WordInfo): string | null {
 function washColor(word: WordInfo): string | null {
   if (word.translation_source === "linebreak") return null;
   if (settings.colorMode === "off") return null;
+
+  // Glossary hits always take their own distinct color regardless of mode
+  // (except 'off') — the user explicitly opted into "my meaning, not the
+  // dictionary's", so showing a different signal is the whole point.
+  if (word.translation_source === "glossary") {
+    return "var(--color-glossary)";
+  }
+
   if (settings.colorMode === "hsk") return wordHskColor(word);
 
   // progress mode

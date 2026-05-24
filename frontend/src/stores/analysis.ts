@@ -26,6 +26,14 @@ export const useAnalysisStore = defineStore("analysis", () => {
    * Used by ReaderView to restore scroll position after the article renders.
    */
   const initialProgress = ref<number>(0);
+  /**
+   * Phase #99 — per-text glossary picker selection.
+   * null  = use all glossary-flagged lists (the default for fresh analyses)
+   * []    = explicitly use no glossary
+   * [3,5] = use only those lists
+   * Persisted on the saved_text record via /save and /update.
+   */
+  const glossaryListIds = ref<number[] | null>(null);
   let activeRequest: AbortController | null = null;
 
   const hasResult = computed(() => result.value !== null);
@@ -55,7 +63,10 @@ export const useAnalysisStore = defineStore("analysis", () => {
 
     loading.value = true;
     try {
-      result.value = await api.analyze(text, activeRequest.signal);
+      result.value = await api.analyze(text, {
+        glossary_list_ids: glossaryListIds.value,
+        signal: activeRequest.signal,
+      });
       // NOTE: savedTextId is intentionally preserved across re-analyse so the
       // user can edit a saved text + re-analyse + Save (which updates the
       // same record). Use reset() to fully decouple from a saved record.
@@ -77,6 +88,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
     savedTextTags.value = [];
     savedTextOriginalContent.value = null;
     initialProgress.value = 0;
+    glossaryListIds.value = null;
   }
 
   /**
@@ -92,6 +104,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
       progress?: number;
       title?: string;
       tags?: string[];
+      glossaryListIds?: number[] | null;
     } | null = null,
   ) {
     if (activeRequest) activeRequest.abort();
@@ -104,6 +117,8 @@ export const useAnalysisStore = defineStore("analysis", () => {
     savedTextTags.value = options?.tags ?? [];
     savedTextOriginalContent.value = text;
     initialProgress.value = Math.max(0, Math.min(1, options?.progress ?? 0));
+    glossaryListIds.value =
+      options?.glossaryListIds === undefined ? null : options.glossaryListIds;
   }
 
   /**
@@ -139,6 +154,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
     savedTextTags,
     savedTextOriginalContent,
     initialProgress,
+    glossaryListIds,
     hasResult,
     isEdited,
     analyze,

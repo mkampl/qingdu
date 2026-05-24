@@ -71,6 +71,10 @@ class SavedText(Base):
     # Phase G3 — public sharing. NULL means "not shared"; a UUID4 means
     # the text is reachable via /api/share/{token}. Revoking is a SET NULL.
     share_token = Column(String(36), unique=True, nullable=True, index=True)
+    # Phase #99 — per-text override of which glossaries apply at re-analyze
+    # time. JSON array of int IDs. NULL means "use all the user's
+    # glossary-flagged lists" (the default).
+    glossary_list_ids = Column(Text, nullable=True)
 
     user = relationship("User", back_populates="texts")
 
@@ -84,6 +88,10 @@ class VocabularyList(Base):
     list_type = Column(String(50))  # 'hsk', 'auto', 'custom'
     sections = Column(Text)  # JSON string
     anki_deck_id = Column(Integer, nullable=True)
+    # Phase #99 — when true, this list's entries override HSK lookup during
+    # /api/analyze. Used for specialized corpora (Daoist, Buddhist, jargon)
+    # where the default meanings don't fit.
+    apply_as_glossary = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="vocabulary_lists")
@@ -212,7 +220,23 @@ def init_db():
                     )
                     conn.commit()
 
+        # Phase #99 — glossary support: apply_as_glossary on vocab lists,
+        # glossary_list_ids on saved texts (both idempotent ALTERs).
+        if inspector.has_table("vocabulary_lists"):
+            vl_cols = {col["name"] for col in inspector.get_columns("vocabulary_lists")}
+            if "apply_as_glossary" not in vl_cols:
+                logger.info("Adding apply_as_glossary column to vocabulary_lists")
+                with engine.connect() as conn:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE vocabulary_lists ADD COLUMN apply_as_glossary "
+                            "BOOLEAN DEFAULT 0"
+                        )
+                    )
+                    conn.commit()
+
         # Phase G3 — share_token column on saved_texts (idempotent ALTER).
+        # Phase #99 — glossary_list_ids on saved_texts.
         if inspector.has_table("saved_texts"):
             st_cols = {col["name"] for col in inspector.get_columns("saved_texts")}
             if "share_token" not in st_cols:
@@ -225,6 +249,11 @@ def init_db():
                             "ON saved_texts(share_token)"
                         )
                     )
+                    conn.commit()
+            if "glossary_list_ids" not in st_cols:
+                logger.info("Adding glossary_list_ids column to saved_texts")
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE saved_texts ADD COLUMN glossary_list_ids TEXT"))
                     conn.commit()
 
         # Phase F2 — streak columns on users (idempotent ALTER).

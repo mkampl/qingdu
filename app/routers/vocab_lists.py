@@ -63,6 +63,7 @@ async def get_vocabulary_lists(
                 "name": vocab_list.name,
                 "type": vocab_list.list_type,
                 "sections": migrated_sections,
+                "apply_as_glossary": bool(vocab_list.apply_as_glossary),
             }
         )
     return result
@@ -76,8 +77,15 @@ async def update_vocabulary_list(
     db: Session = Depends(get_db),
 ):
     vocab_list = _owned_list(db, user, list_id)
-    vocab_list.name = list_data.get("name", vocab_list.name)
-    vocab_list.sections = json.dumps(list_data.get("sections", []))
+    # PATCH-style: only update fields the caller sent. Previously this
+    # wiped `sections` to [] when a caller omitted the key — a footgun
+    # that Phase #99's glossary toggle would have triggered on every flip.
+    if "name" in list_data:
+        vocab_list.name = list_data["name"]
+    if "sections" in list_data:
+        vocab_list.sections = json.dumps(list_data["sections"])
+    if "apply_as_glossary" in list_data:
+        vocab_list.apply_as_glossary = bool(list_data["apply_as_glossary"])
     db.commit()
     return {"message": "List updated"}
 

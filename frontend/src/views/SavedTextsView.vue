@@ -107,6 +107,7 @@ function open(text: SavedTextSummary) {
     progress: normalizeProgress(text.reading_progress),
     title: text.title ?? "",
     tags: parseTags(text.tags),
+    glossaryListIds: text.glossary_list_ids,
   });
   reader.reset();
   void router.push("/");

@@ -97,8 +97,21 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
 export const health = () => request<HealthResponse>("/health", { anonymous: true });
 
-export const analyze = (text: string, signal?: AbortSignal) =>
-  request<AnalysisResponse>("/api/analyze", { body: { text }, signal });
+export const analyze = (
+  text: string,
+  options: { glossary_list_ids?: number[] | null; signal?: AbortSignal } = {},
+) =>
+  request<AnalysisResponse>("/api/analyze", {
+    body: {
+      text,
+      // Only include the field when the caller has an explicit choice;
+      // omitting it tells the backend "use all glossary-flagged lists".
+      ...(options.glossary_list_ids !== undefined
+        ? { glossary_list_ids: options.glossary_list_ids }
+        : {}),
+    },
+    signal: options.signal,
+  });
 
 export const translate = (text: string, signal?: AbortSignal) =>
   request<TranslateResponse>("/api/translate", { body: { text }, signal });
@@ -190,6 +203,7 @@ export const saveText = (input: {
   content: string;
   analysis_data: AnalysisResponse;
   tags?: string[];
+  glossary_list_ids?: number[] | null;
 }) => request<{ id: number; message: string }>("/api/texts/save", { body: input });
 
 export const updateText = (
@@ -200,6 +214,7 @@ export const updateText = (
     reading_progress: number;
     content: string;
     analysis_data: AnalysisResponse;
+    glossary_list_ids: number[] | null;
   }>,
 ) =>
   request<{ id: number; title: string; message: string }>(
@@ -226,7 +241,7 @@ export const createVocabularyList = (input: {
 
 export const updateVocabularyList = (
   id: number,
-  patch: { name?: string; sections?: unknown[] },
+  patch: { name?: string; sections?: unknown[]; apply_as_glossary?: boolean },
 ) =>
   request<{ message: string }>(`/api/vocabulary-lists/${id}`, {
     method: "PUT",

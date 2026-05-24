@@ -71,12 +71,14 @@ async def save_text(
 ):
     """Save analyzed text to database."""
     tags = text_data.get("tags", [])
+    glossary_ids = text_data.get("glossary_list_ids")
     saved_text = SavedText(
         user_id=user.id,
         title=text_data.get("title"),
         content=text_data.get("content"),
         analysis_data=json.dumps(text_data.get("analysis_data")),
         tags=json.dumps(tags) if tags else None,
+        glossary_list_ids=json.dumps(glossary_ids) if glossary_ids is not None else None,
     )
     db.add(saved_text)
     db.commit()
@@ -117,6 +119,9 @@ async def get_texts(
                 "tags": text.tags,
                 "reading_progress": text.reading_progress or 0,
                 "share_token": text.share_token,
+                "glossary_list_ids": (
+                    json.loads(text.glossary_list_ids) if text.glossary_list_ids else None
+                ),
                 **comp,
             }
         )
@@ -222,6 +227,9 @@ async def update_text(
         text.content = data["content"]
     if "analysis_data" in data:
         text.analysis_data = json.dumps(data["analysis_data"])
+    if "glossary_list_ids" in data:
+        ids = data["glossary_list_ids"]
+        text.glossary_list_ids = json.dumps(ids) if ids is not None else None
 
     db.commit()
     db.refresh(text)

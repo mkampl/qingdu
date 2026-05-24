@@ -4,6 +4,7 @@ import { computed, nextTick, onMounted, ref, watch } from "vue";
 import * as api from "@/api/client";
 import type { ConvertDirection } from "@/api/client";
 import Button from "@/components/ui/Button.vue";
+import GlossaryPicker from "@/components/reader/GlossaryPicker.vue";
 import { submitShortcutLabel } from "@/utils/platform";
 
 const props = defineProps<{
@@ -257,6 +258,9 @@ async function convert(direction: ConvertDirection) {
             </svg>
             Import
           </button>
+          <!-- Phase #99 — Glossary picker. Hides itself when the user has no
+               glossary-flagged lists yet. -->
+          <GlossaryPicker />
           <!-- Script converters. Hidden on the narrowest screens to keep
                the row from wrapping; the auto-detect banner covers the
                most-common case there anyway. -->

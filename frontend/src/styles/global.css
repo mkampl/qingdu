@@ -54,6 +54,12 @@
      warm-paper background, and is unmistakably distinct from any of the
      HSK rainbow hues above. */
   --color-progress-new: oklch(0.78 0.06 245);
+
+  /* Phase #99 — wash for words pulled from a user glossary. Deep magenta /
+     orchid sits outside the HSK rainbow's hue range (none of HSK 1–9 are
+     near 305°), so a glossary hit reads as obviously special even in HSK
+     coloring mode. */
+  --color-glossary: oklch(0.72 0.13 305);
 }
 
 @layer base {
@@ -83,6 +89,7 @@
     --color-hsk-unknown: oklch(0.40 0.005 70);
 
     --color-progress-new: oklch(0.55 0.06 245);
+    --color-glossary: oklch(0.55 0.13 305);
   }
 
   body {

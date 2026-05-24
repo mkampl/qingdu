@@ -328,6 +328,29 @@ async function setWordState(state: UserWordState) {
             </div>
           </div>
 
+          <!-- Glossary-source pill — when the meaning was overridden by
+               one of the user's personal glossaries, surface it so the
+               user knows it's their gloss, not the dictionary's. -->
+          <div
+            v-if="word.glossary_source"
+            class="mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider"
+            :style="{
+              backgroundColor: 'color-mix(in oklch, var(--color-glossary), transparent 80%)',
+              color: 'var(--color-glossary)',
+            }"
+            :title="`From your glossary list “${word.glossary_source}”`"
+          >
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden="true">
+              <path
+                d="M1.5 1.5h6M1.5 4h6M1.5 6.5h4"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linecap="round"
+              />
+            </svg>
+            {{ word.glossary_source }}
+          </div>
+
           <!-- Meaning(s) -->
           <div v-if="word.meaning || word.meanings?.length" class="mt-4">
             <p class="font-display text-[15px] leading-snug text-fg">

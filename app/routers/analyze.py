@@ -1,10 +1,12 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.core.constants import ANALYZE_RATE_LIMIT
 from app.core.rate_limit import limiter
-from app.database import User, UserWord, get_db
+from app.database import User, UserWord, VocabularyList, get_db
 from app.schemas import TextAnalysisRequest
 from app.services.segmentation import analyze_chinese_text
 from app.state import hsk_vocab
@@ -18,6 +20,57 @@ def _user_state_map(db: Session, user: User | None) -> dict[str, str]:
         return {}
     rows = db.query(UserWord.word, UserWord.state).filter(UserWord.user_id == user.id).all()
     return dict(rows)
+
+
+def _build_glossary(
+    db: Session,
+    user: User | None,
+    list_ids: list[int] | None,
+) -> dict[str, dict]:
+    """
+    Resolve the picker selection to a {word: {pinyin, meaning, list_name}} map.
+
+    Semantics:
+      - user is None              -> empty map (anonymous can't use a glossary)
+      - list_ids is None          -> use every list the user has flagged
+      - list_ids == []            -> explicitly use no glossary
+      - list_ids == [3, 5]        -> use only those lists (ignoring others)
+
+    Multi-list conflicts: later-created lists win (ORDER BY created_at DESC,
+    so the most recently-curated glossary takes priority).
+    """
+    if user is None or list_ids == []:
+        return {}
+
+    q = db.query(VocabularyList).filter(
+        VocabularyList.user_id == user.id,
+        VocabularyList.apply_as_glossary.is_(True),
+    )
+    if list_ids:
+        q = q.filter(VocabularyList.id.in_(list_ids))
+    lists = q.order_by(VocabularyList.created_at.asc()).all()
+
+    out: dict[str, dict] = {}
+    for vl in lists:
+        try:
+            sections = json.loads(vl.sections) if vl.sections else []
+        except (ValueError, TypeError):
+            continue
+        for section in sections:
+            for word in section.get("words", []) or []:
+                hanzi = (word.get("hanzi") or "").strip()
+                if not hanzi:
+                    continue
+                # Iteration order is oldest-list first, so newer lists
+                # naturally overwrite. Inside one list, last word wins.
+                out[hanzi] = {
+                    "pinyin": (word.get("pinyin") or "").strip(),
+                    "meaning": (word.get("meaning") or "").strip(),
+                    "meanings": word.get("meanings") or [],
+                    "list_name": vl.name,
+                    "list_id": vl.id,
+                }
+    return out
 
 
 @router.post(
@@ -74,7 +127,8 @@ async def analyze_text(
     if not text:
         raise HTTPException(status_code=400, detail="Text is empty")
 
-    result = await analyze_chinese_text(text)
+    glossary = _build_glossary(db, user, data.glossary_list_ids)
+    result = await analyze_chinese_text(text, glossary=glossary)
 
     # Enrich words with per-user state when the request is authenticated.
     # Anonymous callers get the response unchanged.

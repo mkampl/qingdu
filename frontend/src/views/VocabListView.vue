@@ -112,6 +112,31 @@ async function commitRename() {
   }
 }
 
+// --- Glossary toggle (Phase #99) -----------------------------------------
+
+async function toggleGlossary() {
+  if (!list.value) return;
+  const next = !list.value.apply_as_glossary;
+  busy.value = true;
+  try {
+    await api.updateVocabularyList(list.value.id, {
+      apply_as_glossary: next,
+    });
+    syncList((l) => ({ ...l, apply_as_glossary: next }));
+    toasts.success(
+      next
+        ? "Now available as a glossary for analysis."
+        : "No longer used as a glossary.",
+    );
+  } catch (e) {
+    toasts.error(
+      e instanceof ApiError ? e.message : "Couldn't update glossary setting.",
+    );
+  } finally {
+    busy.value = false;
+  }
+}
+
 // --- Delete list ----------------------------------------------------------
 
 const askDeleteList = ref(false);
@@ -582,7 +607,44 @@ function sectionWordCount(section: VocabularySection): number {
               ·
               {{ list.sections.length }}
               {{ list.sections.length === 1 ? "section" : "sections" }}
+              <span
+                v-if="list.apply_as_glossary"
+                class="ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] tracking-wider"
+                :style="{
+                  backgroundColor: 'color-mix(in oklch, var(--color-glossary), transparent 80%)',
+                  color: 'var(--color-glossary)',
+                }"
+              >
+                · Active glossary
+              </span>
             </p>
+
+            <!-- Glossary toggle — surfaces the apply_as_glossary flag. -->
+            <label
+              class="mt-3 flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 transition-colors hover:bg-bg-sunken"
+              :class="{
+                'border-[color:var(--color-glossary)]': list.apply_as_glossary,
+              }"
+            >
+              <input
+                type="checkbox"
+                :checked="list.apply_as_glossary"
+                :disabled="busy"
+                class="mt-1 accent-accent"
+                @change="toggleGlossary"
+              />
+              <span class="flex-1">
+                <span class="block font-display text-sm font-medium text-fg">
+                  Use as glossary
+                </span>
+                <span class="block text-xs text-fg-muted leading-relaxed">
+                  Words in this list will override HSK meanings when analysing
+                  text. Useful for specialised corpora (Daoist, Buddhist,
+                  business jargon) where the default glosses don't fit. Toggle
+                  per-text from the reader's <em>Glossaries</em> picker.
+                </span>
+              </span>
+            </label>
           </div>
 
           <!-- Export / delete actions -->

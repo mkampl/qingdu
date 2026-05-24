@@ -3,6 +3,11 @@ from pydantic import BaseModel
 
 class TextAnalysisRequest(BaseModel):
     text: str
+    # Phase #99 — optional glossary picker.
+    # None / omitted -> use all the user's glossary-flagged vocabulary lists.
+    # []             -> explicitly use no glossary (even if lists are flagged).
+    # [3, 5]         -> use only those lists.
+    glossary_list_ids: list[int] | None = None
 
 
 class TranslationRequest(BaseModel):
@@ -27,6 +32,9 @@ class WordInfo(BaseModel):
     # request was anonymous. Populated by the analyze router when there's
     # an authenticated user.
     user_state: str | None = None
+    # Phase #99 — name of the glossary list this word's meaning came from,
+    # when `translation_source == "glossary"`. The popover surfaces this.
+    glossary_source: str | None = None
 
 
 class LoginRequest(BaseModel):
