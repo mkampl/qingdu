@@ -37,10 +37,11 @@ function defaults(): Persisted {
     pinyinMode: "auto",
     hskVersion: "new",
     showLegend: false,
-    // 'progress' = color by user state (new/learning/known); the LingQ-style
-    // default once a learner has a few interactions. 'hsk' keeps the old
-    // corpus-level coloring; 'off' is plain text for distraction-free reading.
-    colorMode: "progress",
+    // 'hsk' is the default — the rainbow gives an immediate difficulty
+    // signal that's useful even before the user has marked any words.
+    // 'progress' (LingQ-style blue/accent/plain) and 'off' (plain text)
+    // are opt-in from the Settings modal.
+    colorMode: "hsk",
   };
 }
 
