@@ -447,6 +447,46 @@ export const importHskKnown = (
     { body: { up_to_level, hsk_version } },
   );
 
+// --- Sharing + export (Phase G3 / G4) -------------------------------------
+
+export interface PublicSharedText {
+  title: string | null;
+  content: string;
+  analysisData: AnalysisResponse | null;
+  created_at: string;
+}
+
+export const enableShare = (textId: number) =>
+  request<{ token: string }>(`/api/texts/${textId}/share`, { method: "POST" });
+
+export const disableShare = (textId: number) =>
+  request<{ message: string }>(`/api/texts/${textId}/share`, {
+    method: "DELETE",
+  });
+
+export const fetchSharedText = (token: string) =>
+  request<PublicSharedText>(`/api/share/${encodeURIComponent(token)}`, {
+    anonymous: true,
+  });
+
+/**
+ * CSV / Anki downloads — surfaced via direct link with the token in a
+ * query string (require_auth_flexible accepts ?token=…).
+ */
+export function wordsCsvUrl(): string {
+  const token = getToken();
+  return token
+    ? `/api/words/export.csv?token=${encodeURIComponent(token)}`
+    : "/api/words/export.csv";
+}
+
+export function wordsAnkiUrl(): string {
+  const token = getToken();
+  return token
+    ? `/api/words/export.apkg?token=${encodeURIComponent(token)}`
+    : "/api/words/export.apkg";
+}
+
 export const getWordStats = () => request<WordStatsResponse>("/api/words/stats");
 
 // --- Review (Phase B) ------------------------------------------------------

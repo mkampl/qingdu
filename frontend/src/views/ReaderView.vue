@@ -18,6 +18,7 @@ import InputPanel from "@/components/reader/InputPanel.vue";
 import PlayerBar from "@/components/reader/PlayerBar.vue";
 import ReadingProgress from "@/components/reader/ReadingProgress.vue";
 import ReadingText from "@/components/reader/ReadingText.vue";
+import ShareModal from "@/components/reader/ShareModal.vue";
 import StatsPanel from "@/components/reader/StatsPanel.vue";
 import TocSidebar from "@/components/reader/TocSidebar.vue";
 import type { Section } from "@/components/reader/utils";
@@ -123,6 +124,15 @@ const importOpen = ref(false);
 
 function openImport() {
   importOpen.value = true;
+}
+
+// --- Share -------------------------------------------------------------
+
+const shareOpen = ref(false);
+
+function openShare() {
+  if (!analysis.savedTextId) return;
+  shareOpen.value = true;
 }
 
 function onImported(payload: { content: string; title: string | null }) {
@@ -608,6 +618,7 @@ onBeforeUnmount(() => {
             :is-update="analysis.savedTextId !== null"
             :is-edited="analysis.isEdited"
             @save="onSave"
+            @share="openShare"
           />
 
           <!-- Grammar patterns detected in the current text. Only renders
@@ -624,6 +635,11 @@ onBeforeUnmount(() => {
       :open="importOpen"
       @close="importOpen = false"
       @import="onImported"
+    />
+    <ShareModal
+      :open="shareOpen"
+      :text-id="analysis.savedTextId"
+      @close="shareOpen = false"
     />
   </div>
 </template>

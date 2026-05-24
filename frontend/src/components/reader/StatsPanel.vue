@@ -19,7 +19,7 @@ const props = defineProps<{
   isEdited?: boolean;
 }>();
 
-const emit = defineEmits<{ (e: "save"): void }>();
+const emit = defineEmits<{ (e: "save"): void; (e: "share"): void }>();
 
 const settings = useSettingsStore();
 
@@ -187,6 +187,25 @@ const coveragePct = computed(() => {
         </template>
         <template v-else>Save text</template>
       </Button>
+      <!-- Share button — only meaningful once a text is saved (we need
+           the record id to mint the token). Click opens ShareModal. -->
+      <button
+        v-if="isUpdate"
+        type="button"
+        class="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-border-subtle bg-bg-elevated px-3 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
+        @click="emit('share')"
+      >
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+          <path
+            d="M3 5.5l5-2.5M3 5.5l5 2.5M2 5.5a1.2 1.2 0 110 .01M8.5 3a1.2 1.2 0 110 .01M8.5 8a1.2 1.2 0 110 .01"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        Share link
+      </button>
       <p
         class="mt-2 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
       >

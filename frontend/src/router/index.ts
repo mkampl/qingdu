@@ -39,5 +39,11 @@ export const router = createRouter({
       name: "admin",
       component: () => import("@/views/AdminView.vue"),
     },
+    {
+      path: "/s/:token",
+      name: "share",
+      component: () => import("@/views/PublicShareView.vue"),
+      props: true,
+    },
   ],
 });

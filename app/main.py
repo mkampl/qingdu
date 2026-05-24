@@ -26,6 +26,7 @@ from app.routers import (
     anki,
     auth,
     convert,
+    export,
     extract,
     health,
     invitations,
@@ -145,6 +146,7 @@ app.include_router(words.router)
 app.include_router(review.router)
 app.include_router(convert.router)
 app.include_router(stats.router)
+app.include_router(export.router)
 
 # Vue 3 SPA at /. Includes a catch-all /{rest:path} route, so this MUST be
 # the last router registered or it will swallow API paths. Also registers

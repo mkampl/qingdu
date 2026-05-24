@@ -95,6 +95,9 @@ const roughTotal = computed(() => {
   return n;
 });
 
+const csvUrl = computed(() => api.wordsCsvUrl());
+const ankiUrl = computed(() => api.wordsAnkiUrl());
+
 async function runImport() {
   if (!auth.isAuthed) {
     toasts.info("Sign in to import HSK words.");
@@ -381,6 +384,44 @@ async function runImport() {
           {{ lastResult.skipped.toLocaleString() }} already tracked ·
           {{ lastResult.total_eligible.toLocaleString() }} eligible
         </p>
+      </fieldset>
+
+      <!-- Phase G4 — data export. Two anchors download via the
+           require_auth_flexible token-in-query pattern so the browser
+           handles the file download natively. -->
+      <fieldset v-if="auth.isAuthed">
+        <legend
+          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          Export
+        </legend>
+        <p class="mb-3 text-xs text-fg-muted leading-relaxed">
+          Take your data with you. CSV is a flat dump of every word state
+          + FSRS scheduling fields; the Anki deck includes everything you're
+          learning or already know with HSK level annotations.
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <a
+            :href="csvUrl"
+            class="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
+            download
+          >
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+              <path d="M5.5 1.5v6M3 5l2.5 2.5L8 5M2 9.5h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            words.csv
+          </a>
+          <a
+            :href="ankiUrl"
+            class="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
+            download
+          >
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+              <path d="M5.5 1.5v6M3 5l2.5 2.5L8 5M2 9.5h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            words.apkg
+          </a>
+        </div>
       </fieldset>
     </div>
   </Modal>

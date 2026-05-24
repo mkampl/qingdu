@@ -147,6 +147,8 @@ export interface SavedTextSummary {
   total_unique: number;
   /** known_unique / total_unique. Null when total_unique === 0. */
   comprehension_score: number | null;
+  /** Public share token if this text has been shared (Phase G3). */
+  share_token: string | null;
 }
 
 export interface VocabularyListSummary {

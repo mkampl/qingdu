@@ -68,6 +68,9 @@ class SavedText(Base):
     reading_progress = Column(Integer, default=0)  # 0-100%
     analysis_data = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
+    # Phase G3 — public sharing. NULL means "not shared"; a UUID4 means
+    # the text is reachable via /api/share/{token}. Revoking is a SET NULL.
+    share_token = Column(String(36), unique=True, nullable=True, index=True)
 
     user = relationship("User", back_populates="texts")
 
@@ -206,6 +209,21 @@ def init_db():
                 with engine.connect() as conn:
                     conn.execute(
                         text("ALTER TABLE users ADD COLUMN invite_quota INTEGER DEFAULT 5")
+                    )
+                    conn.commit()
+
+        # Phase G3 — share_token column on saved_texts (idempotent ALTER).
+        if inspector.has_table("saved_texts"):
+            st_cols = {col["name"] for col in inspector.get_columns("saved_texts")}
+            if "share_token" not in st_cols:
+                logger.info("Adding share_token column to saved_texts")
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE saved_texts ADD COLUMN share_token VARCHAR(36)"))
+                    conn.execute(
+                        text(
+                            "CREATE UNIQUE INDEX IF NOT EXISTS ix_saved_texts_share_token "
+                            "ON saved_texts(share_token)"
+                        )
                     )
                     conn.commit()
 

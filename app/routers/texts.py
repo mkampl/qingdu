@@ -1,10 +1,12 @@
 import json
 import re
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth import require_auth
+from app.core.rate_limit import limiter
 from app.database import SavedText, User, UserWord, get_db
 from app.services.migrations import migrate_analysis_data
 
@@ -114,6 +116,7 @@ async def get_texts(
                 "analysisData": migrated_data,
                 "tags": text.tags,
                 "reading_progress": text.reading_progress or 0,
+                "share_token": text.share_token,
                 **comp,
             }
         )
@@ -132,6 +135,69 @@ async def delete_text(
         db.commit()
         return {"message": "Text deleted"}
     return {"error": "Text not found"}
+
+
+@router.post("/api/texts/{text_id}/share")
+async def enable_share(
+    text_id: int,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """
+    Mint (or return the existing) public share token for this saved text.
+    The token is a UUID4 — 128 bits of entropy, can't be reasonably
+    guessed. Tokens persist until explicitly revoked via DELETE.
+    """
+    text = db.query(SavedText).filter(SavedText.id == text_id, SavedText.user_id == user.id).first()
+    if not text:
+        raise HTTPException(status_code=404, detail="Text not found")
+    if not text.share_token:
+        text.share_token = str(uuid.uuid4())
+        db.commit()
+        db.refresh(text)
+    return {"token": text.share_token}
+
+
+@router.delete("/api/texts/{text_id}/share")
+async def disable_share(
+    text_id: int,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Revoke the share token. The text remains saved; just no longer
+    reachable via /api/share/{token}."""
+    text = db.query(SavedText).filter(SavedText.id == text_id, SavedText.user_id == user.id).first()
+    if not text:
+        raise HTTPException(status_code=404, detail="Text not found")
+    if text.share_token:
+        text.share_token = None
+        db.commit()
+    return {"message": "Share link revoked"}
+
+
+@router.get("/api/share/{token}")
+@limiter.limit("60/minute")
+async def get_shared_text(
+    token: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Public read-only view of a shared text. No auth. Returns only what
+    the reader needs to render — no user_id, no progress, no tags.
+    Rate-limited to keep the endpoint from being a free analysis cache.
+    """
+    text = db.query(SavedText).filter(SavedText.share_token == token).first()
+    if not text:
+        raise HTTPException(status_code=404, detail="Share link not found or revoked")
+    analysis_data = json.loads(text.analysis_data) if text.analysis_data else None
+    migrated = migrate_analysis_data(analysis_data) if analysis_data else None
+    return {
+        "title": text.title,
+        "content": text.content,
+        "analysisData": migrated,
+        "created_at": text.created_at.isoformat(),
+    }
 
 
 @router.patch("/api/texts/{text_id}")
