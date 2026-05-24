@@ -26,6 +26,7 @@ export type TranslationSource =
   | "google"
   | "mymemory"
   | "glossary"
+  | "package"
   | "hsk"
   | "hsk-chars"
   | "cache"
@@ -96,6 +97,11 @@ export interface AnalysisResponse {
   statistics: AnalysisStatistics;
   /** Optional — older saved analyses pre-Phase D won't have this. */
   grammar?: GrammarPayload;
+  /** Phase #100 — sentence-level translations baked in by the package
+   *  author. Keyed by the exact sentence text. Reader checks here BEFORE
+   *  hitting /api/translate so curated translations always win and don't
+   *  expire with the server's TTL cache. */
+  sentence_translations?: Record<string, string>;
 }
 
 export interface TranslateResponse {

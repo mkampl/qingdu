@@ -3,6 +3,7 @@ import { ref } from "vue";
 
 import * as api from "@/api/client";
 import type { TranslateResponse, WordInfo } from "@/api/types";
+import { useAnalysisStore } from "@/stores/analysis";
 
 interface AnchorRect {
   top: number;
@@ -72,6 +73,24 @@ export const useReaderStore = defineStore("reader", () => {
     if (!text) return;
     const existing = sentenceTranslations.value.get(text);
     if (existing && (existing.status === "ok" || existing.status === "loading")) {
+      return;
+    }
+    // Phase #100 — curated sentence translations from a pre-analyzed
+    // package live on analysis.result.sentence_translations. Check there
+    // FIRST so the user's package translations always win and don't
+    // expire with the server's TTL cache. Falls through to /api/translate
+    // for sentences not in the curated map.
+    const curated =
+      useAnalysisStore().result?.sentence_translations?.[text];
+    if (curated) {
+      sentenceTranslations.value.set(text, {
+        status: "ok",
+        data: {
+          translation: curated,
+          source: "package",
+          cached: false,
+        },
+      });
       return;
     }
     sentenceTranslations.value.set(text, { status: "loading" });

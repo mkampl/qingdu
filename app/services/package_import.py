@@ -162,9 +162,15 @@ def transform(package: QingduPackage) -> dict:
         "patterns": metas,
     }
 
+    # Sentence translations ride into the analyzed result so they're saved
+    # alongside everything else and survive reloads/restarts without
+    # depending on the in-memory TTL cache (which evicts after 1h).
+    sentence_translations = dict(package.sentence_translations or {})
+
     return {
         "words": words,
         "grammar": grammar_payload,
+        "sentence_translations": sentence_translations,
         "statistics": {
             "total_characters": len(package.text),
             "total_words": len(package.tokens),

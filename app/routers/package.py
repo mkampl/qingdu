@@ -26,6 +26,7 @@ from app.services.package_import import (
     transform,
     validate,
 )
+from app.services.translation import translation_cache
 
 router = APIRouter(tags=["Package Import"])
 logger = logging.getLogger(__name__)
@@ -145,11 +146,25 @@ def _do_import(package: QingduPackage, strict: bool) -> dict:
     except PackageImportError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     result = transform(package)
+
+    # Defense-in-depth: also seed the server-side translation cache so even
+    # a stale frontend (or a /api/translate hit from a different code path)
+    # gets the curated translation back. The primary path is now the
+    # `sentence_translations` baked into the analyze response (no TTL).
+    for sentence, translation in (package.sentence_translations or {}).items():
+        if not sentence or not translation:
+            continue
+        translation_cache[f"{sentence}_en"] = {
+            "translation": translation,
+            "source": "package",
+        }
+
     logger.info(
-        "Imported package title=%s source=%s tokens=%d",
+        "Imported package title=%s source=%s tokens=%d sentence_translations=%d",
         package.title,
         package.source,
         len(package.tokens),
+        len(package.sentence_translations or {}),
     )
     return {
         "title": package.title,

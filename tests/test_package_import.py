@@ -139,3 +139,29 @@ def test_empty_tokens_rejected():
     pkg = _minimal_package(text="你好", tokens=[])
     with pytest.raises(PackageImportError):
         validate(pkg)
+
+
+def test_sentence_translations_ride_into_analysis_data():
+    """The whole point of #100: curated translations must reach the reader.
+    Carrying them inside the analysis response means they're persisted in
+    saved_texts.analysis_data and survive both the 1h server TTL cache
+    and any restart."""
+    pkg = _minimal_package(
+        sentence_translations={
+            "你好。": "Hello.",
+            "道可道,非常道。": "The Way that can be spoken of is not the eternal Way.",
+        }
+    )
+    out = transform(pkg)
+    assert out["sentence_translations"] == {
+        "你好。": "Hello.",
+        "道可道,非常道。": "The Way that can be spoken of is not the eternal Way.",
+    }
+
+
+def test_transform_with_no_sentence_translations():
+    """The field should still be present (as empty dict) — frontend's
+    indexed lookup `result.sentence_translations[text]` must not crash."""
+    pkg = _minimal_package()
+    out = transform(pkg)
+    assert out["sentence_translations"] == {}
