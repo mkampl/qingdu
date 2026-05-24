@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 
+import * as api from "@/api/client";
+import type { ConvertDirection } from "@/api/client";
 import Button from "@/components/ui/Button.vue";
 import { submitShortcutLabel } from "@/utils/platform";
 
@@ -53,6 +55,57 @@ function onKeydown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
     e.preventDefault();
     emit("analyze");
+  }
+}
+
+// --- Trad ⇄ Simp conversion -----------------------------------------------
+//
+// Two manual buttons + a passive suggestion banner. We auto-detect on input
+// (debounced 600ms) and surface a one-click "Convert to Simplified?" prompt
+// only when the heuristic is confident. The HSK vocab + jieba expect
+// Simplified so the suggestion always nudges toward s.
+
+const detectedScript = ref<"simplified" | "traditional" | "unknown">("unknown");
+const detectConfidence = ref(0);
+const showSuggestion = computed(
+  () => detectedScript.value === "traditional" && detectConfidence.value >= 0.1,
+);
+const converting = ref(false);
+let detectTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleDetect() {
+  if (detectTimer) clearTimeout(detectTimer);
+  if (!props.modelValue.trim()) {
+    detectedScript.value = "unknown";
+    detectConfidence.value = 0;
+    return;
+  }
+  detectTimer = setTimeout(async () => {
+    try {
+      const r = await api.detectScript(props.modelValue);
+      detectedScript.value = r.script;
+      detectConfidence.value = r.confidence;
+    } catch {
+      // Detection is a nicety; never gate on it.
+    }
+  }, 600);
+}
+
+watch(() => props.modelValue, scheduleDetect);
+
+async function convert(direction: ConvertDirection) {
+  if (!props.modelValue.trim() || converting.value) return;
+  converting.value = true;
+  try {
+    const r = await api.convertScript(props.modelValue, direction);
+    emit("update:modelValue", r.converted);
+    // After a manual conversion the suggestion is no longer relevant.
+    detectedScript.value = direction === "t2s" ? "simplified" : "traditional";
+    detectConfidence.value = 1;
+  } catch {
+    /* best effort */
+  } finally {
+    converting.value = false;
   }
 }
 </script>
@@ -129,6 +182,34 @@ function onKeydown(e: KeyboardEvent) {
       </button>
     </div>
 
+    <!-- Auto-detect Traditional → suggest conversion. Lives above the
+         textarea so it's visible without scrolling past the keyboard on
+         mobile. Dismissible by acting on it (Convert) or by typing more
+         (which re-runs the detection). -->
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0 -translate-y-1"
+      enter-to-class="opacity-100 translate-y-0"
+    >
+      <div
+        v-if="showSuggestion"
+        class="mb-2 flex items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+      >
+        <p class="leading-relaxed">
+          <span class="font-medium">Looks like Traditional Chinese.</span>
+          The HSK matcher works on Simplified — convert for accurate analysis?
+        </p>
+        <button
+          type="button"
+          class="shrink-0 rounded-md border border-amber-400 bg-amber-100 px-2.5 py-1 font-medium text-amber-900 transition-colors hover:bg-amber-200 disabled:opacity-50 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900/60"
+          :disabled="converting"
+          @click="convert('t2s')"
+        >
+          {{ converting ? "Converting…" : "Convert to Simplified" }}
+        </button>
+      </div>
+    </Transition>
+
     <div
       class="relative overflow-hidden rounded-md border border-border bg-bg-elevated shadow-sm"
     >
@@ -175,6 +256,27 @@ function onKeydown(e: KeyboardEvent) {
               />
             </svg>
             Import URL
+          </button>
+          <!-- Script converters. Hidden on the narrowest screens to keep
+               the row from wrapping; the auto-detect banner covers the
+               most-common case there anyway. -->
+          <button
+            type="button"
+            class="hidden items-center gap-1 rounded-md px-2 py-1 font-mono text-[11px] font-medium text-fg-muted transition-colors hover:text-fg hover:bg-bg-sunken disabled:opacity-50 sm:inline-flex"
+            title="Convert Traditional → Simplified"
+            :disabled="!modelValue.trim() || converting"
+            @click="convert('t2s')"
+          >
+            繁 → 简
+          </button>
+          <button
+            type="button"
+            class="hidden items-center gap-1 rounded-md px-2 py-1 font-mono text-[11px] font-medium text-fg-muted transition-colors hover:text-fg hover:bg-bg-sunken disabled:opacity-50 sm:inline-flex"
+            title="Convert Simplified → Traditional"
+            :disabled="!modelValue.trim() || converting"
+            @click="convert('s2t')"
+          >
+            简 → 繁
           </button>
         <Button
           variant="primary"

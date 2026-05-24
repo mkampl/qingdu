@@ -458,3 +458,19 @@ export const gradeReviewCard = (
 
 export const getReviewStats = () =>
   request<ReviewStatsResponse>("/api/review/stats");
+
+// --- Script conversion (Phase E1) ------------------------------------------
+
+export type ConvertDirection = "s2t" | "t2s";
+
+export const convertScript = (text: string, direction: ConvertDirection) =>
+  request<{ converted: string; direction: ConvertDirection }>("/api/convert", {
+    body: { text, direction },
+    anonymous: true,
+  });
+
+export const detectScript = (text: string) =>
+  request<{
+    script: "simplified" | "traditional" | "unknown";
+    confidence: number;
+  }>("/api/convert/detect", { body: { text }, anonymous: true });
