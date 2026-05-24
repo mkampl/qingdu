@@ -3,6 +3,8 @@ import { ref, watch } from "vue";
 
 import * as api from "@/api/client";
 import { ApiError } from "@/api/client";
+import type { PackageSampleSummary } from "@/api/client";
+import type { AnalysisResponse } from "@/api/types";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useToastStore } from "@/stores/toast";
@@ -14,15 +16,26 @@ import TextInput from "@/components/ui/TextInput.vue";
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{
   (e: "close"): void;
-  /** Fires with the extracted article body once the user confirms. */
-  (e: "import", payload: { content: string; title: string | null }): void;
+  /**
+   * Fires with the extracted article body once the user confirms. When
+   * `analysisData` is included (package-import path), the reader skips
+   * re-analysis and uses the pre-computed words directly.
+   */
+  (
+    e: "import",
+    payload: {
+      content: string;
+      title: string | null;
+      analysisData?: AnalysisResponse;
+    },
+  ): void;
 }>();
 
 const auth = useAuthStore();
 const authModals = useAuthModalsStore();
 const toasts = useToastStore();
 
-type Mode = "url" | "file" | "scan";
+type Mode = "url" | "file" | "scan" | "package";
 
 const mode = ref<Mode>("url");
 const url = ref("");
@@ -38,6 +51,15 @@ const scanPreviewUrl = ref<string | null>(null);
 const ocrRunning = ref(false);
 const ocrProgress = ref(0); // 0-1, from tesseract.js progress events
 
+// Package import (Phase #100) — file upload OR raw JSON paste.
+const packageFile = ref<File | null>(null);
+const packageJson = ref("");
+const packageStrict = ref(true);
+const packageBusy = ref(false);
+const packageResult = ref<api.PackageImportResponse | null>(null);
+const sampleList = ref<PackageSampleSummary[]>([]);
+const sampleLoading = ref(false);
+
 watch(
   () => props.open,
   (open) => {
@@ -48,11 +70,110 @@ watch(
       error.value = null;
       preview.value = null;
       resetScan();
+      resetPackage();
+      void loadSamples();
     } else {
       resetScan();
+      resetPackage();
     }
   },
 );
+
+function resetPackage() {
+  packageFile.value = null;
+  packageJson.value = "";
+  packageStrict.value = true;
+  packageBusy.value = false;
+  packageResult.value = null;
+}
+
+async function loadSamples() {
+  if (sampleList.value.length || sampleLoading.value) return;
+  sampleLoading.value = true;
+  try {
+    const r = await api.listPackageSamples();
+    sampleList.value = r.samples;
+  } catch {
+    /* samples are a nicety — silent failure is fine */
+  } finally {
+    sampleLoading.value = false;
+  }
+}
+
+function onPackageFilePick(e: Event) {
+  const input = e.target as HTMLInputElement;
+  packageFile.value = input.files?.[0] ?? null;
+  error.value = null;
+}
+
+async function loadSample(name: string) {
+  if (packageBusy.value) return;
+  packageBusy.value = true;
+  error.value = null;
+  try {
+    const sample = await api.getPackageSample(name);
+    // Pretty-print so the user can review before importing.
+    packageJson.value = JSON.stringify(sample, null, 2);
+  } catch (e) {
+    error.value =
+      e instanceof ApiError ? e.message : "Couldn't load that sample.";
+  } finally {
+    packageBusy.value = false;
+  }
+}
+
+async function importPackage() {
+  if (packageBusy.value) return;
+  if (!auth.isAuthed) {
+    emit("close");
+    authModals.openLogin();
+    toasts.info("Sign in to import packages.");
+    return;
+  }
+  packageBusy.value = true;
+  error.value = null;
+  try {
+    if (packageFile.value) {
+      packageResult.value = await api.importPackageFile(
+        packageFile.value,
+        packageStrict.value,
+      );
+    } else if (packageJson.value.trim()) {
+      let payload: unknown;
+      try {
+        payload = JSON.parse(packageJson.value);
+      } catch (e) {
+        error.value =
+          e instanceof Error ? `Not valid JSON: ${e.message}` : "Not valid JSON.";
+        return;
+      }
+      packageResult.value = await api.importPackageBody(
+        payload,
+        packageStrict.value,
+      );
+    } else {
+      error.value = "Drop a .json file or paste the package text first.";
+      return;
+    }
+  } catch (e) {
+    error.value =
+      e instanceof ApiError ? e.message : "Couldn't import that package.";
+  } finally {
+    packageBusy.value = false;
+  }
+}
+
+function confirmPackageImport() {
+  if (!packageResult.value) return;
+  // Skip the preview step — the package already carries pre-computed
+  // analysis data, so the SPA goes straight to the reader.
+  emit("import", {
+    content: packageResult.value.content,
+    title: packageResult.value.title,
+    analysisData: packageResult.value.analysisData,
+  });
+  emit("close");
+}
 
 function resetScan() {
   if (scanPreviewUrl.value) URL.revokeObjectURL(scanPreviewUrl.value);
@@ -262,6 +383,20 @@ async function runOcr() {
         @click="mode = 'scan'; error = null"
       >
         Scan
+      </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="mode === 'package'"
+        class="-mb-px border-b-2 px-3 py-1.5 text-sm font-medium transition-colors"
+        :class="
+          mode === 'package'
+            ? 'border-accent text-fg'
+            : 'border-transparent text-fg-muted hover:text-fg'
+        "
+        @click="mode = 'package'; error = null"
+      >
+        Package
       </button>
     </div>
 
@@ -488,6 +623,185 @@ async function runOcr() {
         >
           Recognize text
         </Button>
+      </div>
+    </div>
+
+    <!-- Step 1d: pre-analyzed package -->
+    <div v-if="!preview && mode === 'package'" class="space-y-4">
+      <p class="font-display text-sm italic leading-relaxed text-fg-muted">
+        Import a JSON package produced by your own LLM — useful when
+        jieba + general translation engines mistranslate specialised
+        corpora (Daoist, Buddhist, Classical, legal). The package carries
+        per-token meanings the LLM curated; we skip analysis entirely.
+      </p>
+
+      <div class="flex items-center justify-between gap-2 text-xs">
+        <a
+          :href="api.packageSchemaUrl()"
+          target="_blank"
+          rel="noopener"
+          class="inline-flex items-center gap-1 font-mono uppercase tracking-wider text-fg-muted hover:text-fg"
+          download="qingdu-package-schema.json"
+        >
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+            <path
+              d="M5.5 1v6M3 5l2.5 2.5L8 5M2 9.5h7"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          JSON Schema (for your LLM)
+        </a>
+        <label
+          class="inline-flex cursor-pointer items-center gap-2 font-mono uppercase tracking-wider text-fg-muted"
+        >
+          <input
+            v-model="packageStrict"
+            type="checkbox"
+            class="accent-accent"
+          />
+          Strict validation
+        </label>
+      </div>
+
+      <!-- Sample picker — surfaces what's bundled in app/data/packages/. -->
+      <div
+        v-if="sampleList.length"
+        class="rounded-md border border-border-subtle bg-bg-elevated px-3 py-2"
+      >
+        <p
+          class="mb-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          Try a sample
+        </p>
+        <ul class="space-y-1">
+          <li v-for="s in sampleList" :key="s.name">
+            <button
+              type="button"
+              class="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-bg-sunken"
+              :disabled="packageBusy"
+              @click="loadSample(s.name)"
+            >
+              <span class="flex-1 truncate text-fg">
+                {{ s.title || s.name }}
+              </span>
+              <span
+                class="font-mono text-[10px] text-fg-subtle tabular-nums"
+              >
+                {{ s.char_count.toLocaleString() }} chars
+              </span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <!-- File picker -->
+      <label
+        class="flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-border-subtle bg-bg-elevated px-4 py-5 text-center transition-colors hover:border-accent hover:bg-bg-sunken"
+      >
+        <input
+          type="file"
+          accept=".json,application/json"
+          class="sr-only"
+          @change="onPackageFilePick"
+        />
+        <p v-if="packageFile" class="font-display text-sm text-fg">
+          {{ packageFile.name }}
+          <span class="ml-1 font-mono text-[10px] text-fg-subtle">
+            {{ (packageFile.size / 1024).toFixed(0) }} KB
+          </span>
+        </p>
+        <p v-else class="font-display text-sm text-fg-muted">
+          Drop or pick a .json package
+        </p>
+      </label>
+
+      <p class="text-center font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+        — or —
+      </p>
+
+      <!-- Raw JSON paste -->
+      <label class="block">
+        <span
+          class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+        >
+          Paste raw JSON
+        </span>
+        <textarea
+          v-model="packageJson"
+          rows="6"
+          class="block w-full rounded-md border border-border bg-bg-elevated px-3 py-2 font-mono text-xs text-fg focus:border-accent focus:outline-none"
+          spellcheck="false"
+          autocomplete="off"
+          placeholder='{ "qingdu_package_version": "1", "title": "...", "text": "...", "tokens": [ ... ] }'
+        />
+      </label>
+
+      <p
+        v-if="error"
+        class="text-sm text-red-700 dark:text-red-300"
+        role="alert"
+      >
+        {{ error }}
+      </p>
+
+      <div class="flex items-center justify-end gap-2">
+        <Button variant="ghost" size="sm" type="button" @click="emit('close')">
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
+          type="button"
+          :loading="packageBusy"
+          :disabled="!packageFile && !packageJson.trim()"
+          @click="importPackage"
+        >
+          Import
+        </Button>
+      </div>
+
+      <!-- Package-result preview — shown inline after a successful parse. -->
+      <div
+        v-if="packageResult"
+        class="rounded-lg border border-border-subtle bg-bg-sunken p-4"
+      >
+        <p
+          v-if="packageResult.title"
+          class="text-cn-serif text-lg font-medium leading-snug text-fg"
+        >
+          {{ packageResult.title }}
+        </p>
+        <p
+          v-if="packageResult.byline"
+          class="mt-0.5 font-display text-xs italic text-fg-muted"
+        >
+          by {{ packageResult.byline }}
+        </p>
+        <p
+          v-if="packageResult.source"
+          class="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+        >
+          via {{ packageResult.source }}
+        </p>
+        <p
+          class="text-cn-serif mt-3 text-sm leading-relaxed text-fg-muted line-clamp-4"
+        >
+          {{ packageResult.content }}
+        </p>
+        <div class="mt-3 flex items-center justify-between gap-2">
+          <span
+            class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+          >
+            {{ packageResult.content.length.toLocaleString() }} chars ·
+            {{ packageResult.analysisData.words.length }} tokens
+          </span>
+          <Button variant="primary" size="sm" @click="confirmPackageImport">
+            Use this text
+          </Button>
+        </div>
       </div>
     </div>
 

@@ -30,6 +30,7 @@ from app.routers import (
     extract,
     health,
     invitations,
+    package,
     review,
     spa,
     stats,
@@ -147,6 +148,7 @@ app.include_router(review.router)
 app.include_router(convert.router)
 app.include_router(stats.router)
 app.include_router(export.router)
+app.include_router(package.router)
 
 # Vue 3 SPA at /. Includes a catch-all /{rest:path} route, so this MUST be
 # the last router registered or it will swallow API paths. Also registers

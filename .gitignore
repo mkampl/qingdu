@@ -2,3 +2,8 @@
 __pycache__/
 *.pyc
 data/
+# Phase #100 — bundled sample packages SHIP with the app, even though
+# `data/` is otherwise runtime state (DB, audio cache).
+!app/data/
+!app/data/packages/
+!app/data/packages/*.json

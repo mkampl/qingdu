@@ -383,6 +383,78 @@ export interface ExtractedArticle {
 export const extractArticle = (url: string) =>
   request<ExtractedArticle>("/api/extract", { body: { url } });
 
+// --- Pre-analyzed package import (Phase #100) ------------------------------
+
+export interface PackageImportResponse {
+  title: string | null;
+  byline: string | null;
+  source: string | null;
+  content: string;
+  analysisData: AnalysisResponse;
+  sentence_translations: Record<string, string>;
+}
+
+export interface PackageSampleSummary {
+  name: string;
+  title: string | null;
+  source: string | null;
+  byline: string | null;
+  language_hint: string | null;
+  char_count: number;
+}
+
+/**
+ * Import a JSON body. `strict=false` skips the token-concatenation check
+ * (useful during LLM prompt iteration).
+ */
+export const importPackageBody = (payload: unknown, strict = true) =>
+  request<PackageImportResponse>(
+    `/api/import/package?strict=${strict ? "true" : "false"}`,
+    { body: payload },
+  );
+
+export async function importPackageFile(
+  file: File,
+  strict = true,
+): Promise<PackageImportResponse> {
+  const form = new FormData();
+  form.append("file", file);
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const r = await fetch(
+    `/api/import/package/file?strict=${strict ? "true" : "false"}`,
+    { method: "POST", headers, body: form },
+  );
+  if (!r.ok) {
+    let detail: unknown = null;
+    try {
+      detail = await r.json();
+    } catch {
+      detail = await r.text().catch(() => null);
+    }
+    const message =
+      typeof detail === "object" && detail && "detail" in detail
+        ? String((detail as { detail: unknown }).detail)
+        : `API ${r.status}`;
+    throw new ApiError(r.status, detail, message);
+  }
+  return (await r.json()) as PackageImportResponse;
+}
+
+export const listPackageSamples = () =>
+  request<{ samples: PackageSampleSummary[] }>("/api/import/package/samples", {
+    anonymous: true,
+  });
+
+export const getPackageSample = (name: string) =>
+  request<unknown>(
+    `/api/import/package/samples/${encodeURIComponent(name)}`,
+    { anonymous: true },
+  );
+
+export const packageSchemaUrl = () => "/api/import/package/schema.json";
+
 export async function extractFile(file: File): Promise<ExtractedArticle> {
   const form = new FormData();
   form.append("file", file);

@@ -135,16 +135,30 @@ function openShare() {
   shareOpen.value = true;
 }
 
-function onImported(payload: { content: string; title: string | null }) {
-  // Replace whatever was in the editor; the user explicitly asked for a
-  // new article. Don't auto-analyse — let them glance at the body first.
-  localInput.value = payload.content;
-  // Drop any link to a saved record — this is a fresh import.
+function onImported(payload: {
+  content: string;
+  title: string | null;
+  analysisData?: import("@/api/types").AnalysisResponse;
+}) {
+  // Reset any stale saved-text linkage first.
   analysis.reset();
   reader.reset();
   saved.value = false;
-  showEditor.value = true;
   placeholderSeeded.value = false;
+
+  if (payload.analysisData) {
+    // Phase #100 package-import path — the package carries pre-computed
+    // analysis, so skip the editor and go straight to the analysed view.
+    analysis.loadSaved(payload.content, payload.analysisData, null);
+    showEditor.value = false;
+    localInput.value = payload.content;
+  } else {
+    // URL / EPUB / PDF / Scan path — populate the editor and let the user
+    // hit Analyze when they're ready.
+    localInput.value = payload.content;
+    showEditor.value = true;
+  }
+
   if (payload.title) {
     toasts.success(`Imported “${payload.title}”.`);
   } else {
