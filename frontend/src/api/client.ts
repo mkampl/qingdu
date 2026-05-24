@@ -368,6 +368,33 @@ export interface ExtractedArticle {
 export const extractArticle = (url: string) =>
   request<ExtractedArticle>("/api/extract", { body: { url } });
 
+export async function extractFile(file: File): Promise<ExtractedArticle> {
+  const form = new FormData();
+  form.append("file", file);
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const r = await fetch("/api/extract/file", {
+    method: "POST",
+    headers,
+    body: form,
+  });
+  if (!r.ok) {
+    let detail: unknown = null;
+    try {
+      detail = await r.json();
+    } catch {
+      detail = await r.text().catch(() => null);
+    }
+    const message =
+      typeof detail === "object" && detail && "detail" in detail
+        ? String((detail as { detail: unknown }).detail)
+        : `API ${r.status}`;
+    throw new ApiError(r.status, detail, message);
+  }
+  return (await r.json()) as ExtractedArticle;
+}
+
 // --- User word state (Phase A) ---------------------------------------------
 
 export type UserWordState = "learning" | "known" | "ignored";

@@ -20,14 +20,22 @@ import socket
 from urllib.parse import urlparse
 
 import trafilatura
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from app.auth import require_auth
 from app.database import User
+from app.services.document_import import (
+    DocumentImportError,
+    extract_document,
+)
 
 router = APIRouter(tags=["Extract"])
 logger = logging.getLogger(__name__)
+
+# Cap file uploads so a 500MB EPUB doesn't OOM uvicorn before we even
+# look at it. ~10 MB covers any reasonable digital book or PDF.
+_MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
 class ExtractRequest(BaseModel):
@@ -175,3 +183,40 @@ async def extract_article(
     url = _validate_url(data.url)
     logger.info(f"Extracting article from {url}")
     return _extract(url)
+
+
+@router.post("/api/extract/file", response_model=ExtractResponse)
+async def extract_uploaded_file(
+    file: UploadFile = File(...),
+    user: User = Depends(require_auth),
+) -> ExtractResponse:
+    """
+    Pull text out of an uploaded EPUB or PDF. Response shape matches the
+    URL extractor so the SPA's preview UI is reused unchanged. Scanned
+    PDFs are rejected with a helpful message pointing at the OCR tool.
+    """
+    _ = user
+    filename = file.filename or "upload.bin"
+    data = await file.read(_MAX_UPLOAD_BYTES + 1)
+    if len(data) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large — cap is {_MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+        )
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file.")
+
+    try:
+        doc = extract_document(filename, data)
+    except DocumentImportError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    logger.info("Imported %s (%d chars) from %s", doc.source_kind, doc.char_count, filename)
+    return ExtractResponse(
+        url=f"file://{filename}",
+        title=doc.title,
+        byline=doc.byline,
+        excerpt=doc.content[:300] or None,
+        content=doc.content,
+        char_count=doc.char_count,
+    )

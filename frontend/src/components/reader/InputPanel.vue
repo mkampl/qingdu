@@ -243,7 +243,7 @@ async function convert(direction: ConvertDirection) {
           <button
             type="button"
             class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-fg-muted transition-colors hover:text-fg hover:bg-bg-sunken"
-            title="Paste a URL to import an article"
+            title="Import from URL, EPUB, or PDF"
             @click="emit('import-url')"
           >
             <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
@@ -255,7 +255,7 @@ async function convert(direction: ConvertDirection) {
                 stroke-linejoin="round"
               />
             </svg>
-            Import URL
+            Import
           </button>
           <!-- Script converters. Hidden on the narrowest screens to keep
                the row from wrapping; the auto-detect banner covers the
