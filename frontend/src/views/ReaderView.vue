@@ -612,6 +612,7 @@ onBeforeUnmount(() => {
 
           <StatsPanel
             :statistics="analysis.result.statistics"
+            :words="analysis.result.words"
             :can-save="auth.isAuthed"
             :saved="saved"
             :saving="saving"
