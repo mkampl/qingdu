@@ -17,6 +17,7 @@ import { computed, onMounted, ref, watch } from "vue";
 
 import * as api from "@/api/client";
 import type { ReviewGrade, ReviewMode } from "@/api/client";
+import WeeklySparkline from "@/components/reader/WeeklySparkline.vue";
 import { useAuthStore } from "@/stores/auth";
 import { useReviewStore } from "@/stores/review";
 
@@ -183,9 +184,13 @@ watch(
       </p>
     </div>
 
+    <!-- 7-day activity sparkline — only when authed; lives above the
+         counter strip so the "how's the habit going?" view lands first. -->
+    <WeeklySparkline v-if="auth.isAuthed" class="mb-4" />
+
     <!-- Stats strip -->
     <div
-      v-else
+      v-if="auth.isAuthed"
       class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4"
     >
       <div

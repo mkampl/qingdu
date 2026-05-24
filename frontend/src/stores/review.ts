@@ -8,6 +8,7 @@ import type {
   ReviewMode,
   ReviewStatsResponse,
 } from "@/api/client";
+import { useUserWordsStore } from "@/stores/userWords";
 
 const DEFAULT_STATS: ReviewStatsResponse = {
   due_now: 0,
@@ -74,6 +75,9 @@ export const useReviewStore = defineStore("review", () => {
         due_now: Math.max(0, stats.value.due_now - 1),
         reviewed_today: stats.value.reviewed_today + 1,
       };
+      // Streak might have just bumped (first activity today). Pull the
+      // freshest word-stats so the flame badge updates without a manual reload.
+      void useUserWordsStore().refreshStats();
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Couldn't save grade";
     } finally {

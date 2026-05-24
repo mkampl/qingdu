@@ -4,6 +4,7 @@ from pathlib import Path
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -31,6 +32,11 @@ class User(Base):
     last_active = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
     invite_quota = Column(Integer, default=5)  # How many invites this user can send
+    # Phase F2 — daily activity streak. `streak_last_active` is the date (UTC)
+    # of the most recent qualifying action; `streak_count` is the length of
+    # the contiguous run leading up to that date.
+    streak_count = Column(Integer, default=0)
+    streak_last_active = Column(Date, nullable=True)
 
     # Relationships
     texts = relationship("SavedText", back_populates="user", cascade="all, delete-orphan")
@@ -202,6 +208,20 @@ def init_db():
                         text("ALTER TABLE users ADD COLUMN invite_quota INTEGER DEFAULT 5")
                     )
                     conn.commit()
+
+        # Phase F2 — streak columns on users (idempotent ALTER).
+        if inspector.has_table("users"):
+            user_cols = {col["name"] for col in inspector.get_columns("users")}
+            with engine.connect() as conn:
+                if "streak_count" not in user_cols:
+                    logger.info("Adding streak_count column to users")
+                    conn.execute(
+                        text("ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0")
+                    )
+                if "streak_last_active" not in user_cols:
+                    logger.info("Adding streak_last_active column to users")
+                    conn.execute(text("ALTER TABLE users ADD COLUMN streak_last_active DATE"))
+                conn.commit()
 
         # Phase B — FSRS columns on user_words + grade on user_word_events.
         # Both tables are net-new in Phase A so most deployments will pick

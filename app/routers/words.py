@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.auth import require_auth
 from app.database import User, UserWord, UserWordEvent, get_db
 from app.schemas import VALID_WORD_STATES, BulkMarkKnownRequest, WordStateUpdate
+from app.services.streak import current_streak, record_activity
 
 router = APIRouter(tags=["Words"])
 
@@ -90,6 +91,7 @@ async def set_word_state(
         raise HTTPException(status_code=400, detail="word is required")
 
     _upsert(db, user.id, word, payload.state, payload.source_text_id)
+    record_activity(user, db)
     db.commit()
     return {"word": word, "state": payload.state}
 
@@ -153,6 +155,7 @@ async def bulk_mark_known(
             row.updated_at = datetime.utcnow()
             updated += 1
         _record_event(db, user.id, word, "bulk_mark_known", "known", payload.source_text_id)
+    record_activity(user, db)
     db.commit()
     return {"updated": updated, "total": len(words)}
 
@@ -162,10 +165,11 @@ async def word_stats(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Aggregate counts for the header badge."""
+    """Aggregate counts for the header badge + streak."""
     rows = db.query(UserWord.state).filter(UserWord.user_id == user.id).all()
     counts = {"learning": 0, "known": 0, "ignored": 0}
     for (state,) in rows:
         if state in counts:
             counts[state] += 1
+    counts["streak"] = current_streak(user)
     return counts

@@ -140,6 +140,22 @@ onMounted(async () => {
           </RouterLink>
         </nav>
         <div class="ml-auto flex items-center gap-1">
+          <!-- Daily streak badge — flame + day count. Sits before the
+               known-words badge so the prosocial habit signal lands first.
+               Hidden when streak is 0 to avoid demoralising a new user. -->
+          <span
+            v-if="auth.isAuthed && userWords.hydrated && userWords.stats.streak > 0"
+            class="hidden items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-amber-800 sm:inline-flex dark:border-amber-700 dark:bg-amber-500/15 dark:text-amber-200"
+            :title="`${userWords.stats.streak.toLocaleString()}-day streak — come back tomorrow to keep it going`"
+          >
+            <svg width="10" height="11" viewBox="0 0 10 11" fill="currentColor" aria-hidden="true">
+              <path
+                d="M5 0c.5 1.7-.8 2-1 3.5-.2 1.4.7 2 .7 2S4 5 3.5 4c-.4-.9.1-1.6.1-1.6S2 3.6 2 5.7C2 8 3.5 10.5 5 10.5S8 8 8 5.7C8 3 5.5.7 5 0z"
+              />
+            </svg>
+            <span class="tabular-nums">{{ userWords.stats.streak }}</span>
+          </span>
+
           <!-- Known-words badge — at-a-glance progress. Hidden on the very
                narrowest screens to keep the header from wrapping. -->
           <span

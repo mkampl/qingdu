@@ -141,6 +141,12 @@ export interface SavedTextSummary {
   analysisData: AnalysisResponse;
   tags: string | null;
   reading_progress: number;
+  /** Unique CJK words you've marked known/ignored (Phase F1). */
+  known_unique: number;
+  /** Unique CJK words in the text. */
+  total_unique: number;
+  /** known_unique / total_unique. Null when total_unique === 0. */
+  comprehension_score: number | null;
 }
 
 export interface VocabularyListSummary {

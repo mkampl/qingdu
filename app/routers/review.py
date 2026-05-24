@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app.auth import require_auth
 from app.database import User, UserWord, UserWordEvent, get_db
 from app.services import srs
+from app.services.streak import record_activity
 from app.state import hsk_vocab
 
 router = APIRouter(tags=["Review"])
@@ -129,6 +130,7 @@ async def grade_card(
             grade=payload.grade,
         )
     )
+    record_activity(user, db)
     db.commit()
     return {
         "word": payload.word,

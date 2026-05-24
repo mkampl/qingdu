@@ -15,7 +15,12 @@ import type { UserWordState, WordStatsResponse } from "@/api/client";
  */
 export const useUserWordsStore = defineStore("userWords", () => {
   const states = ref<Record<string, UserWordState>>({});
-  const stats = ref<WordStatsResponse>({ learning: 0, known: 0, ignored: 0 });
+  const stats = ref<WordStatsResponse>({
+    learning: 0,
+    known: 0,
+    ignored: 0,
+    streak: 0,
+  });
   const hydrated = ref(false);
   const loading = ref(false);
 
@@ -28,7 +33,14 @@ export const useUserWordsStore = defineStore("userWords", () => {
   }
 
   function recomputeStats() {
-    const next = { learning: 0, known: 0, ignored: 0 };
+    const next: WordStatsResponse = {
+      learning: 0,
+      known: 0,
+      ignored: 0,
+      // Preserve streak across optimistic updates — it's a server-derived
+      // value, not something we can recompute from the local states.
+      streak: stats.value.streak,
+    };
     for (const s of Object.values(states.value)) {
       next[s] += 1;
     }
@@ -39,15 +51,28 @@ export const useUserWordsStore = defineStore("userWords", () => {
     if (hydrated.value && !force) return;
     loading.value = true;
     try {
-      const r = await api.listUserWordStates();
-      states.value = { ...r.states };
-      recomputeStats();
+      const [statesResp, statsResp] = await Promise.all([
+        api.listUserWordStates(),
+        api.getWordStats(),
+      ]);
+      states.value = { ...statesResp.states };
+      stats.value = statsResp;
       hydrated.value = true;
     } catch {
       // Anonymous calls hit 401; that's fine — leave the store empty.
       hydrated.value = true;
     } finally {
       loading.value = false;
+    }
+  }
+
+  /** Refresh just the server-side stats (streak, totals) without
+   *  re-fetching the full word-state map. Used after grading reviews. */
+  async function refreshStats() {
+    try {
+      stats.value = await api.getWordStats();
+    } catch {
+      /* keep prior */
     }
   }
 
@@ -108,7 +133,7 @@ export const useUserWordsStore = defineStore("userWords", () => {
 
   function reset() {
     states.value = {};
-    stats.value = { learning: 0, known: 0, ignored: 0 };
+    stats.value = { learning: 0, known: 0, ignored: 0, streak: 0 };
     hydrated.value = false;
   }
 
@@ -123,6 +148,7 @@ export const useUserWordsStore = defineStore("userWords", () => {
     setState,
     clearState,
     bulkMarkKnown,
+    refreshStats,
     reset,
   };
 });

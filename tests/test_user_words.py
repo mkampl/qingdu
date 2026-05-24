@@ -121,8 +121,9 @@ def test_stats_endpoint(words_client):
     words_client.post("/api/words/state", json={"word": "猫", "state": "learning"})
     words_client.post("/api/words/state", json={"word": "狗", "state": "known"})
     words_client.post("/api/words/state", json={"word": "鸟", "state": "ignored"})
-    assert words_client.get("/api/words/stats").json() == {
-        "learning": 1,
-        "known": 1,
-        "ignored": 1,
-    }
+    body = words_client.get("/api/words/stats").json()
+    assert body["learning"] == 1
+    assert body["known"] == 1
+    assert body["ignored"] == 1
+    # Streak: first-ever activity above started a fresh streak today.
+    assert body["streak"] == 1

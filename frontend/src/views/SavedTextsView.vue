@@ -73,6 +73,30 @@ const total = computed(() =>
   state.value.status === "ok" ? state.value.texts.length : 0,
 );
 
+/**
+ * Comprehension-band colour for the chip. Matches the "comprehensible
+ * input" rule of thumb: <50% is too hard, 50-89% is a stretch, 90-98% is
+ * the sweet spot for reading without lookups, 98%+ is review territory.
+ */
+function comprehensionChipClass(score: number | null): string {
+  if (score === null) return "bg-bg-sunken text-fg-subtle";
+  if (score < 0.5) {
+    return "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300";
+  }
+  if (score < 0.9) {
+    return "bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200";
+  }
+  if (score < 0.98) {
+    return "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200";
+  }
+  return "bg-sky-50 text-sky-800 dark:bg-sky-500/15 dark:text-sky-200";
+}
+
+function comprehensionLabel(text: SavedTextSummary): string {
+  if (text.comprehension_score === null) return "—";
+  return `${Math.round(text.comprehension_score * 100)}%`;
+}
+
 function open(text: SavedTextSummary) {
   // Hydrate the analysis store with the saved data and jump to the reader so
   // the user sees exactly what they saved — no re-analyse round-trip.
@@ -240,11 +264,24 @@ async function confirmDelete(text: SavedTextSummary) {
             >
               {{ text.title || "Untitled" }}
             </button>
-            <span
-              class="shrink-0 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
-            >
-              {{ formatDate(text.date) }}
-            </span>
+            <div class="flex shrink-0 flex-col items-end gap-1">
+              <span
+                class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+              >
+                {{ formatDate(text.date) }}
+              </span>
+              <span
+                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] font-medium tabular-nums"
+                :class="comprehensionChipClass(text.comprehension_score)"
+                :title="
+                  text.comprehension_score === null
+                    ? 'No CJK words in this text yet'
+                    : `${text.known_unique.toLocaleString()} of ${text.total_unique.toLocaleString()} unique words known / ignored`
+                "
+              >
+                {{ comprehensionLabel(text) }} known
+              </span>
+            </div>
           </header>
 
           <!-- Tags -->

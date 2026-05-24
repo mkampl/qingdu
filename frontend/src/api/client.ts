@@ -407,6 +407,8 @@ export interface WordStatsResponse {
   learning: number;
   known: number;
   ignored: number;
+  /** Phase F2 — current daily streak (consecutive days with activity). */
+  streak: number;
 }
 
 export const listUserWordStates = () =>
@@ -485,6 +487,17 @@ export const gradeReviewCard = (
 
 export const getReviewStats = () =>
   request<ReviewStatsResponse>("/api/review/stats");
+
+// --- Activity stats (Phase F3) --------------------------------------------
+
+export interface WeeklyActivityDay {
+  date: string; // ISO YYYY-MM-DD
+  reviews: number;
+  marked_known: number;
+}
+
+export const getWeeklyActivity = () =>
+  request<{ days: WeeklyActivityDay[] }>("/api/stats/weekly");
 
 // --- Script conversion (Phase E1) ------------------------------------------
 

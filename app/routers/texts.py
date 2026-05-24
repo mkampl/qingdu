@@ -1,13 +1,63 @@
 import json
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth import require_auth
-from app.database import SavedText, User, get_db
+from app.database import SavedText, User, UserWord, get_db
 from app.services.migrations import migrate_analysis_data
 
 router = APIRouter(tags=["Saved Texts"])
+
+_CJK_RE = re.compile(r"[一-鿿]")
+
+
+def _unique_cjk_words(analysis_data: dict) -> set[str]:
+    """
+    Extract the set of distinct learnable words from an analysed text —
+    same definition the SPA uses (must contain CJK; linebreaks excluded).
+    """
+    out: set[str] = set()
+    for w in analysis_data.get("words", []) or []:
+        text = w.get("text") or ""
+        if not text or text == "\n":
+            continue
+        if w.get("translation_source") == "linebreak":
+            continue
+        if not _CJK_RE.search(text):
+            continue
+        out.add(text)
+    return out
+
+
+def _comprehension(analysis_data: dict, known_set: set[str]) -> dict:
+    """
+    Per-text comprehension fraction. Counts a word as "comprehensible" if
+    the user has marked it known or ignored — both states mean "no lookup
+    needed while reading". Ratio uses unique words (not occurrences) so
+    repeated words in long texts don't skew the score.
+    """
+    unique = _unique_cjk_words(analysis_data)
+    total = len(unique)
+    if total == 0:
+        return {"known_unique": 0, "total_unique": 0, "comprehension_score": None}
+    known = sum(1 for w in unique if w in known_set)
+    return {
+        "known_unique": known,
+        "total_unique": total,
+        "comprehension_score": round(known / total, 4),
+    }
+
+
+def _known_set_for(db: Session, user_id: int) -> set[str]:
+    """Single query: the user's full known+ignored word set, as a Python set."""
+    rows = (
+        db.query(UserWord.word)
+        .filter(UserWord.user_id == user_id, UserWord.state.in_(("known", "ignored")))
+        .all()
+    )
+    return {word for (word,) in rows}
 
 
 @router.post("/api/texts/save")
@@ -46,10 +96,15 @@ async def get_texts(
         .all()
     )
 
+    # Pull the user's known/ignored word set once and reuse for every text;
+    # the per-text comprehension calc is then pure-Python set intersection.
+    known_set = _known_set_for(db, user.id)
+
     result = []
     for text in texts:
         analysis_data = json.loads(text.analysis_data)
         migrated_data = migrate_analysis_data(analysis_data)
+        comp = _comprehension(migrated_data, known_set)
         result.append(
             {
                 "id": text.id,
@@ -59,6 +114,7 @@ async def get_texts(
                 "analysisData": migrated_data,
                 "tags": text.tags,
                 "reading_progress": text.reading_progress or 0,
+                **comp,
             }
         )
     return result
