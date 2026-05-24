@@ -6,11 +6,13 @@
  *
  * Fetches lazily on mount; degrades to a small "no activity yet" hint.
  */
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 
 import * as api from "@/api/client";
 import type { WeeklyActivityDay } from "@/api/client";
+import { useReviewStore } from "@/stores/review";
 
+const review = useReviewStore();
 const days = ref<WeeklyActivityDay[]>([]);
 const loading = ref(false);
 
@@ -40,7 +42,7 @@ function tooltip(day: WeeklyActivityDay): string {
   return `${date} — ${day.reviews} review${day.reviews === 1 ? "" : "s"}, ${day.marked_known} new known`;
 }
 
-onMounted(async () => {
+async function refresh() {
   loading.value = true;
   try {
     const r = await api.getWeeklyActivity();
@@ -50,7 +52,22 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(refresh);
+
+// Re-fetch whenever the active review session ticks a grade through.
+// sessionGraded is the count of cards graded in the current session;
+// it bumps on every grade and resets on loadQueue / reset. We don't
+// need to react during the session — the user can't see the sparkline
+// then — but it's already in memory and the refetch is cheap, so we
+// keep it live for the eventual return to the overview.
+watch(
+  () => review.sessionGraded,
+  (next, prev) => {
+    if (next !== prev) void refresh();
+  },
+);
 </script>
 
 <template>

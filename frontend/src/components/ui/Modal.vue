@@ -59,16 +59,21 @@ const sizeClasses = {
           @click="closeOnBackdrop ? emit('close') : null"
           aria-hidden="true"
         />
+        <!-- Cap the dialog to the viewport so tall content scrolls *inside*
+             the modal instead of pushing past the screen edge. The flex
+             column keeps the header / footer pinned while only the body
+             slot scrolls. On mobile the modal sits at the bottom as a
+             sheet — the same cap works there too. -->
         <div
           role="dialog"
           aria-modal="true"
           :aria-label="title"
-          class="relative w-full rounded-t-2xl bg-bg-elevated shadow-2xl ring-1 ring-border sm:rounded-2xl"
+          class="relative flex w-full max-h-[calc(100dvh-1rem)] flex-col rounded-t-2xl bg-bg-elevated shadow-2xl ring-1 ring-border sm:max-h-[calc(100dvh-3rem)] sm:rounded-2xl"
           :class="sizeClasses[size ?? 'md']"
         >
           <header
             v-if="title || $slots.header"
-            class="flex items-center justify-between border-b border-border px-6 py-4"
+            class="flex shrink-0 items-center justify-between border-b border-border px-6 py-4"
           >
             <slot name="header">
               <h2 class="text-lg font-semibold text-fg">{{ title }}</h2>
@@ -89,12 +94,12 @@ const sizeClasses = {
               </svg>
             </button>
           </header>
-          <div class="px-6 py-5">
+          <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
             <slot />
           </div>
           <footer
             v-if="$slots.footer"
-            class="flex items-center justify-end gap-2 border-t border-border px-6 py-4"
+            class="flex shrink-0 items-center justify-end gap-2 border-t border-border px-6 py-4"
           >
             <slot name="footer" />
           </footer>
