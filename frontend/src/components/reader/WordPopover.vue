@@ -12,6 +12,7 @@ import { useUserWordsStore } from "@/stores/userWords";
 import { useVocabListsStore } from "@/stores/vocab-lists";
 
 import HskChip from "./HskChip.vue";
+import StrokeOrder from "./StrokeOrder.vue";
 import { levelForVersion } from "./utils";
 
 const reader = useReaderStore();
@@ -190,6 +191,16 @@ function translateSentenceFromWord() {
 const wordLevel = computed(() =>
   word.value ? levelForVersion(word.value, settings.hskVersion) : null,
 );
+
+const strokeOrderOpen = ref(false);
+const wordHasCjk = computed(() =>
+  !!word.value && /[一-鿿]/.test(word.value.text),
+);
+watch(word, () => {
+  // Collapse the accordion when the user moves to a new word so the
+  // popover stays compact on first open.
+  strokeOrderOpen.value = false;
+});
 
 // --- Word-state control ----------------------------------------------------
 //
@@ -395,6 +406,46 @@ async function setWordState(state: UserWordState) {
             <span v-if="word.radical_pinyin" class="text-fg-muted">
               {{ word.radical_pinyin }}
             </span>
+          </div>
+
+          <!-- Stroke order — collapsed by default to keep the popover small;
+               the hanzi-writer chunk + per-char data only loads on expand. -->
+          <div
+            v-if="wordHasCjk"
+            class="mt-4 border-t border-border-subtle pt-3"
+          >
+            <button
+              type="button"
+              class="flex w-full items-center justify-between text-fg-muted transition-colors hover:text-fg"
+              :aria-expanded="strokeOrderOpen"
+              @click="strokeOrderOpen = !strokeOrderOpen"
+            >
+              <span
+                class="font-mono text-[10px] uppercase tracking-wider"
+              >
+                Stroke order
+              </span>
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                fill="none"
+                class="transition-transform"
+                :class="{ 'rotate-90': strokeOrderOpen }"
+                aria-hidden="true"
+              >
+                <path
+                  d="M3.5 2l3 3-3 3"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+            <div v-if="strokeOrderOpen" class="mt-3">
+              <StrokeOrder :chars="word.text" />
+            </div>
           </div>
 
           <!-- Add to vocab list — signed-in users only. Expands inline so the

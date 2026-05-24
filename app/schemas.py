@@ -68,3 +68,10 @@ class WordStateUpdate(BaseModel):
 class BulkMarkKnownRequest(BaseModel):
     words: list[str]
     source_text_id: int | None = None
+
+
+class ImportHskRequest(BaseModel):
+    """Bulk-mark every HSK word at level <= up_to_level as known."""
+
+    up_to_level: int  # 1-9 for new HSK, 1-6 for old HSK
+    hsk_version: str = "new"  # 'new' | 'old'

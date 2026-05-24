@@ -20,8 +20,14 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import User, UserWord, UserWordEvent, get_db
-from app.schemas import VALID_WORD_STATES, BulkMarkKnownRequest, WordStateUpdate
+from app.schemas import (
+    VALID_WORD_STATES,
+    BulkMarkKnownRequest,
+    ImportHskRequest,
+    WordStateUpdate,
+)
 from app.services.streak import current_streak, record_activity
+from app.state import hsk_vocab
 
 router = APIRouter(tags=["Words"])
 
@@ -173,3 +179,82 @@ async def word_stats(
             counts[state] += 1
     counts["streak"] = current_streak(user)
     return counts
+
+
+def _hsk_words_at_or_below(up_to_level: int, hsk_version: str) -> list[str]:
+    """
+    Return the list of HSK words at level <= `up_to_level` for the chosen
+    version. Single-character entries are included; that's intentional —
+    they're how learners build pinyin / radical recognition even before
+    they read the compounds.
+    """
+    field = "level_new" if hsk_version == "new" else "level_old"
+    prefix = "new-" if hsk_version == "new" else "old-"
+    words: list[str] = []
+    for word, entry in hsk_vocab.items():
+        level = entry.get(field)
+        if not level or not level.startswith(prefix):
+            continue
+        raw = level[len(prefix) :].replace("+", "")
+        try:
+            n = int(raw)
+        except ValueError:
+            continue
+        if n <= up_to_level:
+            words.append(word)
+    return words
+
+
+@router.post("/api/words/import-hsk")
+async def import_hsk_known(
+    payload: ImportHskRequest,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    "I already know HSK 1–N" onboarding shortcut. Bulk-inserts every word
+    at level <= up_to_level as 'known'. Idempotent — words the user has
+    already touched are left alone (we don't overwrite 'ignored' or
+    'learning' silently; the intent of this action is "fill the void").
+    """
+    if payload.hsk_version not in {"new", "old"}:
+        raise HTTPException(status_code=400, detail="hsk_version must be 'new' or 'old'")
+    max_level = 9 if payload.hsk_version == "new" else 6
+    if not 1 <= payload.up_to_level <= max_level:
+        raise HTTPException(
+            status_code=400,
+            detail=f"up_to_level must be 1..{max_level} for HSK {payload.hsk_version}",
+        )
+
+    candidates = _hsk_words_at_or_below(payload.up_to_level, payload.hsk_version)
+    if not candidates:
+        return {"inserted": 0, "skipped": 0, "total_eligible": 0}
+
+    # Find which candidates the user has already touched.
+    existing_rows = (
+        db.query(UserWord.word)
+        .filter(UserWord.user_id == user.id, UserWord.word.in_(candidates))
+        .all()
+    )
+    existing = {w for (w,) in existing_rows}
+
+    to_insert = [w for w in candidates if w not in existing]
+    for word in to_insert:
+        db.add(UserWord(user_id=user.id, word=word, state="known", seen_count=1))
+    # Single event row marking the bulk action — avoids 2 000+ event rows
+    # for the typical "mark HSK 1–4" use.
+    db.add(
+        UserWordEvent(
+            user_id=user.id,
+            word=f"hsk-{payload.hsk_version}-<=L{payload.up_to_level}",
+            event_type="bulk_mark_known",
+            new_state="known",
+        )
+    )
+    record_activity(user, db)
+    db.commit()
+    return {
+        "inserted": len(to_insert),
+        "skipped": len(existing),
+        "total_eligible": len(candidates),
+    }

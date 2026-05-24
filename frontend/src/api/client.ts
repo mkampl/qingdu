@@ -438,6 +438,15 @@ export const bulkMarkKnown = (
     { body: { words, source_text_id: source_text_id ?? null } },
   );
 
+export const importHskKnown = (
+  up_to_level: number,
+  hsk_version: "new" | "old" = "new",
+) =>
+  request<{ inserted: number; skipped: number; total_eligible: number }>(
+    "/api/words/import-hsk",
+    { body: { up_to_level, hsk_version } },
+  );
+
 export const getWordStats = () => request<WordStatsResponse>("/api/words/stats");
 
 // --- Review (Phase B) ------------------------------------------------------

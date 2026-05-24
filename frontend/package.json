@@ -12,6 +12,7 @@
     "format": "prettier --write \"src/**/*.{vue,ts,tsx,css}\""
   },
   "dependencies": {
+    "hanzi-writer": "^3.7.3",
     "pinia": "^2.3.1",
     "tesseract.js": "^5.1.1",
     "vue": "^3.5.13",
