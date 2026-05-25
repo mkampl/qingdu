@@ -34,6 +34,45 @@ const cjkChars = computed(() =>
   Array.from(props.word || "").filter((c) => /[一-鿿]/.test(c)),
 );
 
+/**
+ * Bridge for the case where the browser fires PointerEvents but
+ * suppresses the legacy MouseEvent compatibility layer (Firefox with
+ * strict tracking protection, certain privacy extensions). hanzi-writer
+ * v3.7.3 only listens for legacy mouse events, so without this shim
+ * pointer-only browsers see no quiz response at all. Skips touch input
+ * — touch already fires touchstart/move/end which hanzi-writer handles.
+ */
+function forwardPointerAsMouse(e: PointerEvent) {
+  if (e.pointerType === "touch") return;
+  const mouseType = (
+    {
+      pointerdown: "mousedown",
+      pointermove: "mousemove",
+      pointerup: "mouseup",
+    } as Record<string, string>
+  )[e.type];
+  if (!mouseType) return;
+  // preventDefault on the PointerEvent tells the browser NOT to fire the
+  // compatibility MouseEvent for this input. We then synthesize our own
+  // MouseEvent, so hanzi-writer's mousedown listener receives exactly one
+  // event — works on browsers that fire the compat layer (Chrome / normal
+  // Firefox) AND those that don't (Firefox-strict).
+  e.preventDefault();
+  const me = new MouseEvent(mouseType, {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    clientX: e.clientX,
+    clientY: e.clientY,
+    screenX: e.screenX,
+    screenY: e.screenY,
+    button: e.button,
+    buttons: e.buttons,
+    view: window,
+  });
+  (e.target as Element).dispatchEvent(me);
+}
+
 const canvasRef = ref<HTMLDivElement | null>(null);
 const currentIdx = ref(0);
 const totalMistakes = ref(0);
@@ -84,28 +123,18 @@ async function startCharQuiz(idx: number) {
       strokeColor: "#1f2937",
       drawingColor: "#1f2937",
       highlightColor: "#10b981",
-      drawingFadeDuration: 0, // disable fade so strokes show up immediately
+      drawingFadeDuration: 0,
     });
-    // Diagnostic logging — temporary, lets us see whether events reach
-    // hanzi-writer at all. Strip once Writing mode is confirmed stable.
-    // eslint-disable-next-line no-console
-    console.log("[WritingQuiz] writer created for", char, w);
     w.quiz({
       leniency: 1.5,
       showHintAfterMisses: 3,
-      onMistake: (info: { strokeNum: number; totalMistakes: number }) => {
-        // eslint-disable-next-line no-console
-        console.log("[WritingQuiz] mistake", info);
+      onMistake: (info: { totalMistakes: number }) => {
         currentMistakes.value = info.totalMistakes;
       },
-      onCorrectStroke: (info: { strokeNum: number; totalMistakes: number }) => {
-        // eslint-disable-next-line no-console
-        console.log("[WritingQuiz] correct stroke", info);
+      onCorrectStroke: (info: { totalMistakes: number }) => {
         currentMistakes.value = info.totalMistakes;
       },
       onComplete: (info: { totalMistakes: number }) => {
-        // eslint-disable-next-line no-console
-        console.log("[WritingQuiz] complete", info);
         totalMistakes.value += info.totalMistakes;
         if (isLastChar.value) {
           completed.value = true;
@@ -120,43 +149,36 @@ async function startCharQuiz(idx: number) {
     });
     writer.value = w;
 
-    // Diagnostic probes — every input variant, both capture and bubble
-    // phases, plus document-level capture. If we see *any* of these
-    // fire when the user clicks the canvas, we know where events ARE
-    // going. If none fire, the browser is dropping events entirely on
-    // the canvas (likely a Firefox fingerprinting/strict mode quirk).
-    const probe = (label: string) => (e: Event) => {
-      // eslint-disable-next-line no-console
-      console.log(`[WritingQuiz] ${label}`, e.type, {
-        target: (e.target as Element)?.tagName,
-        currentTarget: (e.currentTarget as Element)?.tagName,
-      });
-    };
-    const events = [
+    // PointerEvent → MouseEvent compatibility shim.
+    //
+    // hanzi-writer v3.7.3 listens only for legacy mousedown / mousemove /
+    // mouseup + touchstart / touchmove / touchend (verified at
+    // node_modules/hanzi-writer/dist/index.esm.js line ~1734). Modern
+    // browsers normally fire both PointerEvent AND the compatibility
+    // MouseEvent for the same input — but Firefox with strict tracking
+    // protection (and some other privacy hardening setups) suppresses
+    // the compatibility MouseEvent, leaving only PointerEvent. The
+    // quiz then silently no-ops because nothing it's listening for
+    // ever fires.
+    //
+    // Forward our own MouseEvent for mouse-pointer input. Touch input
+    // already triggers touchstart/touchmove/touchend separately, so we
+    // skip those to avoid double-firing.
+    canvasRef.value.addEventListener(
       "pointerdown",
+      forwardPointerAsMouse,
+      true,
+    );
+    canvasRef.value.addEventListener(
+      "pointermove",
+      forwardPointerAsMouse,
+      true,
+    );
+    canvasRef.value.addEventListener(
       "pointerup",
-      "mousedown",
-      "mouseup",
-      "click",
-      "touchstart",
-      "touchend",
-    ];
-    for (const ev of events) {
-      canvasRef.value.addEventListener(ev, probe("canvas:bubble"));
-      canvasRef.value.addEventListener(ev, probe("canvas:capture"), true);
-    }
-    // Also capture document-level — if events fire here but not on the
-    // canvas, the canvas itself is invisible to pointer routing.
-    const docProbe = (e: Event) => {
-      const target = e.target as Element | null;
-      if (target?.closest?.('[aria-label="Draw the character"]')) {
-        // eslint-disable-next-line no-console
-        console.log("[WritingQuiz] document:capture", e.type, target.tagName);
-      }
-    };
-    document.addEventListener("pointerdown", docProbe, true);
-    document.addEventListener("mousedown", docProbe, true);
-    document.addEventListener("click", docProbe, true);
+      forwardPointerAsMouse,
+      true,
+    );
   } catch (e) {
     error.value =
       e instanceof Error ? e.message : "Couldn't load stroke data.";
