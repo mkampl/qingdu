@@ -10,7 +10,7 @@
  * Multi-character words run sequentially. The user can "Show stroke"
  * to get a hint (counts as a mistake — same as hanzi-writer's default).
  */
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 const props = withDefaults(
   defineProps<{
@@ -249,10 +249,14 @@ watch(currentIdx, (idx) => {
   void startCharQuiz(idx);
 });
 
-// flush: 'post' so the immediate call fires AFTER the template mounts
-// and canvasRef.value is populated. Without it, the very first word in
-// a fresh session bailed early on the `!canvasRef.value` guard, leaving
-// the user with a character they couldn't draw on until they skipped it.
+// Kick off the very first quiz from onMounted so canvasRef.value is
+// guaranteed to be populated. An `immediate: true` watcher would have
+// fired synchronously during setup — before mount — and the function's
+// `!canvasRef.value` guard would bail silently, which is exactly what
+// left the first word of a fresh session unresponsive on mobile.
+onMounted(() => void startCharQuiz(0));
+
+// Subsequent word changes (parent advanced to the next card).
 watch(
   () => props.word,
   () => {
@@ -263,7 +267,6 @@ watch(
     skipped.value = false;
     void startCharQuiz(0);
   },
-  { immediate: true, flush: "post" },
 );
 
 // Re-create the writer when the outline toggle changes mid-card so the
