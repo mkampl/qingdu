@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.auth import require_auth
 from app.database import User, VocabularyList, get_db
 from app.services.migrations import migrate_vocabulary_sections
+from app.services.script import convert_vocab_sections, to_user_script
 
 router = APIRouter(tags=["Vocabulary Lists"])
 logger = logging.getLogger(__name__)
@@ -57,10 +58,14 @@ async def get_vocabulary_lists(
     for vocab_list in lists:
         sections = json.loads(vocab_list.sections) if vocab_list.sections else []
         migrated_sections = migrate_vocabulary_sections(sections)
+        # Display-script conversion: each word's hanzi (and the
+        # 'traditional' duplicate, when present) goes to the user's
+        # preferred script. Pinyin / meanings / list name pass through.
+        convert_vocab_sections(migrated_sections, user)
         result.append(
             {
                 "id": vocab_list.id,
-                "name": vocab_list.name,
+                "name": to_user_script(vocab_list.name or "", user),
                 "type": vocab_list.list_type,
                 "sections": migrated_sections,
                 "apply_as_glossary": bool(vocab_list.apply_as_glossary),

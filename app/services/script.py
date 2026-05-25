@@ -71,4 +71,58 @@ def to_canonical(text: str, user: User | None) -> str:
     return _converter("t2s").convert(text)
 
 
-__all__ = ["to_user_script", "to_canonical", "user_script"]
+def convert_analysis_data(data: dict | list | None, user: User | None) -> dict | list | None:
+    """Walk an /api/analyze-shaped response and convert every Chinese
+    surface (word.text, grammar sentence.text, segments) to the user's
+    display script. Returns the structure unchanged when user pref is
+    'auto' or the data is empty — cheap early-out for the common case.
+
+    The function mutates in place and also returns the same reference
+    so callers can use either idiom."""
+    if data is None:
+        return data
+    pref = user_script(user)
+    if pref == "auto":
+        return data
+    if isinstance(data, dict):
+        for word in data.get("words", []) or []:
+            if isinstance(word, dict) and word.get("text"):
+                word["text"] = to_user_script(word["text"], user)
+        grammar = data.get("grammar")
+        if isinstance(grammar, dict):
+            for sentence in grammar.get("sentences", []) or []:
+                if isinstance(sentence, dict) and sentence.get("text"):
+                    sentence["text"] = to_user_script(sentence["text"], user)
+    return data
+
+
+def convert_vocab_sections(sections: list | None, user: User | None) -> list | None:
+    """Walk vocabulary-list sections and convert each word's hanzi field
+    (and the optional 'traditional' duplicate) to the user's display
+    script. Pinyin is left alone — readings don't change between simp
+    and trad. Returns the structure as the same reference."""
+    if sections is None:
+        return sections
+    pref = user_script(user)
+    if pref == "auto":
+        return sections
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+        for word in section.get("words", []) or []:
+            if not isinstance(word, dict):
+                continue
+            if word.get("hanzi"):
+                word["hanzi"] = to_user_script(word["hanzi"], user)
+            if word.get("traditional"):
+                word["traditional"] = to_user_script(word["traditional"], user)
+    return sections
+
+
+__all__ = [
+    "convert_analysis_data",
+    "convert_vocab_sections",
+    "to_canonical",
+    "to_user_script",
+    "user_script",
+]

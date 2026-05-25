@@ -9,6 +9,7 @@ from app.auth import require_auth
 from app.core.rate_limit import limiter
 from app.database import SavedText, User, UserWord, get_db
 from app.services.migrations import migrate_analysis_data
+from app.services.script import convert_analysis_data, to_user_script
 
 router = APIRouter(tags=["Saved Texts"])
 
@@ -108,12 +109,19 @@ async def get_texts(
     for text in texts:
         analysis_data = json.loads(text.analysis_data)
         migrated_data = migrate_analysis_data(analysis_data)
+        # Comprehension runs BEFORE script conversion — known_set is keyed
+        # by canonical (simp) UserWord rows, so we match against the
+        # original (pre-conversion) analysis_data words.
         comp = _comprehension(migrated_data, known_set)
+        # Then convert the analysis_data (and the raw `content`) to the
+        # user's display script. analysis_data is walked in place: every
+        # word.text and grammar sentence.text gets converted.
+        convert_analysis_data(migrated_data, user)
         result.append(
             {
                 "id": text.id,
-                "title": text.title,
-                "content": text.content,
+                "title": to_user_script(text.title or "", user),
+                "content": to_user_script(text.content or "", user),
                 "date": text.created_at.isoformat(),
                 "analysisData": migrated_data,
                 "tags": text.tags,
