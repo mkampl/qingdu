@@ -105,6 +105,13 @@ type AnyHanziWriter = {
 } | null;
 const writer = ref<AnyHanziWriter>(null);
 
+// Per-quiz listener bag so multi-char words (and unmount) clean up
+// everything we attached to the canvas wrapper. Without this, each
+// new char would leak 3 pointer listeners onto the same DOM node,
+// firing the shim multiple times per real input and corrupting
+// hanzi-writer's stroke state.
+let inputListeners: AbortController | null = null;
+
 const isLastChar = computed(
   () => currentIdx.value === cjkChars.value.length - 1,
 );
@@ -129,6 +136,49 @@ async function startCharQuiz(idx: number) {
     }
 
     canvasRef.value.innerHTML = "";
+
+    // Drop any listeners from the previous char in this quiz instance.
+    inputListeners?.abort();
+    inputListeners = new AbortController();
+    const { signal } = inputListeners;
+
+    // The shim MUST be attached BEFORE HanziWriter.create() — that's
+    // the order the working /static/hanzi-test.html canvas-2 uses, and
+    // we mirror it here verbatim. Attaching after create() left the
+    // quiz silently unresponsive on mobile despite identical-looking
+    // code.
+    canvasRef.value.addEventListener("pointerdown", forwardPointerAsMouse, {
+      capture: true,
+      signal,
+    });
+    canvasRef.value.addEventListener("pointermove", forwardPointerAsMouse, {
+      capture: true,
+      signal,
+    });
+    canvasRef.value.addEventListener("pointerup", forwardPointerAsMouse, {
+      capture: true,
+      signal,
+    });
+
+    // No-op non-passive touchstart/touchmove listeners. Their only job
+    // is to register interest in those events at capture phase with
+    // passive: false, which keeps the browser from optimizing the
+    // dispatch in a way that hides input from hanzi-writer's bubble-
+    // phase touchstart handler. Canvas 2 in the diagnostic page has
+    // equivalent listeners (as logging) and works on mobile; without
+    // them WritingQuiz.vue did not.
+    const noop = () => {};
+    canvasRef.value.addEventListener("touchstart", noop, {
+      capture: true,
+      passive: false,
+      signal,
+    });
+    canvasRef.value.addEventListener("touchmove", noop, {
+      capture: true,
+      passive: false,
+      signal,
+    });
+
     const w = HanziWriter.create(canvasRef.value, char, {
       width: 200,
       height: 200,
@@ -162,26 +212,8 @@ async function startCharQuiz(idx: number) {
       },
     });
     writer.value = w;
-
-    // PointerEvent → MouseEvent compatibility shim (see helper docstring).
-    canvasRef.value.addEventListener(
-      "pointerdown",
-      forwardPointerAsMouse,
-      true,
-    );
-    canvasRef.value.addEventListener(
-      "pointermove",
-      forwardPointerAsMouse,
-      true,
-    );
-    canvasRef.value.addEventListener(
-      "pointerup",
-      forwardPointerAsMouse,
-      true,
-    );
   } catch (e) {
-    error.value =
-      e instanceof Error ? e.message : "Couldn't load stroke data.";
+    error.value = e instanceof Error ? e.message : "Couldn't load stroke data.";
   } finally {
     loading.value = false;
   }
@@ -221,6 +253,8 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  inputListeners?.abort();
+  inputListeners = null;
   try {
     writer.value?.cancelQuiz();
   } catch {
@@ -254,13 +288,22 @@ onBeforeUnmount(() => {
       <div
         ref="canvasRef"
         class="rounded-lg border border-border-subtle bg-bg-elevated"
-        style="width: 200px; height: 200px; touch-action: none; cursor: crosshair; user-select: none; -webkit-user-select: none;"
+        style="
+          width: 200px;
+          height: 200px;
+          touch-action: none;
+          cursor: crosshair;
+          user-select: none;
+          -webkit-user-select: none;
+        "
         aria-label="Draw the character"
       />
     </div>
 
     <div class="flex items-center justify-between gap-3 text-xs">
-      <span class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+      <span
+        class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+      >
         Mistakes this char:
         <span class="text-fg tabular-nums">{{ currentMistakes }}</span>
         <span v-if="totalMistakes > currentMistakes" class="text-fg-subtle">
