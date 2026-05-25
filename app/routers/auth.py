@@ -85,7 +85,8 @@ async def get_me(user: User = Depends(get_current_user)):
             "must_change_password": user.must_change_password,
             # Phase #96 — settings exposed alongside identity so the SPA's
             # SettingsModal can read + edit them without a second round-trip.
-            "daily_new_words": user.daily_new_words if user.daily_new_words is not None else 5,
+            # daily_new_words default is 0 (off) — users opt in from Settings.
+            "daily_new_words": user.daily_new_words if user.daily_new_words is not None else 0,
             "hsk_focus_version": user.hsk_focus_version or "new",
         },
     }

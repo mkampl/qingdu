@@ -39,8 +39,9 @@ class User(Base):
     streak_last_active = Column(Date, nullable=True)
     # Phase #96 — systematic learning. Daily target of new HSK words to
     # auto-enroll into the 'learning' pool; pulled from `hsk_focus_version`'s
-    # list in (level, random-within-level) order. 0 disables the auto-enroll.
-    daily_new_words = Column(Integer, default=5)
+    # list in (level, random-within-level) order. 0 disables the auto-enroll
+    # (the default — new users opt in via Settings).
+    daily_new_words = Column(Integer, default=0)
     hsk_focus_version = Column(String(8), default="new")
 
     # Relationships
@@ -277,7 +278,7 @@ def init_db():
                 if "daily_new_words" not in user_cols:
                     logger.info("Adding daily_new_words column to users")
                     conn.execute(
-                        text("ALTER TABLE users ADD COLUMN daily_new_words INTEGER DEFAULT 5")
+                        text("ALTER TABLE users ADD COLUMN daily_new_words INTEGER DEFAULT 0")
                     )
                 if "hsk_focus_version" not in user_cols:
                     logger.info("Adding hsk_focus_version column to users")

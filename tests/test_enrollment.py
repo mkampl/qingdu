@@ -87,6 +87,24 @@ def test_target_zero_is_noop(db_session, hsk_fixture):
     assert db_session.query(UserWord).count() == 0
 
 
+def test_new_user_defaults_to_disabled(db_session, hsk_fixture):
+    """New accounts opt in from Settings — model default must be 0."""
+    u = User(
+        id=2,
+        username="bob",
+        password_hash="x",
+        is_admin=False,
+        must_change_password=False,
+        invite_quota=0,
+    )
+    db_session.add(u)
+    db_session.commit()
+    db_session.refresh(u)
+    assert u.daily_new_words == 0
+    enrolled = enrollment.enroll_daily_words(u, db_session)
+    assert enrolled == []
+
+
 def test_idempotent_within_same_day(db_session, hsk_fixture):
     u = _make_user(db_session, daily_new_words=2)
     enrolled_first = enrollment.enroll_daily_words(u, db_session)

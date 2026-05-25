@@ -110,9 +110,11 @@ const ankiUrl = computed(() => api.wordsAnkiUrl());
 // --- Phase #96: daily auto-enrol target ---
 //
 // Bound from auth.user so the UI always reflects the server's truth; on
-// change, optimistic-update the local user then call the PATCH.
+// change, optimistic-update the local user then call the PATCH. 0 means
+// auto-enrol is disabled; the toggle below flips between 0 and the user's
+// chosen target (default 5 the first time they enable it).
 const dailyNewWords = computed<number>({
-  get: () => auth.user?.daily_new_words ?? 5,
+  get: () => auth.user?.daily_new_words ?? 0,
   set: (v) => {
     void auth.updateSettings({ daily_new_words: clampDaily(v) }).catch(() => {
       toasts.error("Couldn't save daily target.");
@@ -120,8 +122,18 @@ const dailyNewWords = computed<number>({
   },
 });
 
+const dailyEnabled = computed<boolean>({
+  get: () => dailyNewWords.value > 0,
+  set: (v) => {
+    // Toggling on restores to 5 (the recommended default); toggling off
+    // zeroes the target without losing the user's chosen number while
+    // they're in this session (they can flip back on without retyping).
+    dailyNewWords.value = v ? 5 : 0;
+  },
+});
+
 function clampDaily(v: number): number {
-  if (!Number.isFinite(v)) return 5;
+  if (!Number.isFinite(v)) return 0;
   return Math.max(0, Math.min(30, Math.round(v)));
 }
 
@@ -325,7 +337,9 @@ async function runImport() {
       </fieldset>
 
       <!-- Phase #96 — daily systematic-learning target. Auth-gated because
-           the value lives on the user row server-side. -->
+           the value lives on the user row server-side. Off by default;
+           the checkbox flips the target between 0 and 5 (default), with a
+           numeric input revealed when on. -->
       <fieldset v-if="auth.isAuthed">
         <legend
           class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
@@ -333,12 +347,30 @@ async function runImport() {
           Daily learning
         </legend>
         <p class="mb-3 text-xs text-fg-muted leading-relaxed">
-          Each time you open <em>Review</em>, fresh HSK words top up your
-          learning pool until you've hit today's target. They're picked at
-          random within the lowest level you haven't finished yet, so you
-          progress sequentially. Set to 0 to disable.
+          When enabled, each time you open <em>Review</em> fresh HSK words top
+          up your learning pool until you've hit today's target. They're picked
+          at random within the lowest level you haven't finished yet, so you
+          progress sequentially.
         </p>
-        <label class="flex items-center gap-3">
+        <label
+          class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
+        >
+          <input
+            v-model="dailyEnabled"
+            type="checkbox"
+            class="mt-1 accent-accent"
+          />
+          <span class="flex-1">
+            <span class="block font-display text-base text-fg">
+              Auto-enrol new HSK words
+            </span>
+            <span class="block text-xs text-fg-muted">
+              Off by default — only enable if you want a steady drip of new
+              vocabulary alongside the words you mark yourself.
+            </span>
+          </span>
+        </label>
+        <label v-if="dailyEnabled" class="mt-3 flex items-center gap-3 pl-6">
           <span
             class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
           >
@@ -347,11 +379,11 @@ async function runImport() {
           <input
             v-model.number="dailyNewWords"
             type="number"
-            min="0"
+            min="1"
             max="30"
             class="w-20 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-sm text-fg focus:border-accent focus:outline-none"
           />
-          <span class="font-mono text-[10px] text-fg-subtle">0–30</span>
+          <span class="font-mono text-[10px] text-fg-subtle">1–30</span>
         </label>
       </fieldset>
 
