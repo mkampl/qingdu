@@ -225,6 +225,13 @@ async def startup_event() -> None:
     except Exception as e:
         logger.warning("CC-CEDICT load failed (%s); proceeding with HSK only", e)
 
+    # Refresh per-user word snapshots so any pinyin/meaning improvements
+    # from the dictionary load propagate to rows that were snapshotted
+    # earlier with stale (or worse) glosses.
+    from app.services.snapshot_backfill import run_at_startup as _refresh_snapshots
+
+    _refresh_snapshots()
+
     logger.info("Initializing jieba tokenizer...")
     jieba.initialize()
     logger.info("Adding HSK words to jieba dictionary with high frequency...")
