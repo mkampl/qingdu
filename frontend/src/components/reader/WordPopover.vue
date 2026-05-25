@@ -12,6 +12,7 @@ import { useUserWordsStore } from "@/stores/userWords";
 import { useVocabListsStore } from "@/stores/vocab-lists";
 
 import HskChip from "./HskChip.vue";
+import PronunciationCheck from "./PronunciationCheck.vue";
 import StrokeOrder from "./StrokeOrder.vue";
 import { levelForVersion } from "./utils";
 
@@ -59,12 +60,17 @@ const desktopPosition = computed(() => {
   if (!anchor.value) return null;
   const margin = 12;
   const popoverWidth = 320;
-  const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1024;
-  const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 800;
+  const viewportWidth =
+    typeof window !== "undefined" ? window.innerWidth : 1024;
+  const viewportHeight =
+    typeof window !== "undefined" ? window.innerHeight : 800;
 
   // Try to centre the popover under the anchor; clamp to viewport.
   let left = anchor.value.left + anchor.value.width / 2 - popoverWidth / 2;
-  left = Math.max(margin, Math.min(left, viewportWidth - popoverWidth - margin));
+  left = Math.max(
+    margin,
+    Math.min(left, viewportWidth - popoverWidth - margin),
+  );
 
   // Default below the word, flip above if it would overflow the viewport.
   let top = anchor.value.bottom + 8;
@@ -125,10 +131,7 @@ async function expandAddToList() {
   addToListError.value = null;
   await vocabLists.ensureLoaded();
   // Pre-select a sensible default: the only list, or the first one.
-  if (
-    addToListSelectedId.value === null &&
-    vocabLists.lists.length > 0
-  ) {
+  if (addToListSelectedId.value === null && vocabLists.lists.length > 0) {
     selectList(vocabLists.lists[0].id);
   }
 }
@@ -145,7 +148,8 @@ function selectList(id: number) {
 }
 
 async function submitAddToList() {
-  if (!word.value || !addToListSelectedId.value || addToListSubmitting.value) return;
+  if (!word.value || !addToListSelectedId.value || addToListSubmitting.value)
+    return;
   const sectionName = addToListSection.value.trim() || "Main";
   addToListSubmitting.value = true;
   addToListError.value = null;
@@ -156,7 +160,9 @@ async function submitAddToList() {
       meaning: word.value.meaning ?? "",
     });
     addToListAdded.value = true;
-    toasts.success(`Added 「${word.value.text}」 to “${currentListName.value}”.`);
+    toasts.success(
+      `Added 「${word.value.text}」 to “${currentListName.value}”.`,
+    );
     // Invalidate so the next open picks up the new word (e.g. for section
     // defaults on the same list).
     vocabLists.invalidate();
@@ -184,7 +190,8 @@ function translateSentenceFromWord() {
   if (!sentenceKey || !sentenceText) return;
   reader.clearWord();
   // Open the inline annotation under the sentence + fire the translate.
-  if (reader.openSentenceKey !== sentenceKey) reader.toggleSentence(sentenceKey);
+  if (reader.openSentenceKey !== sentenceKey)
+    reader.toggleSentence(sentenceKey);
   void reader.translateSentence(sentenceText);
 }
 
@@ -193,8 +200,8 @@ const wordLevel = computed(() =>
 );
 
 const strokeOrderOpen = ref(false);
-const wordHasCjk = computed(() =>
-  !!word.value && /[一-鿿]/.test(word.value.text),
+const wordHasCjk = computed(
+  () => !!word.value && /[一-鿿]/.test(word.value.text),
 );
 watch(word, () => {
   // Collapse the accordion when the user moves to a new word so the
@@ -294,36 +301,39 @@ async function setWordState(state: UserWordState) {
               </div>
             </div>
             <div class="flex flex-col items-end gap-2">
-              <button
-                type="button"
-                class="inline-flex items-center justify-center rounded-md border border-border bg-bg-elevated p-2 text-fg-muted transition-colors hover:text-fg hover:bg-bg-sunken disabled:opacity-50"
-                aria-label="Play pronunciation"
-                :disabled="ttsLoading"
-                @click="playTts"
-              >
-                <span
-                  v-if="ttsLoading"
-                  class="inline-block size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-                />
-                <svg
-                  v-else
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
+              <div class="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center rounded-md border border-border bg-bg-elevated p-2 text-fg-muted transition-colors hover:text-fg hover:bg-bg-sunken disabled:opacity-50"
+                  aria-label="Play pronunciation"
+                  :disabled="ttsLoading"
+                  @click="playTts"
                 >
-                  <path
-                    d="M3.5 5h2L8 3v10L5.5 11h-2V5z"
-                    fill="currentColor"
+                  <span
+                    v-if="ttsLoading"
+                    class="inline-block size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
                   />
-                  <path
-                    d="M10.5 5.5C11.5 6.3 12 7.1 12 8s-.5 1.7-1.5 2.5M12.5 4C14 5 14.5 6.5 14.5 8s-.5 3-2 4"
-                    stroke="currentColor"
-                    stroke-width="1.2"
-                    stroke-linecap="round"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    v-else
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                  >
+                    <path
+                      d="M3.5 5h2L8 3v10L5.5 11h-2V5z"
+                      fill="currentColor"
+                    />
+                    <path
+                      d="M10.5 5.5C11.5 6.3 12 7.1 12 8s-.5 1.7-1.5 2.5M12.5 4C14 5 14.5 6.5 14.5 8s-.5 3-2 4"
+                      stroke="currentColor"
+                      stroke-width="1.2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
+                <PronunciationCheck :target="word.text" />
+              </div>
               <HskChip :level="wordLevel" />
             </div>
           </div>
@@ -335,12 +345,19 @@ async function setWordState(state: UserWordState) {
             v-if="word.glossary_source"
             class="mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider"
             :style="{
-              backgroundColor: 'color-mix(in oklch, var(--color-glossary), transparent 80%)',
+              backgroundColor:
+                'color-mix(in oklch, var(--color-glossary), transparent 80%)',
               color: 'var(--color-glossary)',
             }"
             :title="`From your glossary list “${word.glossary_source}”`"
           >
-            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden="true">
+            <svg
+              width="9"
+              height="9"
+              viewBox="0 0 9 9"
+              fill="none"
+              aria-hidden="true"
+            >
               <path
                 d="M1.5 1.5h6M1.5 4h6M1.5 6.5h4"
                 stroke="currentColor"
@@ -418,9 +435,7 @@ async function setWordState(state: UserWordState) {
             v-if="word.radical"
             class="mt-4 flex items-baseline gap-2 border-t border-border-subtle pt-3 text-xs"
           >
-            <span
-              class="font-mono uppercase tracking-wider text-fg-subtle"
-            >
+            <span class="font-mono uppercase tracking-wider text-fg-subtle">
               Radical
             </span>
             <span class="font-cn-serif text-base text-fg">
@@ -443,9 +458,7 @@ async function setWordState(state: UserWordState) {
               :aria-expanded="strokeOrderOpen"
               @click="strokeOrderOpen = !strokeOrderOpen"
             >
-              <span
-                class="font-mono text-[10px] uppercase tracking-wider"
-              >
+              <span class="font-mono text-[10px] uppercase tracking-wider">
                 Stroke order
               </span>
               <svg
@@ -541,7 +554,10 @@ async function setWordState(state: UserWordState) {
                 class="text-xs italic text-fg-muted"
               >
                 No vocab lists yet —
-                <router-link to="/vocab" class="font-medium text-accent hover:underline">
+                <router-link
+                  to="/vocab"
+                  class="font-medium text-accent hover:underline"
+                >
                   create one
                 </router-link>
                 .
@@ -569,9 +585,12 @@ async function setWordState(state: UserWordState) {
                       class="ml-1 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
                     >
                       {{
-                        (vl.sections ?? [])
-                          .reduce((sum, s) => sum + (s.words?.length ?? 0), 0)
-                      }} words
+                        (vl.sections ?? []).reduce(
+                          (sum, s) => sum + (s.words?.length ?? 0),
+                          0,
+                        )
+                      }}
+                      words
                     </span>
                   </button>
                 </div>
