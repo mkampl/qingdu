@@ -84,22 +84,28 @@ async function startCharQuiz(idx: number) {
       strokeColor: "#1f2937",
       drawingColor: "#1f2937",
       highlightColor: "#10b981",
-      drawingFadeDuration: 300,
+      drawingFadeDuration: 0, // disable fade so strokes show up immediately
     });
+    // Diagnostic logging — temporary, lets us see whether events reach
+    // hanzi-writer at all. Strip once Writing mode is confirmed stable.
+    // eslint-disable-next-line no-console
+    console.log("[WritingQuiz] writer created for", char, w);
     w.quiz({
-      // Slightly more forgiving than the default — freehand drawing is
-      // never as crisp as the matcher's stroke template.
       leniency: 1.5,
-      // Reveal the next stroke after 3 misses on the same stroke so the
-      // user gets unstuck. hanzi-writer counts this as a mistake itself.
       showHintAfterMisses: 3,
-      onMistake: (info: { totalMistakes: number }) => {
+      onMistake: (info: { strokeNum: number; totalMistakes: number }) => {
+        // eslint-disable-next-line no-console
+        console.log("[WritingQuiz] mistake", info);
         currentMistakes.value = info.totalMistakes;
       },
-      onCorrectStroke: (info: { totalMistakes: number }) => {
+      onCorrectStroke: (info: { strokeNum: number; totalMistakes: number }) => {
+        // eslint-disable-next-line no-console
+        console.log("[WritingQuiz] correct stroke", info);
         currentMistakes.value = info.totalMistakes;
       },
       onComplete: (info: { totalMistakes: number }) => {
+        // eslint-disable-next-line no-console
+        console.log("[WritingQuiz] complete", info);
         totalMistakes.value += info.totalMistakes;
         if (isLastChar.value) {
           completed.value = true;
@@ -113,6 +119,20 @@ async function startCharQuiz(idx: number) {
       },
     });
     writer.value = w;
+
+    // Also raw-log pointer events on the canvas itself, so we can tell
+    // whether events reach the wrapper but hanzi-writer's SVG isn't
+    // catching them, vs the wrapper not receiving events at all.
+    const probe = (e: PointerEvent) => {
+      // eslint-disable-next-line no-console
+      console.log("[WritingQuiz] pointer", e.type, {
+        target: (e.target as Element)?.tagName,
+        x: e.offsetX,
+        y: e.offsetY,
+      });
+    };
+    canvasRef.value.addEventListener("pointerdown", probe);
+    canvasRef.value.addEventListener("pointerup", probe);
   } catch (e) {
     error.value =
       e instanceof Error ? e.message : "Couldn't load stroke data.";
