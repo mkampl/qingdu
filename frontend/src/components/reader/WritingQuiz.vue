@@ -12,6 +12,10 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
+import { useSettingsStore } from "@/stores/settings";
+
+const settings = useSettingsStore();
+
 const props = withDefaults(
   defineProps<{
     /** The whole word string. Non-CJK chars are filtered out. */
@@ -189,13 +193,18 @@ async function startCharQuiz(idx: number) {
       signal,
     });
 
+    // Theme-aware ink: slate-800 reads cleanly on light backgrounds but
+    // disappears against the dark-mode canvas, so flip to slate-200 in
+    // dark mode. The settings store's theme value is what drives the
+    // `dark` class on <html>, so we read it directly.
+    const ink = settings.theme === "dark" ? "#e5e7eb" : "#1f2937";
     const w = HanziWriter.create(canvasRef.value, char, {
       width: 200,
       height: 200,
       showCharacter: false,
       showOutline: props.showOutline,
-      strokeColor: "#1f2937",
-      drawingColor: "#1f2937",
+      strokeColor: ink,
+      drawingColor: ink,
       highlightColor: "#10b981",
       drawingFadeDuration: 0,
     });
@@ -278,6 +287,15 @@ watch(
   },
 );
 
+// Same idea for theme: re-create so the ink color picks up the new
+// foreground value (slate-200 on dark, slate-800 on light).
+watch(
+  () => settings.theme,
+  () => {
+    if (!completed.value) void startCharQuiz(currentIdx.value);
+  },
+);
+
 onBeforeUnmount(() => {
   inputListeners?.abort();
   inputListeners = null;
@@ -306,24 +324,54 @@ onBeforeUnmount(() => {
 
     <div class="flex justify-center">
       <!--
-        touch-action: none — without this, mobile browsers treat the
-          drag inside the SVG as page scroll instead of a draw gesture.
-        cursor: crosshair + user-select: none — desktop drag should
-          read as drawing, not as text selection.
+        Outer frame holds two children, both 200x200 absolutely positioned
+        so they overlap:
+          1. 米字格 grid as an SVG layer (dashed center cross + diagonals,
+             traditional Chinese writing-practice guide). currentColor lets
+             dark mode pick it up via Tailwind's text-fg-subtle.
+          2. Canvas wrapper where hanzi-writer mounts. Transparent
+             background so the grid behind shows through.
+
+        touch-action: none — without this, mobile browsers treat the drag
+        inside the SVG as page scroll instead of a draw gesture.
+        cursor: crosshair + user-select: none — desktop drag should read
+        as drawing, not as text selection.
       -->
       <div
-        ref="canvasRef"
-        class="rounded-lg border border-border-subtle bg-bg-elevated"
-        style="
-          width: 200px;
-          height: 200px;
-          touch-action: none;
-          cursor: crosshair;
-          user-select: none;
-          -webkit-user-select: none;
-        "
-        aria-label="Draw the character"
-      />
+        class="relative rounded-lg border border-border-subtle bg-bg-elevated"
+        style="width: 200px; height: 200px"
+      >
+        <svg
+          class="pointer-events-none absolute inset-0 text-fg-subtle"
+          viewBox="0 0 200 200"
+          width="200"
+          height="200"
+          aria-hidden="true"
+        >
+          <g
+            stroke="currentColor"
+            stroke-width="0.6"
+            stroke-dasharray="3 4"
+            opacity="0.45"
+          >
+            <line x1="100" y1="0" x2="100" y2="200" />
+            <line x1="0" y1="100" x2="200" y2="100" />
+            <line x1="0" y1="0" x2="200" y2="200" />
+            <line x1="200" y1="0" x2="0" y2="200" />
+          </g>
+        </svg>
+        <div
+          ref="canvasRef"
+          class="absolute inset-0"
+          style="
+            touch-action: none;
+            cursor: crosshair;
+            user-select: none;
+            -webkit-user-select: none;
+          "
+          aria-label="Draw the character"
+        />
+      </div>
     </div>
 
     <div class="flex items-center justify-between gap-3 text-xs">
