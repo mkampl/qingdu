@@ -5,7 +5,12 @@ import * as api from "@/api/client";
 import { ApiError } from "@/api/client";
 import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
-import { useSettingsStore, type ColorMode, type HskVersion, type PinyinMode } from "@/stores/settings";
+import {
+  useSettingsStore,
+  type ColorMode,
+  type HskVersion,
+  type PinyinMode,
+} from "@/stores/settings";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 
@@ -73,7 +78,11 @@ const hskOptions: { value: HskVersion; label: string; hint: string }[] = [
 const importLevel = ref<number>(4);
 const importing = ref(false);
 const pendingConfirm = ref(false);
-const lastResult = ref<{ inserted: number; skipped: number; total_eligible: number } | null>(null);
+const lastResult = ref<{
+  inserted: number;
+  skipped: number;
+  total_eligible: number;
+} | null>(null);
 
 const importMaxLevel = computed(() => (settings.hskVersion === "new" ? 9 : 6));
 
@@ -97,6 +106,24 @@ const roughTotal = computed(() => {
 
 const csvUrl = computed(() => api.wordsCsvUrl());
 const ankiUrl = computed(() => api.wordsAnkiUrl());
+
+// --- Phase #96: daily auto-enrol target ---
+//
+// Bound from auth.user so the UI always reflects the server's truth; on
+// change, optimistic-update the local user then call the PATCH.
+const dailyNewWords = computed<number>({
+  get: () => auth.user?.daily_new_words ?? 5,
+  set: (v) => {
+    void auth.updateSettings({ daily_new_words: clampDaily(v) }).catch(() => {
+      toasts.error("Couldn't save daily target.");
+    });
+  },
+});
+
+function clampDaily(v: number): number {
+  if (!Number.isFinite(v)) return 5;
+  return Math.max(0, Math.min(30, Math.round(v)));
+}
 
 async function runImport() {
   if (!auth.isAuthed) {
@@ -255,8 +282,8 @@ async function runImport() {
             Show HSK colour legend
           </span>
           <span class="block text-xs text-fg-muted">
-            Adds a small key under the composition stats explaining each
-            level's wash colour.
+            Adds a small key under the composition stats explaining each level's
+            wash colour.
           </span>
         </span>
       </label>
@@ -297,6 +324,37 @@ async function runImport() {
         </div>
       </fieldset>
 
+      <!-- Phase #96 — daily systematic-learning target. Auth-gated because
+           the value lives on the user row server-side. -->
+      <fieldset v-if="auth.isAuthed">
+        <legend
+          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          Daily learning
+        </legend>
+        <p class="mb-3 text-xs text-fg-muted leading-relaxed">
+          Each time you open <em>Review</em>, fresh HSK words top up your
+          learning pool until you've hit today's target. They're picked at
+          random within the lowest level you haven't finished yet, so you
+          progress sequentially. Set to 0 to disable.
+        </p>
+        <label class="flex items-center gap-3">
+          <span
+            class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+          >
+            New words / day
+          </span>
+          <input
+            v-model.number="dailyNewWords"
+            type="number"
+            min="0"
+            max="30"
+            class="w-20 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-sm text-fg focus:border-accent focus:outline-none"
+          />
+          <span class="font-mono text-[10px] text-fg-subtle">0–30</span>
+        </label>
+      </fieldset>
+
       <!-- Onboarding shortcuts — auth-gated. Single batch mark-as-known
            pass to skip the cold-start grind for intermediate learners. -->
       <fieldset v-if="auth.isAuthed">
@@ -306,9 +364,9 @@ async function runImport() {
           Onboarding shortcuts
         </legend>
         <p class="mb-3 text-xs text-fg-muted leading-relaxed">
-          Already comfortable with some HSK? Bulk-mark every word up to a
-          level as known. You can still change individual words later by
-          clicking them in the reader.
+          Already comfortable with some HSK? Bulk-mark every word up to a level
+          as known. You can still change individual words later by clicking them
+          in the reader.
         </p>
         <div class="flex flex-wrap items-end gap-3">
           <label class="flex flex-col gap-1">
@@ -322,11 +380,7 @@ async function runImport() {
               :disabled="importing"
               class="rounded-md border border-border bg-bg-elevated px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none"
             >
-              <option
-                v-for="n in importMaxLevel"
-                :key="n"
-                :value="n"
-              >
+              <option v-for="n in importMaxLevel" :key="n" :value="n">
                 HSK {{ n }}
               </option>
             </select>
@@ -368,7 +422,9 @@ async function runImport() {
                 @click="runImport"
               >
                 <span v-if="importing" class="inline-flex items-center gap-1.5">
-                  <span class="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  <span
+                    class="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                  />
                   Marking…
                 </span>
                 <span v-else>Confirm</span>
@@ -396,9 +452,9 @@ async function runImport() {
           Export
         </legend>
         <p class="mb-3 text-xs text-fg-muted leading-relaxed">
-          Take your data with you. CSV is a flat dump of every word state
-          + FSRS scheduling fields; the Anki deck includes everything you're
-          learning or already know with HSK level annotations.
+          Take your data with you. CSV is a flat dump of every word state + FSRS
+          scheduling fields; the Anki deck includes everything you're learning
+          or already know with HSK level annotations.
         </p>
         <div class="flex flex-wrap gap-2">
           <a
@@ -406,8 +462,20 @@ async function runImport() {
             class="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
             download
           >
-            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
-              <path d="M5.5 1.5v6M3 5l2.5 2.5L8 5M2 9.5h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 11 11"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M5.5 1.5v6M3 5l2.5 2.5L8 5M2 9.5h7"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </svg>
             words.csv
           </a>
@@ -416,8 +484,20 @@ async function runImport() {
             class="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
             download
           >
-            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
-              <path d="M5.5 1.5v6M3 5l2.5 2.5L8 5M2 9.5h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 11 11"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M5.5 1.5v6M3 5l2.5 2.5L8 5M2 9.5h7"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </svg>
             words.apkg
           </a>

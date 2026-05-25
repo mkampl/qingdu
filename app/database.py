@@ -37,6 +37,11 @@ class User(Base):
     # the contiguous run leading up to that date.
     streak_count = Column(Integer, default=0)
     streak_last_active = Column(Date, nullable=True)
+    # Phase #96 — systematic learning. Daily target of new HSK words to
+    # auto-enroll into the 'learning' pool; pulled from `hsk_focus_version`'s
+    # list in (level, random-within-level) order. 0 disables the auto-enroll.
+    daily_new_words = Column(Integer, default=5)
+    hsk_focus_version = Column(String(8), default="new")
 
     # Relationships
     texts = relationship("SavedText", back_populates="user", cascade="all, delete-orphan")
@@ -257,6 +262,7 @@ def init_db():
                     conn.commit()
 
         # Phase F2 — streak columns on users (idempotent ALTER).
+        # Phase #96 — daily_new_words + hsk_focus_version on users.
         if inspector.has_table("users"):
             user_cols = {col["name"] for col in inspector.get_columns("users")}
             with engine.connect() as conn:
@@ -268,6 +274,19 @@ def init_db():
                 if "streak_last_active" not in user_cols:
                     logger.info("Adding streak_last_active column to users")
                     conn.execute(text("ALTER TABLE users ADD COLUMN streak_last_active DATE"))
+                if "daily_new_words" not in user_cols:
+                    logger.info("Adding daily_new_words column to users")
+                    conn.execute(
+                        text("ALTER TABLE users ADD COLUMN daily_new_words INTEGER DEFAULT 5")
+                    )
+                if "hsk_focus_version" not in user_cols:
+                    logger.info("Adding hsk_focus_version column to users")
+                    conn.execute(
+                        text(
+                            "ALTER TABLE users ADD COLUMN hsk_focus_version "
+                            "VARCHAR(8) DEFAULT 'new'"
+                        )
+                    )
                 conn.commit()
 
         # Phase B — FSRS columns on user_words + grade on user_word_events.

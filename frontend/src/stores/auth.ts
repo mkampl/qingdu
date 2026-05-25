@@ -90,6 +90,20 @@ export const useAuthStore = defineStore("auth", () => {
     if (user.value) user.value = { ...user.value, must_change_password: false };
   }
 
+  async function updateSettings(payload: api.UserSettingsPayload) {
+    const updated = await api.updateMySettings(payload);
+    if (user.value) {
+      user.value = {
+        ...user.value,
+        daily_new_words: updated.daily_new_words,
+        hsk_focus_version: updated.hsk_focus_version as "new" | "old",
+      };
+    }
+    // The review-stats badge depends on daily_target; nudge it so the UI
+    // reflects the new value without waiting for the next mount.
+    useReviewStore().refreshStats();
+  }
+
   return {
     user,
     loading,
@@ -101,5 +115,6 @@ export const useAuthStore = defineStore("auth", () => {
     signupWithInvite,
     logout,
     changePassword,
+    updateSettings,
   };
 });

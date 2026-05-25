@@ -68,6 +68,18 @@ class UpdateInviteQuotaRequest(BaseModel):
     invite_quota: int
 
 
+class UserSettingsUpdate(BaseModel):
+    """Partial update of the current user's tunable settings.
+
+    Both fields are optional — callers may send either or both. The auth
+    router rejects invalid values via simple range checks (see PATCH
+    /api/auth/me/settings).
+    """
+
+    daily_new_words: int | None = None  # 0..30 enforced server-side
+    hsk_focus_version: str | None = None  # "new" | "old"
+
+
 # --- User word state (Phase A) ---
 
 VALID_WORD_STATES = frozenset({"learning", "known", "ignored"})

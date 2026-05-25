@@ -95,7 +95,8 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
 // --- Public endpoints --------------------------------------------------------
 
-export const health = () => request<HealthResponse>("/health", { anonymous: true });
+export const health = () =>
+  request<HealthResponse>("/health", { anonymous: true });
 
 export const analyze = (
   text: string,
@@ -130,8 +131,7 @@ export const login = (username: string, password: string) =>
     anonymous: true,
   });
 
-export const me = () =>
-  request<MeResponse | NotAuthedResponse>("/api/auth/me");
+export const me = () => request<MeResponse | NotAuthedResponse>("/api/auth/me");
 
 export const logout = () => request<{ message: string }>("/api/auth/logout");
 
@@ -139,6 +139,17 @@ export const changePassword = (old_password: string, new_password: string) =>
   request<{ message: string }>("/api/auth/change-password", {
     body: { old_password, new_password },
   });
+
+export interface UserSettingsPayload {
+  daily_new_words?: number;
+  hsk_focus_version?: "new" | "old";
+}
+
+export const updateMySettings = (payload: UserSettingsPayload) =>
+  request<{ daily_new_words: number; hsk_focus_version: string }>(
+    "/api/auth/me/settings",
+    { method: "PATCH", body: payload },
+  );
 
 export const signupWithInvite = (
   token: string,
@@ -165,23 +176,23 @@ export const myInvitations = () =>
 export const adminListUsers = () =>
   request<AdminUserSummary[]>("/api/admin/users");
 
-export const adminCreateUser = (input: { username: string; password: string }) =>
-  request<{ message: string }>("/api/admin/users", { body: input });
+export const adminCreateUser = (input: {
+  username: string;
+  password: string;
+}) => request<{ message: string }>("/api/admin/users", { body: input });
 
 export const adminDeleteUser = (id: number) =>
   request<{ message: string }>(`/api/admin/users/${id}`, { method: "DELETE" });
 
 export const adminResetPassword = (id: number, newPassword: string) =>
-  request<{ message: string }>(
-    `/api/admin/users/${id}/reset-password`,
-    { body: { new_password: newPassword } },
-  );
+  request<{ message: string }>(`/api/admin/users/${id}/reset-password`, {
+    body: { new_password: newPassword },
+  });
 
 export const adminToggleAdmin = (id: number) =>
-  request<{ message: string }>(
-    `/api/admin/users/${id}/toggle-admin`,
-    { method: "POST" },
-  );
+  request<{ message: string }>(`/api/admin/users/${id}/toggle-admin`, {
+    method: "POST",
+  });
 
 export const adminUpdateInviteQuota = (id: number, quota: number) =>
   request<{
@@ -204,7 +215,8 @@ export const saveText = (input: {
   analysis_data: AnalysisResponse;
   tags?: string[];
   glossary_list_ids?: number[] | null;
-}) => request<{ id: number; message: string }>("/api/texts/save", { body: input });
+}) =>
+  request<{ id: number; message: string }>("/api/texts/save", { body: input });
 
 export const updateText = (
   id: number,
@@ -217,10 +229,10 @@ export const updateText = (
     glossary_list_ids: number[] | null;
   }>,
 ) =>
-  request<{ id: number; title: string; message: string }>(
-    `/api/texts/${id}`,
-    { method: "PATCH", body: patch },
-  );
+  request<{ id: number; title: string; message: string }>(`/api/texts/${id}`, {
+    method: "PATCH",
+    body: patch,
+  });
 
 export const deleteText = (id: number) =>
   request<{ message: string }>(`/api/texts/${id}`, { method: "DELETE" });
@@ -328,24 +340,34 @@ export interface PrepareExportResult {
 }
 
 export const prepareExportAudio = (id: number) =>
-  request<PrepareExportResult>(
-    `/api/vocabulary-lists/${id}/prepare-export`,
-    { method: "POST" },
-  );
+  request<PrepareExportResult>(`/api/vocabulary-lists/${id}/prepare-export`, {
+    method: "POST",
+  });
 
 /**
  * Download a Blob with the JWT attached. Used for the .apkg + CSV exports;
  * the backend honours both Bearer header and `?token=` query, but the
  * header approach keeps the token out of server logs.
  */
-async function downloadBlob(url: string): Promise<{ blob: Blob; filename: string; stats?: string; rateLimited?: boolean }> {
+async function downloadBlob(
+  url: string,
+): Promise<{
+  blob: Blob;
+  filename: string;
+  stats?: string;
+  rateLimited?: boolean;
+}> {
   const headers: Record<string, string> = {};
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const response = await fetch(url, { headers });
   if (!response.ok) {
     let detail: unknown = null;
-    try { detail = await response.json(); } catch { detail = null; }
+    try {
+      detail = await response.json();
+    } catch {
+      detail = null;
+    }
     const message =
       typeof detail === "object" && detail && "detail" in detail
         ? String((detail as { detail: unknown }).detail)
@@ -448,10 +470,9 @@ export const listPackageSamples = () =>
   });
 
 export const getPackageSample = (name: string) =>
-  request<unknown>(
-    `/api/import/package/samples/${encodeURIComponent(name)}`,
-    { anonymous: true },
-  );
+  request<unknown>(`/api/import/package/samples/${encodeURIComponent(name)}`, {
+    anonymous: true,
+  });
 
 export const packageSchemaUrl = () => "/api/import/package/schema.json";
 
@@ -520,10 +541,9 @@ export const bulkMarkKnown = (
   words: string[],
   source_text_id?: number | null,
 ) =>
-  request<{ updated: number; total: number }>(
-    "/api/words/bulk-mark-known",
-    { body: { words, source_text_id: source_text_id ?? null } },
-  );
+  request<{ updated: number; total: number }>("/api/words/bulk-mark-known", {
+    body: { words, source_text_id: source_text_id ?? null },
+  });
 
 export const importHskKnown = (
   up_to_level: number,
@@ -574,7 +594,8 @@ export function wordsAnkiUrl(): string {
     : "/api/words/export.apkg";
 }
 
-export const getWordStats = () => request<WordStatsResponse>("/api/words/stats");
+export const getWordStats = () =>
+  request<WordStatsResponse>("/api/words/stats");
 
 // --- Review (Phase B) ------------------------------------------------------
 
@@ -602,12 +623,14 @@ export interface ReviewStatsResponse {
   due_today: number;
   learning: number;
   reviewed_today: number;
+  /** Phase #96 — auto-enrolled HSK words since UTC midnight. */
+  new_today: number;
+  /** Phase #96 — user's daily target (mirror of User.daily_new_words). */
+  daily_target: number;
 }
 
 export const getReviewQueue = (mode: ReviewMode = "recognition", limit = 20) =>
-  request<ReviewQueueResponse>(
-    `/api/review/queue?mode=${mode}&limit=${limit}`,
-  );
+  request<ReviewQueueResponse>(`/api/review/queue?mode=${mode}&limit=${limit}`);
 
 export const gradeReviewCard = (
   word: string,

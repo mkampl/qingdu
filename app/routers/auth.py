@@ -13,7 +13,12 @@ from app.auth import (
 from app.core.constants import AUTH_RATE_LIMIT, MIN_PASSWORD_LENGTH
 from app.core.rate_limit import limiter
 from app.database import InvitationToken, User, get_db
-from app.schemas import ChangePasswordRequest, LoginRequest, SignupWithInviteRequest
+from app.schemas import (
+    ChangePasswordRequest,
+    LoginRequest,
+    SignupWithInviteRequest,
+    UserSettingsUpdate,
+)
 
 router = APIRouter(tags=["Authentication"])
 
@@ -78,7 +83,35 @@ async def get_me(user: User = Depends(get_current_user)):
             "username": user.username,
             "is_admin": user.is_admin,
             "must_change_password": user.must_change_password,
+            # Phase #96 — settings exposed alongside identity so the SPA's
+            # SettingsModal can read + edit them without a second round-trip.
+            "daily_new_words": user.daily_new_words if user.daily_new_words is not None else 5,
+            "hsk_focus_version": user.hsk_focus_version or "new",
         },
+    }
+
+
+@router.patch("/api/auth/me/settings")
+async def update_my_settings(
+    payload: UserSettingsUpdate,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Update the current user's tunable settings. Partial — fields left
+    unset on the request are left untouched on the user."""
+    if payload.daily_new_words is not None and not 0 <= payload.daily_new_words <= 30:
+        raise HTTPException(status_code=400, detail="daily_new_words must be between 0 and 30")
+    if payload.hsk_focus_version is not None and payload.hsk_focus_version not in {"new", "old"}:
+        raise HTTPException(status_code=400, detail="hsk_focus_version must be 'new' or 'old'")
+    user = db.merge(user)
+    if payload.daily_new_words is not None:
+        user.daily_new_words = payload.daily_new_words
+    if payload.hsk_focus_version is not None:
+        user.hsk_focus_version = payload.hsk_focus_version
+    db.commit()
+    return {
+        "daily_new_words": user.daily_new_words,
+        "hsk_focus_version": user.hsk_focus_version,
     }
 
 

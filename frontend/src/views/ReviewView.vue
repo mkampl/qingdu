@@ -279,6 +279,21 @@ watch(
       </div>
     </div>
 
+    <!-- Phase #96 — daily-target progress strip. Hidden when target is 0
+         (auto-enrol disabled in Settings) so the chrome stays clean for
+         users who want full control over their learning pool. -->
+    <p
+      v-if="auth.isAuthed && review.stats.daily_target > 0"
+      class="-mt-2 mb-6 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+    >
+      New today:
+      <span class="text-fg tabular-nums">{{ review.stats.new_today }}</span>
+      / {{ review.stats.daily_target }}
+      <span v-if="review.stats.new_today >= review.stats.daily_target">
+        — today's batch enrolled
+      </span>
+    </p>
+
     <!-- Mode picker — visible until the user starts a session, then collapses
          into the in-session header. -->
     <div

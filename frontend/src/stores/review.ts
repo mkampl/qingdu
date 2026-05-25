@@ -15,6 +15,8 @@ const DEFAULT_STATS: ReviewStatsResponse = {
   due_today: 0,
   learning: 0,
   reviewed_today: 0,
+  new_today: 0,
+  daily_target: 0,
 };
 
 /**
@@ -52,7 +54,8 @@ export const useReviewStore = defineStore("review", () => {
       const r = await api.getReviewQueue(targetMode, 30);
       queue.value = r.cards;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Couldn't load review queue";
+      error.value =
+        e instanceof Error ? e.message : "Couldn't load review queue";
       queue.value = [];
     } finally {
       loading.value = false;

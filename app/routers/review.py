@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from app.auth import require_auth
 from app.database import User, UserWord, UserWordEvent, get_db
 from app.services import srs
+from app.services.enrollment import enroll_daily_words, enrolled_today
 from app.services.streak import record_activity
 from app.state import hsk_vocab
 
@@ -68,7 +69,14 @@ async def review_queue(
     Return up to `limit` cards that are due (due_at <= now) OR have no
     due_at yet (i.e. were marked 'learning' before Phase B shipped, so
     they need a first FSRS init). Ordered by due_at ASC, NULLs first.
+
+    Side effect (Phase #96): tops up the user's 'learning' pool with up
+    to `daily_new_words` fresh HSK entries before reading the queue, so
+    the queue never goes empty while there are HSK words left to learn.
     """
+    enrolled = enroll_daily_words(user, db)
+    if enrolled:
+        db.commit()
     now = datetime.utcnow()
     rows = (
         db.query(UserWord)
@@ -196,4 +204,7 @@ async def review_stats(
         "due_today": due_today,
         "learning": learning,
         "reviewed_today": reviewed_today,
+        # Phase #96 — counters for the "new today: X / Y" badge.
+        "new_today": enrolled_today(user, db),
+        "daily_target": user.daily_new_words or 0,
     }
