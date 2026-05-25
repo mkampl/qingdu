@@ -27,6 +27,7 @@ from app.database import User, UserWord, UserWordEvent, get_db
 from app.services import srs
 from app.services.enrollment import enroll_daily_words, enrolled_today
 from app.services.streak import record_activity
+from app.services.word_info import lookup_pinyin_meaning
 from app.state import hsk_vocab
 
 router = APIRouter(tags=["Review"])
@@ -41,20 +42,35 @@ class GradeRequest(BaseModel):
     mode: ReviewMode = "recognition"
 
 
-def _enrich(word: str) -> dict:
+def _enrich(row: UserWord) -> dict:
     """
-    Pull pinyin + meaning from HSK vocab for the queue payload. Words not
-    in HSK (compounds + unknowns) come back with empty strings — the SPA
-    will fall back to whatever it has cached from the analyze response.
+    Pinyin + meaning for the queue payload. Prefer the snapshot stored on
+    the UserWord row (Phase #96 — survives unknown-word-cache TTLs and
+    package re-imports); fall back to the live HSK entry for HSK words
+    that pre-date the snapshot columns. The lazy backfill in the queue
+    handler writes the values back to the row after this call.
     """
-    entry = hsk_vocab.get(word)
-    if not entry:
-        return {"pinyin": "", "meaning": "", "meanings": [], "hsk_level": None}
+    pinyin = row.pinyin or ""
+    meaning = row.meaning or ""
+    entry = hsk_vocab.get(row.word)
+    meanings = entry.get("meanings", []) if entry else []
+    hsk_level = entry.get("level") if entry else None
+
+    if not pinyin or not meaning:
+        looked_up_pinyin, looked_up_meaning = lookup_pinyin_meaning(row.word)
+        if not pinyin:
+            pinyin = looked_up_pinyin
+        if not meaning:
+            meaning = looked_up_meaning
+
+    if not meanings and meaning:
+        meanings = [meaning]
+
     return {
-        "pinyin": entry.get("pinyin", ""),
-        "meaning": entry.get("meaning", ""),
-        "meanings": entry.get("meanings", []),
-        "hsk_level": entry.get("level"),
+        "pinyin": pinyin,
+        "meaning": meaning,
+        "meanings": meanings,
+        "hsk_level": hsk_level,
     }
 
 
@@ -89,19 +105,28 @@ async def review_queue(
         .limit(limit)
         .all()
     )
-    return {
-        "mode": mode,
-        "cards": [
+    # Build payload and lazy-backfill the snapshot columns on rows that
+    # were inserted before Phase #96 introduced them.
+    backfilled = False
+    cards = []
+    for r in rows:
+        enriched = _enrich(r)
+        if (not r.pinyin and enriched["pinyin"]) or (not r.meaning and enriched["meaning"]):
+            r.pinyin = enriched["pinyin"] or None
+            r.meaning = enriched["meaning"] or None
+            backfilled = True
+        cards.append(
             {
                 "word": r.word,
                 "due_at": r.due_at.isoformat() if r.due_at else None,
                 "stability": r.stability,
                 "difficulty": r.difficulty,
-                **_enrich(r.word),
+                **enriched,
             }
-            for r in rows
-        ],
-    }
+        )
+    if backfilled:
+        db.commit()
+    return {"mode": mode, "cards": cards}
 
 
 @router.post("/api/review/grade")

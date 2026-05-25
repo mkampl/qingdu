@@ -78,6 +78,8 @@ def test_enrolls_up_to_target_from_lowest_level(db_session, hsk_fixture):
     assert {r.word for r in rows} == set(enrolled)
     # All inserted as 'learning' with no due_at (front of queue).
     assert all(r.state == "learning" and r.due_at is None for r in rows)
+    # Phase #96 — pinyin + meaning snapshotted at insert time.
+    assert all(r.pinyin and r.meaning for r in rows)
 
 
 def test_target_zero_is_noop(db_session, hsk_fixture):

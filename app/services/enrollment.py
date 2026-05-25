@@ -19,6 +19,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.database import User, UserWord, UserWordEvent
+from app.services.word_info import lookup_pinyin_meaning
 from app.state import hsk_vocab
 
 
@@ -88,7 +89,17 @@ def enroll_daily_words(user: User, db: Session) -> list[str]:
             continue
         random.shuffle(pool)
         for word in pool[:remaining]:
-            db.add(UserWord(user_id=user.id, word=word, state="learning", seen_count=0))
+            pinyin, meaning = lookup_pinyin_meaning(word)
+            db.add(
+                UserWord(
+                    user_id=user.id,
+                    word=word,
+                    state="learning",
+                    seen_count=0,
+                    pinyin=pinyin or None,
+                    meaning=meaning or None,
+                )
+            )
             db.add(
                 UserWordEvent(
                     user_id=user.id,

@@ -27,6 +27,7 @@ from app.schemas import (
     WordStateUpdate,
 )
 from app.services.streak import current_streak, record_activity
+from app.services.word_info import lookup_pinyin_meaning
 from app.state import hsk_vocab
 
 router = APIRouter(tags=["Words"])
@@ -60,12 +61,27 @@ def _upsert(
 ) -> UserWord:
     row = db.query(UserWord).filter(UserWord.user_id == user_id, UserWord.word == word).first()
     if row is None:
-        row = UserWord(user_id=user_id, word=word, state=state, seen_count=1)
+        pinyin, meaning = lookup_pinyin_meaning(word)
+        row = UserWord(
+            user_id=user_id,
+            word=word,
+            state=state,
+            seen_count=1,
+            pinyin=pinyin or None,
+            meaning=meaning or None,
+        )
         db.add(row)
     else:
         row.state = state
         row.seen_count = (row.seen_count or 0) + 1
         row.updated_at = datetime.utcnow()
+        # Backfill snapshots on existing rows that never got them.
+        if not row.pinyin or not row.meaning:
+            pinyin, meaning = lookup_pinyin_meaning(word)
+            if not row.pinyin and pinyin:
+                row.pinyin = pinyin
+            if not row.meaning and meaning:
+                row.meaning = meaning
     _record_event(db, user_id, word, "state_change", state, source_text_id)
     return row
 
@@ -154,7 +170,17 @@ async def bulk_mark_known(
     for word in words:
         row = existing.get(word)
         if row is None:
-            db.add(UserWord(user_id=user.id, word=word, state="known", seen_count=1))
+            pinyin, meaning = lookup_pinyin_meaning(word)
+            db.add(
+                UserWord(
+                    user_id=user.id,
+                    word=word,
+                    state="known",
+                    seen_count=1,
+                    pinyin=pinyin or None,
+                    meaning=meaning or None,
+                )
+            )
             updated += 1
         elif row.state != "known":
             row.state = "known"
@@ -240,7 +266,17 @@ async def import_hsk_known(
 
     to_insert = [w for w in candidates if w not in existing]
     for word in to_insert:
-        db.add(UserWord(user_id=user.id, word=word, state="known", seen_count=1))
+        pinyin, meaning = lookup_pinyin_meaning(word)
+        db.add(
+            UserWord(
+                user_id=user.id,
+                word=word,
+                state="known",
+                seen_count=1,
+                pinyin=pinyin or None,
+                meaning=meaning or None,
+            )
+        )
     # Single event row marking the bulk action — avoids 2 000+ event rows
     # for the typical "mark HSK 1–4" use.
     db.add(

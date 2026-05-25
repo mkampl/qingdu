@@ -122,6 +122,13 @@ class UserWord(Base):
     # 'learning' | 'known' | 'ignored' — 'new' is absence-of-row.
     state = Column(String(16), nullable=False, default="learning")
     seen_count = Column(Integer, default=1)
+    # Phase #96 — snapshot of the word's pinyin and meaning at insert time.
+    # /api/review/queue serves these directly so reviews always have a
+    # gloss, even for compounds and Dao-De-Jing-style imports whose
+    # translations are not in the upstream HSK list and would otherwise
+    # be lost once unknown_word_cache (TTL 30min) evicts them.
+    pinyin = Column(String(128), nullable=True)
+    meaning = Column(Text, nullable=True)
     # SM-2-style ease * 100. Legacy; FSRS uses stability/difficulty below.
     ease = Column(Integer, default=250)
     # FSRS-4.5 state. `fsrs_state` carries the full Card JSON for round-tripping
@@ -291,15 +298,17 @@ def init_db():
                 conn.commit()
 
         # Phase B — FSRS columns on user_words + grade on user_word_events.
-        # Both tables are net-new in Phase A so most deployments will pick
-        # these up via create_all above; the ALTERs only matter for the brief
-        # window where a Phase A deployment landed before Phase B.
+        # Phase #96 — pinyin + meaning snapshot on user_words so reviews
+        # always have a gloss even when the upstream HSK list doesn't
+        # cover the word.
         if inspector.has_table("user_words"):
             uw_cols = {col["name"] for col in inspector.get_columns("user_words")}
             needed = [
                 ("stability", "FLOAT"),
                 ("difficulty", "FLOAT"),
                 ("fsrs_state", "TEXT"),
+                ("pinyin", "VARCHAR(128)"),
+                ("meaning", "TEXT"),
             ]
             with engine.connect() as conn:
                 for name, sql_type in needed:
