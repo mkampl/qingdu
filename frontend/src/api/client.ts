@@ -611,6 +611,10 @@ export interface ReviewCard {
   stability: number | null;
   difficulty: number | null;
   due_at: string | null;
+  /** Cloze mode only — sentence with the target word replaced by "___". */
+  cloze_template?: string;
+  /** Cloze mode only — the full sentence (revealed after answer). */
+  cloze_sentence?: string;
 }
 
 export interface ReviewQueueResponse {

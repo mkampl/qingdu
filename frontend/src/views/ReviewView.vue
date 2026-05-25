@@ -59,8 +59,8 @@ const modes: {
   {
     id: "cloze",
     label: "Cloze",
-    hint: "Fill the blank in a real sentence — soon",
-    available: false,
+    hint: "Fill the blank in a real sentence from your saved texts",
+    available: true,
   },
 ];
 
@@ -69,6 +69,12 @@ const modes: {
 // suggested FSRS grade on completion.
 const writingMistakes = ref(0);
 const writingDone = ref(false);
+
+// Cloze state — user types the missing word, we compare against
+// card.word (or its trad/simp equivalent, since the card.word the
+// server sent us is already in the user's display script).
+const clozeInput = ref("");
+const clozeFeedback = ref<"" | "correct" | "wrong">("");
 
 function suggestedGradeForMistakes(mistakes: number): ReviewGrade {
   // Tuned for typical-stroke characters (5-15 strokes). 0 mistakes is a
@@ -93,12 +99,13 @@ const total = computed(() => review.queue.length);
 const idx = computed(() => Math.min(review.cursor + 1, total.value));
 
 async function start(mode: ReviewMode) {
-  if (mode === "cloze") return;
   revealed.value = false;
   dictationInput.value = "";
   dictationFeedback.value = "";
   writingMistakes.value = 0;
   writingDone.value = false;
+  clozeInput.value = "";
+  clozeFeedback.value = "";
   await review.loadQueue(mode);
 }
 
@@ -132,6 +139,21 @@ async function gradeAndAdvance(g: ReviewGrade) {
   dictationFeedback.value = "";
   writingMistakes.value = 0;
   writingDone.value = false;
+  clozeInput.value = "";
+  clozeFeedback.value = "";
+}
+
+function submitCloze() {
+  if (!card.value || clozeFeedback.value !== "") return;
+  const guess = clozeInput.value.trim();
+  if (!guess) return;
+  clozeFeedback.value = guess === card.value.word ? "correct" : "wrong";
+}
+
+async function clozeContinue() {
+  // Correct → Good (3). Wrong → Again (1). Grade row stays available
+  // after so the user can override with Easy/Hard.
+  await gradeAndAdvance(clozeFeedback.value === "correct" ? 3 : 1);
 }
 
 function submitDictation() {
@@ -203,16 +225,20 @@ watch(
     dictationFeedback.value = "";
     writingMistakes.value = 0;
     writingDone.value = false;
+    clozeInput.value = "";
+    clozeFeedback.value = "";
   },
 );
 
-// Reset writing state when the cursor advances to a new card so the
-// quiz remounts cleanly.
+// Reset writing + cloze state when the cursor advances to a new card so
+// the quiz remounts cleanly.
 watch(
   () => review.cursor,
   () => {
     writingMistakes.value = 0;
     writingDone.value = false;
+    clozeInput.value = "";
+    clozeFeedback.value = "";
   },
 );
 </script>
@@ -560,15 +586,74 @@ watch(
             </p>
           </div>
         </template>
+
+        <!-- Cloze mode — sentence with the target word blanked. -->
+        <template v-else-if="review.mode === 'cloze'">
+          <p
+            class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+          >
+            Fill the blank
+          </p>
+          <p class="mt-3 font-cn-serif text-2xl leading-relaxed text-fg">
+            {{ card.cloze_template ?? card.cloze_sentence }}
+          </p>
+          <div v-if="clozeFeedback === ''" class="mt-6 mx-auto max-w-xs">
+            <input
+              v-model="clozeInput"
+              type="text"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              placeholder="Type the missing word"
+              class="w-full rounded-md border border-border bg-bg-elevated px-3 py-2 text-center font-cn-serif text-xl text-fg focus:border-accent focus:outline-none"
+              @keydown.enter="submitCloze"
+            />
+            <button
+              type="button"
+              class="mt-3 w-full rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-40"
+              :disabled="!clozeInput.trim()"
+              @click="submitCloze"
+            >
+              Submit
+            </button>
+          </div>
+          <div v-else class="mt-6 space-y-2 text-center">
+            <p
+              class="font-mono text-[11px] uppercase tracking-wider"
+              :class="
+                clozeFeedback === 'correct'
+                  ? 'text-emerald-600 dark:text-emerald-300'
+                  : 'text-red-700 dark:text-red-300'
+              "
+            >
+              {{ clozeFeedback === "correct" ? "Correct" : "Not quite" }}
+            </p>
+            <p class="font-cn-serif text-3xl text-fg">{{ card.word }}</p>
+            <p class="font-sans text-sm text-fg-muted">{{ card.pinyin }}</p>
+            <p class="font-display text-base text-fg">{{ card.meaning }}</p>
+            <ul
+              v-if="card.meanings && card.meanings.length > 1"
+              class="mx-auto mt-1 max-w-xs space-y-0.5 text-xs text-fg-muted"
+            >
+              <li v-for="(m, i) in card.meanings.slice(1)" :key="i">{{ m }}</li>
+            </ul>
+            <p
+              class="mx-auto mt-3 max-w-md font-cn-serif text-lg leading-relaxed text-fg-muted"
+            >
+              {{ card.cloze_sentence }}
+            </p>
+          </div>
+        </template>
       </div>
 
       <!-- Grade row — visible after reveal in recognition, after answer in
-           dictation, after the writing quiz completes. -->
+           dictation, after the writing quiz completes, after a cloze answer. -->
       <div
         v-if="
           (review.mode === 'recognition' && revealed) ||
           (review.mode === 'dictation' && dictationFeedback !== '') ||
-          (review.mode === 'writing' && writingDone)
+          (review.mode === 'writing' && writingDone) ||
+          (review.mode === 'cloze' && clozeFeedback !== '')
         "
         class="grid grid-cols-4 gap-2"
       >

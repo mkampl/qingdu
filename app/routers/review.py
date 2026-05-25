@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import User, UserWord, UserWordEvent, get_db
-from app.services import srs
+from app.services import cloze, srs
 from app.services.enrollment import enroll_daily_words, enrolled_today
 from app.services.script import to_user_script
 from app.services.streak import record_activity
@@ -119,7 +119,10 @@ async def review_queue(
         .all()
     )
     # Build payload and lazy-backfill the snapshot columns on rows that
-    # were inserted before Phase #96 introduced them.
+    # were inserted before Phase #96 introduced them. For cloze mode we
+    # also fill sample_sentence on demand from the user's saved texts
+    # and drop any row that has no containing sentence — cloze only
+    # makes sense if we can show the word in real context.
     backfilled = False
     cards = []
     for r in rows:
@@ -128,17 +131,30 @@ async def review_queue(
             r.pinyin = enriched["pinyin"] or None
             r.meaning = enriched["meaning"] or None
             backfilled = True
-        # Apply the user's display-script preference to the card's word.
-        # Pinyin doesn't change between scripts; meanings are English.
-        cards.append(
-            {
-                "word": to_user_script(r.word, user),
-                "due_at": r.due_at.isoformat() if r.due_at else None,
-                "stability": r.stability,
-                "difficulty": r.difficulty,
-                **enriched,
-            }
-        )
+
+        sentence: str | None = None
+        if mode == "cloze":
+            sentence = r.sample_sentence or cloze.populate_sample_sentence(r, db)
+            if sentence:
+                backfilled = True
+            else:
+                # Skip rows that have no sample sentence — cloze requires
+                # one, and other modes will still cover them.
+                continue
+
+        card = {
+            "word": to_user_script(r.word, user),
+            "due_at": r.due_at.isoformat() if r.due_at else None,
+            "stability": r.stability,
+            "difficulty": r.difficulty,
+            **enriched,
+        }
+        if mode == "cloze" and sentence:
+            displayed_sentence = to_user_script(sentence, user)
+            displayed_word = to_user_script(r.word, user)
+            card["cloze_template"] = cloze.make_cloze_template(displayed_sentence, displayed_word)
+            card["cloze_sentence"] = displayed_sentence
+        cards.append(card)
     if backfilled:
         db.commit()
     return {"mode": mode, "cards": cards}

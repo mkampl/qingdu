@@ -134,6 +134,12 @@ class UserWord(Base):
     # be lost once unknown_word_cache (TTL 30min) evicts them.
     pinyin = Column(String(128), nullable=True)
     meaning = Column(Text, nullable=True)
+    # Phase B remainder (cloze mode) — a sample sentence from one of the
+    # user's saved texts containing this word. Populated lazily when the
+    # row enters the /api/review/queue?mode=cloze pool. NULL means we
+    # haven't found a containing sentence yet (or the user has no saved
+    # text with this word — that's fine, the card just skips cloze).
+    sample_sentence = Column(Text, nullable=True)
     # SM-2-style ease * 100. Legacy; FSRS uses stability/difficulty below.
     ease = Column(Integer, default=250)
     # FSRS-4.5 state. `fsrs_state` carries the full Card JSON for round-tripping
@@ -321,6 +327,7 @@ def init_db():
                 ("fsrs_state", "TEXT"),
                 ("pinyin", "VARCHAR(128)"),
                 ("meaning", "TEXT"),
+                ("sample_sentence", "TEXT"),
             ]
             with engine.connect() as conn:
                 for name, sql_type in needed:
