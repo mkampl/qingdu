@@ -42,8 +42,20 @@ const cjkChars = computed(() =>
  * pointer-only browsers see no quiz response at all. Skips touch input
  * — touch already fires touchstart/move/end which hanzi-writer handles.
  */
+/**
+ * hanzi-writer 3.7.3 attaches listeners only for legacy MouseEvent +
+ * TouchEvent (node_modules/.../index.esm.js line ~1734). Browsers that
+ * suppress those legacy compat events in favour of PointerEvent —
+ * Firefox-strict on desktop AND on Android — leave hanzi-writer deaf.
+ *
+ * Forward all pointer events (mouse and touch) to synthesized
+ * MouseEvents. hanzi-writer's mouse handler reads clientX/Y from the
+ * MouseEvent, which we copy from the PointerEvent. preventDefault on
+ * the PointerEvent suppresses the browser's compat MouseEvent and (per
+ * spec on most browsers) also suppresses the synthesized TouchEvent —
+ * so hanzi-writer's mouse handler runs exactly once per input.
+ */
 function forwardPointerAsMouse(e: PointerEvent) {
-  if (e.pointerType === "touch") return;
   const mouseType = (
     {
       pointerdown: "mousedown",
@@ -52,11 +64,6 @@ function forwardPointerAsMouse(e: PointerEvent) {
     } as Record<string, string>
   )[e.type];
   if (!mouseType) return;
-  // preventDefault on the PointerEvent tells the browser NOT to fire the
-  // compatibility MouseEvent for this input. We then synthesize our own
-  // MouseEvent, so hanzi-writer's mousedown listener receives exactly one
-  // event — works on browsers that fire the compat layer (Chrome / normal
-  // Firefox) AND those that don't (Firefox-strict).
   e.preventDefault();
   const me = new MouseEvent(mouseType, {
     bubbles: true,
@@ -149,21 +156,7 @@ async function startCharQuiz(idx: number) {
     });
     writer.value = w;
 
-    // PointerEvent → MouseEvent compatibility shim.
-    //
-    // hanzi-writer v3.7.3 listens only for legacy mousedown / mousemove /
-    // mouseup + touchstart / touchmove / touchend (verified at
-    // node_modules/hanzi-writer/dist/index.esm.js line ~1734). Modern
-    // browsers normally fire both PointerEvent AND the compatibility
-    // MouseEvent for the same input — but Firefox with strict tracking
-    // protection (and some other privacy hardening setups) suppresses
-    // the compatibility MouseEvent, leaving only PointerEvent. The
-    // quiz then silently no-ops because nothing it's listening for
-    // ever fires.
-    //
-    // Forward our own MouseEvent for mouse-pointer input. Touch input
-    // already triggers touchstart/touchmove/touchend separately, so we
-    // skip those to avoid double-firing.
+    // PointerEvent → MouseEvent compatibility shim (see helper docstring).
     canvasRef.value.addEventListener(
       "pointerdown",
       forwardPointerAsMouse,
