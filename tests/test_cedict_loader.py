@@ -59,6 +59,37 @@ def test_parser_prefers_real_gloss_over_surname_collision():
     assert parsed["张"]["meaning"] == "to open up"
 
 
+def test_parser_prefers_content_reading_over_particle_reading():
+    """地 (de, particle) vs 地 (di4, earth) — content reading wins even
+    though the particle entry comes first in CC-CEDICT's file order."""
+    sample = (
+        "地 地 [de5] /-ly/structural particle: used before a verb or adjective/\n"
+        "地 地 [di4] /earth/ground/field/place/land/\n"
+    )
+    parsed = cedict_loader._parse_text(sample)
+    assert parsed["地"]["meaning"] == "earth"
+    assert parsed["地"]["pinyin"] == "dì"
+
+
+def test_parser_prefers_full_tone_over_neutral_tone():
+    """Neutral-tone-only readings are usually grammatical particles; the
+    content reading should win even if both have legitimate-looking glosses."""
+    sample = (
+        "了 了 [le5] /(modal particle intensifying preceding clause)/\n"
+        "了 了 [liao3] /to finish/to understand clearly/\n"
+    )
+    parsed = cedict_loader._parse_text(sample)
+    assert parsed["了"]["meaning"] == "to finish"
+
+
+def test_particle_only_entry_still_wins_against_surname_only(monkeypatch):
+    """Sanity: when the only alternative is a surname placeholder, a
+    particle entry still wins (better than nothing)."""
+    sample = "X X [X1] /surname X/\nX X [x5] /(used as a placeholder particle)/\n"
+    parsed = cedict_loader._parse_text(sample)
+    assert "(used" in parsed["X"]["meaning"]
+
+
 def test_merge_overlays_meanings_on_existing_hsk_entries():
     # Snapshot + clear shared dicts so the test is hermetic.
     original_hsk = dict(hsk_vocab)

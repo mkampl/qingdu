@@ -141,14 +141,75 @@ def _extract_u8(zip_bytes: bytes) -> str:
         return z.read(names[0]).decode("utf-8")
 
 
+def _looks_minor(primary: str) -> bool:
+    """Surname or variant-of placeholder entries — almost never what a
+    learner is looking up first."""
+    return primary.startswith("surname ") or primary.startswith("variant of ")
+
+
+def _looks_grammatical_only(primary: str) -> bool:
+    """Entries whose primary gloss is a function-word marker (particles,
+    auxiliaries, interjections) rather than a content definition. For
+    polysemous characters like 地 / 了 / 着 / 过 / 子 / 的 these are the
+    'wrong' reading to surface as the headline meaning for a learner —
+    they'd encounter the content reading (earth, finish, wear, cross,
+    child, possessive) far more often."""
+    m = primary.lower().strip()
+    if m.startswith("-"):
+        # CC-CEDICT writes adverbial-particle 地 as "-ly", possessive 的 as "of/-ly/etc".
+        return True
+    return (
+        "particle" in m
+        or m.startswith("(used ")
+        or m.startswith("auxiliary")
+        or m.startswith("modal ")
+        or m.startswith("interjection")
+        or m.startswith("exclamation")
+        or m.startswith("(literary")
+        or m.startswith("(coll.")
+        or m.startswith("(of ")
+    )
+
+
+def _is_all_neutral_tone(numbered_pinyin: str) -> bool:
+    """True when every syllable in the reading carries CC-CEDICT's
+    neutral-tone marker (digit 5). Neutral-tone-only readings in CC-CEDICT
+    overwhelmingly mark grammatical particles (de, le, zhe, ne) rather
+    than content words."""
+    syllables = numbered_pinyin.strip().split()
+    if not syllables:
+        return False
+    return all(s.endswith("5") for s in syllables)
+
+
+def _entry_quality(primary: str, numbered_pinyin: str) -> int:
+    """Higher = better headline candidate. Used to resolve collisions
+    when CC-CEDICT lists multiple readings of the same simplified form."""
+    score = 100
+    if _looks_minor(primary):
+        score -= 100
+    if _looks_grammatical_only(primary):
+        score -= 50
+    if _is_all_neutral_tone(numbered_pinyin):
+        # On its own neutral tone is suggestive, not damning — only
+        # penalise so it loses to a content reading but still beats a
+        # surname-only entry of the same character.
+        score -= 30
+    return score
+
+
 def _parse_text(text: str) -> dict[str, dict]:
     """Parse a CC-CEDICT .u8 text into {simplified: entry} dict.
 
     On collisions (multiple pinyin readings of the same simplified form),
-    the first non-surname / non-abbreviation entry wins; otherwise the
-    first seen wins.
+    `_entry_quality` picks the more useful headline reading: content
+    words beat particle-only readings, full-tone pinyin beats all-neutral,
+    and surname / variant-of placeholders lose to anything else.
     """
     out: dict[str, dict] = {}
+    # Track which existing entry's quality we'd be comparing against
+    # without recomputing on each pass.
+    quality_cache: dict[str, int] = {}
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
@@ -164,19 +225,10 @@ def _parse_text(text: str) -> dict[str, dict]:
         if not meanings:
             continue
         primary = meanings[0]
-        # Skip if this is a worse candidate than what we already have.
-        existing = out.get(simplified)
-        if existing is not None:
-            looks_minor = primary.startswith("surname ") or primary.startswith("variant of ")
-            if looks_minor:
-                continue
-            # If the existing primary was a minor form, allow this one to win.
-            existing_primary = existing["meaning"]
-            existing_minor = existing_primary.startswith("surname ") or existing_primary.startswith(
-                "variant of "
-            )
-            if not existing_minor:
-                continue
+        new_quality = _entry_quality(primary, numbered_pinyin)
+        existing_quality = quality_cache.get(simplified)
+        if existing_quality is not None and new_quality <= existing_quality:
+            continue
         out[simplified] = {
             "traditional": traditional,
             "pinyin": _convert_pinyin(numbered_pinyin),
@@ -184,6 +236,7 @@ def _parse_text(text: str) -> dict[str, dict]:
             "meanings": meanings,
             "source": CEDICT_SOURCE_TAG,
         }
+        quality_cache[simplified] = new_quality
     return out
 
 
