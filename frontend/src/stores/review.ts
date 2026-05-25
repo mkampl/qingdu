@@ -53,6 +53,10 @@ export const useReviewStore = defineStore("review", () => {
     try {
       const r = await api.getReviewQueue(targetMode, 30);
       queue.value = r.cards;
+      // Phase #96 — fetching the queue triggers server-side auto-enrol,
+      // which bumps `new_today` and may add to `due_now`. Refresh stats
+      // so the SPA badges reflect what the backend just enrolled.
+      void refreshStats();
     } catch (e) {
       error.value =
         e instanceof Error ? e.message : "Couldn't load review queue";
@@ -71,13 +75,17 @@ export const useReviewStore = defineStore("review", () => {
       sessionGraded.value += 1;
       // Move to the next card; the just-graded one drops out of view.
       cursor.value += 1;
-      // Optimistic stats update so the header badge ticks down immediately;
-      // the next refreshStats() will reconcile if we drift.
+      // Optimistic stats update so the strip ticks down without waiting
+      // on the round-trip — refreshStats() reconciles right after.
       stats.value = {
         ...stats.value,
         due_now: Math.max(0, stats.value.due_now - 1),
         reviewed_today: stats.value.reviewed_today + 1,
       };
+      // Pull the authoritative numbers — due_today, new_today, learning
+      // all move during a session (auto-enrol, FSRS reschedules, etc.)
+      // and optimistic-only updates drift fast.
+      void refreshStats();
       // Streak might have just bumped (first activity today). Pull the
       // freshest word-stats so the flame badge updates without a manual reload.
       void useUserWordsStore().refreshStats();
