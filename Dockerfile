@@ -11,10 +11,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies. ffmpeg is here so faster-whisper can
+# decode browser-recorded WebM/Opus and librosa's audioread backend
+# can resample. libsndfile1 is the C library soundfile binds to.
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
+    ffmpeg \
+    libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching

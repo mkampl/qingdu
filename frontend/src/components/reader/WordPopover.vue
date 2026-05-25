@@ -332,7 +332,12 @@ async function setWordState(state: UserWordState) {
                     />
                   </svg>
                 </button>
-                <PronunciationCheck :target="word.text" />
+                <PronunciationCheck
+                  :target="word.text"
+                  :pinyin="
+                    word.pinyin ? word.pinyin.split(/\s+/).filter(Boolean) : []
+                  "
+                />
               </div>
               <HskChip :level="wordLevel" />
             </div>

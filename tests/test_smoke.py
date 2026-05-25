@@ -9,14 +9,15 @@ def test_app_imports(app_module):
 def test_route_count(app_module):
     """The route count is a coarse regression detector — bump intentionally.
 
-    73 = API routes alone (Phase #100 adds 5: POST /api/import/package,
+    74 = API routes alone (Phase #100 adds 5: POST /api/import/package,
     POST /api/import/package/file, GET /api/import/package/schema.json,
     GET /api/import/package/samples, GET /api/import/package/samples/{name};
-    Phase #96 adds 1: PATCH /api/auth/me/settings).
+    Phase #96 adds 1: PATCH /api/auth/me/settings;
+    Phase #95 follow-up adds 1: POST /api/pronounce).
     +5 when the Vite frontend is built into `frontend/dist/`: /v2 redirect,
     /v2/{rest} redirect, / SPA shell, /{rest:path} SPA shell, /assets mount.
     """
-    assert len(app_module.routes) in (73, 78)
+    assert len(app_module.routes) in (74, 79)
 
 
 def test_router_tags_present(app_module):
@@ -43,6 +44,7 @@ def test_router_tags_present(app_module):
         "Stats",
         "Export",
         "Package Import",
+        "Pronounce",
     }
     assert expected.issubset(tags), f"Missing tags: {expected - tags}"
 
