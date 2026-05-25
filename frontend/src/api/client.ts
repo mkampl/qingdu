@@ -578,7 +578,7 @@ export const getWordStats = () => request<WordStatsResponse>("/api/words/stats")
 
 // --- Review (Phase B) ------------------------------------------------------
 
-export type ReviewMode = "recognition" | "dictation" | "cloze";
+export type ReviewMode = "recognition" | "dictation" | "writing" | "cloze";
 export type ReviewGrade = 1 | 2 | 3 | 4;
 
 export interface ReviewCard {

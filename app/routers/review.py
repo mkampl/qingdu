@@ -7,6 +7,8 @@ due_at.
 Mode hints in the queue payload:
 - recognition: just word/pinyin/meaning(s).
 - dictation:   same payload, the SPA plays TTS for word.text.
+- writing:     same payload, the SPA renders a hanzi-writer quiz canvas
+               and grades from the stroke-mistake count.
 - cloze:       reserved — needs a sample-sentence pipeline (Phase B+).
 """
 
@@ -29,7 +31,7 @@ from app.state import hsk_vocab
 router = APIRouter(tags=["Review"])
 
 
-ReviewMode = Literal["recognition", "dictation", "cloze"]
+ReviewMode = Literal["recognition", "dictation", "writing", "cloze"]
 
 
 class GradeRequest(BaseModel):

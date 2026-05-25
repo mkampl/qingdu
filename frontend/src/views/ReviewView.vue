@@ -18,6 +18,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import * as api from "@/api/client";
 import type { ReviewGrade, ReviewMode } from "@/api/client";
 import WeeklySparkline from "@/components/reader/WeeklySparkline.vue";
+import WritingQuiz from "@/components/reader/WritingQuiz.vue";
 import { useAuthStore } from "@/stores/auth";
 import { useReviewStore } from "@/stores/review";
 
@@ -43,12 +44,39 @@ const modes: { id: ReviewMode; label: string; hint: string; available: boolean }
     available: true,
   },
   {
+    id: "writing",
+    label: "Writing",
+    hint: "Draw the character stroke by stroke",
+    available: true,
+  },
+  {
     id: "cloze",
     label: "Cloze",
     hint: "Fill the blank in a real sentence — soon",
     available: false,
   },
 ];
+
+// Writing-quiz state — tracks per-card mistakes from hanzi-writer's
+// onMistake/onCorrectStroke callbacks. ReviewView turns this into a
+// suggested FSRS grade on completion.
+const writingMistakes = ref(0);
+const writingDone = ref(false);
+
+function suggestedGradeForMistakes(mistakes: number): ReviewGrade {
+  // Tuned for typical-stroke characters (5-15 strokes). 0 mistakes is a
+  // flawless attempt; 6+ means the user struggled enough that FSRS
+  // should bring the card back soon.
+  if (mistakes === 0) return 4;
+  if (mistakes <= 2) return 3;
+  if (mistakes <= 5) return 2;
+  return 1;
+}
+
+function onWritingComplete(payload: { totalMistakes: number; skipped: boolean }) {
+  writingMistakes.value = payload.totalMistakes;
+  writingDone.value = true;
+}
 
 const card = computed(() => review.current);
 const total = computed(() => review.queue.length);
@@ -59,6 +87,8 @@ async function start(mode: ReviewMode) {
   revealed.value = false;
   dictationInput.value = "";
   dictationFeedback.value = "";
+  writingMistakes.value = 0;
+  writingDone.value = false;
   await review.loadQueue(mode);
 }
 
@@ -90,6 +120,8 @@ async function gradeAndAdvance(g: ReviewGrade) {
   revealed.value = false;
   dictationInput.value = "";
   dictationFeedback.value = "";
+  writingMistakes.value = 0;
+  writingDone.value = false;
 }
 
 function submitDictation() {
@@ -152,6 +184,18 @@ watch(
     revealed.value = false;
     dictationInput.value = "";
     dictationFeedback.value = "";
+    writingMistakes.value = 0;
+    writingDone.value = false;
+  },
+);
+
+// Reset writing state when the cursor advances to a new card so the
+// quiz remounts cleanly.
+watch(
+  () => review.cursor,
+  () => {
+    writingMistakes.value = 0;
+    writingDone.value = false;
   },
 );
 </script>
@@ -407,13 +451,59 @@ watch(
             <p class="font-display text-base text-fg">{{ card.meaning }}</p>
           </div>
         </template>
+
+        <!-- Writing mode -->
+        <template v-else-if="review.mode === 'writing'">
+          <WritingQuiz
+            :word="card.word"
+            :pinyin="card.pinyin"
+            :meaning="card.meaning"
+            @complete="onWritingComplete"
+          />
+          <div
+            v-if="writingDone"
+            class="mt-6 space-y-1 text-center"
+          >
+            <p
+              class="font-mono text-[11px] uppercase tracking-wider"
+              :class="
+                writingMistakes === 0
+                  ? 'text-emerald-600 dark:text-emerald-300'
+                  : writingMistakes <= 2
+                    ? 'text-amber-700 dark:text-amber-300'
+                    : 'text-red-700 dark:text-red-300'
+              "
+            >
+              {{
+                writingMistakes === 0
+                  ? "Perfect"
+                  : `${writingMistakes} mistake${writingMistakes === 1 ? "" : "s"}`
+              }}
+            </p>
+            <p class="font-cn-serif text-3xl text-fg">{{ card.word }}</p>
+            <p class="font-sans text-sm text-fg-muted">{{ card.pinyin }}</p>
+            <p class="font-display text-base text-fg">{{ card.meaning }}</p>
+            <p
+              class="mt-2 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+            >
+              Suggested grade:
+              {{
+                ["", "Again", "Hard", "Good", "Easy"][
+                  suggestedGradeForMistakes(writingMistakes)
+                ]
+              }}
+            </p>
+          </div>
+        </template>
       </div>
 
-      <!-- Grade row — visible after reveal in recognition, after answer in dictation. -->
+      <!-- Grade row — visible after reveal in recognition, after answer in
+           dictation, after the writing quiz completes. -->
       <div
         v-if="
           (review.mode === 'recognition' && revealed) ||
-          (review.mode === 'dictation' && dictationFeedback !== '')
+          (review.mode === 'dictation' && dictationFeedback !== '') ||
+          (review.mode === 'writing' && writingDone)
         "
         class="grid grid-cols-4 gap-2"
       >
