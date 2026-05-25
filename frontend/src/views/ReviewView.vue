@@ -18,6 +18,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import * as api from "@/api/client";
 import type { ReviewGrade, ReviewMode } from "@/api/client";
 import WeeklySparkline from "@/components/reader/WeeklySparkline.vue";
+import PronunciationCheck from "@/components/reader/PronunciationCheck.vue";
 import WritingQuiz from "@/components/reader/WritingQuiz.vue";
 import { useAuthStore } from "@/stores/auth";
 import { useReviewStore } from "@/stores/review";
@@ -644,6 +645,31 @@ watch(
             </p>
           </div>
         </template>
+      </div>
+
+      <!-- Pronunciation practice — shown alongside the answer in every
+           mode. Optional / doesn't affect grading; the user can tap the
+           mic to speak the target word and get per-syllable tone
+           feedback from /api/pronounce. -->
+      <div
+        v-if="
+          card &&
+          ((review.mode === 'recognition' && revealed) ||
+            (review.mode === 'dictation' && dictationFeedback !== '') ||
+            (review.mode === 'writing' && writingDone) ||
+            (review.mode === 'cloze' && clozeFeedback !== ''))
+        "
+        class="mb-4 flex items-start justify-center gap-3 border-t border-border-subtle pt-4"
+      >
+        <p
+          class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+        >
+          Say it
+        </p>
+        <PronunciationCheck
+          :target="card.word"
+          :pinyin="card.pinyin ? card.pinyin.split(/\s+/).filter(Boolean) : []"
+        />
       </div>
 
       <!-- Grade row — visible after reveal in recognition, after answer in

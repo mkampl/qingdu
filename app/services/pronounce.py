@@ -23,7 +23,6 @@ is speaker-independent.
 
 from __future__ import annotations
 
-import io
 import logging
 import re
 from dataclasses import dataclass
@@ -107,12 +106,44 @@ def _load_model() -> Any:
 
 def _load_audio(audio_bytes: bytes) -> np.ndarray:
     """Decode any audio container the browser might send into a 16 kHz
-    mono float32 numpy array. librosa.load uses audioread/ffmpeg under
-    the hood so WebM/Opus/Ogg/WAV all work."""
-    import librosa  # heavy import — defer
+    mono float32 numpy array.
 
-    y, _ = librosa.load(io.BytesIO(audio_bytes), sr=_SAMPLE_RATE, mono=True)
-    return y.astype(np.float32)
+    librosa.load(BytesIO) goes through libsndfile, which only knows
+    WAV/FLAC/OGG — browser MediaRecorder emits WebM/Opus by default,
+    so that path raises "Format not recognised". We shell out to
+    ffmpeg explicitly, which handles every container we'd ever see.
+    """
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                "pipe:0",
+                "-f",
+                "f32le",  # raw 32-bit float PCM
+                "-ac",
+                "1",  # mono
+                "-ar",
+                str(_SAMPLE_RATE),  # 16 kHz
+                "pipe:1",
+            ],
+            input=audio_bytes,
+            capture_output=True,
+            timeout=30,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        stderr = (e.stderr or b"").decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"ffmpeg failed to decode the audio: {stderr[:200]}") from e
+    raw = proc.stdout
+    if not raw:
+        raise RuntimeError("ffmpeg produced no audio data")
+    return np.frombuffer(raw, dtype=np.float32).copy()
 
 
 def _strip_punctuation(text: str) -> str:
