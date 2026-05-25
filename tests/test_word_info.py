@@ -7,13 +7,22 @@ columns on UserWord at insert time.
 import pytest
 
 from app.services.word_info import lookup_pinyin_meaning
-from app.state import hsk_vocab, unknown_word_cache
+from app.state import cedict_vocab, hsk_vocab, unknown_word_cache
 
 
 @pytest.fixture
 def hsk_chars():
-    """A handful of single-char HSK entries we can compose into compounds."""
-    original = dict(hsk_vocab)
+    """A handful of single-char HSK entries we can compose into compounds.
+
+    Also clears cedict_vocab for the duration of the test — without
+    this, an earlier test session that triggered the FastAPI startup
+    event (which downloads CC-CEDICT) would leave entries for words
+    like 你好 / 道德 in the cache and the lookup chain would short-
+    circuit on those before reaching the fallback paths these tests
+    are exercising.
+    """
+    original_hsk = dict(hsk_vocab)
+    original_cedict = dict(cedict_vocab)
     hsk_vocab.clear()
     hsk_vocab.update(
         {
@@ -22,9 +31,12 @@ def hsk_chars():
             "好": {"pinyin": "hǎo", "meaning": "good", "level_new": "new-1"},
         }
     )
+    cedict_vocab.clear()
     yield
     hsk_vocab.clear()
-    hsk_vocab.update(original)
+    hsk_vocab.update(original_hsk)
+    cedict_vocab.clear()
+    cedict_vocab.update(original_cedict)
 
 
 def test_direct_hsk_entry(hsk_chars):
