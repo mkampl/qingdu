@@ -14,6 +14,7 @@ interface Persisted {
   hskVersion: HskVersion;
   showLegend: boolean;
   colorMode: ColorMode;
+  writingShowOutline: boolean;
 }
 
 function loadFromStorage(): Persisted {
@@ -42,6 +43,8 @@ function defaults(): Persisted {
     // 'progress' (LingQ-style blue/accent/plain) and 'off' (plain text)
     // are opt-in from the Settings modal.
     colorMode: "hsk",
+    // Anki-style by default: nothing to trace, recall from pinyin + meaning.
+    writingShowOutline: false,
   };
 }
 
@@ -51,6 +54,7 @@ export const useSettingsStore = defineStore("settings", () => {
   const hskVersion = ref<HskVersion>("new");
   const showLegend = ref(false);
   const colorMode = ref<ColorMode>("progress");
+  const writingShowOutline = ref(false);
   let hydrated = false;
 
   function applyTheme(value: Theme) {
@@ -66,6 +70,7 @@ export const useSettingsStore = defineStore("settings", () => {
     hskVersion.value = persisted.hskVersion;
     showLegend.value = persisted.showLegend;
     colorMode.value = persisted.colorMode;
+    writingShowOutline.value = persisted.writingShowOutline;
     applyTheme(theme.value);
     hydrated = true;
   }
@@ -78,13 +83,17 @@ export const useSettingsStore = defineStore("settings", () => {
       hskVersion: hskVersion.value,
       showLegend: showLegend.value,
       colorMode: colorMode.value,
+      writingShowOutline: writingShowOutline.value,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }
 
-  watch([theme, pinyinMode, hskVersion, showLegend, colorMode], () => {
-    if (hydrated) persist();
-  });
+  watch(
+    [theme, pinyinMode, hskVersion, showLegend, colorMode, writingShowOutline],
+    () => {
+      if (hydrated) persist();
+    },
+  );
 
   watch(theme, applyTheme);
 
@@ -98,6 +107,7 @@ export const useSettingsStore = defineStore("settings", () => {
     hskVersion,
     showLegend,
     colorMode,
+    writingShowOutline,
     hydrate,
     toggleTheme,
   };

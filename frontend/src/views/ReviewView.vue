@@ -21,16 +21,23 @@ import WeeklySparkline from "@/components/reader/WeeklySparkline.vue";
 import WritingQuiz from "@/components/reader/WritingQuiz.vue";
 import { useAuthStore } from "@/stores/auth";
 import { useReviewStore } from "@/stores/review";
+import { useSettingsStore } from "@/stores/settings";
 
 const review = useReviewStore();
 const auth = useAuthStore();
+const settings = useSettingsStore();
 
 const revealed = ref(false);
 const dictationInput = ref("");
 const dictationFeedback = ref<"" | "correct" | "wrong">("");
 const ttsLoading = ref(false);
 
-const modes: { id: ReviewMode; label: string; hint: string; available: boolean }[] = [
+const modes: {
+  id: ReviewMode;
+  label: string;
+  hint: string;
+  available: boolean;
+}[] = [
   {
     id: "recognition",
     label: "Recognition",
@@ -73,7 +80,10 @@ function suggestedGradeForMistakes(mistakes: number): ReviewGrade {
   return 1;
 }
 
-function onWritingComplete(payload: { totalMistakes: number; skipped: boolean }) {
+function onWritingComplete(payload: {
+  totalMistakes: number;
+  skipped: boolean;
+}) {
   writingMistakes.value = payload.totalMistakes;
   writingDone.value = true;
 }
@@ -129,41 +139,48 @@ function submitDictation() {
   const guess = dictationInput.value.trim();
   if (!guess) return;
   const target = card.value.word.trim();
-  const pinyinTarget = (card.value.pinyin || "").replace(/\s+/g, "").toLowerCase();
-  const pinyinNoTones = pinyinTarget.replace(/[āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü]/g, (c) => {
-    return (
-      {
-        ā: "a",
-        á: "a",
-        ǎ: "a",
-        à: "a",
-        ē: "e",
-        é: "e",
-        ě: "e",
-        è: "e",
-        ī: "i",
-        í: "i",
-        ǐ: "i",
-        ì: "i",
-        ō: "o",
-        ó: "o",
-        ǒ: "o",
-        ò: "o",
-        ū: "u",
-        ú: "u",
-        ǔ: "u",
-        ù: "u",
-        ǖ: "u",
-        ǘ: "u",
-        ǚ: "u",
-        ǜ: "u",
-        ü: "u",
-      }[c] ?? c
-    );
-  });
+  const pinyinTarget = (card.value.pinyin || "")
+    .replace(/\s+/g, "")
+    .toLowerCase();
+  const pinyinNoTones = pinyinTarget.replace(
+    /[āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü]/g,
+    (c) => {
+      return (
+        {
+          ā: "a",
+          á: "a",
+          ǎ: "a",
+          à: "a",
+          ē: "e",
+          é: "e",
+          ě: "e",
+          è: "e",
+          ī: "i",
+          í: "i",
+          ǐ: "i",
+          ì: "i",
+          ō: "o",
+          ó: "o",
+          ǒ: "o",
+          ò: "o",
+          ū: "u",
+          ú: "u",
+          ǔ: "u",
+          ù: "u",
+          ǖ: "u",
+          ǘ: "u",
+          ǚ: "u",
+          ǜ: "u",
+          ü: "u",
+        }[c] ?? c
+      );
+    },
+  );
   const guessNorm = guess.replace(/\s+/g, "").toLowerCase();
   const correct =
-    guess === target || guessNorm === pinyinTarget || guessNorm === pinyinNoTones;
+    guess === target ||
+    guessNorm === pinyinTarget ||
+    guessNorm === pinyinNoTones;
   dictationFeedback.value = correct ? "correct" : "wrong";
 }
 
@@ -203,16 +220,20 @@ watch(
 <template>
   <section class="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
     <header class="mb-8">
-      <p class="font-mono text-[11px] uppercase tracking-[0.22em] text-fg-subtle">
+      <p
+        class="font-mono text-[11px] uppercase tracking-[0.22em] text-fg-subtle"
+      >
         Spaced repetition
       </p>
-      <h1 class="mt-1 font-display text-3xl font-medium tracking-tight text-fg sm:text-4xl">
+      <h1
+        class="mt-1 font-display text-3xl font-medium tracking-tight text-fg sm:text-4xl"
+      >
         Review
       </h1>
       <p class="mt-2 text-sm leading-relaxed text-fg-muted">
-        Words you've marked as learning come back here on a schedule —
-        sooner if you grade them <em>Again</em>, much later if you grade
-        them <em>Easy</em>. Built on FSRS-4.5.
+        Words you've marked as learning come back here on a schedule — sooner if
+        you grade them <em>Again</em>, much later if you grade them
+        <em>Easy</em>. Built on FSRS-4.5.
       </p>
     </header>
 
@@ -264,7 +285,9 @@ watch(
       v-if="auth.isAuthed && review.queue.length === 0 && !review.loading"
       class="space-y-3"
     >
-      <p class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle">
+      <p
+        class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
+      >
         Pick a mode to begin
       </p>
       <div class="grid gap-3 sm:grid-cols-3">
@@ -295,8 +318,8 @@ watch(
         v-if="review.stats.due_now === 0 && review.stats.learning > 0"
         class="mt-6 rounded-lg border border-border-subtle bg-bg-elevated px-5 py-4 text-center text-sm text-fg-muted"
       >
-        Nothing's due right now — come back later, or mark a few more words
-        as Learning in the reader.
+        Nothing's due right now — come back later, or mark a few more words as
+        Learning in the reader.
       </div>
       <div
         v-else-if="review.stats.learning === 0"
@@ -377,7 +400,9 @@ watch(
             @click="reveal"
           >
             Show answer
-            <span class="font-mono text-[9px] uppercase tracking-wider opacity-70">
+            <span
+              class="font-mono text-[9px] uppercase tracking-wider opacity-70"
+            >
               (space)
             </span>
           </button>
@@ -441,7 +466,9 @@ watch(
             <p
               class="font-mono text-[11px] uppercase tracking-wider"
               :class="
-                dictationFeedback === 'correct' ? 'text-emerald-600 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'
+                dictationFeedback === 'correct'
+                  ? 'text-emerald-600 dark:text-emerald-300'
+                  : 'text-red-700 dark:text-red-300'
               "
             >
               {{ dictationFeedback === "correct" ? "Correct" : "Not quite" }}
@@ -454,16 +481,26 @@ watch(
 
         <!-- Writing mode -->
         <template v-else-if="review.mode === 'writing'">
+          <div class="mb-3 flex justify-center">
+            <button
+              type="button"
+              class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle transition-colors hover:text-fg"
+              :aria-pressed="settings.writingShowOutline"
+              @click="
+                settings.writingShowOutline = !settings.writingShowOutline
+              "
+            >
+              Outline: {{ settings.writingShowOutline ? "on" : "off" }}
+            </button>
+          </div>
           <WritingQuiz
             :word="card.word"
             :pinyin="card.pinyin"
             :meaning="card.meaning"
+            :show-outline="settings.writingShowOutline"
             @complete="onWritingComplete"
           />
-          <div
-            v-if="writingDone"
-            class="mt-6 space-y-1 text-center"
-          >
+          <div v-if="writingDone" class="mt-6 space-y-1 text-center">
             <p
               class="font-mono text-[11px] uppercase tracking-wider"
               :class="
@@ -513,7 +550,9 @@ watch(
           class="rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-red-500 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-500/10"
           @click="gradeAndAdvance(1)"
         >
-          <p class="font-display text-base font-medium text-red-700 dark:text-red-300">
+          <p
+            class="font-display text-base font-medium text-red-700 dark:text-red-300"
+          >
             Again
           </p>
           <p
@@ -528,7 +567,9 @@ watch(
           class="rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-amber-500 hover:bg-amber-50 disabled:opacity-50 dark:hover:bg-amber-500/10"
           @click="gradeAndAdvance(2)"
         >
-          <p class="font-display text-base font-medium text-amber-700 dark:text-amber-300">
+          <p
+            class="font-display text-base font-medium text-amber-700 dark:text-amber-300"
+          >
             Hard
           </p>
           <p
@@ -543,7 +584,9 @@ watch(
           class="rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-emerald-500 hover:bg-emerald-50 disabled:opacity-50 dark:hover:bg-emerald-500/10"
           @click="gradeAndAdvance(3)"
         >
-          <p class="font-display text-base font-medium text-emerald-700 dark:text-emerald-300">
+          <p
+            class="font-display text-base font-medium text-emerald-700 dark:text-emerald-300"
+          >
             Good
           </p>
           <p
@@ -558,7 +601,9 @@ watch(
           class="rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-sky-500 hover:bg-sky-50 disabled:opacity-50 dark:hover:bg-sky-500/10"
           @click="gradeAndAdvance(4)"
         >
-          <p class="font-display text-base font-medium text-sky-700 dark:text-sky-300">
+          <p
+            class="font-display text-base font-medium text-sky-700 dark:text-sky-300"
+          >
             Easy
           </p>
           <p
@@ -572,12 +617,12 @@ watch(
 
     <!-- Session complete -->
     <div
-      v-else-if="auth.isAuthed && review.sessionGraded > 0 && review.queue.length > 0"
+      v-else-if="
+        auth.isAuthed && review.sessionGraded > 0 && review.queue.length > 0
+      "
       class="rounded-lg border border-border-subtle bg-bg-elevated px-6 py-10 text-center"
     >
-      <p class="font-display text-xl font-medium text-fg">
-        Session complete.
-      </p>
+      <p class="font-display text-xl font-medium text-fg">Session complete.</p>
       <p class="mt-2 text-sm text-fg-muted">
         {{ review.sessionGraded.toLocaleString() }} card{{
           review.sessionGraded === 1 ? "" : "s"

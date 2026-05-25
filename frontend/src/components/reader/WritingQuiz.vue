@@ -12,14 +12,24 @@
  */
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 
-const props = defineProps<{
-  /** The whole word string. Non-CJK chars are filtered out. */
-  word: string;
-  /** Pinyin shown above the canvas as the prompt. */
-  pinyin?: string;
-  /** Meaning shown above the canvas. */
-  meaning?: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    /** The whole word string. Non-CJK chars are filtered out. */
+    word: string;
+    /** Pinyin shown above the canvas as the prompt. */
+    pinyin?: string;
+    /** Meaning shown above the canvas. */
+    meaning?: string;
+    /**
+     * Show the faint outline of the character to trace over (helpful for
+     * learners). When false, the canvas starts blank and the user has to
+     * recall the character from pinyin + meaning alone — closer to an
+     * Anki "front-of-card" recall test.
+     */
+    showOutline?: boolean;
+  }>(),
+  { showOutline: false },
+);
 
 const emit = defineEmits<{
   /**
@@ -183,7 +193,7 @@ async function startCharQuiz(idx: number) {
       width: 200,
       height: 200,
       showCharacter: false,
-      showOutline: true,
+      showOutline: props.showOutline,
       strokeColor: "#1f2937",
       drawingColor: "#1f2937",
       highlightColor: "#10b981",
@@ -239,6 +249,10 @@ watch(currentIdx, (idx) => {
   void startCharQuiz(idx);
 });
 
+// flush: 'post' so the immediate call fires AFTER the template mounts
+// and canvasRef.value is populated. Without it, the very first word in
+// a fresh session bailed early on the `!canvasRef.value` guard, leaving
+// the user with a character they couldn't draw on until they skipped it.
 watch(
   () => props.word,
   () => {
@@ -249,7 +263,16 @@ watch(
     skipped.value = false;
     void startCharQuiz(0);
   },
-  { immediate: true },
+  { immediate: true, flush: "post" },
+);
+
+// Re-create the writer when the outline toggle changes mid-card so the
+// user can flip it on/off without having to skip to the next word.
+watch(
+  () => props.showOutline,
+  () => {
+    if (!completed.value) void startCharQuiz(currentIdx.value);
+  },
 );
 
 onBeforeUnmount(() => {
