@@ -8,6 +8,11 @@ already-loaded `hsk_vocab` so every downstream consumer (analyze,
 review queue, word_info snapshots) sees the richer glosses without
 further code changes.
 
+Distribution: the file is served gzip-compressed at
+`cedict_1_0_ts_utf-8_mdbg.txt.gz` (NOT a .zip — that path 404s on
+mdbg.net). We download the .gz, decompress to UTF-8 text, parse, and
+cache the decompressed file at `data/cedict_ts.u8`.
+
 CC-CEDICT format (one entry per line, # comments at file top):
     傳統 传统 [chuan2 tong3] /tradition/convention/heritage/CL:個|个[ge4]/
 
@@ -15,19 +20,16 @@ We:
 - drop the bare-CL classifier annotations from `meanings` (they're not
   glosses, they're grammatical metadata),
 - convert tone-numbered pinyin (chuan2 tong3) to tone-marked
-  (chuán tǒng) so it lines up with the rest of the app,
-- write the unzipped file to `data/cedict_ts.u8` so subsequent restarts
-  skip the download.
+  (chuán tǒng) so it lines up with the rest of the app.
 
 License of CC-CEDICT data: CC-BY-SA 4.0.
 """
 
 from __future__ import annotations
 
-import io
+import gzip
 import logging
 import re
-import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -125,20 +127,16 @@ def _is_cache_fresh() -> bool:
     retry=retry_if_exception_type((httpx.HTTPError, httpx.RequestError)),
     reraise=True,
 )
-async def _download_zip() -> bytes:
+async def _download_archive() -> bytes:
     async with httpx.AsyncClient(timeout=HSK_DOWNLOAD_TIMEOUT, follow_redirects=True) as client:
         r = await client.get(CEDICT_URL)
         r.raise_for_status()
         return r.content
 
 
-def _extract_u8(zip_bytes: bytes) -> str:
-    """Extract the single .u8 file out of the CC-CEDICT zip."""
-    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
-        names = [n for n in z.namelist() if n.endswith(".u8")]
-        if not names:
-            raise RuntimeError("cedict zip did not contain a .u8 file")
-        return z.read(names[0]).decode("utf-8")
+def _decompress(archive_bytes: bytes) -> str:
+    """Decompress the gzipped CC-CEDICT export into a UTF-8 string."""
+    return gzip.decompress(archive_bytes).decode("utf-8")
 
 
 def _looks_minor(primary: str) -> bool:
@@ -147,54 +145,49 @@ def _looks_minor(primary: str) -> bool:
     return primary.startswith("surname ") or primary.startswith("variant of ")
 
 
-def _looks_grammatical_only(primary: str) -> bool:
-    """Entries whose primary gloss is a function-word marker (particles,
-    auxiliaries, interjections) rather than a content definition. For
-    polysemous characters like 地 / 了 / 着 / 过 / 子 / 的 these are the
-    'wrong' reading to surface as the headline meaning for a learner —
-    they'd encounter the content reading (earth, finish, wear, cross,
-    child, possessive) far more often."""
-    m = primary.lower().strip()
-    if m.startswith("-"):
-        # CC-CEDICT writes adverbial-particle 地 as "-ly", possessive 的 as "of/-ly/etc".
+def _looks_pure_marker(primary: str) -> bool:
+    """True when the primary gloss is a *bare* grammatical marker with
+    no real meaning attached — e.g. "-ly" for 地's de reading. Distinct
+    from particles that carry actual semantic content (的's "of", 了's
+    "(modal particle indicating completion)"). For pure markers there's
+    almost always a better reading hiding behind a tone change."""
+    m = primary.strip()
+    if m.startswith("-") or m.startswith("~"):
         return True
-    return (
-        "particle" in m
-        or m.startswith("(used ")
-        or m.startswith("auxiliary")
-        or m.startswith("modal ")
-        or m.startswith("interjection")
-        or m.startswith("exclamation")
-        or m.startswith("(literary")
-        or m.startswith("(coll.")
-        or m.startswith("(of ")
-    )
+    low = m.lower()
+    # Bracketed-only marker definitions like "(used before...)" with no
+    # surrounding gloss. We don't catch "(modal particle ...)" because
+    # those entries usually carry usage notes that ARE useful.
+    return low.startswith("(used ") and m.endswith(")")
 
 
-def _is_all_neutral_tone(numbered_pinyin: str) -> bool:
-    """True when every syllable in the reading carries CC-CEDICT's
-    neutral-tone marker (digit 5). Neutral-tone-only readings in CC-CEDICT
-    overwhelmingly mark grammatical particles (de, le, zhe, ne) rather
-    than content words."""
-    syllables = numbered_pinyin.strip().split()
-    if not syllables:
-        return False
-    return all(s.endswith("5") for s in syllables)
+def _looks_abbreviation(primary: str) -> bool:
+    """Primary glosses that announce themselves as abbreviations — for
+    polysemous characters these are almost never the meaning a learner
+    wants as primary (e.g. 的's "a taxi; a cab (abbr. for 的士)" should
+    lose to the possessive-particle reading "of")."""
+    low = primary.lower().strip()
+    return "abbr." in low or low.startswith("(abbr")
 
 
 def _entry_quality(primary: str, numbered_pinyin: str) -> int:
     """Higher = better headline candidate. Used to resolve collisions
-    when CC-CEDICT lists multiple readings of the same simplified form."""
+    when CC-CEDICT lists multiple readings of the same simplified form.
+
+    The heuristics are deliberately conservative — we only demote
+    entries whose primary gloss is plainly wrong as a headline:
+    surname placeholders, "-ly"-style bare markers, and abbreviations.
+    Everything else stays at full score and the file's natural order
+    decides (CC-CEDICT tends to put the most common reading first
+    within a character's entry block)."""
+    del numbered_pinyin  # kept in the signature for future heuristics
     score = 100
     if _looks_minor(primary):
         score -= 100
-    if _looks_grammatical_only(primary):
-        score -= 50
-    if _is_all_neutral_tone(numbered_pinyin):
-        # On its own neutral tone is suggestive, not damning — only
-        # penalise so it loses to a content reading but still beats a
-        # surname-only entry of the same character.
-        score -= 30
+    if _looks_pure_marker(primary):
+        score -= 80
+    if _looks_abbreviation(primary):
+        score -= 40
     return score
 
 
@@ -276,8 +269,8 @@ async def load_cedict(force_refresh: bool = False) -> None:
     if force_refresh or not _is_cache_fresh():
         try:
             logger.info("Downloading CC-CEDICT from %s", CEDICT_URL)
-            zip_bytes = await _download_zip()
-            text = _extract_u8(zip_bytes)
+            archive_bytes = await _download_archive()
+            text = _decompress(archive_bytes)
             CEDICT_CACHE_FILE.write_text(text, encoding="utf-8")
             logger.info("CC-CEDICT cache refreshed: %s", CEDICT_CACHE_FILE)
         except Exception as e:
