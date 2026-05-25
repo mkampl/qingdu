@@ -234,7 +234,12 @@ def _parse_text(text: str) -> dict[str, dict]:
 
 
 def _merge_into_hsk_vocab() -> tuple[int, int]:
-    """For every HSK word also in CC-CEDICT, overlay the richer meanings.
+    """For every HSK word also in CC-CEDICT, overlay the richer meanings
+    AND the matching pinyin. Pinyin needs to come along because the
+    HSK source picks pinyin for whichever reading it had as primary —
+    if our CC-CEDICT primary-pick heuristic chose a different reading
+    (e.g. 地 dì for "earth" instead of de for the particle) the HSK
+    pinyin would be wrong for the displayed meaning.
 
     Returns (overlaid_count, missing_count) for logging.
     """
@@ -247,8 +252,9 @@ def _merge_into_hsk_vocab() -> tuple[int, int]:
             continue
         hsk_entry["meaning"] = cedict_entry["meaning"]
         hsk_entry["meanings"] = cedict_entry["meanings"]
-        # Leave pinyin alone — the HSK source already carries good
-        # tone-marked pinyin and matches the rest of the app's data.
+        cedict_pinyin = cedict_entry.get("pinyin")
+        if cedict_pinyin:
+            hsk_entry["pinyin"] = cedict_pinyin
         overlaid += 1
     return overlaid, missing
 

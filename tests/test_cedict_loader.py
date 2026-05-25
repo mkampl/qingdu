@@ -99,27 +99,33 @@ def test_merge_overlays_meanings_on_existing_hsk_entries():
     hsk_vocab.clear()
     cedict_vocab.clear()
     try:
-        hsk_vocab["好"] = {
-            "pinyin": "hǎo",
-            "meaning": "good (HSK)",
-            "meanings": ["good (HSK)"],
+        # Simulate the 地 case: HSK source has the particle-reading pinyin
+        # but our CC-CEDICT primary-pick chose the content reading. Both
+        # pinyin AND meaning need to come from CC-CEDICT or the displayed
+        # gloss would mismatch the rendered reading.
+        hsk_vocab["地"] = {
+            "pinyin": "de",
+            "meaning": "-ly",
+            "meanings": ["-ly"],
             "level_new": "new-1",
         }
-        cedict_vocab["好"] = {
-            "pinyin": "hǎo",
-            "meaning": "good",
-            "meanings": ["good", "well", "proper"],
-            "traditional": "好",
+        cedict_vocab["地"] = {
+            "pinyin": "dì",
+            "meaning": "earth",
+            "meanings": ["earth", "ground", "field"],
+            "traditional": "地",
         }
         overlaid, missing = cedict_loader._merge_into_hsk_vocab()
         assert overlaid == 1
         assert missing == 0
-        # The HSK entry should now carry the CC-CEDICT meanings, not the
-        # original placeholder.
-        assert hsk_vocab["好"]["meaning"] == "good"
-        assert hsk_vocab["好"]["meanings"] == ["good", "well", "proper"]
+        # Meaning + meanings come from CC-CEDICT.
+        assert hsk_vocab["地"]["meaning"] == "earth"
+        assert hsk_vocab["地"]["meanings"] == ["earth", "ground", "field"]
+        # Pinyin now also tracks the CC-CEDICT reading so it matches the
+        # gloss we just overlaid.
+        assert hsk_vocab["地"]["pinyin"] == "dì"
         # Level info from HSK is preserved.
-        assert hsk_vocab["好"]["level_new"] == "new-1"
+        assert hsk_vocab["地"]["level_new"] == "new-1"
     finally:
         hsk_vocab.clear()
         hsk_vocab.update(original_hsk)
