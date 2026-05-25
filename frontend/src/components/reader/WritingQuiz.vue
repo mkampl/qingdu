@@ -57,33 +57,41 @@ const isLastChar = computed(
 );
 
 async function startCharQuiz(idx: number) {
-  if (!cjkChars.value[idx] || !canvasRef.value) return;
+  const char = cjkChars.value[idx];
+  if (!char || !canvasRef.value) return;
   loading.value = true;
   error.value = null;
   currentMistakes.value = 0;
   try {
     const HanziWriter = (await import("hanzi-writer")).default;
+
+    // Pre-load the character stroke data from the upstream CDN BEFORE
+    // wiring quiz mode. Without this, taps in the first second after
+    // mount land on a writer that has no data yet and silently no-op,
+    // which reads to the user as "nothing happens when I draw".
+    const charData = await HanziWriter.loadCharacterData(char);
+    if (!charData) {
+      error.value = `No stroke data for "${char}".`;
+      return;
+    }
+
     canvasRef.value.innerHTML = "";
-    const w = HanziWriter.create(canvasRef.value, cjkChars.value[idx], {
+    const w = HanziWriter.create(canvasRef.value, char, {
       width: 200,
       height: 200,
-      padding: 8,
       showCharacter: false,
       showOutline: true,
-      strokeAnimationSpeed: 1,
-      drawingWidth: 32,
       strokeColor: "#1f2937",
-      highlightColor: "#10b981", // green for correct
       drawingColor: "#1f2937",
+      highlightColor: "#10b981",
+      drawingFadeDuration: 300,
     });
     w.quiz({
-      // Slightly more forgiving than the default 1.0 — most people draw
-      // freehand at a coarser resolution than the matcher expects, and
-      // a too-strict matcher reads as "nothing is happening".
+      // Slightly more forgiving than the default — freehand drawing is
+      // never as crisp as the matcher's stroke template.
       leniency: 1.5,
-      // After 3 misses on the same stroke, briefly show the next stroke
-      // so the user knows what they're missing instead of just feeling
-      // stuck. Counts as a mistake either way.
+      // Reveal the next stroke after 3 misses on the same stroke so the
+      // user gets unstuck. hanzi-writer counts this as a mistake itself.
       showHintAfterMisses: 3,
       onMistake: (info: { totalMistakes: number }) => {
         currentMistakes.value = info.totalMistakes;
@@ -92,7 +100,6 @@ async function startCharQuiz(idx: number) {
         currentMistakes.value = info.totalMistakes;
       },
       onComplete: (info: { totalMistakes: number }) => {
-        // hanzi-writer's totalMistakes is per-character; roll up.
         totalMistakes.value += info.totalMistakes;
         if (isLastChar.value) {
           completed.value = true;
