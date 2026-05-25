@@ -77,6 +77,14 @@ async function startCharQuiz(idx: number) {
       drawingColor: "#1f2937",
     });
     w.quiz({
+      // Slightly more forgiving than the default 1.0 — most people draw
+      // freehand at a coarser resolution than the matcher expects, and
+      // a too-strict matcher reads as "nothing is happening".
+      leniency: 1.5,
+      // After 3 misses on the same stroke, briefly show the next stroke
+      // so the user knows what they're missing instead of just feeling
+      // stuck. Counts as a mistake either way.
+      showHintAfterMisses: 3,
       onMistake: (info: { totalMistakes: number }) => {
         currentMistakes.value = info.totalMistakes;
       },
@@ -164,10 +172,16 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="flex justify-center">
+      <!--
+        touch-action: none — without this, mobile browsers treat the
+          drag inside the SVG as page scroll instead of a draw gesture.
+        cursor: crosshair + user-select: none — desktop drag should
+          read as drawing, not as text selection.
+      -->
       <div
         ref="canvasRef"
         class="rounded-lg border border-border-subtle bg-bg-elevated"
-        style="width: 200px; height: 200px;"
+        style="width: 200px; height: 200px; touch-action: none; cursor: crosshair; user-select: none; -webkit-user-select: none;"
         aria-label="Draw the character"
       />
     </div>
