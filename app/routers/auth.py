@@ -88,6 +88,7 @@ async def get_me(user: User = Depends(get_current_user)):
             # daily_new_words default is 0 (off) — users opt in from Settings.
             "daily_new_words": user.daily_new_words if user.daily_new_words is not None else 0,
             "hsk_focus_version": user.hsk_focus_version or "new",
+            "display_script": user.display_script or "auto",
         },
     }
 
@@ -104,15 +105,27 @@ async def update_my_settings(
         raise HTTPException(status_code=400, detail="daily_new_words must be between 0 and 30")
     if payload.hsk_focus_version is not None and payload.hsk_focus_version not in {"new", "old"}:
         raise HTTPException(status_code=400, detail="hsk_focus_version must be 'new' or 'old'")
+    if payload.display_script is not None and payload.display_script not in {
+        "auto",
+        "simp",
+        "trad",
+    }:
+        raise HTTPException(
+            status_code=400,
+            detail="display_script must be 'auto', 'simp', or 'trad'",
+        )
     user = db.merge(user)
     if payload.daily_new_words is not None:
         user.daily_new_words = payload.daily_new_words
     if payload.hsk_focus_version is not None:
         user.hsk_focus_version = payload.hsk_focus_version
+    if payload.display_script is not None:
+        user.display_script = payload.display_script
     db.commit()
     return {
         "daily_new_words": user.daily_new_words,
         "hsk_focus_version": user.hsk_focus_version,
+        "display_script": user.display_script,
     }
 
 

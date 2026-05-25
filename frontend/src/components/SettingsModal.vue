@@ -132,6 +132,38 @@ const dailyEnabled = computed<boolean>({
   },
 });
 
+// --- Phase #96 follow-up: Simplified vs Traditional display ---
+const displayScript = computed<"auto" | "simp" | "trad">({
+  get: () => auth.user?.display_script ?? "auto",
+  set: (v) => {
+    void auth.updateSettings({ display_script: v }).catch(() => {
+      toasts.error("Couldn't save script preference.");
+    });
+  },
+});
+
+const scriptOptions: {
+  value: "auto" | "simp" | "trad";
+  label: string;
+  hint: string;
+}[] = [
+  {
+    value: "auto",
+    label: "Auto",
+    hint: "Show Chinese exactly as it appears in the source — no conversion.",
+  },
+  {
+    value: "simp",
+    label: "Simplified (简体)",
+    hint: "Convert every Chinese surface to Simplified, no matter what was stored.",
+  },
+  {
+    value: "trad",
+    label: "Traditional (繁體)",
+    hint: "Convert every Chinese surface to Traditional.",
+  },
+];
+
 function clampDaily(v: number): number {
   if (!Number.isFinite(v)) return 0;
   return Math.max(0, Math.min(30, Math.round(v)));
@@ -332,6 +364,40 @@ async function runImport() {
               class="accent-accent"
             />
             <span class="font-display text-base text-fg">Dark</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <!-- Phase #96 follow-up — global trad/simp toggle. Auth-gated since
+           it lives on the user row server-side; the conversion is applied
+           at every endpoint that returns Chinese. -->
+      <fieldset v-if="auth.isAuthed">
+        <legend
+          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          Script
+        </legend>
+        <div class="space-y-2">
+          <label
+            v-for="opt in scriptOptions"
+            :key="opt.value"
+            class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
+            :class="{
+              'border-accent bg-bg-sunken': displayScript === opt.value,
+            }"
+          >
+            <input
+              v-model="displayScript"
+              type="radio"
+              :value="opt.value"
+              class="mt-1 accent-accent"
+            />
+            <span class="flex-1">
+              <span class="block font-display text-base text-fg">
+                {{ opt.label }}
+              </span>
+              <span class="block text-xs text-fg-muted">{{ opt.hint }}</span>
+            </span>
           </label>
         </div>
       </fieldset>

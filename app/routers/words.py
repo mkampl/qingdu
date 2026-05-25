@@ -26,6 +26,7 @@ from app.schemas import (
     ImportHskRequest,
     WordStateUpdate,
 )
+from app.services.script import to_canonical
 from app.services.streak import current_streak, record_activity
 from app.services.word_info import lookup_pinyin_meaning
 from app.state import hsk_vocab
@@ -108,7 +109,7 @@ async def set_word_state(
 ) -> dict:
     if payload.state not in VALID_WORD_STATES:
         raise HTTPException(status_code=400, detail=f"Invalid state '{payload.state}'")
-    word = payload.word.strip()
+    word = to_canonical(payload.word.strip(), user)
     if not word:
         raise HTTPException(status_code=400, detail="word is required")
 
@@ -125,6 +126,7 @@ async def clear_word_state(
     db: Session = Depends(get_db),
 ) -> dict:
     """Reset a word back to 'new' (delete the row). Useful for 'undo'."""
+    word = to_canonical(word, user)
     row = db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.word == word).first()
     if row is not None:
         db.delete(row)
@@ -152,7 +154,7 @@ async def bulk_mark_known(
     for w in payload.words:
         if not w:
             continue
-        stripped = w.strip()
+        stripped = to_canonical(w.strip(), user)
         if not stripped or stripped in seen:
             continue
         seen.add(stripped)

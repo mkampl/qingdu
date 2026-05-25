@@ -8,6 +8,7 @@ from app.core.constants import ANALYZE_RATE_LIMIT
 from app.core.rate_limit import limiter
 from app.database import User, UserWord, VocabularyList, get_db
 from app.schemas import TextAnalysisRequest
+from app.services.script import to_canonical, to_user_script, user_script
 from app.services.segmentation import analyze_chinese_text
 from app.state import hsk_vocab
 
@@ -127,16 +128,36 @@ async def analyze_text(
     if not text:
         raise HTTPException(status_code=400, detail="Text is empty")
 
+    # Internal analysis always runs on Simplified — that's what jieba's
+    # dict, hsk_vocab, and the user_words table are keyed on. For
+    # non-auto users, normalise their input first so segmentation
+    # works whether they pasted simp or trad text.
+    text_simp = to_canonical(text, user)
+
     glossary = _build_glossary(db, user, data.glossary_list_ids)
-    result = await analyze_chinese_text(text, glossary=glossary)
+    result = await analyze_chinese_text(text_simp, glossary=glossary)
 
     # Enrich words with per-user state when the request is authenticated.
-    # Anonymous callers get the response unchanged.
+    # Anonymous callers get the response unchanged. Lookup happens against
+    # the canonical (simp) text before we convert anything to the user's
+    # display script.
     states = _user_state_map(db, user)
-    if states:
-        for word in result.get("words", []):
-            state = states.get(word.get("text"))
+    pref = user_script(user)
+    for word in result.get("words", []):
+        canonical_text = word.get("text", "")
+        if states:
+            state = states.get(canonical_text)
             if state is not None:
                 word["user_state"] = state
+        if pref == "trad" and canonical_text:
+            word["text"] = to_user_script(canonical_text, user)
+
+    # Sentence text on the grammar payload also needs converting so the
+    # SPA's sentence-translation chip shows the user's script.
+    if pref == "trad":
+        grammar = result.get("grammar", {})
+        for sentence in grammar.get("sentences", []) if isinstance(grammar, dict) else []:
+            if "text" in sentence:
+                sentence["text"] = to_user_script(sentence["text"], user)
 
     return result

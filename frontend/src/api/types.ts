@@ -118,6 +118,8 @@ export interface User {
   daily_new_words?: number;
   /** Phase #96 — which HSK list the auto-enrol walks ('new' or 'old'). */
   hsk_focus_version?: "new" | "old";
+  /** Phase #96 follow-up — Simplified vs Traditional display across the app. */
+  display_script?: "auto" | "simp" | "trad";
 }
 
 export interface LoginResponse {

@@ -43,6 +43,11 @@ class User(Base):
     # (the default — new users opt in via Settings).
     daily_new_words = Column(Integer, default=0)
     hsk_focus_version = Column(String(8), default="new")
+    # Phase #96 follow-up — global script preference. 'auto' leaves text
+    # alone, 'simp' coerces every Chinese surface to Simplified, 'trad'
+    # to Traditional. Applied server-side at every endpoint that returns
+    # Chinese text (review queue, analyze, saved texts, vocab lists).
+    display_script = Column(String(8), default="auto")
 
     # Relationships
     texts = relationship("SavedText", back_populates="user", cascade="all, delete-orphan")
@@ -293,6 +298,13 @@ def init_db():
                         text(
                             "ALTER TABLE users ADD COLUMN hsk_focus_version "
                             "VARCHAR(8) DEFAULT 'new'"
+                        )
+                    )
+                if "display_script" not in user_cols:
+                    logger.info("Adding display_script column to users")
+                    conn.execute(
+                        text(
+                            "ALTER TABLE users ADD COLUMN display_script VARCHAR(8) DEFAULT 'auto'"
                         )
                     )
                 conn.commit()

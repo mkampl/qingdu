@@ -26,6 +26,7 @@ from app.auth import require_auth
 from app.database import User, UserWord, UserWordEvent, get_db
 from app.services import srs
 from app.services.enrollment import enroll_daily_words, enrolled_today
+from app.services.script import to_user_script
 from app.services.streak import record_activity
 from app.services.word_info import lookup_pinyin_meaning
 from app.state import cedict_vocab, hsk_vocab
@@ -119,9 +120,11 @@ async def review_queue(
             r.pinyin = enriched["pinyin"] or None
             r.meaning = enriched["meaning"] or None
             backfilled = True
+        # Apply the user's display-script preference to the card's word.
+        # Pinyin doesn't change between scripts; meanings are English.
         cards.append(
             {
-                "word": r.word,
+                "word": to_user_script(r.word, user),
                 "due_at": r.due_at.isoformat() if r.due_at else None,
                 "stability": r.stability,
                 "difficulty": r.difficulty,
@@ -142,14 +145,16 @@ async def grade_card(
     if payload.grade not in srs.VALID_GRADES:
         raise HTTPException(status_code=400, detail=f"grade must be one of {srs.VALID_GRADES}")
 
-    row = (
-        db.query(UserWord)
-        .filter(UserWord.user_id == user.id, UserWord.word == payload.word)
-        .first()
-    )
+    # If the user is on a non-auto display script, the word came back to
+    # us in their preferred form. UserWord rows are keyed by simp.
+    from app.services.script import to_canonical
+
+    word_simp = to_canonical(payload.word, user)
+
+    row = db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.word == word_simp).first()
     if row is None:
         # Auto-promote: grading a word we've never seen creates the row.
-        row = UserWord(user_id=user.id, word=payload.word, state="learning", seen_count=1)
+        row = UserWord(user_id=user.id, word=word_simp, state="learning", seen_count=1)
         db.add(row)
 
     updated = srs.apply_grade(row.fsrs_state, payload.grade)
@@ -163,7 +168,7 @@ async def grade_card(
     db.add(
         UserWordEvent(
             user_id=user.id,
-            word=payload.word,
+            word=word_simp,
             event_type="review",
             new_state=row.state,
             grade=payload.grade,
@@ -172,7 +177,7 @@ async def grade_card(
     record_activity(user, db)
     db.commit()
     return {
-        "word": payload.word,
+        "word": to_user_script(word_simp, user),
         "due_at": row.due_at.isoformat() if row.due_at else None,
         "stability": row.stability,
         "difficulty": row.difficulty,

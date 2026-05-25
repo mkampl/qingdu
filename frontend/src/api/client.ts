@@ -143,13 +143,15 @@ export const changePassword = (old_password: string, new_password: string) =>
 export interface UserSettingsPayload {
   daily_new_words?: number;
   hsk_focus_version?: "new" | "old";
+  display_script?: "auto" | "simp" | "trad";
 }
 
 export const updateMySettings = (payload: UserSettingsPayload) =>
-  request<{ daily_new_words: number; hsk_focus_version: string }>(
-    "/api/auth/me/settings",
-    { method: "PATCH", body: payload },
-  );
+  request<{
+    daily_new_words: number;
+    hsk_focus_version: string;
+    display_script: string;
+  }>("/api/auth/me/settings", { method: "PATCH", body: payload });
 
 export const signupWithInvite = (
   token: string,
@@ -349,9 +351,7 @@ export const prepareExportAudio = (id: number) =>
  * the backend honours both Bearer header and `?token=` query, but the
  * header approach keeps the token out of server logs.
  */
-async function downloadBlob(
-  url: string,
-): Promise<{
+async function downloadBlob(url: string): Promise<{
   blob: Blob;
   filename: string;
   stats?: string;

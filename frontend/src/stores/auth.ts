@@ -97,6 +97,7 @@ export const useAuthStore = defineStore("auth", () => {
         ...user.value,
         daily_new_words: updated.daily_new_words,
         hsk_focus_version: updated.hsk_focus_version as "new" | "old",
+        display_script: updated.display_script as "auto" | "simp" | "trad",
       };
     }
     // The review-stats badge depends on daily_target; nudge it so the UI
