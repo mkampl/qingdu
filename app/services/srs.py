@@ -13,9 +13,10 @@ Storage shape (per UserWord row):
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import random
+from datetime import UTC, datetime, timedelta
 
-from fsrs import Card, Rating, Scheduler
+from fsrs import Card, Rating, Scheduler, State
 
 # One module-level scheduler is fine — Scheduler() is just a parameter bag.
 # Default desired_retention is 0.9, which matches the Anki community baseline.
@@ -95,4 +96,50 @@ def _as_naive_utc(dt: datetime) -> datetime:
     return dt.astimezone(UTC).replace(tzinfo=None)
 
 
-__all__ = ["VALID_GRADES", "apply_grade", "card_from_state", "initial_state"]
+# Window over which "I already know this" cards' first reviews scatter.
+# Bulk imports (HSK 1–4 = ~3400 cards) would otherwise all come due on the
+# same day; spreading them across (60d, 180d) keeps ~30 cards/day at peak.
+ALREADY_KNOWN_MIN_DAYS = 60
+ALREADY_KNOWN_MAX_DAYS = 180
+ALREADY_KNOWN_STABILITY_DAYS = 90.0
+ALREADY_KNOWN_DIFFICULTY = 4.0  # "Easy"-end of the 1–10 FSRS difficulty band
+
+
+def already_known_state(jitter_seed: int | None = None) -> dict:
+    """
+    Seed an FSRS Card in the Review phase with ~90d stability so the card
+    behaves like one the user has graded `Easy` a handful of times. The
+    first review fires at a random point in the 60–180-day window so
+    bulk-knowing 3000+ words doesn't pile every review on day 90.
+
+    Returns the same shape `apply_grade`/`initial_state` use so callers
+    can splat it into a UserWord row directly.
+    """
+    rng = random.Random(jitter_seed) if jitter_seed is not None else random
+    days_until_due = rng.uniform(ALREADY_KNOWN_MIN_DAYS, ALREADY_KNOWN_MAX_DAYS)
+    now_utc = datetime.now(UTC)
+    due = now_utc + timedelta(days=days_until_due)
+    card = Card(
+        state=State.Review,
+        stability=ALREADY_KNOWN_STABILITY_DAYS,
+        difficulty=ALREADY_KNOWN_DIFFICULTY,
+        due=due,
+        last_review=now_utc,
+    )
+    return {
+        "fsrs_state": card.to_json(),
+        "stability": card.stability,
+        "difficulty": card.difficulty,
+        "due_at": _as_naive_utc(card.due),
+        "last_reviewed_at": _as_naive_utc(now_utc),
+    }
+
+
+__all__ = [
+    "ALREADY_KNOWN_STABILITY_DAYS",
+    "VALID_GRADES",
+    "already_known_state",
+    "apply_grade",
+    "card_from_state",
+    "initial_state",
+]

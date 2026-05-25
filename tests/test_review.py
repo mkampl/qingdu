@@ -40,12 +40,23 @@ def review_client(app_module):
         )
     )
     # Seed: two due cards (no due_at means brand-new in queue), one already
-    # due in the past, one due far in the future (should NOT appear).
+    # due in the past, one due far in the future (should NOT appear), one
+    # ignored (should NOT appear). Known-with-due-in-the-past also appears
+    # in the queue now that 'known' is just a high-stability SRS state.
     now = datetime.utcnow()
     db.add(UserWord(user_id=1, word="一", state="learning"))
     db.add(UserWord(user_id=1, word="二", state="learning", due_at=now - timedelta(hours=2)))
     db.add(UserWord(user_id=1, word="三", state="learning", due_at=now + timedelta(days=30)))
-    db.add(UserWord(user_id=1, word="known-already", state="known"))
+    db.add(UserWord(user_id=1, word="忽略", state="ignored"))
+    db.add(
+        UserWord(
+            user_id=1,
+            word="远期",
+            state="known",
+            stability=180,
+            due_at=now + timedelta(days=120),
+        )
+    )
     db.commit()
     db.close()
 
@@ -73,14 +84,15 @@ def review_client(app_module):
         app_module.dependency_overrides.clear()
 
 
-def test_queue_returns_only_due_learning_cards(review_client):
+def test_queue_returns_only_due_active_cards(review_client):
     client, _ = review_client
     r = client.get("/api/review/queue")
     assert r.status_code == 200, r.text
     words = [c["word"] for c in r.json()["cards"]]
     assert "一" in words and "二" in words
     assert "三" not in words, "future-due card leaked into queue"
-    assert "known-already" not in words, "known card leaked into queue"
+    assert "忽略" not in words, "ignored card leaked into queue"
+    assert "远期" not in words, "future-due known card leaked into queue"
 
 
 def test_queue_orders_nulls_first(review_client):
@@ -136,9 +148,10 @@ def test_stats_endpoint(review_client):
     r = client.get("/api/review/stats")
     assert r.status_code == 200
     body = r.json()
-    # 3 learning words total ('一', '二', '三'); 'known-already' doesn't count.
+    # learning counter is just state='learning' rows ('一', '二', '三').
     assert body["learning"] == 3
-    # 2 are due now ('一' null + '二' past); '三' is future-due.
+    # 2 are due now ('一' null + '二' past); '三' is future-due, the known
+    # row is future-due, the ignored row never appears.
     assert body["due_now"] == 2
     # No reviews yet -> 0.
     assert body["reviewed_today"] == 0

@@ -33,6 +33,14 @@ from app.state import cedict_vocab, hsk_vocab
 
 router = APIRouter(tags=["Review"])
 
+# State values that participate in the review queue. 'known' joined
+# 'learning' once it became a high-stability SRS card instead of a
+# terminal opt-out; only 'ignored' (and absence of row) stay out of
+# the rotation. Auto-transitions in grade_card move rows between
+# 'learning' and 'known' based on the FSRS stability after grading.
+ACTIVE_REVIEW_STATES = ("learning", "known")
+KNOWN_STABILITY_THRESHOLD_DAYS = 90.0
+
 
 ReviewMode = Literal["recognition", "dictation", "writing", "cloze"]
 
@@ -103,7 +111,7 @@ async def review_queue(
         db.query(UserWord)
         .filter(
             UserWord.user_id == user.id,
-            UserWord.state == "learning",
+            UserWord.state.in_(ACTIVE_REVIEW_STATES),
             or_(UserWord.due_at.is_(None), UserWord.due_at <= now),
         )
         .order_by(UserWord.due_at.is_(None).desc(), UserWord.due_at.asc())
@@ -165,6 +173,25 @@ async def grade_card(
     row.last_reviewed_at = updated["last_reviewed_at"]
     row.updated_at = datetime.utcnow()
 
+    # Auto-transition between 'learning' and 'known' based on the new
+    # FSRS stability. Crossing into 'known' = mastered (renders as
+    # known-color in the reader); dropping below = back into active
+    # learning. State flips are emitted as state_change events so the
+    # log captures the inflection (helps with stats + undo).
+    new_state_for_row = (
+        "known" if (row.stability or 0) >= KNOWN_STABILITY_THRESHOLD_DAYS else "learning"
+    )
+    if new_state_for_row != row.state and row.state in ACTIVE_REVIEW_STATES:
+        row.state = new_state_for_row
+        db.add(
+            UserWordEvent(
+                user_id=user.id,
+                word=word_simp,
+                event_type="state_change",
+                new_state=new_state_for_row,
+            )
+        )
+
     db.add(
         UserWordEvent(
             user_id=user.id,
@@ -204,7 +231,7 @@ async def review_stats(
         db.query(UserWord)
         .filter(
             UserWord.user_id == user.id,
-            UserWord.state == "learning",
+            UserWord.state.in_(ACTIVE_REVIEW_STATES),
             or_(UserWord.due_at.is_(None), UserWord.due_at <= now),
         )
         .count()
@@ -213,7 +240,7 @@ async def review_stats(
         db.query(UserWord)
         .filter(
             UserWord.user_id == user.id,
-            UserWord.state == "learning",
+            UserWord.state.in_(ACTIVE_REVIEW_STATES),
             or_(
                 UserWord.due_at.is_(None),
                 UserWord.due_at < midnight_tomorrow,
@@ -221,6 +248,8 @@ async def review_stats(
         )
         .count()
     )
+    # The "learning" counter excludes the 'known' bucket so the user can
+    # distinguish "still struggling" from "mastered but still in rotation".
     learning = (
         db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.state == "learning").count()
     )

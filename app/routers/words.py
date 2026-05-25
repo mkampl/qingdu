@@ -27,6 +27,7 @@ from app.schemas import (
     WordStateUpdate,
 )
 from app.services.script import to_canonical
+from app.services.srs import already_known_state
 from app.services.streak import current_streak, record_activity
 from app.services.word_info import lookup_pinyin_meaning
 from app.state import hsk_vocab
@@ -53,6 +54,20 @@ def _record_event(
     )
 
 
+def _apply_known_scheduling(row: UserWord) -> None:
+    """Schedule a row as "already known" — Review-phase FSRS card with
+    ~90d stability and a randomised first-review date in (60d, 180d).
+    State stays 'known' so the reader colours it accordingly; the review
+    queue now includes both 'learning' and 'known' so it still rotates."""
+    seeded = already_known_state()
+    row.state = "known"
+    row.fsrs_state = seeded["fsrs_state"]
+    row.stability = seeded["stability"]
+    row.difficulty = seeded["difficulty"]
+    row.due_at = seeded["due_at"]
+    row.last_reviewed_at = seeded["last_reviewed_at"]
+
+
 def _upsert(
     db: Session,
     user_id: int,
@@ -71,9 +86,17 @@ def _upsert(
             pinyin=pinyin or None,
             meaning=meaning or None,
         )
+        # 'known' is no longer a terminal "out-of-SRS" state — we seed a
+        # high-stability Review-phase FSRS card so the row stays in the
+        # review queue but isn't due for months.
+        if state == "known":
+            _apply_known_scheduling(row)
         db.add(row)
     else:
-        row.state = state
+        if state == "known":
+            _apply_known_scheduling(row)
+        else:
+            row.state = state
         row.seen_count = (row.seen_count or 0) + 1
         row.updated_at = datetime.utcnow()
         # Backfill snapshots on existing rows that never got them.
@@ -173,19 +196,21 @@ async def bulk_mark_known(
         row = existing.get(word)
         if row is None:
             pinyin, meaning = lookup_pinyin_meaning(word)
-            db.add(
-                UserWord(
-                    user_id=user.id,
-                    word=word,
-                    state="known",
-                    seen_count=1,
-                    pinyin=pinyin or None,
-                    meaning=meaning or None,
-                )
+            row = UserWord(
+                user_id=user.id,
+                word=word,
+                state="learning",
+                seen_count=1,
+                pinyin=pinyin or None,
+                meaning=meaning or None,
             )
+            _apply_known_scheduling(row)
+            db.add(row)
             updated += 1
-        elif row.state != "known":
-            row.state = "known"
+        elif (row.stability or 0) < 90:
+            # Existing low-stability row → promote it to a Review-phase
+            # card so it sits at known stability but stays in rotation.
+            _apply_known_scheduling(row)
             row.updated_at = datetime.utcnow()
             updated += 1
         _record_event(db, user.id, word, "bulk_mark_known", "known", payload.source_text_id)
@@ -269,16 +294,16 @@ async def import_hsk_known(
     to_insert = [w for w in candidates if w not in existing]
     for word in to_insert:
         pinyin, meaning = lookup_pinyin_meaning(word)
-        db.add(
-            UserWord(
-                user_id=user.id,
-                word=word,
-                state="known",
-                seen_count=1,
-                pinyin=pinyin or None,
-                meaning=meaning or None,
-            )
+        row = UserWord(
+            user_id=user.id,
+            word=word,
+            state="learning",
+            seen_count=1,
+            pinyin=pinyin or None,
+            meaning=meaning or None,
         )
+        _apply_known_scheduling(row)
+        db.add(row)
     # Single event row marking the bulk action — avoids 2 000+ event rows
     # for the typical "mark HSK 1–4" use.
     db.add(

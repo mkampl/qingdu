@@ -328,6 +328,41 @@ def init_db():
                         logger.info("Adding %s column to user_words", name)
                         conn.execute(text(f"ALTER TABLE user_words ADD COLUMN {name} {sql_type}"))
                 conn.commit()
+
+        # Phase #96 follow-up — bring legacy 'known' rows into the SRS
+        # rotation. Before this change 'known' was a terminal opt-out
+        # (no due_at, never queued); now it's just a high-stability
+        # learning-like card. Seed legacy rows with a Review-phase FSRS
+        # state and scatter their first due dates across (60d, 180d).
+        if inspector.has_table("user_words"):
+            from app.services.srs import already_known_state
+
+            session = SessionLocal()
+            try:
+                legacy = (
+                    session.query(UserWord)
+                    .filter(
+                        UserWord.state == "known",
+                        UserWord.fsrs_state.is_(None),
+                    )
+                    .all()
+                )
+                if legacy:
+                    logger.info("Seeding %d legacy 'known' rows with FSRS state", len(legacy))
+                    for r in legacy:
+                        seeded = already_known_state()
+                        # state stays 'known' — only the SRS fields fill in.
+                        r.fsrs_state = seeded["fsrs_state"]
+                        r.stability = seeded["stability"]
+                        r.difficulty = seeded["difficulty"]
+                        r.due_at = seeded["due_at"]
+                        r.last_reviewed_at = seeded["last_reviewed_at"]
+                    session.commit()
+            except Exception as e:  # noqa: BLE001
+                logger.warning("legacy-known seeding failed (%s) — skipping", e)
+                session.rollback()
+            finally:
+                session.close()
         if inspector.has_table("user_word_events"):
             ev_cols = {col["name"] for col in inspector.get_columns("user_word_events")}
             if "grade" not in ev_cols:
