@@ -338,7 +338,7 @@ onBeforeUnmount(() => {
         as drawing, not as text selection.
       -->
       <div
-        class="relative rounded-lg border border-border-subtle bg-bg-elevated"
+        class="relative rounded-lg border-[3px] border-border bg-bg-elevated"
         style="width: 200px; height: 200px"
       >
         <svg
@@ -350,9 +350,9 @@ onBeforeUnmount(() => {
         >
           <g
             stroke="currentColor"
-            stroke-width="0.6"
+            stroke-width="1"
             stroke-dasharray="3 4"
-            opacity="0.45"
+            opacity="0.55"
           >
             <line x1="100" y1="0" x2="100" y2="200" />
             <line x1="0" y1="100" x2="200" y2="100" />
