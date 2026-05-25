@@ -120,19 +120,43 @@ async function startCharQuiz(idx: number) {
     });
     writer.value = w;
 
-    // Also raw-log pointer events on the canvas itself, so we can tell
-    // whether events reach the wrapper but hanzi-writer's SVG isn't
-    // catching them, vs the wrapper not receiving events at all.
-    const probe = (e: PointerEvent) => {
+    // Diagnostic probes — every input variant, both capture and bubble
+    // phases, plus document-level capture. If we see *any* of these
+    // fire when the user clicks the canvas, we know where events ARE
+    // going. If none fire, the browser is dropping events entirely on
+    // the canvas (likely a Firefox fingerprinting/strict mode quirk).
+    const probe = (label: string) => (e: Event) => {
       // eslint-disable-next-line no-console
-      console.log("[WritingQuiz] pointer", e.type, {
+      console.log(`[WritingQuiz] ${label}`, e.type, {
         target: (e.target as Element)?.tagName,
-        x: e.offsetX,
-        y: e.offsetY,
+        currentTarget: (e.currentTarget as Element)?.tagName,
       });
     };
-    canvasRef.value.addEventListener("pointerdown", probe);
-    canvasRef.value.addEventListener("pointerup", probe);
+    const events = [
+      "pointerdown",
+      "pointerup",
+      "mousedown",
+      "mouseup",
+      "click",
+      "touchstart",
+      "touchend",
+    ];
+    for (const ev of events) {
+      canvasRef.value.addEventListener(ev, probe("canvas:bubble"));
+      canvasRef.value.addEventListener(ev, probe("canvas:capture"), true);
+    }
+    // Also capture document-level — if events fire here but not on the
+    // canvas, the canvas itself is invisible to pointer routing.
+    const docProbe = (e: Event) => {
+      const target = e.target as Element | null;
+      if (target?.closest?.('[aria-label="Draw the character"]')) {
+        // eslint-disable-next-line no-console
+        console.log("[WritingQuiz] document:capture", e.type, target.tagName);
+      }
+    };
+    document.addEventListener("pointerdown", docProbe, true);
+    document.addEventListener("mousedown", docProbe, true);
+    document.addEventListener("click", docProbe, true);
   } catch (e) {
     error.value =
       e instanceof Error ? e.message : "Couldn't load stroke data.";
