@@ -491,6 +491,12 @@ watch(
             <p class="font-cn-serif text-3xl text-fg">{{ card.word }}</p>
             <p class="font-sans text-sm text-fg-muted">{{ card.pinyin }}</p>
             <p class="font-display text-base text-fg">{{ card.meaning }}</p>
+            <ul
+              v-if="card.meanings && card.meanings.length > 1"
+              class="mt-1 space-y-0.5 text-xs text-fg-muted"
+            >
+              <li v-for="(m, i) in card.meanings.slice(1)" :key="i">{{ m }}</li>
+            </ul>
           </div>
         </template>
 
@@ -512,6 +518,7 @@ watch(
             :word="card.word"
             :pinyin="card.pinyin"
             :meaning="card.meaning"
+            :meanings="card.meanings"
             :show-outline="settings.writingShowOutline"
             @complete="onWritingComplete"
           />
@@ -535,6 +542,12 @@ watch(
             <p class="font-cn-serif text-3xl text-fg">{{ card.word }}</p>
             <p class="font-sans text-sm text-fg-muted">{{ card.pinyin }}</p>
             <p class="font-display text-base text-fg">{{ card.meaning }}</p>
+            <ul
+              v-if="card.meanings && card.meanings.length > 1"
+              class="mx-auto mt-1 max-w-xs space-y-0.5 text-xs text-fg-muted"
+            >
+              <li v-for="(m, i) in card.meanings.slice(1)" :key="i">{{ m }}</li>
+            </ul>
             <p
               class="mt-2 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
             >

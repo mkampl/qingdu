@@ -22,8 +22,15 @@ const props = withDefaults(
     word: string;
     /** Pinyin shown above the canvas as the prompt. */
     pinyin?: string;
-    /** Meaning shown above the canvas. */
+    /** Primary meaning shown above the canvas. */
     meaning?: string;
+    /**
+     * Full list of meanings from the dictionary (CC-CEDICT / HSK source).
+     * The primary `meaning` is also the first entry here. Secondary
+     * meanings are rendered as a smaller stacked list under the prompt
+     * so the learner sees the full sense range, not just the first.
+     */
+    meanings?: string[];
     /**
      * Show the faint outline of the character to trace over (helpful for
      * learners). When false, the canvas starts blank and the user has to
@@ -32,8 +39,10 @@ const props = withDefaults(
      */
     showOutline?: boolean;
   }>(),
-  { showOutline: false },
+  { showOutline: false, meanings: () => [] },
 );
+
+const secondaryMeanings = computed(() => (props.meanings ?? []).slice(1));
 
 const emit = defineEmits<{
   /**
@@ -320,6 +329,12 @@ onBeforeUnmount(() => {
       </p>
       <p class="font-display text-base text-fg-muted">{{ pinyin }}</p>
       <p class="mt-1 font-display text-xl text-fg">{{ meaning }}</p>
+      <ul
+        v-if="secondaryMeanings.length"
+        class="mx-auto mt-1 max-w-xs space-y-0.5 text-xs text-fg-muted"
+      >
+        <li v-for="(m, i) in secondaryMeanings" :key="i">{{ m }}</li>
+      </ul>
     </div>
 
     <div class="flex justify-center">
