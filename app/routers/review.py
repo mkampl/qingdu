@@ -28,7 +28,7 @@ from app.services import srs
 from app.services.enrollment import enroll_daily_words, enrolled_today
 from app.services.streak import record_activity
 from app.services.word_info import lookup_pinyin_meaning
-from app.state import hsk_vocab
+from app.state import cedict_vocab, hsk_vocab
 
 router = APIRouter(tags=["Review"])
 
@@ -53,7 +53,11 @@ def _enrich(row: UserWord) -> dict:
     pinyin = row.pinyin or ""
     meaning = row.meaning or ""
     entry = hsk_vocab.get(row.word)
-    meanings = entry.get("meanings", []) if entry else []
+    cedict_entry = cedict_vocab.get(row.word)
+    # Prefer the meanings list from the richer source: HSK entries already
+    # have CC-CEDICT meanings overlaid at startup, so hsk_vocab is the
+    # primary; cedict_vocab covers non-HSK literary/proper-noun terms.
+    meanings = (entry or cedict_entry or {}).get("meanings", []) or []
     hsk_level = entry.get("level") if entry else None
 
     if not pinyin or not meaning:

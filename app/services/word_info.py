@@ -8,14 +8,17 @@ without adding latency.
 
 Fallback order:
   1. The full HSK vocab (`app.state.hsk_vocab`) — covers anything in the
-     upstream complete-hsk-vocabulary list.
-  2. `app.state.unknown_word_cache` — populated by reader-side analysis
+     upstream complete-hsk-vocabulary list. Meanings here have already
+     been overlaid with CC-CEDICT's richer glosses at startup.
+  2. `app.state.cedict_vocab` — the full ~120k CC-CEDICT, used for words
+     not in HSK (literary terms, place names, classical Chinese).
+  3. `app.state.unknown_word_cache` — populated by reader-side analysis
      when the user has just seen the word in a text. TTL'd, so this only
      helps when the insertion is fresh.
-  3. Compound assembly from HSK characters — for words like 道德 made
+  4. Compound assembly from HSK characters — for words like 道德 made
      entirely of HSK-known characters, we glue per-char pinyin and
      meanings together. Lossy but always better than nothing.
-  4. Pure pypinyin fallback — meaning stays empty, but at least the
+  5. Pure pypinyin fallback — meaning stays empty, but at least the
      learner can pronounce the card.
 """
 
@@ -23,7 +26,7 @@ from __future__ import annotations
 
 from pypinyin import Style, lazy_pinyin
 
-from app.state import hsk_vocab, unknown_word_cache
+from app.state import cedict_vocab, hsk_vocab, unknown_word_cache
 
 
 def lookup_pinyin_meaning(word: str) -> tuple[str, str]:
@@ -35,6 +38,10 @@ def lookup_pinyin_meaning(word: str) -> tuple[str, str]:
     entry = hsk_vocab.get(word)
     if entry:
         return entry.get("pinyin", "") or "", entry.get("meaning", "") or ""
+
+    cedict_entry = cedict_vocab.get(word)
+    if cedict_entry:
+        return cedict_entry.get("pinyin", "") or "", cedict_entry.get("meaning", "") or ""
 
     cached = unknown_word_cache.get(word)
     if cached:

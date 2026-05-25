@@ -21,5 +21,11 @@ hsk_vocab: dict = {}
 # For list generation — only original HSK words without supplementation.
 hsk_lists_original: dict = {}
 
+# CC-CEDICT — richer Chinese-English glosses than the upstream HSK list
+# carries. Keyed by simplified form; each value carries traditional form,
+# pinyin (tone-marked) and a meanings list. Populated by
+# `app.services.cedict_loader` on startup.
+cedict_vocab: dict = {}
+
 # Online lookup cache for words missing from HSK vocabulary.
 unknown_word_cache: TTLCache = TTLCache(maxsize=UNKNOWN_WORD_CACHE_SIZE, ttl=UNKNOWN_WORD_CACHE_TTL)

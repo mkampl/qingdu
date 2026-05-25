@@ -46,3 +46,11 @@ TRANSLATION_SOURCE_CACHE = "cache"
 
 # HSK Vocabulary
 HSK_VOCAB_URL = "https://raw.githubusercontent.com/drkameleon/complete-hsk-vocabulary/refs/heads/main/complete.json"
+
+# CC-CEDICT — the primary Chinese-English dictionary source we layer on
+# top of the HSK list. Format: `traditional simplified [pinyin] /m1/m2/.../`.
+# License: CC-BY-SA 4.0. Refreshed weekly upstream; we cache the unzipped
+# .u8 file locally and re-fetch if it ages beyond CEDICT_REFRESH_DAYS.
+CEDICT_URL = "https://www.mdbg.net/chinese/export/cedict/cedict_1_0_ts_utf-8.zip"
+CEDICT_REFRESH_DAYS = 7
+CEDICT_SOURCE_TAG = "cc-cedict"

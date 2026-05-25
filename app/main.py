@@ -41,6 +41,7 @@ from app.routers import (
     vocab_lists,
     words,
 )
+from app.services.cedict_loader import load_cedict
 from app.services.hsk_loader import download_hsk_vocabulary
 from app.state import hsk_vocab
 
@@ -214,6 +215,15 @@ async def startup_event() -> None:
                 "No cache available. Application will start without vocabulary - "
                 "some features may not work"
             )
+
+    # CC-CEDICT — overlay richer meanings onto hsk_vocab and populate
+    # `cedict_vocab` for non-HSK lookups. Safe to no-op if the download
+    # fails and no cache exists; the app keeps working on plain HSK data.
+    logger.info("Loading CC-CEDICT...")
+    try:
+        await load_cedict()
+    except Exception as e:
+        logger.warning("CC-CEDICT load failed (%s); proceeding with HSK only", e)
 
     logger.info("Initializing jieba tokenizer...")
     jieba.initialize()
