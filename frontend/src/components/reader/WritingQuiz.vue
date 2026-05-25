@@ -44,18 +44,25 @@ const cjkChars = computed(() =>
  */
 /**
  * hanzi-writer 3.7.3 attaches listeners only for legacy MouseEvent +
- * TouchEvent (node_modules/.../index.esm.js line ~1734). Browsers that
- * suppress those legacy compat events in favour of PointerEvent —
- * Firefox-strict on desktop AND on Android — leave hanzi-writer deaf.
+ * TouchEvent (node_modules/.../index.esm.js line ~1734).
  *
- * Forward all pointer events (mouse and touch) to synthesized
- * MouseEvents. hanzi-writer's mouse handler reads clientX/Y from the
- * MouseEvent, which we copy from the PointerEvent. preventDefault on
- * the PointerEvent suppresses the browser's compat MouseEvent and (per
- * spec on most browsers) also suppresses the synthesized TouchEvent —
- * so hanzi-writer's mouse handler runs exactly once per input.
+ * Mobile + tablet input: native TouchEvents fire reliably and reach
+ * hanzi-writer's touchstart listener — so we DON'T forward touch
+ * pointers. Doing so would synthesize a mousedown AND let the native
+ * touchstart fire, causing hanzi-writer's mouse + touch handlers to
+ * both run for the same input — which corrupts the quiz state and
+ * silently swallows every stroke (verified on user's Firefox Android
+ * via /static/hanzi-test.html).
+ *
+ * Desktop with a privacy mode that suppresses the legacy MouseEvent
+ * compat layer (Firefox with strict tracking protection, etc.): the
+ * shim translates pointerdown/move/up → mousedown/move/up so
+ * hanzi-writer's mouse handler runs exactly once. preventDefault
+ * suppresses the browser's would-be compat MouseEvent so we don't
+ * double-fire on browsers that do synthesize it.
  */
 function forwardPointerAsMouse(e: PointerEvent) {
+  if (e.pointerType === "touch") return;
   const mouseType = (
     {
       pointerdown: "mousedown",
