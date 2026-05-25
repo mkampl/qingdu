@@ -1,0 +1,148 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>hanzi-writer mobile test</title>
+<style>
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    padding: 12px;
+    margin: 0;
+    color: #222;
+  }
+  h2 { font-size: 16px; margin: 4px 0 8px; }
+  p { font-size: 13px; line-height: 1.4; margin: 4px 0 12px; color: #555; }
+  .box-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .canvas-box {
+    width: 200px;
+    height: 200px;
+    border: 2px solid #888;
+    background: #fff;
+    flex-shrink: 0;
+  }
+  .canvas-box.shim {
+    border-color: #2a8;
+  }
+  .canvas-label {
+    font-size: 11px;
+    font-family: monospace;
+    color: #666;
+    margin-bottom: 4px;
+  }
+  #log {
+    margin-top: 14px;
+    font-family: monospace;
+    font-size: 11px;
+    max-height: 50vh;
+    overflow-y: auto;
+    background: #f5f5f5;
+    padding: 8px;
+    border: 1px solid #ddd;
+    line-height: 1.3;
+  }
+  #log div { padding: 2px 0; border-bottom: 1px solid #eee; }
+  .pill { display: inline-block; padding: 1px 5px; border-radius: 3px; background: #eee; margin-right: 4px; font-size: 10px; }
+  .pill.ok { background: #d9f0d3; color: #1a5e1a; }
+  .pill.err { background: #f5d6d6; color: #7a1a1a; }
+</style>
+</head>
+<body>
+<h2>hanzi-writer mobile test</h2>
+<p>Try to draw a stroke in each box. The left box is hanzi-writer's quiz <strong>as-is</strong>. The right box has the same setup <strong>plus the PointerEvent → MouseEvent shim</strong> we ship in production. Logs below show which events reach the canvas and which trigger hanzi-writer callbacks.</p>
+
+<div class="box-row">
+  <div>
+    <div class="canvas-label">Bare (no shim)</div>
+    <div id="bare" class="canvas-box"></div>
+  </div>
+  <div>
+    <div class="canvas-label">With shim</div>
+    <div id="shim" class="canvas-box shim"></div>
+  </div>
+</div>
+
+<button id="clear" style="margin-top:12px;padding:6px 10px;">Clear log</button>
+
+<div id="log"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.7.3/dist/hanzi-writer.min.js"></script>
+<script>
+(async () => {
+  const logEl = document.getElementById('log');
+  function log(line, cls) {
+    const d = document.createElement('div');
+    const t = new Date().toISOString().slice(11, 19);
+    d.innerHTML = '<span class="pill ' + (cls || '') + '">' + t + '</span> ' + line;
+    logEl.prepend(d);
+  }
+  document.getElementById('clear').onclick = () => (logEl.innerHTML = '');
+
+  log('UA: ' + navigator.userAgent);
+  log('PointerEvent supported: ' + ('PointerEvent' in window));
+  log('TouchEvent supported: ' + ('TouchEvent' in window));
+  log('maxTouchPoints: ' + navigator.maxTouchPoints);
+
+  await HanziWriter.loadCharacterData('道');
+  log('Loaded 道 stroke data', 'ok');
+
+  function setupBox(elId, withShim) {
+    const tag = '[' + elId + ']';
+    const el = document.getElementById(elId);
+    el.style.touchAction = 'none';
+    el.style.cursor = 'crosshair';
+    el.style.userSelect = 'none';
+
+    // Log every input variant on the wrapper.
+    const evs = [
+      'pointerdown','pointermove','pointerup',
+      'mousedown','mousemove','mouseup',
+      'touchstart','touchmove','touchend','click',
+    ];
+    for (const ev of evs) {
+      el.addEventListener(ev, (e) => {
+        log(tag + ' ' + e.type + ' target=' + (e.target.tagName || '?'));
+      }, { capture: true, passive: false });
+    }
+
+    // PointerEvent → MouseEvent shim — what production ships.
+    if (withShim) {
+      function forward(e) {
+        const map = { pointerdown:'mousedown', pointermove:'mousemove', pointerup:'mouseup' };
+        const mt = map[e.type];
+        if (!mt) return;
+        e.preventDefault();
+        const me = new MouseEvent(mt, {
+          bubbles: true, cancelable: true, composed: true,
+          clientX: e.clientX, clientY: e.clientY,
+          button: e.button, buttons: e.buttons, view: window,
+        });
+        log(tag + ' SHIM forwards ' + e.type + ' → ' + mt, 'ok');
+        e.target.dispatchEvent(me);
+      }
+      el.addEventListener('pointerdown', forward, true);
+      el.addEventListener('pointermove', forward, true);
+      el.addEventListener('pointerup', forward, true);
+    }
+
+    const w = HanziWriter.create(el, '道', {
+      width: 200, height: 200,
+      showCharacter: false, showOutline: true,
+      drawingFadeDuration: 0,
+    });
+    w.quiz({
+      leniency: 1.5,
+      showHintAfterMisses: 3,
+      onMistake: (info) => log(tag + ' MISTAKE total=' + info.totalMistakes, 'err'),
+      onCorrectStroke: (info) => log(tag + ' CORRECT total=' + info.totalMistakes, 'ok'),
+      onComplete: (info) => log(tag + ' COMPLETE total=' + info.totalMistakes, 'ok'),
+    });
+    log(tag + ' quiz started', 'ok');
+  }
+
+  setupBox('bare', false);
+  setupBox('shim', true);
+})();
+</script>
+</body>
+</html>
