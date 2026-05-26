@@ -16,6 +16,8 @@
  */
 import { onBeforeUnmount, ref, watch } from "vue";
 
+import { apiUrl } from "@/api/client";
+
 const props = defineProps<{
   /** Hanzi to compare against (in the user's display script). */
   target: string;
@@ -120,7 +122,7 @@ async function onRecordingDone(mime: string) {
   }
   try {
     const token = localStorage.getItem("qingdu.token.v2");
-    const r = await fetch("/api/pronounce", {
+    const r = await fetch(apiUrl("/api/pronounce"), {
       method: "POST",
       body: form,
       headers: token ? { Authorization: `Bearer ${token}` } : {},

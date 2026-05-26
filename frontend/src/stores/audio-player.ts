@@ -1,6 +1,8 @@
 import { computed, ref, watch } from "vue";
 import { defineStore } from "pinia";
 
+import { apiUrl } from "@/api/client";
+
 /**
  * Continuous-narration player for the reader. Plays a queue of sentence
  * strings via `POST /api/tts/sentence`, advances on `audio.ended`, and
@@ -92,10 +94,12 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
     }
   }
 
-  async function fetchSentence(sentence: PlayableSentence): Promise<SentenceFetch> {
+  async function fetchSentence(
+    sentence: PlayableSentence,
+  ): Promise<SentenceFetch> {
     const hit = cache.get(sentence.key);
     if (hit) return hit;
-    const r = await fetch("/api/tts/sentence", {
+    const r = await fetch(apiUrl("/api/tts/sentence"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: sentence.text }),

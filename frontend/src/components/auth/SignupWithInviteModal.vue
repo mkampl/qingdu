@@ -2,7 +2,7 @@
 import { computed, ref, watch } from "vue";
 // `computed` is used by reasonLabel below — keep the import.
 
-import { ApiError } from "@/api/client";
+import { ApiError, apiUrl } from "@/api/client";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useToastStore } from "@/stores/toast";
@@ -57,9 +57,10 @@ async function validateInvite(t: string) {
   try {
     // Tiny inline call rather than expanding the client.ts surface area —
     // this endpoint is only useful from this one modal.
-    const response = await fetch(`/api/invitations/validate/${encodeURIComponent(t)}`, {
-      signal: validateAbort.signal,
-    });
+    const response = await fetch(
+      apiUrl(`/api/invitations/validate/${encodeURIComponent(t)}`),
+      { signal: validateAbort.signal },
+    );
     if (!response.ok) {
       inviteState.value = { status: "invalid", reason: "not_found" };
       return;
@@ -72,7 +73,10 @@ async function validateInvite(t: string) {
         expiresAt: data.expires_at,
       };
     } else {
-      inviteState.value = { status: "invalid", reason: data.reason ?? "invalid" };
+      inviteState.value = {
+        status: "invalid",
+        reason: data.reason ?? "invalid",
+      };
     }
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") return;
@@ -125,7 +129,11 @@ async function onSubmit(e: Event) {
 
   submitting.value = true;
   try {
-    await auth.signupWithInvite(token.value.trim(), username.value, password.value);
+    await auth.signupWithInvite(
+      token.value.trim(),
+      username.value,
+      password.value,
+    );
     toasts.success("Welcome aboard.");
     modals.closeAll();
   } catch (e) {
@@ -140,7 +148,6 @@ function switchToLogin() {
   modals.closeAll();
   modals.openLogin();
 }
-
 </script>
 
 <template>

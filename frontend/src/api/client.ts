@@ -23,6 +23,25 @@ import type {
 
 const TOKEN_KEY = "qingdu.token.v2";
 
+/**
+ * Base URL for every API call. Empty for the web build (same-origin
+ * relative URLs), set at build time for native wrappers (Capacitor)
+ * where the SPA loads from `https://localhost` and the backend lives
+ * elsewhere.
+ *
+ * Configure in `.env.production` / build env as:
+ *   VITE_API_BASE_URL=https://qingdu.itvoodoo.at
+ */
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+
+/** Prepend the configured base URL to an API path. Exported so direct
+ *  `fetch()` calls outside `request()` (file uploads, audio blobs) can
+ *  share the same logic. */
+export function apiUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path; // already absolute
+  return API_BASE + path;
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly detail: unknown;
@@ -68,7 +87,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(path, {
+  const response = await fetch(apiUrl(path), {
     method: opts.method ?? (opts.body !== undefined ? "POST" : "GET"),
     headers,
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
@@ -121,7 +140,7 @@ export const vocabularyStats = () =>
   request<VocabStatsResponse>("/api/vocabulary-stats", { anonymous: true });
 
 export const tts = (text: string) =>
-  fetch(`/api/tts/${encodeURIComponent(text)}`);
+  fetch(apiUrl(`/api/tts/${encodeURIComponent(text)}`));
 
 // --- Auth --------------------------------------------------------------------
 
@@ -474,7 +493,7 @@ export const getPackageSample = (name: string) =>
     anonymous: true,
   });
 
-export const packageSchemaUrl = () => "/api/import/package/schema.json";
+export const packageSchemaUrl = () => apiUrl("/api/import/package/schema.json");
 
 export async function extractFile(file: File): Promise<ExtractedArticle> {
   const form = new FormData();
@@ -482,7 +501,7 @@ export async function extractFile(file: File): Promise<ExtractedArticle> {
   const token = getToken();
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const r = await fetch("/api/extract/file", {
+  const r = await fetch(apiUrl("/api/extract/file"), {
     method: "POST",
     headers,
     body: form,
@@ -582,16 +601,18 @@ export const fetchSharedText = (token: string) =>
  */
 export function wordsCsvUrl(): string {
   const token = getToken();
-  return token
+  const path = token
     ? `/api/words/export.csv?token=${encodeURIComponent(token)}`
     : "/api/words/export.csv";
+  return apiUrl(path);
 }
 
 export function wordsAnkiUrl(): string {
   const token = getToken();
-  return token
+  const path = token
     ? `/api/words/export.apkg?token=${encodeURIComponent(token)}`
     : "/api/words/export.apkg";
+  return apiUrl(path);
 }
 
 export const getWordStats = () =>

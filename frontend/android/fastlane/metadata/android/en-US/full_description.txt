@@ -1,0 +1,16 @@
+Read any Chinese text against the HSK 1–9 vocabulary list and study what you don't know yet.
+
+Features
+• Paste, import a URL, drop an EPUB / PDF, or scan a page with the camera
+• Every word colour-coded by HSK level or by your personal progress
+• Click for definitions sourced from CC-CEDICT; click sentences for translation
+• Audio narration for words and full passages, with speed control
+• Spaced-repetition review with four modes: Recognition, Dictation, Writing, Cloze
+• Pronunciation check with per-syllable tone scoring
+• Personal glossaries that override the dictionary for specialised corpora
+• Simplified ⇄ Traditional toggle across the whole app
+• Export vocabulary to Anki or CSV
+
+Open source under the MIT licence — self-hostable, no tracking, no ads.
+The app is a thin shell around the web app at qingdu.itvoodoo.at; an
+internet connection is required.
