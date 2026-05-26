@@ -7,6 +7,11 @@ import pytest
 # These must be set BEFORE importing the app — main.py reads them at import time.
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("ALLOWED_ORIGINS", "*")
+# Skip the ~4 MB CC-CEDICT download on every CI run. Tests that need
+# cedict_vocab populated populate it directly via the state module;
+# the (small handful) that test lookup chains involving cedict have
+# their own fixtures that clear + seed.
+os.environ.setdefault("QINGDU_SKIP_CEDICT_LOAD", "1")
 
 
 @pytest.fixture(scope="session")

@@ -268,7 +268,18 @@ async def load_cedict(force_refresh: bool = False) -> None:
     Safe to call even if the network is down — we fall back to the cached
     file. If both fail (no cache + no network), CC-CEDICT is just absent
     and the app keeps working on the existing HSK data.
+
+    Honours `QINGDU_SKIP_CEDICT_LOAD=1` as a hard skip. conftest sets
+    this in the test suite so CI doesn't pull ~4MB on every run; the
+    handful of tests that actually exercise cedict lookups seed
+    `cedict_vocab` directly in their own fixtures.
     """
+    import os
+
+    if os.environ.get("QINGDU_SKIP_CEDICT_LOAD") == "1":
+        logger.info("CC-CEDICT load skipped (QINGDU_SKIP_CEDICT_LOAD=1)")
+        return
+
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     text: str | None = None
 
