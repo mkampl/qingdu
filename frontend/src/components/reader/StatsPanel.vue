@@ -9,19 +9,26 @@ import Button from "@/components/ui/Button.vue";
 import LevelStrata from "./LevelStrata.vue";
 import { levelNumber } from "./utils";
 
-const props = defineProps<{
-  statistics: AnalysisStatistics;
-  /** Flat word list from the current analysis. Used to compute the
-   *  progress-mode breakdown (new / learning / known) for this text. */
-  words?: WordInfo[];
-  canSave?: boolean;
-  saved?: boolean;
-  saving?: boolean;
-  /** True when the analysis is linked to an existing saved-text record. */
-  isUpdate?: boolean;
-  /** True when the loaded saved-text content has been edited locally. */
-  isEdited?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    statistics: AnalysisStatistics;
+    /** Flat word list from the current analysis. Used to compute the
+     *  progress-mode breakdown (new / learning / known) for this text. */
+    words?: WordInfo[];
+    canSave?: boolean;
+    saved?: boolean;
+    saving?: boolean;
+    /** True when the analysis is linked to an existing saved-text record. */
+    isUpdate?: boolean;
+    /** True when the loaded saved-text content has been edited locally. */
+    isEdited?: boolean;
+    /** When false, the entire Save / Share / library section is hidden —
+     *  used by the public-share view where the viewer is reading someone
+     *  else's text and "Save to my library" doesn't fit. */
+    showSave?: boolean;
+  }>(),
+  { showSave: true },
+);
 
 const emit = defineEmits<{ (e: "save"): void; (e: "share"): void }>();
 
@@ -118,7 +125,9 @@ const coveragePct = computed(() => {
          - progress: blue/accent/plain breakdown of THIS text's unique
            CJK words (HSK distribution demoted to a collapsible).
          - hsk / off: HSK distribution headline. -->
-    <section v-if="settings.colorMode === 'progress' && progressBreakdown.total > 0">
+    <section
+      v-if="settings.colorMode === 'progress' && progressBreakdown.total > 0"
+    >
       <p
         class="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-fg-subtle"
       >
@@ -135,7 +144,8 @@ const coveragePct = computed(() => {
             class="h-full transition-[flex-basis]"
             :style="{
               flexBasis: `${(progressBreakdown.known / progressBreakdown.total) * 100}%`,
-              backgroundColor: 'color-mix(in oklch, var(--color-fg-subtle), transparent 70%)',
+              backgroundColor:
+                'color-mix(in oklch, var(--color-fg-subtle), transparent 70%)',
               boxShadow: 'inset -1px 0 0 0 var(--color-bg-elevated)',
             }"
           />
@@ -145,7 +155,8 @@ const coveragePct = computed(() => {
             class="h-full transition-[flex-basis]"
             :style="{
               flexBasis: `${(progressBreakdown.learning / progressBreakdown.total) * 100}%`,
-              backgroundColor: 'color-mix(in oklch, var(--color-accent), transparent 25%)',
+              backgroundColor:
+                'color-mix(in oklch, var(--color-accent), transparent 25%)',
               boxShadow: 'inset -1px 0 0 0 var(--color-bg-elevated)',
             }"
           />
@@ -155,16 +166,22 @@ const coveragePct = computed(() => {
             class="h-full transition-[flex-basis]"
             :style="{
               flexBasis: `${(progressBreakdown.new / progressBreakdown.total) * 100}%`,
-              backgroundColor: 'color-mix(in oklch, var(--color-progress-new), transparent 25%)',
+              backgroundColor:
+                'color-mix(in oklch, var(--color-progress-new), transparent 25%)',
             }"
           />
         </div>
       </div>
-      <ul class="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] tabular-nums">
+      <ul
+        class="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] tabular-nums"
+      >
         <li class="flex items-center gap-1 text-fg-muted">
           <span
             class="inline-block size-2 rounded-sm"
-            :style="{ backgroundColor: 'color-mix(in oklch, var(--color-fg-subtle), transparent 70%)' }"
+            :style="{
+              backgroundColor:
+                'color-mix(in oklch, var(--color-fg-subtle), transparent 70%)',
+            }"
           />
           <span class="font-mono uppercase tracking-wider">Known</span>
           <span class="text-fg">{{ progressBreakdown.known }}</span>
@@ -172,7 +189,10 @@ const coveragePct = computed(() => {
         <li class="flex items-center gap-1 text-fg-muted">
           <span
             class="inline-block size-2 rounded-sm"
-            :style="{ backgroundColor: 'color-mix(in oklch, var(--color-accent), transparent 25%)' }"
+            :style="{
+              backgroundColor:
+                'color-mix(in oklch, var(--color-accent), transparent 25%)',
+            }"
           />
           <span class="font-mono uppercase tracking-wider">Learning</span>
           <span class="text-fg">{{ progressBreakdown.learning }}</span>
@@ -180,7 +200,10 @@ const coveragePct = computed(() => {
         <li class="flex items-center gap-1 text-fg-muted">
           <span
             class="inline-block size-2 rounded-sm"
-            :style="{ backgroundColor: 'color-mix(in oklch, var(--color-progress-new), transparent 25%)' }"
+            :style="{
+              backgroundColor:
+                'color-mix(in oklch, var(--color-progress-new), transparent 25%)',
+            }"
           />
           <span class="font-mono uppercase tracking-wider">New</span>
           <span class="text-fg">{{ progressBreakdown.new }}</span>
@@ -206,7 +229,13 @@ const coveragePct = computed(() => {
           :class="{ 'rotate-90': compositionExpanded }"
           aria-hidden="true"
         >
-          <path d="M3.5 2l3 3-3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+          <path
+            d="M3.5 2l3 3-3 3"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
         </svg>
       </button>
       <div v-if="compositionExpanded" class="mt-2">
@@ -240,7 +269,9 @@ const coveragePct = computed(() => {
         <p class="font-display text-2xl font-medium leading-none text-fg">
           {{ statistics.total_words.toLocaleString() }}
         </p>
-        <p class="mt-1 font-mono text-[9px] uppercase tracking-wider text-fg-subtle">
+        <p
+          class="mt-1 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
+        >
           Tokens
         </p>
       </div>
@@ -248,7 +279,9 @@ const coveragePct = computed(() => {
         <p class="font-display text-2xl font-medium leading-none text-fg">
           {{ statistics.total_characters.toLocaleString() }}
         </p>
-        <p class="mt-1 font-mono text-[9px] uppercase tracking-wider text-fg-subtle">
+        <p
+          class="mt-1 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
+        >
           Chars
         </p>
       </div>
@@ -256,7 +289,9 @@ const coveragePct = computed(() => {
         <p class="font-display text-2xl font-medium leading-none text-fg">
           {{ coveragePct }}<span class="text-base text-fg-muted">%</span>
         </p>
-        <p class="mt-1 font-mono text-[9px] uppercase tracking-wider text-fg-subtle">
+        <p
+          class="mt-1 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
+        >
           HSK
         </p>
       </div>
@@ -298,7 +333,7 @@ const coveragePct = computed(() => {
            - loaded saved text   -> 'Saved' (disabled)
            - loaded + edited     -> 'Update' (primary, enabled)
     -->
-    <section class="border-t border-border-subtle pt-5">
+    <section v-if="showSave" class="border-t border-border-subtle pt-5">
       <Button
         :variant="canSave ? 'primary' : 'secondary'"
         full
@@ -340,7 +375,13 @@ const coveragePct = computed(() => {
         class="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-border-subtle bg-bg-elevated px-3 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
         @click="emit('share')"
       >
-        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 11 11"
+          fill="none"
+          aria-hidden="true"
+        >
           <path
             d="M3 5.5l5-2.5M3 5.5l5 2.5M2 5.5a1.2 1.2 0 110 .01M8.5 3a1.2 1.2 0 110 .01M8.5 8a1.2 1.2 0 110 .01"
             stroke="currentColor"
