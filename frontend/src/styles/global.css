@@ -103,6 +103,16 @@
         transparent 1px
       );
     background-size: 22px 22px;
+    /* Edge-to-edge safe areas. Android 15 forces every app into
+       fullscreen with the WebView drawing behind the status bar +
+       gesture/nav bar; index.html's viewport-fit=cover surfaces the
+       safe-area insets here. No-op on regular desktop / mobile-web
+       (env() returns 0 there). */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    box-sizing: border-box;
   }
 
   html.dark body {
