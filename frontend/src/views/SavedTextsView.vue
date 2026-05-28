@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import * as api from "@/api/client";
@@ -57,12 +57,24 @@ async function load() {
   } catch (e) {
     state.value = {
       status: "error",
-      message: e instanceof ApiError ? e.message : "Couldn't load your library.",
+      message:
+        e instanceof ApiError ? e.message : "Couldn't load your library.",
     };
   }
 }
 
 onMounted(load);
+
+// When the user signs in from the empty-state CTA (which opens the modal
+// without navigating), the page wouldn't fetch the library again until
+// the user manually visited another route and came back. Watch the auth
+// flag so the load fires the moment they're authed.
+watch(
+  () => auth.isAuthed,
+  (isAuthed) => {
+    if (isAuthed) void load();
+  },
+);
 
 const filtered = computed(() => {
   if (state.value.status !== "ok") return [];
@@ -188,10 +200,7 @@ async function confirmDelete(text: SavedTextSummary) {
     <!-- Authenticated — main content. -->
     <template v-else>
       <!-- Search bar (only useful when there is something to search). -->
-      <div
-        v-if="state.status === 'ok' && total > 0"
-        class="mb-6 max-w-sm"
-      >
+      <div v-if="state.status === 'ok' && total > 0" class="mb-6 max-w-sm">
         <TextInput
           v-model="search"
           placeholder="Search by title or tag…"
@@ -246,10 +255,7 @@ async function confirmDelete(text: SavedTextSummary) {
       </div>
 
       <!-- The grid -->
-      <ul
-        v-else
-        class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-      >
+      <ul v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <li
           v-for="text in filtered"
           :key="text.id"
@@ -290,10 +296,7 @@ async function confirmDelete(text: SavedTextSummary) {
             v-if="parseTags(text.tags).length"
             class="mb-3 flex flex-wrap gap-1"
           >
-            <Tag
-              v-for="tag in parseTags(text.tags)"
-              :key="tag"
-            >
+            <Tag v-for="tag in parseTags(text.tags)" :key="tag">
               {{ tag }}
             </Tag>
           </div>
@@ -307,13 +310,12 @@ async function confirmDelete(text: SavedTextSummary) {
           </p>
 
           <!-- Reading-progress hairline -->
-          <div
-            class="mb-3 h-px w-full bg-border-subtle"
-            aria-hidden="true"
-          >
+          <div class="mb-3 h-px w-full bg-border-subtle" aria-hidden="true">
             <div
               class="h-px bg-accent transition-[width]"
-              :style="{ width: `${normalizeProgress(text.reading_progress) * 100}%` }"
+              :style="{
+                width: `${normalizeProgress(text.reading_progress) * 100}%`,
+              }"
             />
           </div>
 
@@ -322,7 +324,8 @@ async function confirmDelete(text: SavedTextSummary) {
             <span
               class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
             >
-              {{ Math.round(normalizeProgress(text.reading_progress) * 100) }}% read
+              {{ Math.round(normalizeProgress(text.reading_progress) * 100) }}%
+              read
             </span>
             <div class="flex items-center gap-1">
               <template v-if="pendingDeleteId === text.id">
@@ -360,11 +363,7 @@ async function confirmDelete(text: SavedTextSummary) {
                     />
                   </svg>
                 </button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  @click="open(text)"
-                >
+                <Button variant="secondary" size="sm" @click="open(text)">
                   Open
                   <svg
                     width="11"

@@ -104,7 +104,12 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: sentence.text }),
     });
-    if (!r.ok) throw new Error(`TTS failed (${r.status})`);
+    if (!r.ok) {
+      const body = await r.text().catch(() => "");
+      throw new Error(
+        `TTS failed ${r.status}${body ? `: ${body.slice(0, 200)}` : ""}`,
+      );
+    }
     const blob = await r.blob();
     const entry: SentenceFetch = { blob, url: URL.createObjectURL(blob) };
     cache.set(sentence.key, entry);
@@ -129,7 +134,26 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
       void advance();
     });
     audio.addEventListener("error", () => {
-      error.value = "Playback error";
+      // The audio element exposes the underlying cause on `audio.error`
+      // (MediaError with `.code` 1..4). Bubble that into the user-visible
+      // message AND a console log so the WebView's logcat is useful
+      // for diagnosis.
+      const me = audio?.error;
+      const codeMap: Record<number, string> = {
+        1: "playback aborted",
+        2: "network error",
+        3: "decode error",
+        4: "format not supported",
+      };
+      const why = me ? (codeMap[me.code] ?? `code ${me.code}`) : "unknown";
+      // eslint-disable-next-line no-console
+      console.error(
+        `[audio-player] error: ${why}`,
+        me?.message ?? "",
+        "src=",
+        audio?.src,
+      );
+      error.value = `Playback error (${why})`;
       playing.value = false;
     });
     return audio;
@@ -161,7 +185,14 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
       // Kick off prefetch for the next one as soon as we start playing.
       prefetchNext();
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Couldn't play audio";
+      // Capacitor's WebView logs DOMException through console as the
+      // bare `[object DOMException]` toString — extract name + message
+      // so logcat is actually useful.
+      const name = (e as DOMException)?.name ?? "";
+      const msg = e instanceof Error ? e.message : String(e);
+      // eslint-disable-next-line no-console
+      console.error(`[audio-player] play failed: ${name}: ${msg}`);
+      error.value = msg || "Couldn't play audio";
       playing.value = false;
     } finally {
       loading.value = false;
