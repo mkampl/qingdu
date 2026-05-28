@@ -42,4 +42,15 @@
          the OS permission prompt the first time the user taps the mic. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Bluetooth audio routing. Chromium WebView's media pipeline checks
+         for BLUETOOTH_CONNECT at startup so it can enumerate BT audio
+         devices — without it the cr_media subsystem logs a warning AND
+         MediaRecorder can't pick up a BT-headset microphone for the
+         pronunciation check. Android 12+ only requires CONNECT for the
+         runtime check; legacy BLUETOOTH covers pre-12 devices that fall
+         in our minSdk=23 range. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
 </manifest>

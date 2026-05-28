@@ -1,0 +1,4 @@
+Capacitor probes for this directory at WebView startup to discover JS
+plugin bundles. We don't have any non-core plugins, but the empty
+directory silences a confusing "Unable to read file at path public/plugins"
+log line each time the app launches.
