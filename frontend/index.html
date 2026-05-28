@@ -20,11 +20,31 @@
          Sans SC). gstatic delivers the woff2; the dual hint shaves ~150 ms off
          the first Chinese glyph render. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link
-      rel="preconnect"
-      href="https://fonts.gstatic.com"
-      crossorigin
-    />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Early error capture. Capacitor's bridge script runs inline BEFORE
+         the module bundle initialises Vue, so the global handlers we wire
+         up in main.ts can miss errors from that window (e.g. the
+         Capacitor.Plugins.X.triggerEvent quirk that fires when a plugin
+         races the bridge's ready signal). Hook the listeners here so
+         they exist from the very first tick — they reformat unknown
+         errors into 'name: message' strings the same way main.ts does
+         later. -->
+    <script>
+      (function () {
+        function describe(err) {
+          if (err && typeof err === "object" && (err.name || err.message)) {
+            return (err.name || "Error") + ": " + (err.message || "");
+          }
+          return String(err);
+        }
+        window.addEventListener("error", function (e) {
+          console.error("[early-onerror] " + describe(e.error || e.message));
+        });
+        window.addEventListener("unhandledrejection", function (e) {
+          console.error("[early-rejection] " + describe(e.reason));
+        });
+      })();
+    </script>
   </head>
   <body class="h-full bg-bg text-fg antialiased">
     <div id="app" class="h-full"></div>

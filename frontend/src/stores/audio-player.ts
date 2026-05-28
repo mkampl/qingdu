@@ -214,9 +214,18 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
     if (playing.value) await playCurrent();
   }
 
+  function hasPrimedSrc(): boolean {
+    // After `audio.src = ""` Chromium WebViews resolve the empty
+    // string against the document base URL, so reading `audio.src`
+    // back gives `https://localhost/` (truthy!) and the naive
+    // `if (audio.src)` guard would call play() on a cleared element.
+    // Our queue always loads blob URLs, so check the scheme.
+    return !!audio?.src && audio.src.startsWith("blob:");
+  }
+
   async function play() {
     if (!queue.value.length) return;
-    if (audio && audio.paused && audio.src) {
+    if (audio && audio.paused && hasPrimedSrc()) {
       await audio.play();
       playing.value = true;
       prefetchNext();
