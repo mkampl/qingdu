@@ -134,6 +134,14 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
       void advance();
     });
     audio.addEventListener("error", () => {
+      // Belt-and-suspenders: when we clear the element via clearAudioSrc()
+      // we use removeAttribute + load() so no spurious error fires, but if
+      // some other code path ever leaves an empty src behind the WebView
+      // resolves it against https://localhost/ and the element fires
+      // MEDIA_ERR_SRC_NOT_SUPPORTED with src=https://localhost/. Ignore
+      // that case so the user doesn't see a phantom "Playback error" the
+      // moment the reader opens.
+      if (!hasPrimedSrc()) return;
       // The audio element exposes the underlying cause on `audio.error`
       // (MediaError with `.code` 1..4). Bubble that into the user-visible
       // message AND a console log so the WebView's logcat is useful
@@ -223,6 +231,18 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
     return !!audio?.src && audio.src.startsWith("blob:");
   }
 
+  function clearAudioSrc() {
+    // `audio.src = ""` triggers a load attempt on the resolved base URL
+    // (`https://localhost/` in the Capacitor wrapper) which fires
+    // MEDIA_ERR_SRC_NOT_SUPPORTED through the error listener — a
+    // phantom 'Playback error' the user has no way to dismiss.
+    // removeAttribute + load() resets networkState to NETWORK_EMPTY
+    // without queueing a load.
+    if (!audio) return;
+    audio.removeAttribute("src");
+    audio.load();
+  }
+
   async function play() {
     if (!queue.value.length) return;
     if (audio && audio.paused && hasPrimedSrc()) {
@@ -254,7 +274,7 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
   function setQueue(next: PlayableSentence[]) {
     if (audio) {
       audio.pause();
-      audio.src = "";
+      clearAudioSrc();
     }
     playing.value = false;
     cursor.value = 0;
@@ -276,7 +296,7 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
   function reset() {
     if (audio) {
       audio.pause();
-      audio.src = "";
+      clearAudioSrc();
     }
     playing.value = false;
     cursor.value = 0;
