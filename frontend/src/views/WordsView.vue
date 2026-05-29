@@ -15,10 +15,12 @@ import { RouterLink } from "vue-router";
 import * as api from "@/api/client";
 import type { WordsQueueItem, WordsQueueParams } from "@/api/client";
 import { useAuthStore } from "@/stores/auth";
+import { useReviewStore } from "@/stores/review";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 
 const auth = useAuthStore();
+const review = useReviewStore();
 const toast = useToastStore();
 const userWords = useUserWordsStore();
 
@@ -58,6 +60,9 @@ async function refresh() {
     const r = await api.listWordsQueue(queryParams.value);
     items.value = r.items;
     total.value = r.total;
+    // Pull the same numbers the header badge shows, so the user can't see
+    // "38 due" in the nav and "28 due" here at the same time.
+    review.refreshStats();
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Couldn't load your queue";
   } finally {
@@ -294,12 +299,14 @@ function toggleExpanded(word: string) {
       </select>
     </div>
 
-    <!-- Mini stats strip — derived from currently-filtered list. -->
+    <!-- Mini stats strip — global counts from /api/review/stats (the same
+         numbers the nav badge shows) so the two never disagree. The list
+         below is filtered; these counts are not. -->
     <div class="mb-4 flex flex-wrap gap-3 text-xs text-fg-muted">
-      <span><strong class="text-accent">{{ counts.due_now }}</strong> due now</span>
-      <span><strong>{{ counts.due_week }}</strong> within a week</span>
+      <span><strong class="text-accent">{{ review.stats.due_now }}</strong> due now</span>
+      <span><strong>{{ review.stats.due_today }}</strong> due today</span>
       <span class="text-fg-subtle">·</span>
-      <span>{{ counts.learning }} learning · {{ counts.known }} known<span v-if="counts.ignored"> · {{ counts.ignored }} ignored</span></span>
+      <span>{{ review.stats.learning }} learning · {{ counts.known }} known<span v-if="counts.ignored"> · {{ counts.ignored }} ignored</span></span>
     </div>
 
     <p v-if="loading" class="py-10 text-center text-sm text-fg-subtle">Loading…</p>

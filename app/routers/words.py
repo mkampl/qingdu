@@ -17,6 +17,7 @@ import contextlib
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.auth import require_auth
@@ -429,7 +430,9 @@ async def list_queue(
 
     if due_within_days is not None and due_within_days >= 0:
         cutoff = datetime.utcnow() + timedelta(days=due_within_days)
-        q = q.filter(UserWord.due_at != None, UserWord.due_at <= cutoff)  # noqa: E711
+        # NULL due_at counts as "due now" (matches /api/review/stats — those
+        # are typically freshly clicked rows that haven't been scheduled yet).
+        q = q.filter(or_(UserWord.due_at.is_(None), UserWord.due_at <= cutoff))
 
     if search:
         q = q.filter(UserWord.word.contains(search.strip()))
