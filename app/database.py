@@ -134,6 +134,15 @@ class UserWord(Base):
     # be lost once unknown_word_cache (TTL 30min) evicts them.
     pinyin = Column(String(128), nullable=True)
     meaning = Column(Text, nullable=True)
+    # Phase #100 follow-up — provenance of the pinyin/meaning snapshot above.
+    # NULL on legacy rows (pre-this-column); "dictionary" when the snapshot
+    # came from lookup_pinyin_meaning() (HSK / CC-CEDICT / compound /
+    # pypinyin); "package" when the caller passed a curated meaning from a
+    # pre-analyzed JSON package (e.g. the bundled Dao De Jing). Once a row
+    # is stamped "package", subsequent clicks from any other package or
+    # the dictionary chain do NOT overwrite the meaning — first-package
+    # wins to keep SRS reviews stable.
+    meaning_source = Column(String(32), nullable=True)
     # Phase B remainder (cloze mode) — a sample sentence from one of the
     # user's saved texts containing this word. Populated lazily when the
     # row enters the /api/review/queue?mode=cloze pool. NULL means we
@@ -328,6 +337,10 @@ def init_db():
                 ("pinyin", "VARCHAR(128)"),
                 ("meaning", "TEXT"),
                 ("sample_sentence", "TEXT"),
+                # Phase #100 follow-up — provenance of the meaning snapshot
+                # so package-sourced glosses can be preserved against
+                # dictionary fallback on re-clicks. See UserWord model.
+                ("meaning_source", "VARCHAR(32)"),
             ]
             with engine.connect() as conn:
                 for name, sql_type in needed:

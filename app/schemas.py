@@ -90,11 +90,37 @@ class WordStateUpdate(BaseModel):
     word: str
     state: str  # 'learning' | 'known' | 'ignored'
     source_text_id: int | None = None
+    # Phase #100 follow-up — optional package-curated snapshot. Only sent
+    # by the reader when the clicked word came from a pre-analyzed JSON
+    # package (translation_source === "package"). Backend stamps these
+    # onto UserWord and marks meaning_source = "package" so the gloss
+    # the user actually read survives into the SRS queue. Omitting them
+    # (the normal HSK / CC-CEDICT / pypinyin path) leaves today's
+    # behaviour unchanged — backend falls through to the dictionary
+    # lookup chain in lookup_pinyin_meaning().
+    meaning: str | None = None
+    pinyin: str | None = None
+    translation_source: str | None = None
+
+
+class WordSnapshot(BaseModel):
+    """One package-sourced snapshot for the bulk endpoint — same fields
+    as the per-word path above, keyed by surface form in the request."""
+
+    meaning: str | None = None
+    pinyin: str | None = None
+    translation_source: str | None = None
 
 
 class BulkMarkKnownRequest(BaseModel):
     words: list[str]
     source_text_id: int | None = None
+    # Optional per-word package snapshots. Keys are the exact surface
+    # forms the caller is marking known; values follow the same
+    # "only when sourced from a package" rule as WordStateUpdate. The
+    # SPA's complete-section action can build this from analysisData
+    # before posting so curated meanings make it into the SRS pool.
+    snapshots: dict[str, WordSnapshot] | None = None
 
 
 class ImportHskRequest(BaseModel):

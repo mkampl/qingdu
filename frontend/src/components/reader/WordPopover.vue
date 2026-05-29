@@ -3,7 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import * as api from "@/api/client";
 import { ApiError } from "@/api/client";
-import type { UserWordState } from "@/api/client";
+import type { UserWordState, WordSnapshot } from "@/api/client";
+import { useAnalysisStore } from "@/stores/analysis";
 import { useAuthStore } from "@/stores/auth";
 import { useReaderStore } from "@/stores/reader";
 import { useSettingsStore } from "@/stores/settings";
@@ -17,6 +18,7 @@ import StrokeOrder from "./StrokeOrder.vue";
 import { levelForVersion } from "./utils";
 
 const reader = useReaderStore();
+const analysis = useAnalysisStore();
 const settings = useSettingsStore();
 const auth = useAuthStore();
 const userWords = useUserWordsStore();
@@ -219,13 +221,36 @@ const currentState = computed<UserWordState | null>(() => {
   return word.value ? userWords.stateOf(word.value.text) : null;
 });
 
+/**
+ * Build the optional package-snapshot for the API call. Only populated
+ * when the clicked word was glossed by a pre-analyzed JSON package — we
+ * deliberately do NOT ship dictionary-sourced fields, so the backend
+ * falls through to its normal lookup_pinyin_meaning() chain. Without
+ * this, package-curated meanings (e.g. the bundled Dao De Jing's
+ * Daoist-context glosses) get clobbered by CC-CEDICT on the first click.
+ */
+function buildSnapshot(): WordSnapshot | null {
+  const w = word.value;
+  if (!w || w.translation_source !== "package") return null;
+  return {
+    meaning: w.meaning ?? null,
+    pinyin: w.pinyin ?? null,
+    translation_source: "package",
+  };
+}
+
 watch(word, async (next) => {
   if (!next || !auth.isAuthed) return;
   // Skip linebreaks and other non-CJK tokens — we keep state for words only.
   if (!next.text || next.text === "\n") return;
   if (currentState.value === null) {
     try {
-      await userWords.setState(next.text, "learning");
+      await userWords.setState(
+        next.text,
+        "learning",
+        analysis.savedTextId ?? null,
+        buildSnapshot(),
+      );
     } catch {
       /* network error shouldn't block the popover */
     }
@@ -244,7 +269,12 @@ async function setWordState(state: UserWordState) {
     return;
   }
   try {
-    await userWords.setState(word.value.text, state);
+    await userWords.setState(
+      word.value.text,
+      state,
+      analysis.savedTextId ?? null,
+      buildSnapshot(),
+    );
   } catch {
     toasts.error("Couldn't update word state");
   }

@@ -541,13 +541,38 @@ export interface WordStatsResponse {
 export const listUserWordStates = () =>
   request<WordStatesResponse>("/api/words/state");
 
+/**
+ * Snapshot of a curated package gloss to ship alongside a state change.
+ * Only set when the reader is acting on a word whose meaning came from a
+ * pre-analyzed JSON package — for HSK / CC-CEDICT / compound / pypinyin
+ * sources we omit these fields so the backend falls through to its
+ * normal dictionary-lookup chain.
+ */
+export interface WordSnapshot {
+  meaning?: string | null;
+  pinyin?: string | null;
+  translation_source?: string | null;
+}
+
 export const setUserWordState = (
   word: string,
   state: UserWordState,
   source_text_id?: number | null,
+  snapshot?: WordSnapshot | null,
 ) =>
   request<{ word: string; state: UserWordState }>("/api/words/state", {
-    body: { word, state, source_text_id: source_text_id ?? null },
+    body: {
+      word,
+      state,
+      source_text_id: source_text_id ?? null,
+      ...(snapshot
+        ? {
+            meaning: snapshot.meaning ?? null,
+            pinyin: snapshot.pinyin ?? null,
+            translation_source: snapshot.translation_source ?? null,
+          }
+        : {}),
+    },
   });
 
 export const clearUserWordState = (word: string) =>
@@ -559,9 +584,14 @@ export const clearUserWordState = (word: string) =>
 export const bulkMarkKnown = (
   words: string[],
   source_text_id?: number | null,
+  snapshots?: Record<string, WordSnapshot> | null,
 ) =>
   request<{ updated: number; total: number }>("/api/words/bulk-mark-known", {
-    body: { words, source_text_id: source_text_id ?? null },
+    body: {
+      words,
+      source_text_id: source_text_id ?? null,
+      ...(snapshots ? { snapshots } : {}),
+    },
   });
 
 export const importHskKnown = (

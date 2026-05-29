@@ -68,16 +68,41 @@ def _apply_known_scheduling(row: UserWord) -> None:
     row.last_reviewed_at = seeded["last_reviewed_at"]
 
 
+def _resolve_snapshot(
+    word: str,
+    pkg_meaning: str | None,
+    pkg_pinyin: str | None,
+    pkg_translation_source: str | None,
+) -> tuple[str, str, str | None]:
+    """Decide which (pinyin, meaning, meaning_source) to stamp on a row.
+
+    When the caller hands us a package-sourced snapshot
+    (`translation_source == "package"` plus an actual meaning), we use it
+    verbatim and tag the row "package" so subsequent dictionary clicks
+    don't overwrite it. Otherwise we fall through to the in-process
+    dictionary chain — same behaviour as before this column existed.
+    """
+    if pkg_translation_source == "package" and (pkg_meaning or pkg_pinyin):
+        return (pkg_pinyin or "", pkg_meaning or "", "package")
+    pinyin, meaning = lookup_pinyin_meaning(word)
+    return pinyin, meaning, "dictionary"
+
+
 def _upsert(
     db: Session,
     user_id: int,
     word: str,
     state: str,
     source_text_id: int | None,
+    pkg_meaning: str | None = None,
+    pkg_pinyin: str | None = None,
+    pkg_translation_source: str | None = None,
 ) -> UserWord:
     row = db.query(UserWord).filter(UserWord.user_id == user_id, UserWord.word == word).first()
     if row is None:
-        pinyin, meaning = lookup_pinyin_meaning(word)
+        pinyin, meaning, source = _resolve_snapshot(
+            word, pkg_meaning, pkg_pinyin, pkg_translation_source
+        )
         row = UserWord(
             user_id=user_id,
             word=word,
@@ -85,6 +110,7 @@ def _upsert(
             seen_count=1,
             pinyin=pinyin or None,
             meaning=meaning or None,
+            meaning_source=source,
         )
         # 'known' is no longer a terminal "out-of-SRS" state — we seed a
         # high-stability Review-phase FSRS card so the row stays in the
@@ -99,13 +125,29 @@ def _upsert(
             row.state = state
         row.seen_count = (row.seen_count or 0) + 1
         row.updated_at = datetime.utcnow()
-        # Backfill snapshots on existing rows that never got them.
-        if not row.pinyin or not row.meaning:
+        # Package upgrade path: if the caller passed a package snapshot
+        # AND this row isn't already package-sourced, overwrite the
+        # snapshot so the contextual gloss the user just read wins over
+        # the dictionary fallback we resolved on the first click.
+        # First-package wins — a package-B click on a package-A row is
+        # left alone so SRS reviews stay stable across imports.
+        is_pkg = pkg_translation_source == "package" and (pkg_meaning or pkg_pinyin) is not None
+        if is_pkg and row.meaning_source != "package":
+            row.pinyin = pkg_pinyin or None
+            row.meaning = pkg_meaning or None
+            row.meaning_source = "package"
+        elif not row.pinyin or not row.meaning:
+            # Backfill snapshots on existing rows that never got them,
+            # using the dictionary chain (legacy / non-package path).
             pinyin, meaning = lookup_pinyin_meaning(word)
             if not row.pinyin and pinyin:
                 row.pinyin = pinyin
             if not row.meaning and meaning:
                 row.meaning = meaning
+            # Only stamp "dictionary" if we actually pulled anything in
+            # AND the row had no provenance recorded yet (legacy NULL).
+            if row.meaning_source is None and (row.pinyin or row.meaning):
+                row.meaning_source = "dictionary"
     _record_event(db, user_id, word, "state_change", state, source_text_id)
     return row
 
@@ -136,7 +178,16 @@ async def set_word_state(
     if not word:
         raise HTTPException(status_code=400, detail="word is required")
 
-    _upsert(db, user.id, word, payload.state, payload.source_text_id)
+    _upsert(
+        db,
+        user.id,
+        word,
+        payload.state,
+        payload.source_text_id,
+        pkg_meaning=payload.meaning,
+        pkg_pinyin=payload.pinyin,
+        pkg_translation_source=payload.translation_source,
+    )
     record_activity(user, db)
     db.commit()
     return {"word": word, "state": payload.state}
@@ -191,11 +242,21 @@ async def bulk_mark_known(
         .filter(UserWord.user_id == user.id, UserWord.word.in_(words))
         .all()
     }
+    # Resolve a per-word package snapshot, if one was supplied. The
+    # mapping is keyed by canonical surface form so it survives the
+    # to_canonical() pass above.
+    snapshots = payload.snapshots or {}
     updated = 0
     for word in words:
+        snap = snapshots.get(word)
+        pkg_meaning = snap.meaning if snap else None
+        pkg_pinyin = snap.pinyin if snap else None
+        pkg_source = snap.translation_source if snap else None
+        is_pkg = pkg_source == "package" and (pkg_meaning or pkg_pinyin) is not None
+
         row = existing.get(word)
         if row is None:
-            pinyin, meaning = lookup_pinyin_meaning(word)
+            pinyin, meaning, source = _resolve_snapshot(word, pkg_meaning, pkg_pinyin, pkg_source)
             row = UserWord(
                 user_id=user.id,
                 word=word,
@@ -203,16 +264,25 @@ async def bulk_mark_known(
                 seen_count=1,
                 pinyin=pinyin or None,
                 meaning=meaning or None,
+                meaning_source=source,
             )
             _apply_known_scheduling(row)
             db.add(row)
             updated += 1
-        elif (row.stability or 0) < 90:
-            # Existing low-stability row → promote it to a Review-phase
-            # card so it sits at known stability but stays in rotation.
-            _apply_known_scheduling(row)
-            row.updated_at = datetime.utcnow()
-            updated += 1
+        else:
+            if (row.stability or 0) < 90:
+                # Existing low-stability row → promote it to a Review-phase
+                # card so it sits at known stability but stays in rotation.
+                _apply_known_scheduling(row)
+                row.updated_at = datetime.utcnow()
+                updated += 1
+            # Apply the same first-package-wins upgrade rule as _upsert():
+            # a package snapshot can overwrite a dictionary-stamped row,
+            # but never another package row.
+            if is_pkg and row.meaning_source != "package":
+                row.pinyin = pkg_pinyin or None
+                row.meaning = pkg_meaning or None
+                row.meaning_source = "package"
         _record_event(db, user.id, word, "bulk_mark_known", "known", payload.source_text_id)
     record_activity(user, db)
     db.commit()
@@ -301,6 +371,7 @@ async def import_hsk_known(
             seen_count=1,
             pinyin=pinyin or None,
             meaning=meaning or None,
+            meaning_source="dictionary",
         )
         _apply_known_scheduling(row)
         db.add(row)

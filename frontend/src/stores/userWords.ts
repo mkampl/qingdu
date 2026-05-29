@@ -2,7 +2,11 @@ import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 
 import * as api from "@/api/client";
-import type { UserWordState, WordStatsResponse } from "@/api/client";
+import type {
+  UserWordState,
+  WordSnapshot,
+  WordStatsResponse,
+} from "@/api/client";
 
 /**
  * Per-user word-state cache. Mirrors the server's /api/words/state on hydrate
@@ -80,13 +84,14 @@ export const useUserWordsStore = defineStore("userWords", () => {
     word: string,
     state: UserWordState,
     sourceTextId?: number | null,
+    snapshot?: WordSnapshot | null,
   ) {
     const prev = states.value[word];
     // Optimistic — reassign object to keep reactivity cheap & shallow.
     states.value = { ...states.value, [word]: state };
     recomputeStats();
     try {
-      await api.setUserWordState(word, state, sourceTextId);
+      await api.setUserWordState(word, state, sourceTextId, snapshot);
     } catch (err) {
       // Roll back on failure.
       const next = { ...states.value };
@@ -114,7 +119,11 @@ export const useUserWordsStore = defineStore("userWords", () => {
     }
   }
 
-  async function bulkMarkKnown(words: string[], sourceTextId?: number | null) {
+  async function bulkMarkKnown(
+    words: string[],
+    sourceTextId?: number | null,
+    snapshots?: Record<string, WordSnapshot> | null,
+  ) {
     const unique = Array.from(new Set(words.filter((w) => !!w)));
     if (!unique.length) return { updated: 0, total: 0 };
     const prev = { ...states.value };
@@ -123,7 +132,7 @@ export const useUserWordsStore = defineStore("userWords", () => {
     states.value = next;
     recomputeStats();
     try {
-      return await api.bulkMarkKnown(unique, sourceTextId);
+      return await api.bulkMarkKnown(unique, sourceTextId, snapshots);
     } catch (err) {
       states.value = prev;
       recomputeStats();
