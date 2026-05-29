@@ -11,7 +11,7 @@ import { onMounted, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
-import type { LibraryForYouItem } from "@/api/client";
+import type { LibraryForYouItem, LibraryManifestItem } from "@/api/client";
 import type { AnalysisResponse } from "@/api/types";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useAuthStore } from "@/stores/auth";
@@ -26,7 +26,28 @@ const forYou = ref<LibraryForYouItem[]>([]);
 const forYouLoading = ref(false);
 const forYouLoaded = ref(false);
 
+const browseBands = ref<{ label: string; band: string; items: LibraryManifestItem[] }[]>([]);
+
+const BANDS: { label: string; band: string; levels: number[] }[] = [
+  { label: "Beginner (HSK 1–3)", band: "beg", levels: [1, 2, 3] },
+  { label: "Intermediate (HSK 4–6)", band: "int", levels: [4, 5, 6] },
+  { label: "Advanced (HSK 7–9)", band: "adv", levels: [7, 8, 9] },
+];
+
 onMounted(async () => {
+  // Browse-strip is anonymous — always fetch the manifest.
+  try {
+    const all = await api.listLibrary();
+    browseBands.value = BANDS.map((b) => ({
+      label: b.label,
+      band: b.band,
+      items: all.items.filter((it) => b.levels.includes(it.hsk_level)).slice(0, 4),
+    }));
+  } catch {
+    // silent — strip is optional
+  }
+
+  // For-You is auth-gated.
   if (!auth.isAuthed) return;
   forYouLoading.value = true;
   try {
@@ -233,6 +254,78 @@ const groups: Group[] = [
         </h1>
       </div>
     </header>
+
+    <!-- Browse — anonymous-friendly entry into the library by HSK band. -->
+    <section v-if="browseBands.length" class="mb-14">
+      <header class="mb-5 flex items-end justify-between gap-4">
+        <div>
+          <div class="mb-2 flex items-baseline gap-3">
+            <span
+              class="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-fg-subtle"
+            >
+              Browse
+            </span>
+            <span class="h-px w-8 bg-border-subtle" aria-hidden="true" />
+          </div>
+          <h2
+            class="font-display text-xl font-medium tracking-tight text-fg sm:text-2xl"
+          >
+            From the library
+          </h2>
+          <p class="mt-2 max-w-prose text-sm leading-relaxed text-fg-muted">
+            180 bundled HSK-aligned texts in the app. A taste below; the full
+            collection lives on the
+            <RouterLink
+              to="/library"
+              class="font-medium text-accent hover:underline"
+            >
+              Library
+            </RouterLink>
+            page with filters.
+          </p>
+        </div>
+      </header>
+
+      <div class="space-y-6">
+        <div v-for="band in browseBands" :key="band.band">
+          <p
+            class="mb-2 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+          >
+            {{ band.label }}
+          </p>
+          <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <li v-for="item in band.items" :key="item.slug">
+              <button
+                type="button"
+                class="group flex h-full w-full flex-col gap-1 rounded-lg border border-border bg-bg-elevated p-3 text-left transition-shadow hover:shadow-md"
+                @click="openLibraryText(item.slug)"
+              >
+                <p
+                  class="text-cn-serif text-sm font-medium leading-snug text-fg group-hover:text-accent"
+                >
+                  {{ item.title }}
+                </p>
+                <p class="font-display text-[11px] italic text-fg-subtle">
+                  {{ item.topic.replace(/-/g, " ") }}
+                </p>
+                <div class="mt-auto flex items-center gap-1 pt-1">
+                  <span
+                    class="rounded-full bg-bg-sunken px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-muted"
+                  >
+                    HSK {{ item.hsk_level }}
+                  </span>
+                  <span
+                    class="rounded-full bg-bg-sunken px-1.5 py-0.5 font-mono text-[9px] tracking-wider text-fg-muted"
+                  >
+                    {{ item.char_count }} 字
+                  </span>
+                </div>
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
 
     <!-- For You — bundled library texts in the user's comprehension zone. -->
     <section v-if="forYou.length" class="mb-14">

@@ -132,6 +132,13 @@ onMounted(async () => {
             </span>
           </RouterLink>
           <RouterLink
+            to="/library"
+            class="rounded-md px-3 py-1.5 text-sm text-fg-muted hover:text-fg hover:bg-bg-sunken"
+            active-class="text-fg bg-bg-sunken"
+          >
+            Library
+          </RouterLink>
+          <RouterLink
             to="/discover"
             class="rounded-md px-3 py-1.5 text-sm text-fg-muted hover:text-fg hover:bg-bg-sunken"
             active-class="text-fg bg-bg-sunken"
@@ -388,6 +395,7 @@ onMounted(async () => {
                       badge: auth.isAuthed ? review.dueNow : 0,
                       gated: true,
                     },
+                    { to: '/library', label: 'Library', badge: 0 },
                     { to: '/discover', label: 'Discover', badge: 0 },
                   ].filter((l) => !l.gated || auth.isAuthed)"
                   :key="link.to"
