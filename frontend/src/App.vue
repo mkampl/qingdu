@@ -416,30 +416,6 @@ onMounted(async () => {
                 </li>
               </ul>
 
-              <!-- Pinch of meta access in the drawer's tail so the hamburger
-                   surfaces everything the header would offer on desktop. -->
-              <footer class="border-t border-border-subtle px-5 py-3">
-                <button
-                  type="button"
-                  class="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-fg-muted hover:text-fg hover:bg-bg-sunken"
-                  @click="modals.openSettings(); mobileNavOpen = false"
-                >
-                  <span>Settings</span>
-                  <span class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
-                    ⚙
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  class="mt-1 flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-fg-muted hover:text-fg hover:bg-bg-sunken"
-                  @click="settings.toggleTheme(); mobileNavOpen = false"
-                >
-                  <span>{{ settings.theme === "dark" ? "Light mode" : "Dark mode" }}</span>
-                  <span class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
-                    {{ settings.theme === "dark" ? "☀" : "☾" }}
-                  </span>
-                </button>
-              </footer>
             </nav>
           </Transition>
         </div>
