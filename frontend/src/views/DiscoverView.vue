@@ -1,12 +1,54 @@
 <script setup lang="ts">
 /**
- * A curated list of places to find Chinese text. Static — the value is in
- * the editorial picks (level range, one-line note on what each source is
- * good for), not in dynamic content. Reader's "Import from URL" closes the
- * loop: open a source -> find an article -> paste its URL into the reader.
+ * Discover: two layers.
+ *   1. "For You" — bundled library texts in the user's comprehension zone,
+ *      sorted by adherence to 85-98% known-word ratio. Hidden when the user
+ *      is unauthenticated or hasn't built any known-word state yet.
+ *   2. Static external-source links — curation by hand.
  */
 
-import { RouterLink } from "vue-router";
+import { onMounted, ref } from "vue";
+import { RouterLink, useRouter } from "vue-router";
+
+import * as api from "@/api/client";
+import type { LibraryForYouItem } from "@/api/client";
+import type { AnalysisResponse } from "@/api/types";
+import { useAnalysisStore } from "@/stores/analysis";
+import { useAuthStore } from "@/stores/auth";
+import { useToastStore } from "@/stores/toast";
+
+const auth = useAuthStore();
+const analysis = useAnalysisStore();
+const toast = useToastStore();
+const router = useRouter();
+
+const forYou = ref<LibraryForYouItem[]>([]);
+const forYouLoading = ref(false);
+const forYouLoaded = ref(false);
+
+onMounted(async () => {
+  if (!auth.isAuthed) return;
+  forYouLoading.value = true;
+  try {
+    const r = await api.libraryForYou({ limit: 9 });
+    forYou.value = r.items;
+  } catch {
+    // silent — rail is optional
+  } finally {
+    forYouLoading.value = false;
+    forYouLoaded.value = true;
+  }
+});
+
+async function openLibraryText(slug: string) {
+  try {
+    const entry = await api.getLibraryEntry(slug);
+    analysis.loadSaved(entry.text, entry.analyzed as AnalysisResponse, null);
+    router.push("/");
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : "Couldn't open that text");
+  }
+}
 
 interface Source {
   /** Chinese name where it exists, otherwise English. Rendered prominently. */
@@ -191,6 +233,73 @@ const groups: Group[] = [
         </h1>
       </div>
     </header>
+
+    <!-- For You — bundled library texts in the user's comprehension zone. -->
+    <section v-if="forYou.length" class="mb-14">
+      <header class="mb-5">
+        <div class="mb-2 flex items-baseline gap-3">
+          <span
+            class="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-fg-subtle"
+          >
+            For you
+          </span>
+          <span class="h-px w-8 bg-border-subtle" aria-hidden="true" />
+        </div>
+        <h2
+          class="font-display text-xl font-medium tracking-tight text-fg sm:text-2xl"
+        >
+          On your level
+        </h2>
+        <p class="mt-2 max-w-prose text-sm leading-relaxed text-fg-muted">
+          Short bundled texts where you already know 85-98% of the words.
+          The sweet spot for reading without a dictionary on every line.
+        </p>
+      </header>
+
+      <ul class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+        <li v-for="item in forYou" :key="item.slug">
+          <button
+            type="button"
+            class="group flex h-full w-full flex-col gap-2 rounded-lg border border-border bg-bg-elevated p-4 text-left transition-shadow hover:shadow-md"
+            @click="openLibraryText(item.slug)"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <p
+                class="text-cn-serif text-base font-medium leading-snug text-fg group-hover:text-accent"
+              >
+                {{ item.title }}
+              </p>
+              <span
+                class="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent"
+              >
+                {{ Math.round(item.comprehension_score * 100) }}%
+              </span>
+            </div>
+            <p class="text-cn-serif text-sm leading-relaxed text-fg-muted">
+              {{ item.preview }}…
+            </p>
+            <div class="mt-auto flex items-center gap-2 pt-2">
+              <span
+                class="rounded-full bg-bg-sunken px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted"
+              >
+                HSK {{ item.hsk_level }}
+              </span>
+              <span
+                class="rounded-full bg-bg-sunken px-2 py-0.5 font-mono text-[10px] tracking-wider text-fg-muted"
+              >
+                {{ item.char_count }} 字
+              </span>
+              <span
+                v-if="item.new_words > 0"
+                class="rounded-full bg-bg-sunken px-2 py-0.5 font-mono text-[10px] tracking-wider text-fg-muted"
+              >
+                {{ item.new_words }} new
+              </span>
+            </div>
+          </button>
+        </li>
+      </ul>
+    </section>
 
     <!-- Intro / how-to-use -->
     <div

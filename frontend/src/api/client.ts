@@ -495,6 +495,49 @@ export const getPackageSample = (name: string) =>
 
 export const packageSchemaUrl = () => apiUrl("/api/import/package/schema.json");
 
+// ----- Library --------------------------------------------------------------
+
+export interface LibraryManifestItem {
+  slug: string;
+  title: string;
+  hsk_level: number;
+  topic: string;
+  grammar_pattern: string | null;
+  char_count: number;
+  total_unique_words: number;
+}
+
+export interface LibraryForYouItem extends LibraryManifestItem {
+  known_unique: number;
+  new_words: number;
+  comprehension_score: number;
+  preview: string;
+}
+
+export interface LibraryEntry extends LibraryManifestItem {
+  text: string;
+  analyzed: unknown;
+}
+
+export const listLibrary = () =>
+  request<{ items: LibraryManifestItem[] }>("/api/library", { anonymous: true });
+
+export const libraryForYou = (params: { min?: number; max?: number; limit?: number } = {}) => {
+  const q = new URLSearchParams();
+  if (params.min !== undefined) q.set("min_score", String(params.min));
+  if (params.max !== undefined) q.set("max_score", String(params.max));
+  if (params.limit !== undefined) q.set("limit", String(params.limit));
+  const suffix = q.toString() ? `?${q}` : "";
+  return request<{ items: LibraryForYouItem[]; reason?: string }>(
+    `/api/library/for-you${suffix}`,
+  );
+};
+
+export const getLibraryEntry = (slug: string) =>
+  request<LibraryEntry>(`/api/library/${encodeURIComponent(slug)}`, {
+    anonymous: true,
+  });
+
 export async function extractFile(file: File): Promise<ExtractedArticle> {
   const form = new FormData();
   form.append("file", file);
