@@ -445,7 +445,7 @@ async def list_queue(
     rows = q.limit(min(limit, 500)).offset(max(offset, 0)).all()
 
     now = datetime.utcnow()
-    vocab = hsk_vocab.get_vocab() or {}
+    vocab = hsk_vocab
     items = []
     for r in rows:
         hsk_entry = vocab.get(r.word) if vocab else None
