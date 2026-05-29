@@ -163,12 +163,14 @@ onMounted(async () => {
             <span class="tabular-nums">{{ userWords.stats.streak }}</span>
           </span>
 
-          <!-- Known-words badge — at-a-glance progress. Hidden on the very
-               narrowest screens to keep the header from wrapping. -->
-          <span
+          <!-- Known-words badge — at-a-glance progress + entry point into
+               /words queue browser. Hidden on the very narrowest screens. -->
+          <RouterLink
             v-if="auth.isAuthed && userWords.hydrated"
-            class="hidden items-center gap-1 rounded-full border border-border-subtle bg-bg-sunken/60 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted sm:inline-flex"
-            :title="`${userWords.stats.known.toLocaleString()} known · ${userWords.stats.learning.toLocaleString()} learning${userWords.stats.ignored ? ` · ${userWords.stats.ignored.toLocaleString()} ignored` : ''}`"
+            to="/words"
+            class="hidden items-center gap-1 rounded-full border border-border-subtle bg-bg-sunken/60 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted hover:text-fg hover:border-border sm:inline-flex"
+            active-class="text-fg border-border"
+            :title="`${userWords.stats.known.toLocaleString()} known · ${userWords.stats.learning.toLocaleString()} learning${userWords.stats.ignored ? ` · ${userWords.stats.ignored.toLocaleString()} ignored` : ''} — click to browse`"
           >
             <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden="true">
               <path
@@ -187,7 +189,7 @@ onMounted(async () => {
             >
               · {{ compactNumber(userWords.stats.learning) }}
             </span>
-          </span>
+          </RouterLink>
           <button
             type="button"
             class="rounded-md p-2 text-fg-muted hover:text-fg hover:bg-bg-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"

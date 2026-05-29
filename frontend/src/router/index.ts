@@ -29,6 +29,11 @@ export const router = createRouter({
       component: () => import("@/views/LibraryView.vue"),
     },
     {
+      path: "/words",
+      name: "words",
+      component: () => import("@/views/WordsView.vue"),
+    },
+    {
       path: "/review",
       name: "review",
       component: () => import("@/views/ReviewView.vue"),

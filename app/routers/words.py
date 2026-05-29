@@ -13,6 +13,7 @@ Every mutation also appends a UserWordEvent so we can power undo and
 analytics later without changing this code path.
 """
 
+import contextlib
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -392,3 +393,160 @@ async def import_hsk_known(
         "skipped": len(existing),
         "total_eligible": len(candidates),
     }
+
+
+@router.get("/api/words/queue")
+async def list_queue(
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+    state: str | None = None,
+    due_within_days: int | None = None,
+    hsk_levels: str | None = None,
+    search: str | None = None,
+    sort: str = "due",
+    limit: int = 200,
+    offset: int = 0,
+) -> dict:
+    """Personal SRS queue browser.
+
+    Filters:
+      - state: comma-separated subset of {learning, known, ignored}
+      - due_within_days: only rows whose due_at is within now+N days (None=no filter)
+      - hsk_levels: comma-separated HSK levels like "1,2,3" — matched against the
+        global hsk_vocab map
+      - search: substring match on the word column
+    sort: 'due' (NULL last), 'recent' (newest first), 'hsk' (lowest level first)
+    """
+    from datetime import datetime, timedelta
+
+    q = db.query(UserWord).filter(UserWord.user_id == user.id)
+
+    if state:
+        wanted = {s.strip() for s in state.split(",") if s.strip()}
+        if wanted - VALID_WORD_STATES:
+            raise HTTPException(400, f"unknown state in {wanted - VALID_WORD_STATES}")
+        q = q.filter(UserWord.state.in_(wanted))
+
+    if due_within_days is not None and due_within_days >= 0:
+        cutoff = datetime.utcnow() + timedelta(days=due_within_days)
+        q = q.filter(UserWord.due_at != None, UserWord.due_at <= cutoff)  # noqa: E711
+
+    if search:
+        q = q.filter(UserWord.word.contains(search.strip()))
+
+    if sort == "recent":
+        q = q.order_by(UserWord.created_at.desc())
+    elif sort == "hsk":
+        q = q.order_by(UserWord.created_at.asc())  # client-side re-sort if HSK known
+    else:  # 'due' default — due-now first, then upcoming, NULLs last
+        q = q.order_by(UserWord.due_at.is_(None), UserWord.due_at.asc())
+
+    total = q.count()
+    rows = q.limit(min(limit, 500)).offset(max(offset, 0)).all()
+
+    now = datetime.utcnow()
+    vocab = hsk_vocab.get_vocab() or {}
+    items = []
+    for r in rows:
+        hsk_entry = vocab.get(r.word) if vocab else None
+        hsk_level = None
+        if hsk_entry:
+            lvl = hsk_entry.get("level_new") or ""
+            if lvl.startswith("new-"):
+                with contextlib.suppress(ValueError):
+                    hsk_level = int(lvl.split("-", 1)[1].split("-")[0])
+        seconds_until = None
+        if r.due_at:
+            seconds_until = int((r.due_at - now).total_seconds())
+        items.append(
+            {
+                "word": r.word,
+                "state": r.state,
+                "pinyin": r.pinyin,
+                "meaning": r.meaning,
+                "hsk_level": hsk_level,
+                "seen_count": r.seen_count,
+                "ease": r.ease,
+                "stability": r.stability,
+                "difficulty": r.difficulty,
+                "due_at": r.due_at.isoformat() if r.due_at else None,
+                "seconds_until_due": seconds_until,
+                "last_reviewed_at": (
+                    r.last_reviewed_at.isoformat() if r.last_reviewed_at else None
+                ),
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+        )
+
+    # Optional HSK-band filter (client-side, since hsk lookup is from vocab map)
+    if hsk_levels:
+        try:
+            wanted_lvls = {int(s) for s in hsk_levels.split(",") if s.strip()}
+        except ValueError as e:
+            raise HTTPException(400, "hsk_levels must be comma-separated ints") from e
+        items = [it for it in items if it["hsk_level"] in wanted_lvls]
+
+    if sort == "hsk":
+        items.sort(key=lambda it: it["hsk_level"] if it["hsk_level"] is not None else 99)
+
+    return {"items": items, "total": total}
+
+
+@router.post("/api/words/snooze")
+async def snooze_word(
+    payload: dict,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Push due_at forward by `days` days.
+
+    Body: {word: str, days: int}. Default 3 if unset.
+    Useful when the user isn't ready to re-encounter a word yet but doesn't
+    want to mark it 'known' or remove it from the queue entirely.
+    """
+    from datetime import datetime, timedelta
+
+    word_raw = (payload.get("word") or "").strip()
+    days = int(payload.get("days") or 3)
+    if not word_raw:
+        raise HTTPException(400, "word is required")
+    if not (1 <= days <= 90):
+        raise HTTPException(400, "days must be in [1, 90]")
+
+    word = to_canonical(word_raw, user)
+    row = db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.word == word).first()
+    if row is None:
+        raise HTTPException(404, "word not in your queue")
+
+    base = max(row.due_at or datetime.utcnow(), datetime.utcnow())
+    row.due_at = base + timedelta(days=days)
+    _record_event(db, user.id, word, "snooze")
+    db.commit()
+    return {
+        "word": word,
+        "due_at": row.due_at.isoformat(),
+        "days": days,
+    }
+
+
+@router.post("/api/words/review-now")
+async def review_now(
+    payload: dict,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Set due_at = now so the word surfaces immediately in /review."""
+    from datetime import datetime
+
+    word_raw = (payload.get("word") or "").strip()
+    if not word_raw:
+        raise HTTPException(400, "word is required")
+    word = to_canonical(word_raw, user)
+    row = db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.word == word).first()
+    if row is None:
+        raise HTTPException(404, "word not in your queue")
+
+    row.due_at = datetime.utcnow()
+    _record_event(db, user.id, word, "review_now")
+    db.commit()
+    return {"word": word, "due_at": row.due_at.isoformat()}

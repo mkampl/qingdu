@@ -538,6 +538,60 @@ export const getLibraryEntry = (slug: string) =>
     anonymous: true,
   });
 
+// ----- Words queue ----------------------------------------------------------
+
+export interface WordsQueueItem {
+  word: string;
+  state: "learning" | "known" | "ignored";
+  pinyin: string | null;
+  meaning: string | null;
+  hsk_level: number | null;
+  seen_count: number | null;
+  ease: number | null;
+  stability: number | null;
+  difficulty: number | null;
+  due_at: string | null;
+  seconds_until_due: number | null;
+  last_reviewed_at: string | null;
+  created_at: string | null;
+}
+
+export interface WordsQueueParams {
+  state?: string;
+  dueWithinDays?: number | null;
+  hskLevels?: string;
+  search?: string;
+  sort?: "due" | "recent" | "hsk";
+  limit?: number;
+  offset?: number;
+}
+
+export const listWordsQueue = (params: WordsQueueParams = {}) => {
+  const q = new URLSearchParams();
+  if (params.state) q.set("state", params.state);
+  if (params.dueWithinDays !== undefined && params.dueWithinDays !== null)
+    q.set("due_within_days", String(params.dueWithinDays));
+  if (params.hskLevels) q.set("hsk_levels", params.hskLevels);
+  if (params.search) q.set("search", params.search);
+  if (params.sort) q.set("sort", params.sort);
+  if (params.limit !== undefined) q.set("limit", String(params.limit));
+  if (params.offset !== undefined) q.set("offset", String(params.offset));
+  const suffix = q.toString() ? `?${q}` : "";
+  return request<{ items: WordsQueueItem[]; total: number }>(
+    `/api/words/queue${suffix}`,
+  );
+};
+
+export const snoozeWord = (word: string, days = 3) =>
+  request<{ word: string; due_at: string; days: number }>("/api/words/snooze", {
+    body: { word, days },
+  });
+
+export const reviewNow = (word: string) =>
+  request<{ word: string; due_at: string }>("/api/words/review-now", {
+    body: { word },
+  });
+
 export async function extractFile(file: File): Promise<ExtractedArticle> {
   const form = new FormData();
   form.append("file", file);
