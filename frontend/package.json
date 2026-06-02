@@ -12,6 +12,11 @@
     "format": "prettier --write \"src/**/*.{vue,ts,tsx,css}\""
   },
   "dependencies": {
+    "@capacitor/haptics": "^7.0.5",
+    "@capacitor/local-notifications": "^7.0.6",
+    "@capacitor/share": "^7.0.4",
+    "@capacitor/splash-screen": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6",
     "hanzi-writer": "^3.7.3",
     "pinia": "^2.3.1",
     "tesseract.js": "^5.1.1",

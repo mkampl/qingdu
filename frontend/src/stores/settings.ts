@@ -15,6 +15,13 @@ interface Persisted {
   showLegend: boolean;
   colorMode: ColorMode;
   writingShowOutline: boolean;
+  // Native-only on Android via @capacitor/local-notifications; ignored on web.
+  // `reminderTime` is "HH:MM" 24h. The reminder body shows the cached
+  // due-count from the last app session — never an exact live number, but
+  // accurate enough to motivate a return visit.
+  reminderEnabled: boolean;
+  reminderTime: string;
+  hapticsEnabled: boolean;
 }
 
 function loadFromStorage(): Persisted {
@@ -45,6 +52,9 @@ function defaults(): Persisted {
     colorMode: "hsk",
     // Anki-style by default: nothing to trace, recall from pinyin + meaning.
     writingShowOutline: false,
+    reminderEnabled: false,
+    reminderTime: "19:00",
+    hapticsEnabled: true,
   };
 }
 
@@ -55,6 +65,9 @@ export const useSettingsStore = defineStore("settings", () => {
   const showLegend = ref(false);
   const colorMode = ref<ColorMode>("progress");
   const writingShowOutline = ref(false);
+  const reminderEnabled = ref(false);
+  const reminderTime = ref("19:00");
+  const hapticsEnabled = ref(true);
   let hydrated = false;
 
   function applyTheme(value: Theme) {
@@ -71,6 +84,9 @@ export const useSettingsStore = defineStore("settings", () => {
     showLegend.value = persisted.showLegend;
     colorMode.value = persisted.colorMode;
     writingShowOutline.value = persisted.writingShowOutline;
+    reminderEnabled.value = persisted.reminderEnabled;
+    reminderTime.value = persisted.reminderTime;
+    hapticsEnabled.value = persisted.hapticsEnabled;
     applyTheme(theme.value);
     hydrated = true;
   }
@@ -84,12 +100,16 @@ export const useSettingsStore = defineStore("settings", () => {
       showLegend: showLegend.value,
       colorMode: colorMode.value,
       writingShowOutline: writingShowOutline.value,
+      reminderEnabled: reminderEnabled.value,
+      reminderTime: reminderTime.value,
+      hapticsEnabled: hapticsEnabled.value,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }
 
   watch(
-    [theme, pinyinMode, hskVersion, showLegend, colorMode, writingShowOutline],
+    [theme, pinyinMode, hskVersion, showLegend, colorMode, writingShowOutline,
+     reminderEnabled, reminderTime, hapticsEnabled],
     () => {
       if (hydrated) persist();
     },
@@ -108,6 +128,9 @@ export const useSettingsStore = defineStore("settings", () => {
     showLegend,
     colorMode,
     writingShowOutline,
+    reminderEnabled,
+    reminderTime,
+    hapticsEnabled,
     hydrate,
     toggleTheme,
   };

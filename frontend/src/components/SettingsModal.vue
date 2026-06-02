@@ -43,6 +43,18 @@ const colorMode = computed<ColorMode>({
   get: () => settings.colorMode,
   set: (v) => (settings.colorMode = v),
 });
+const reminderEnabled = computed<boolean>({
+  get: () => settings.reminderEnabled,
+  set: (v) => (settings.reminderEnabled = v),
+});
+const reminderTime = computed<string>({
+  get: () => settings.reminderTime,
+  set: (v) => (settings.reminderTime = v),
+});
+const hapticsEnabled = computed<boolean>({
+  get: () => settings.hapticsEnabled,
+  set: (v) => (settings.hapticsEnabled = v),
+});
 
 const colorOptions: { value: ColorMode; label: string; hint: string }[] = [
   {
@@ -366,6 +378,69 @@ async function runImport() {
             <span class="font-display text-base text-fg">Dark</span>
           </label>
         </div>
+      </fieldset>
+
+      <!-- Phase #116 — native-only daily reminder. Shown on all platforms;
+           on web the toggle saves the preference but never schedules anything
+           (the native plugin is a no-op outside the Capacitor wrapper). -->
+      <fieldset>
+        <legend
+          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          Daily reminder
+        </legend>
+        <label class="flex cursor-pointer items-center gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken">
+          <input
+            v-model="reminderEnabled"
+            type="checkbox"
+            class="mt-0 accent-accent"
+          />
+          <span class="flex-1">
+            <span class="block font-display text-base text-fg">
+              Remind me daily
+            </span>
+            <span class="block text-xs text-fg-muted">
+              A local notification at a fixed time. Body shows the
+              due-count from the last time the app was open — close enough
+              to motivate a return visit without needing a server push.
+            </span>
+          </span>
+        </label>
+        <label
+          v-if="reminderEnabled"
+          class="mt-2 flex items-center gap-3 px-3"
+        >
+          <span class="font-display text-sm text-fg-muted">Time</span>
+          <input
+            v-model="reminderTime"
+            type="time"
+            class="rounded-md border border-border-subtle bg-bg px-2 py-1 font-mono text-sm tabular-nums text-fg focus:border-accent focus:outline-none"
+          />
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend
+          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          Feedback
+        </legend>
+        <label class="flex cursor-pointer items-center gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken">
+          <input
+            v-model="hapticsEnabled"
+            type="checkbox"
+            class="mt-0 accent-accent"
+          />
+          <span class="flex-1">
+            <span class="block font-display text-base text-fg">
+              Haptic taps
+            </span>
+            <span class="block text-xs text-fg-muted">
+              Subtle vibration on word-tap and review grade. Android only;
+              ignored on web.
+            </span>
+          </span>
+        </label>
       </fieldset>
 
       <!-- Phase #96 follow-up — global trad/simp toggle. Auth-gated since

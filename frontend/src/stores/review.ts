@@ -99,6 +99,11 @@ export const useReviewStore = defineStore("review", () => {
   async function refreshStats() {
     try {
       stats.value = await api.getReviewStats();
+      // Cache the count so the daily-reminder notification body has a
+      // current-ish number even when the app is closed and we can't hit
+      // the API from the background.
+      const { rememberDueCount } = await import("@/services/notifications");
+      rememberDueCount(stats.value.due_now);
     } catch {
       // Anonymous calls hit 401 — leave defaults in place.
     }

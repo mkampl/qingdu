@@ -35,6 +35,24 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: "https",
   },
+  plugins: {
+    SplashScreen: {
+      // Match the adaptive launcher bg (#E6D0A5 cream paper) so the splash
+      // dissolves seamlessly into the chop-seal launcher icon on Android 12+.
+      launchShowDuration: 1200,
+      backgroundColor: "#E6D0A5",
+      androidScaleType: "CENTER",
+      showSpinner: false,
+      splashFullScreen: false,
+      splashImmersive: false,
+    },
+    LocalNotifications: {
+      // Default launcher icon as fallback — a dedicated white-on-transparent
+      // status-bar icon would be a polish-pass later. Coral tint matches
+      // the chop-seal accent.
+      iconColor: "#C5503A",
+    },
+  },
 };
 
 export default config;

@@ -16,6 +16,8 @@ import ShortcutsOverlay from "@/components/ShortcutsOverlay.vue";
 import Toaster from "@/components/ui/Toaster.vue";
 
 import { useKeyboardShortcuts } from "@/composables/use-keyboard-shortcuts";
+import { hideSplash, syncStatusBar } from "@/services/native";
+import { syncFromSettings as syncReminder } from "@/services/notifications";
 
 const settings = useSettingsStore();
 const auth = useAuthStore();
@@ -62,7 +64,22 @@ watch(mobileNavOpen, (open) => {
 onMounted(async () => {
   settings.hydrate();
   await auth.hydrate();
+  // Native hooks — all are no-ops on web.
+  await syncStatusBar(settings.theme);
+  await syncReminder(settings.reminderEnabled, settings.reminderTime);
+  // Hide the splash after the SPA shell has painted; the small delay lets
+  // the first paint stabilise so the user doesn't see a one-frame flash.
+  setTimeout(() => {
+    hideSplash();
+  }, 300);
 });
+
+// Keep status bar in sync with theme + reminder schedule in sync with prefs.
+watch(() => settings.theme, (t) => syncStatusBar(t));
+watch(
+  () => [settings.reminderEnabled, settings.reminderTime] as const,
+  ([enabled, time]) => syncReminder(enabled, time),
+);
 </script>
 
 <template>

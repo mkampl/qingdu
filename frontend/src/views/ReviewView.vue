@@ -23,6 +23,7 @@ import WritingQuiz from "@/components/reader/WritingQuiz.vue";
 import { useAuthStore } from "@/stores/auth";
 import { useReviewStore } from "@/stores/review";
 import { useSettingsStore } from "@/stores/settings";
+import { success as hapticSuccess, tap as hapticTap } from "@/services/native";
 
 const review = useReviewStore();
 const auth = useAuthStore();
@@ -133,6 +134,10 @@ async function playTts() {
 
 async function gradeAndAdvance(g: ReviewGrade) {
   if (!card.value) return;
+  // Light tap for Again/Hard, medium thump for Good/Easy — feels right
+  // because a confident answer wants a more satisfying confirmation.
+  if (g >= 3) hapticSuccess(settings.hapticsEnabled);
+  else hapticTap(settings.hapticsEnabled);
   await review.grade(g);
   // Reset reveal state for the next card.
   revealed.value = false;

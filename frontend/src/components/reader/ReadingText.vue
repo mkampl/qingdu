@@ -26,6 +26,7 @@ const emit = defineEmits<{
 import { useAudioPlayerStore } from "@/stores/audio-player";
 import { useAuthStore } from "@/stores/auth";
 import { useToastStore } from "@/stores/toast";
+import { tap as hapticTap } from "@/services/native";
 
 const reader = useReaderStore();
 const settings = useSettingsStore();
@@ -231,6 +232,7 @@ function onWordClick(word: WordInfo, event: MouseEvent, sentence: Sentence) {
   // Treat punctuation and whitespace as transparent for word clicks.
   if (!word.is_hsk && !word.meaning) return;
   event.stopPropagation();
+  hapticTap(settings.hapticsEnabled);
   const target = event.currentTarget as HTMLElement;
   reader.selectWord(word, target, { key: sentence.key, text: sentence.text });
 }
