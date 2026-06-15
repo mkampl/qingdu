@@ -22,6 +22,13 @@ interface Persisted {
   reminderEnabled: boolean;
   reminderTime: string;
   hapticsEnabled: boolean;
+  // When true, the first click on a word auto-promotes its state from
+  // 'new' to 'learning' so it enters the SRS queue without an explicit
+  // tap on the Learning button. Off by default — the popover already
+  // surfaces the Learning/Known/Ignored buttons for explicit enrolment,
+  // and the user's usual intent on tap is "what does this mean", not
+  // "schedule a review of this word for the next decade".
+  autoLearnOnClick: boolean;
 }
 
 function loadFromStorage(): Persisted {
@@ -55,6 +62,7 @@ function defaults(): Persisted {
     reminderEnabled: false,
     reminderTime: "19:00",
     hapticsEnabled: true,
+    autoLearnOnClick: false,
   };
 }
 
@@ -68,6 +76,7 @@ export const useSettingsStore = defineStore("settings", () => {
   const reminderEnabled = ref(false);
   const reminderTime = ref("19:00");
   const hapticsEnabled = ref(true);
+  const autoLearnOnClick = ref(false);
   let hydrated = false;
 
   function applyTheme(value: Theme) {
@@ -87,6 +96,7 @@ export const useSettingsStore = defineStore("settings", () => {
     reminderEnabled.value = persisted.reminderEnabled;
     reminderTime.value = persisted.reminderTime;
     hapticsEnabled.value = persisted.hapticsEnabled;
+    autoLearnOnClick.value = persisted.autoLearnOnClick;
     applyTheme(theme.value);
     hydrated = true;
   }
@@ -103,13 +113,14 @@ export const useSettingsStore = defineStore("settings", () => {
       reminderEnabled: reminderEnabled.value,
       reminderTime: reminderTime.value,
       hapticsEnabled: hapticsEnabled.value,
+      autoLearnOnClick: autoLearnOnClick.value,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }
 
   watch(
     [theme, pinyinMode, hskVersion, showLegend, colorMode, writingShowOutline,
-     reminderEnabled, reminderTime, hapticsEnabled],
+     reminderEnabled, reminderTime, hapticsEnabled, autoLearnOnClick],
     () => {
       if (hydrated) persist();
     },
@@ -131,6 +142,7 @@ export const useSettingsStore = defineStore("settings", () => {
     reminderEnabled,
     reminderTime,
     hapticsEnabled,
+    autoLearnOnClick,
     hydrate,
     toggleTheme,
   };

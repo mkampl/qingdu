@@ -55,6 +55,10 @@ const hapticsEnabled = computed<boolean>({
   get: () => settings.hapticsEnabled,
   set: (v) => (settings.hapticsEnabled = v),
 });
+const autoLearnOnClick = computed<boolean>({
+  get: () => settings.autoLearnOnClick,
+  set: (v) => (settings.autoLearnOnClick = v),
+});
 
 const colorOptions: { value: ColorMode; label: string; hint: string }[] = [
   {
@@ -322,6 +326,29 @@ async function runImport() {
           </label>
         </div>
       </fieldset>
+
+      <!-- Behaviour on word tap -->
+      <label
+        class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
+        :class="{ 'border-accent bg-bg-sunken': autoLearnOnClick }"
+      >
+        <input
+          v-model="autoLearnOnClick"
+          type="checkbox"
+          class="mt-1 accent-accent"
+        />
+        <span class="flex-1">
+          <span class="block font-display text-base text-fg">
+            Auto-add tapped words to learning
+          </span>
+          <span class="block text-xs text-fg-muted">
+            Off by default — a tap just shows the gloss. Use the
+            <span class="font-medium text-fg">Learning</span> button in the
+            popover to enrol a word into the SRS queue, or turn this on if
+            you'd rather every tap promote 'new' words automatically.
+          </span>
+        </span>
+      </label>
 
       <!-- Legend -->
       <label

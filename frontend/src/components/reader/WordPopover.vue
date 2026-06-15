@@ -243,6 +243,11 @@ watch(word, async (next) => {
   if (!next || !auth.isAuthed) return;
   // Skip linebreaks and other non-CJK tokens — we keep state for words only.
   if (!next.text || next.text === "\n") return;
+  // Opt-in: by default a click is just "what does this mean", not "schedule
+  // this for review". The user can still flip it to learning via the
+  // explicit Learning/Known/Ignored buttons in the popover footer, or turn
+  // the auto-promote back on in Settings → Reader.
+  if (!settings.autoLearnOnClick) return;
   if (currentState.value === null) {
     try {
       await userWords.setState(
