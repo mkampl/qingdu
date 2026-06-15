@@ -273,10 +273,10 @@ watch(
          GitHub + Ko-fi links live here rather than in the header so the
          reading content keeps its breathing room. -->
     <footer
-      class="border-t border-border-subtle bg-bg-elevated/60 px-6 py-2"
+      class="border-t border-border-subtle bg-bg-elevated/60 px-4 py-2 sm:px-6"
     >
       <div
-        class="mx-auto flex max-w-6xl items-center justify-center gap-3 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-subtle"
+        class="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-subtle"
       >
         <span class="text-cn text-fg-muted normal-case tracking-normal">
           轻读 QingDu
@@ -433,6 +433,13 @@ watch(
                       to: '/review',
                       label: 'Review',
                       badge: auth.isAuthed ? review.dueNow : 0,
+                      gated: true,
+                    },
+                    {
+                      to: '/words',
+                      label: 'My words',
+                      badge: auth.isAuthed && userWords.hydrated
+                        ? userWords.stats.learning : 0,
                       gated: true,
                     },
                     { to: '/library', label: 'Library', badge: 0 },
