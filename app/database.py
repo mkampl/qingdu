@@ -48,6 +48,14 @@ class User(Base):
     # to Traditional. Applied server-side at every endpoint that returns
     # Chinese text (review queue, analyze, saved texts, vocab lists).
     display_script = Column(String(8), default="auto")
+    # Phase #117 — FSRS retention target. 0.90 was the original default and
+    # matches AnkiDroid FSRS but lands hard-feeling early intervals (review
+    # 3 → 10d, review 4 → 40d). 0.95 lines up much better with classic
+    # Anki SM-2 (which most users carry as their intuition baseline) at
+    # the cost of slightly more reviews per word. Range 0.85-0.97 is what
+    # the FSRS authors call "the meaningful tuning band"; outside that the
+    # scheduler stops behaving usefully.
+    review_retention = Column(Float, default=0.95)
 
     # Relationships
     texts = relationship("SavedText", back_populates="user", cascade="all, delete-orphan")
@@ -321,6 +329,11 @@ def init_db():
                         text(
                             "ALTER TABLE users ADD COLUMN display_script VARCHAR(8) DEFAULT 'auto'"
                         )
+                    )
+                if "review_retention" not in user_cols:
+                    logger.info("Adding review_retention column to users")
+                    conn.execute(
+                        text("ALTER TABLE users ADD COLUMN review_retention FLOAT DEFAULT 0.95")
                     )
                 conn.commit()
 

@@ -18,9 +18,21 @@ from datetime import UTC, datetime, timedelta
 
 from fsrs import Card, Rating, Scheduler, State
 
-# One module-level scheduler is fine — Scheduler() is just a parameter bag.
-# Default desired_retention is 0.9, which matches the Anki community baseline.
-_scheduler = Scheduler()
+# Default scheduler — 0.95 retention target. Closer to classic Anki SM-2
+# intuition than the FSRS-library default of 0.90 (which gives jarring
+# 10-day intervals after only three "Good"s). Users can override the
+# retention per-account via Settings → Review challenge; we build a
+# fresh Scheduler in that case.
+DEFAULT_RETENTION = 0.95
+_scheduler = Scheduler(desired_retention=DEFAULT_RETENTION)
+
+
+def _scheduler_for(retention: float | None) -> Scheduler:
+    if retention is None or abs(retention - DEFAULT_RETENTION) < 1e-9:
+        return _scheduler
+    # Clamp to the meaningful tuning band even if the caller wandered out.
+    r = max(0.85, min(0.97, float(retention)))
+    return Scheduler(desired_retention=r)
 
 
 VALID_GRADES = (1, 2, 3, 4)
@@ -44,7 +56,7 @@ def card_from_state(state_json: str | None) -> Card:
     return Card.from_json(state_json)
 
 
-def apply_grade(state_json: str | None, grade: int) -> dict:
+def apply_grade(state_json: str | None, grade: int, retention: float | None = None) -> dict:
     """
     Run one review step. Returns a dict ready to splat into a UserWord:
 
@@ -55,10 +67,16 @@ def apply_grade(state_json: str | None, grade: int) -> dict:
             "due_at": datetime (naive UTC, to match the rest of the schema),
             "last_reviewed_at": datetime (naive UTC),
         }
+
+    `retention` overrides the default 0.95 desired_retention. Pass the
+    caller's user.review_retention so per-user tuning takes effect from
+    the very next grade (existing cards just get their next due_at
+    recomputed with the new scheduler).
     """
     card = card_from_state(state_json)
     rating = _to_rating(grade)
-    new_card, _log = _scheduler.review_card(card, rating)
+    scheduler = _scheduler_for(retention)
+    new_card, _log = scheduler.review_card(card, rating)
     return {
         "fsrs_state": new_card.to_json(),
         "stability": new_card.stability,

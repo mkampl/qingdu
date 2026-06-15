@@ -181,7 +181,7 @@ async def grade_card(
         row = UserWord(user_id=user.id, word=word_simp, state="learning", seen_count=1)
         db.add(row)
 
-    updated = srs.apply_grade(row.fsrs_state, payload.grade)
+    updated = srs.apply_grade(row.fsrs_state, payload.grade, retention=user.review_retention)
     row.fsrs_state = updated["fsrs_state"]
     row.stability = updated["stability"]
     row.difficulty = updated["difficulty"]

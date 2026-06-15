@@ -158,6 +158,53 @@ const displayScript = computed<"auto" | "simp" | "trad">({
   },
 });
 
+// --- Phase #117 — FSRS retention target ---
+// Three bands map to FSRS desired_retention values that the SRS library
+// actually accepts (the meaningful tuning range is 0.85-0.97):
+//   relaxed → 0.90 — the FSRS library default. Fewer reviews, more
+//             forgetting; review 3 of a "Good" streak lands at ~10d.
+//   normal  → 0.95 — qingdu's default since Phase #117. Lines up with
+//             classic Anki SM-2 intuition; review 3 ≈ 4d.
+//   strict  → 0.97 — keeps almost everything fresh; review 3 ≈ 2d.
+type ReviewBand = "relaxed" | "normal" | "strict";
+const BAND_TO_RETENTION: Record<ReviewBand, number> = {
+  relaxed: 0.9,
+  normal: 0.95,
+  strict: 0.97,
+};
+function bandFor(r: number | undefined): ReviewBand {
+  if (r === undefined) return "normal";
+  if (r <= 0.92) return "relaxed";
+  if (r >= 0.96) return "strict";
+  return "normal";
+}
+const reviewBand = computed<ReviewBand>({
+  get: () => bandFor(auth.user?.review_retention),
+  set: (v) => {
+    void auth.updateSettings({ review_retention: BAND_TO_RETENTION[v] }).catch(() => {
+      toasts.error("Couldn't save review challenge.");
+    });
+  },
+});
+
+const reviewBandOptions: { value: ReviewBand; label: string; hint: string }[] = [
+  {
+    value: "relaxed",
+    label: "Relaxed",
+    hint: "Fewer reviews, more forgetting accepted. After 3 Good clicks: ~10 days.",
+  },
+  {
+    value: "normal",
+    label: "Normal",
+    hint: "Anki SM-2-like rhythm. After 3 Good clicks: ~4 days.",
+  },
+  {
+    value: "strict",
+    label: "Strict",
+    hint: "Almost nothing slips through. After 3 Good clicks: ~2 days.",
+  },
+];
+
 const scriptOptions: {
   value: "auto" | "simp" | "trad";
   label: string;
@@ -313,6 +360,38 @@ async function runImport() {
           >
             <input
               v-model="hskVersion"
+              type="radio"
+              :value="opt.value"
+              class="mt-1 accent-accent"
+            />
+            <span class="flex-1">
+              <span class="block font-display text-base text-fg">
+                {{ opt.label }}
+              </span>
+              <span class="block text-xs text-fg-muted">{{ opt.hint }}</span>
+            </span>
+          </label>
+        </div>
+      </fieldset>
+
+      <!-- Phase #117 — FSRS retention -->
+      <fieldset v-if="auth.isAuthed">
+        <legend
+          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          Review challenge
+        </legend>
+        <div class="space-y-2">
+          <label
+            v-for="opt in reviewBandOptions"
+            :key="opt.value"
+            class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
+            :class="{
+              'border-accent bg-bg-sunken': reviewBand === opt.value,
+            }"
+          >
+            <input
+              v-model="reviewBand"
               type="radio"
               :value="opt.value"
               class="mt-1 accent-accent"

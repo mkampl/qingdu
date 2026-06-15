@@ -163,6 +163,7 @@ export interface UserSettingsPayload {
   daily_new_words?: number;
   hsk_focus_version?: "new" | "old";
   display_script?: "auto" | "simp" | "trad";
+  review_retention?: number;
 }
 
 export const updateMySettings = (payload: UserSettingsPayload) =>
@@ -170,6 +171,7 @@ export const updateMySettings = (payload: UserSettingsPayload) =>
     daily_new_words: number;
     hsk_focus_version: string;
     display_script: string;
+    review_retention: number;
   }>("/api/auth/me/settings", { method: "PATCH", body: payload });
 
 export const signupWithInvite = (

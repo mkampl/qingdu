@@ -120,6 +120,8 @@ export interface User {
   hsk_focus_version?: "new" | "old";
   /** Phase #96 follow-up — Simplified vs Traditional display across the app. */
   display_script?: "auto" | "simp" | "trad";
+  /** Phase #117 — FSRS desired retention. 0.85-0.97 valid range. */
+  review_retention?: number;
 }
 
 export interface LoginResponse {
