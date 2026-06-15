@@ -1,11 +1,19 @@
-name: Android Debug APK
+name: Android Release APK
 
-# Triggers a debug-signed APK build on tag push (v* tags). The artifact is
-# attached to the GitHub Release the tag created. Interim before the
-# release-signed AAB flow for F-Droid / Play Store; the debug signature
-# means anyone can sideload but won't be able to upgrade across a future
-# release-signed build (the system blocks the install on signature
-# mismatch and the user has to uninstall first).
+# Triggers a release-signed APK build on tag push (v* tags). The artifact
+# is attached to the GitHub Release the tag created. Every build is signed
+# with the maintainer's release keystore (stored as GitHub Secrets) so
+# upgrades work in-place and the same APK lineage can later go to F-Droid
+# / Play Store without a signature rotation.
+#
+# Required GitHub Secrets:
+#   RELEASE_KEYSTORE_B64       — base64 of qingdu-release.keystore
+#   RELEASE_KEYSTORE_PASSWORD  — keystore password (PKCS12: also the key pwd)
+#   RELEASE_KEY_ALIAS          — usually "qingdu"
+#
+# If those secrets aren't set (forks, PR runs), build.gradle falls back to
+# the ambient debug keystore so the build still produces an installable
+# debug APK — just not one the maintainer would distribute.
 #
 # Manual dispatch is also wired up so the maintainer can rebuild the same
 # tag on demand (e.g. if a step flaked).
@@ -77,23 +85,57 @@ jobs:
         working-directory: frontend
         run: npx cap sync android
 
-      - name: Assemble debug APK
+      - name: Decode release keystore (if secret present)
+        id: keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > frontend/android/release.keystore
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "release keystore prepared"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "no release keystore secret — falling back to debug signing"
+          fi
+
+      - name: Assemble release APK
         working-directory: frontend/android
-        run: ./gradlew assembleDebug --no-daemon
+        env:
+          RELEASE_KEYSTORE_FILE: ${{ steps.keystore.outputs.present == 'true' && format('{0}/frontend/android/release.keystore', github.workspace) || '' }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        run: ./gradlew assembleRelease --no-daemon
 
       - name: Rename APK to tagged filename
         id: rename
+        env:
+          SIGNED: ${{ steps.keystore.outputs.present }}
         run: |
           tag="${GITHUB_REF_NAME}"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag }}" ]; then
             tag="${{ github.event.inputs.tag }}"
           fi
-          src="frontend/android/app/build/outputs/apk/debug/app-debug.apk"
-          dst="qingdu-${tag}-debug.apk"
+          # When the release keystore signed it, gradle drops the suffix from
+          # the filename. When it didn't, it's debug-signed but still emitted
+          # by the release task — we tag the filename accordingly.
+          if [ "$SIGNED" = "true" ]; then
+            src="frontend/android/app/build/outputs/apk/release/app-release.apk"
+            dst="qingdu-${tag}.apk"
+          else
+            src="frontend/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+            [ -f "$src" ] || src="frontend/android/app/build/outputs/apk/release/app-release.apk"
+            dst="qingdu-${tag}-debug.apk"
+          fi
           cp "$src" "$dst"
           echo "apk=$dst" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "signed=$SIGNED" >> "$GITHUB_OUTPUT"
           ls -lh "$dst"
+
+      - name: Clean up keystore
+        if: always()
+        run: rm -f frontend/android/release.keystore
 
       - name: Upload as workflow artifact
         uses: actions/upload-artifact@v4
@@ -110,14 +152,12 @@ jobs:
           fail_on_unmatched_files: true
           generate_release_notes: true
           body: |
-            ### Debug APK for sideloading
+            ### APK for sideloading
 
             Download `${{ steps.rename.outputs.apk }}` below and install it on
             an Android device with "Install from unknown sources" enabled.
 
-            > This is a debug-signed build. If you've previously installed a
-            > different debug build of QingDu, Android will refuse the upgrade
-            > on signature mismatch — uninstall the old version first.
-            >
-            > A release-signed AAB for F-Droid and Play Store is the next
-            > milestone; the keystore for that lives outside the repo.
+            > Release-signed with the maintainer's keystore — installs
+            > cleanly on top of any previous v1.0.2+ build. If you have a
+            > pre-v1.0.2 debug-signed APK installed, uninstall it first
+            > (signature mismatch).
