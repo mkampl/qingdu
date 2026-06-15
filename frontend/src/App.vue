@@ -322,6 +322,27 @@ watch(
           Support
         </a>
         <span aria-hidden="true">·</span>
+        <a
+          href="https://github.com/mkampl/qingdu/releases/latest"
+          target="_blank"
+          rel="noopener"
+          class="inline-flex items-center gap-1 transition-colors hover:text-accent"
+          title="Direct Android APK download — interim before F-Droid"
+        >
+          <svg
+            width="11"
+            height="11"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              d="M17.523 15.34a1.122 1.122 0 0 1-1.117-1.12c0-.617.5-1.117 1.117-1.117.617 0 1.118.5 1.118 1.117 0 .618-.5 1.12-1.118 1.12m-11.046 0a1.122 1.122 0 0 1-1.117-1.12c0-.617.5-1.117 1.117-1.117.617 0 1.118.5 1.118 1.117 0 .618-.5 1.12-1.118 1.12m11.444-6.025 2.226-3.852a.464.464 0 0 0-.17-.633.464.464 0 0 0-.634.17l-2.255 3.905A13.93 13.93 0 0 0 12 7.553c-2.075 0-4.022.493-5.755 1.352L3.99 4.999a.463.463 0 0 0-.633-.17.464.464 0 0 0-.17.634l2.225 3.852C1.587 11.366.064 14.36 0 17.832h24c-.064-3.472-1.587-6.467-3.853-8.516"
+            />
+          </svg>
+          APK
+        </a>
+        <span aria-hidden="true">·</span>
         <button
           type="button"
           class="inline-flex items-center gap-1 transition-colors hover:text-accent"
