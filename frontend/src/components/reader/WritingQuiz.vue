@@ -47,10 +47,10 @@ const secondaryMeanings = computed(() => (props.meanings ?? []).slice(1));
 const emit = defineEmits<{
   /**
    * Fires once the user has finished drawing every character in the
-   * word (or skipped each one). totalMistakes is summed across chars;
+   * word (or skipped each one). totalMistakes + totalStrokes are summed
    * ReviewView turns this into a suggested grade.
    */
-  (e: "complete", payload: { totalMistakes: number; skipped: boolean }): void;
+  (e: "complete", payload: { totalMistakes: number; totalStrokes: number; skipped: boolean }): void;
 }>();
 
 const cjkChars = computed(() =>
@@ -113,6 +113,7 @@ function forwardPointerAsMouse(e: PointerEvent) {
 const canvasRef = ref<HTMLDivElement | null>(null);
 const currentIdx = ref(0);
 const totalMistakes = ref(0);
+const totalStrokes = ref(0);
 const currentMistakes = ref(0);
 const completed = ref(false);
 const skipped = ref(false);
@@ -125,6 +126,7 @@ type AnyHanziWriter = {
   quiz: (opts: Record<string, unknown>) => void;
   cancelQuiz: () => void;
   animateStroke: (n: number) => void;
+  animateCharacter: (opts?: { onComplete?: () => void }) => void;
 } | null;
 const writer = ref<AnyHanziWriter>(null);
 
@@ -157,6 +159,9 @@ async function startCharQuiz(idx: number) {
       error.value = `No stroke data for "${char}".`;
       return;
     }
+    // Stroke count drives the dynamic mistake threshold downstream.
+    // Summed across all chars in a multi-char word.
+    totalStrokes.value += charData.strokes?.length ?? 0;
 
     canvasRef.value.innerHTML = "";
 
@@ -232,6 +237,7 @@ async function startCharQuiz(idx: number) {
           completed.value = true;
           emit("complete", {
             totalMistakes: totalMistakes.value,
+            totalStrokes: totalStrokes.value,
             skipped: false,
           });
         } else {
@@ -247,6 +253,40 @@ async function startCharQuiz(idx: number) {
   }
 }
 
+/** "Show me" — user gives up on this char, hanzi-writer plays the full
+ *  stroke animation so they actually see the right order, then we count
+ *  this attempt as worst-case (mistakes = strokes × 2 → ratio ≥ 2.0 →
+ *  ReviewView grades it Again). On multi-char words, advance to the next
+ *  char after the animation finishes; only the last char emits `complete`. */
+const showing = ref(false);
+
+function showCurrentChar() {
+  const w = writer.value;
+  if (!w || showing.value) return;
+  showing.value = true;
+  w.cancelQuiz();
+  // Force the ratio gate into Again territory. totalStrokes was already
+  // incremented for this char by startCharQuiz(); doubling it as mistakes
+  // is conceptually "I knew nothing", which Again captures faithfully.
+  totalMistakes.value = totalStrokes.value * 2;
+  w.animateCharacter({
+    onComplete: () => {
+      showing.value = false;
+      if (isLastChar.value) {
+        completed.value = true;
+        skipped.value = true;
+        emit("complete", {
+          totalMistakes: totalMistakes.value,
+          totalStrokes: totalStrokes.value,
+          skipped: true,
+        });
+      } else {
+        currentIdx.value += 1;
+      }
+    },
+  });
+}
+
 function skipCurrentChar() {
   // Treat as if the user got every stroke wrong — adds a heavy
   // mistake penalty to nudge the FSRS grade toward Again.
@@ -256,6 +296,7 @@ function skipCurrentChar() {
     skipped.value = true;
     emit("complete", {
       totalMistakes: totalMistakes.value,
+      totalStrokes: totalStrokes.value,
       skipped: true,
     });
   } else {
@@ -403,7 +444,17 @@ onBeforeUnmount(() => {
         v-if="!completed"
         type="button"
         class="rounded-md border border-border bg-bg-elevated px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg disabled:opacity-50"
-        :disabled="loading"
+        :disabled="loading || showing"
+        @click="showCurrentChar"
+        title="Play the stroke order — counts as Again"
+      >
+        Show me
+      </button>
+      <button
+        v-if="!completed"
+        type="button"
+        class="rounded-md border border-border bg-bg-elevated px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg disabled:opacity-50"
+        :disabled="loading || showing"
         @click="skipCurrentChar"
       >
         {{ isLastChar ? "Skip" : "Skip char" }}

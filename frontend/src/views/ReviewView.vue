@@ -13,7 +13,7 @@
  *      derives Good from a correct answer, Again from an incorrect one
  *   4. store applies the grade, advances the cursor, optimistic stats tick
  */
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import * as api from "@/api/client";
 import type { ReviewGrade, ReviewMode } from "@/api/client";
@@ -70,6 +70,7 @@ const modes: {
 // onMistake/onCorrectStroke callbacks. ReviewView turns this into a
 // suggested FSRS grade on completion.
 const writingMistakes = ref(0);
+const writingStrokes = ref(0);
 const writingDone = ref(false);
 
 // Cloze state — user types the missing word, we compare against
@@ -78,21 +79,30 @@ const writingDone = ref(false);
 const clozeInput = ref("");
 const clozeFeedback = ref<"" | "correct" | "wrong">("");
 
-function suggestedGradeForMistakes(mistakes: number): ReviewGrade {
-  // Tuned for typical-stroke characters (5-15 strokes). 0 mistakes is a
-  // flawless attempt; 6+ means the user struggled enough that FSRS
-  // should bring the card back soon.
+function suggestedGradeForMistakes(mistakes: number, strokes: number): ReviewGrade {
+  // Ratio-based instead of hardcoded thresholds — 3 mistakes on 一 (1 stroke)
+  // is catastrophic, on 鬱 (29 strokes) it's solid. Falls back to the old
+  // absolute thresholds if strokes is 0 (data load failed).
+  if (strokes <= 0) {
+    if (mistakes === 0) return 4;
+    if (mistakes <= 2) return 3;
+    if (mistakes <= 5) return 2;
+    return 1;
+  }
   if (mistakes === 0) return 4;
-  if (mistakes <= 2) return 3;
-  if (mistakes <= 5) return 2;
-  return 1;
+  const ratio = mistakes / strokes;
+  if (ratio <= 0.10) return 3; // Good — at most 1 mistake per 10 strokes
+  if (ratio <= 0.25) return 2; // Hard — up to 1 in 4
+  return 1; // Again — more than 1 in 4
 }
 
 function onWritingComplete(payload: {
   totalMistakes: number;
+  totalStrokes: number;
   skipped: boolean;
 }) {
   writingMistakes.value = payload.totalMistakes;
+  writingStrokes.value = payload.totalStrokes;
   writingDone.value = true;
 }
 
@@ -105,6 +115,7 @@ async function start(mode: ReviewMode) {
   dictationInput.value = "";
   dictationFeedback.value = "";
   writingMistakes.value = 0;
+  writingStrokes.value = 0;
   writingDone.value = false;
   clozeInput.value = "";
   clozeFeedback.value = "";
@@ -138,16 +149,62 @@ async function gradeAndAdvance(g: ReviewGrade) {
   // because a confident answer wants a more satisfying confirmation.
   if (g >= 3) hapticSuccess(settings.hapticsEnabled);
   else hapticTap(settings.hapticsEnabled);
+  cancelAutoGrade();
   await review.grade(g);
   // Reset reveal state for the next card.
   revealed.value = false;
   dictationInput.value = "";
   dictationFeedback.value = "";
   writingMistakes.value = 0;
+  writingStrokes.value = 0;
   writingDone.value = false;
   clozeInput.value = "";
   clozeFeedback.value = "";
 }
+
+// --- Phase #118 (2b) — Auto-grade countdown for writing mode ---------------
+//
+// After writing-quiz completion, the user sees a suggested grade derived
+// from the mistake/stroke ratio. 2s later it auto-fires, mirroring the
+// "answer is right, advance automatically" pattern Duolingo/WaniKani use
+// and saving a tap on the common case. Any rating button click cancels
+// the timer and fires the clicked rating instead, so the auto-grade
+// stays a Default rather than a forced choice.
+
+const AUTO_GRADE_DELAY_MS = 2000;
+const autoGradeTimer = ref<number | null>(null);
+const autoGradePending = ref<ReviewGrade | null>(null);
+
+function cancelAutoGrade() {
+  if (autoGradeTimer.value !== null) {
+    window.clearTimeout(autoGradeTimer.value);
+    autoGradeTimer.value = null;
+  }
+  autoGradePending.value = null;
+}
+
+function scheduleAutoGrade(g: ReviewGrade) {
+  cancelAutoGrade();
+  autoGradePending.value = g;
+  autoGradeTimer.value = window.setTimeout(() => {
+    autoGradeTimer.value = null;
+    autoGradePending.value = null;
+    void gradeAndAdvance(g);
+  }, AUTO_GRADE_DELAY_MS);
+}
+
+watch(
+  () => [review.mode, writingDone.value, writingMistakes.value, writingStrokes.value],
+  () => {
+    cancelAutoGrade();
+    if (review.mode === "writing" && writingDone.value) {
+      scheduleAutoGrade(
+        suggestedGradeForMistakes(writingMistakes.value, writingStrokes.value),
+      );
+    }
+  },
+  { immediate: false },
+);
 
 function submitCloze() {
   if (!card.value || clozeFeedback.value !== "") return;
@@ -218,6 +275,8 @@ async function dictationContinue() {
   await gradeAndAdvance(dictationFeedback.value === "correct" ? 3 : 1);
 }
 
+onBeforeUnmount(() => cancelAutoGrade());
+
 onMounted(() => {
   if (auth.isAuthed) review.refreshStats();
 });
@@ -230,6 +289,7 @@ watch(
     dictationInput.value = "";
     dictationFeedback.value = "";
     writingMistakes.value = 0;
+    writingStrokes.value = 0;
     writingDone.value = false;
     clozeInput.value = "";
     clozeFeedback.value = "";
@@ -242,6 +302,7 @@ watch(
   () => review.cursor,
   () => {
     writingMistakes.value = 0;
+    writingStrokes.value = 0;
     writingDone.value = false;
     clozeInput.value = "";
     clozeFeedback.value = "";
@@ -558,9 +619,9 @@ watch(
             <p
               class="font-mono text-[11px] uppercase tracking-wider"
               :class="
-                writingMistakes === 0
+                suggestedGradeForMistakes(writingMistakes, writingStrokes) >= 3
                   ? 'text-emerald-600 dark:text-emerald-300'
-                  : writingMistakes <= 2
+                  : suggestedGradeForMistakes(writingMistakes, writingStrokes) === 2
                     ? 'text-amber-700 dark:text-amber-300'
                     : 'text-red-700 dark:text-red-300'
               "
@@ -586,7 +647,7 @@ watch(
               Suggested grade:
               {{
                 ["", "Again", "Hard", "Good", "Easy"][
-                  suggestedGradeForMistakes(writingMistakes)
+                  suggestedGradeForMistakes(writingMistakes, writingStrokes)
                 ]
               }}
             </p>
@@ -691,9 +752,17 @@ watch(
         <button
           type="button"
           :disabled="review.grading"
-          class="rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-red-500 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-500/10"
+          :class="[
+            'relative overflow-hidden rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-red-500 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-500/10',
+            autoGradePending === 1 ? 'ring-2 ring-red-400/60' : '',
+          ]"
           @click="gradeAndAdvance(1)"
         >
+          <span
+            v-if="autoGradePending === 1"
+            class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-red-500"
+          />
+
           <p
             class="font-display text-base font-medium text-red-700 dark:text-red-300"
           >
@@ -708,9 +777,17 @@ watch(
         <button
           type="button"
           :disabled="review.grading"
-          class="rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-amber-500 hover:bg-amber-50 disabled:opacity-50 dark:hover:bg-amber-500/10"
+          :class="[
+            'relative overflow-hidden rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-amber-500 hover:bg-amber-50 disabled:opacity-50 dark:hover:bg-amber-500/10',
+            autoGradePending === 2 ? 'ring-2 ring-amber-400/60' : '',
+          ]"
           @click="gradeAndAdvance(2)"
         >
+          <span
+            v-if="autoGradePending === 2"
+            class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-amber-500"
+          />
+
           <p
             class="font-display text-base font-medium text-amber-700 dark:text-amber-300"
           >
@@ -725,9 +802,17 @@ watch(
         <button
           type="button"
           :disabled="review.grading"
-          class="rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-emerald-500 hover:bg-emerald-50 disabled:opacity-50 dark:hover:bg-emerald-500/10"
+          :class="[
+            'relative overflow-hidden rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-emerald-500 hover:bg-emerald-50 disabled:opacity-50 dark:hover:bg-emerald-500/10',
+            autoGradePending === 3 ? 'ring-2 ring-emerald-400/60' : '',
+          ]"
           @click="gradeAndAdvance(3)"
         >
+          <span
+            v-if="autoGradePending === 3"
+            class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-emerald-500"
+          />
+
           <p
             class="font-display text-base font-medium text-emerald-700 dark:text-emerald-300"
           >
@@ -742,9 +827,17 @@ watch(
         <button
           type="button"
           :disabled="review.grading"
-          class="rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-sky-500 hover:bg-sky-50 disabled:opacity-50 dark:hover:bg-sky-500/10"
+          :class="[
+            'relative overflow-hidden rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-sky-500 hover:bg-sky-50 disabled:opacity-50 dark:hover:bg-sky-500/10',
+            autoGradePending === 4 ? 'ring-2 ring-sky-400/60' : '',
+          ]"
           @click="gradeAndAdvance(4)"
         >
+          <span
+            v-if="autoGradePending === 4"
+            class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-sky-500"
+          />
+
           <p
             class="font-display text-base font-medium text-sky-700 dark:text-sky-300"
           >
@@ -792,3 +885,22 @@ watch(
     </div>
   </section>
 </template>
+
+<style scoped>
+/* Auto-grade countdown progress bar — fills bottom of the suggested
+ * grade button over AUTO_GRADE_DELAY_MS (2000ms). Width syncs with the
+ * setTimeout, so users see exactly when the auto-fire is coming. */
+.qd-auto-grade-progress {
+  transform-origin: left;
+  animation: qd-auto-grade-fill 2000ms linear forwards;
+}
+
+@keyframes qd-auto-grade-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+</style>

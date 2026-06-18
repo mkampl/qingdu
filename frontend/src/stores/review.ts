@@ -71,8 +71,28 @@ export const useReviewStore = defineStore("review", () => {
     if (!card || grading.value) return;
     grading.value = true;
     try {
-      await api.gradeReviewCard(card.word, g, mode.value);
+      const response = await api.gradeReviewCard(card.word, g, mode.value);
       sessionGraded.value += 1;
+
+      // Phase #118 (5a) — Anki-style learning-queue re-insert. If the
+      // server scheduled the card to come due within the next 20 minutes
+      // (e.g. Again → +1min, Hard → +6min, Good while still in learning
+      // → +10min), it's effectively still in its in-session learning
+      // loop. Splice it onto the back of the queue so cursor will reach
+      // it again this session, mirroring how Anki's learning queue
+      // cycles a missed card back through the same run.
+      const dueAt = response.due_at ? new Date(response.due_at).getTime() : null;
+      const cutoff = Date.now() + 20 * 60_000;
+      if (dueAt !== null && dueAt <= cutoff) {
+        const refreshed: ReviewCard = {
+          ...card,
+          due_at: response.due_at,
+          stability: response.stability,
+          difficulty: response.difficulty,
+        };
+        queue.value = [...queue.value, refreshed];
+      }
+
       // Move to the next card; the just-graded one drops out of view.
       cursor.value += 1;
       // Optimistic stats update so the strip ticks down without waiting

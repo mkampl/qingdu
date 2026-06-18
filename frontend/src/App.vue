@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
-import { RouterLink, RouterView, useRoute } from "vue-router";
+import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 
 import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
@@ -17,7 +17,10 @@ import Toaster from "@/components/ui/Toaster.vue";
 
 import { useKeyboardShortcuts } from "@/composables/use-keyboard-shortcuts";
 import { hideSplash, syncStatusBar } from "@/services/native";
-import { syncFromSettings as syncReminder } from "@/services/notifications";
+import {
+  onNotificationTap,
+  syncFromSettings as syncReminder,
+} from "@/services/notifications";
 
 const settings = useSettingsStore();
 const auth = useAuthStore();
@@ -26,6 +29,7 @@ const shortcuts = useShortcutsStore();
 const userWords = useUserWordsStore();
 const review = useReviewStore();
 const route = useRoute();
+const router = useRouter();
 
 function compactNumber(n: number): string {
   if (n < 1000) return n.toLocaleString();
@@ -67,6 +71,15 @@ onMounted(async () => {
   // Native hooks — all are no-ops on web.
   await syncStatusBar(settings.theme);
   await syncReminder(settings.reminderEnabled, settings.reminderTime);
+  // Phase #118 (#1) — deep-link the daily-reminder tap to /review. The
+  // listener returns a no-op on web so the call is safe everywhere; on
+  // Android, the user lands directly on the review queue instead of the
+  // Reader's empty-textarea cold start.
+  await onNotificationTap((dest) => {
+    if (typeof dest === "string" && dest.startsWith("/")) {
+      void router.push(dest);
+    }
+  });
   // Hide the splash after the SPA shell has painted; the small delay lets
   // the first paint stabilise so the user doesn't see a one-frame flash.
   setTimeout(() => {

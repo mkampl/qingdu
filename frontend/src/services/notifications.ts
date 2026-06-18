@@ -122,6 +122,11 @@ export async function scheduleDaily(timeHHMM: string): Promise<boolean> {
     body: text,
     schedule: { at: nextSlot(timeHHMM, i) },
     channelId: CHANNEL_ID,
+    // Phase #118 (#1) — Deep-link route. Read by App.vue's
+    // localNotificationActionPerformed listener so a tap from the
+    // reminder takes the user straight to /review instead of dumping
+    // them onto the Reader.
+    extra: { route: "/review" },
   }));
   try {
     await LocalNotifications.schedule({ notifications } as ScheduleOptions);
@@ -146,4 +151,27 @@ export async function syncFromSettings(
   } else {
     await cancelDaily();
   }
+}
+
+/** Register a callback for "user tapped the reminder notification".
+ *  Invoked by App.vue on boot so the router can deep-link to the route
+ *  carried in the notification's `extra.route` field. Returns an
+ *  unsubscribe function. */
+export async function onNotificationTap(
+  handler: (route: string) => void,
+): Promise<() => void> {
+  if (!isNative()) return () => {};
+  const sub = await LocalNotifications.addListener(
+    "localNotificationActionPerformed",
+    (event) => {
+      const extra = event.notification?.extra as { route?: string } | undefined;
+      const route = extra?.route;
+      if (typeof route === "string" && route.length) {
+        handler(route);
+      }
+    },
+  );
+  return () => {
+    void sub.remove();
+  };
 }
