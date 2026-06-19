@@ -206,6 +206,19 @@ watch(
   { immediate: false },
 );
 
+// Phase #119 — Mobile focus-mode. Once the writing quiz reaches the
+// result phase, hide the App.vue header/footer + ReviewView's
+// page-header + stats so the result block and the 4 rating buttons
+// (with the auto-grade countdown ring) land above the fold. Cleared
+// in gradeAndAdvance + onBeforeUnmount so the chrome comes back
+// between cards and on session exit.
+const focusMode = computed(
+  () => review.mode === "writing" && writingDone.value,
+);
+watch(focusMode, (v) => {
+  review.inFocus = v;
+});
+
 function submitCloze() {
   if (!card.value || clozeFeedback.value !== "") return;
   const guess = clozeInput.value.trim();
@@ -275,7 +288,10 @@ async function dictationContinue() {
   await gradeAndAdvance(dictationFeedback.value === "correct" ? 3 : 1);
 }
 
-onBeforeUnmount(() => cancelAutoGrade());
+onBeforeUnmount(() => {
+  cancelAutoGrade();
+  review.inFocus = false;
+});
 
 onMounted(() => {
   if (auth.isAuthed) review.refreshStats();
@@ -311,8 +327,15 @@ watch(
 </script>
 
 <template>
-  <section class="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
-    <header class="mb-8">
+  <section
+    :class="[
+      'mx-auto max-w-3xl',
+      focusMode
+        ? 'px-3 py-3 sm:px-6 sm:py-6'
+        : 'px-4 py-10 sm:px-6 sm:py-14',
+    ]"
+  >
+    <header v-if="!focusMode" class="mb-8">
       <p
         class="font-mono text-[11px] uppercase tracking-[0.22em] text-fg-subtle"
       >
@@ -344,11 +367,11 @@ watch(
 
     <!-- 7-day activity sparkline — only when authed; lives above the
          counter strip so the "how's the habit going?" view lands first. -->
-    <WeeklySparkline v-if="auth.isAuthed" class="mb-4" />
+    <WeeklySparkline v-if="auth.isAuthed && !focusMode" class="mb-4" />
 
     <!-- Stats strip -->
     <div
-      v-if="auth.isAuthed"
+      v-if="auth.isAuthed && !focusMode"
       class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4"
     >
       <div
@@ -376,7 +399,7 @@ watch(
          (auto-enrol disabled in Settings) so the chrome stays clean for
          users who want full control over their learning pool. -->
     <p
-      v-if="auth.isAuthed && review.stats.daily_target > 0"
+      v-if="auth.isAuthed && review.stats.daily_target > 0 && !focusMode"
       class="-mt-2 mb-6 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
     >
       New today:

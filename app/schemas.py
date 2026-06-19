@@ -80,6 +80,7 @@ class UserSettingsUpdate(BaseModel):
     hsk_focus_version: str | None = None  # "new" | "old"
     display_script: str | None = None  # "auto" | "simp" | "trad"
     review_retention: float | None = None  # 0.85..0.97 enforced server-side
+    review_window: str | None = None  # "now" | "today" | "tomorrow"
 
 
 # --- User word state (Phase A) ---

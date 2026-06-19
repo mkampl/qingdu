@@ -56,6 +56,17 @@ class User(Base):
     # the FSRS authors call "the meaningful tuning band"; outside that the
     # scheduler stops behaving usefully.
     review_retention = Column(Float, default=0.95)
+    # Phase #119 — look-ahead window for the review queue. People review
+    # roughly once a day, not every 30 minutes, so "due now" alone leaves
+    # half of today's batch on the table. The setting widens the cutoff:
+    #   'now'      → due_at <= now (strict, the original FSRS-conformant
+    #                pull; for users who really do review every hour)
+    #   'today'    → due_at < midnight tomorrow (the new default — covers
+    #                the typical once-a-day session without waiting for
+    #                each card to flip due during the session)
+    #   'tomorrow' → due_at < midnight day-after-tomorrow (pre-pull for
+    #                "I won't be around tomorrow")
+    review_window = Column(String(16), default="today")
 
     # Relationships
     texts = relationship("SavedText", back_populates="user", cascade="all, delete-orphan")
@@ -334,6 +345,13 @@ def init_db():
                     logger.info("Adding review_retention column to users")
                     conn.execute(
                         text("ALTER TABLE users ADD COLUMN review_retention FLOAT DEFAULT 0.95")
+                    )
+                if "review_window" not in user_cols:
+                    logger.info("Adding review_window column to users")
+                    conn.execute(
+                        text(
+                            "ALTER TABLE users ADD COLUMN review_window VARCHAR(16) DEFAULT 'today'"
+                        )
                     )
                 conn.commit()
 

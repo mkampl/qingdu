@@ -34,6 +34,13 @@ export const useReviewStore = defineStore("review", () => {
   const loading = ref(false);
   const grading = ref(false);
   const error = ref<string | null>(null);
+  // Phase #119 — mobile focus-mode flag. The review view sets this true
+  // while the result-phase of a card is on-screen so App.vue's header
+  // and footer can collapse, recovering ~80px of mobile viewport so the
+  // result block + 4 rating buttons land above the fold. Lives in the
+  // store so App.vue can read it without ReviewView passing a prop up
+  // through the router slot.
+  const inFocus = ref(false);
 
   const current = computed<ReviewCard | null>(
     () => queue.value[cursor.value] ?? null,
@@ -135,6 +142,7 @@ export const useReviewStore = defineStore("review", () => {
     sessionGraded.value = 0;
     stats.value = { ...DEFAULT_STATS };
     error.value = null;
+    inFocus.value = false;
   }
 
   return {
@@ -150,6 +158,7 @@ export const useReviewStore = defineStore("review", () => {
     hasNext,
     remaining,
     dueNow,
+    inFocus,
     loadQueue,
     grade,
     refreshStats,

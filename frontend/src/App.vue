@@ -97,7 +97,7 @@ watch(
 
 <template>
   <div class="flex h-full flex-col">
-    <header class="border-b border-border bg-bg-elevated">
+    <header v-show="!review.inFocus" class="border-b border-border bg-bg-elevated">
       <div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:gap-6 sm:px-6">
         <!-- Hamburger — only visible below sm (where the inline nav is hidden). -->
         <button
@@ -286,6 +286,7 @@ watch(
          GitHub + Ko-fi links live here rather than in the header so the
          reading content keeps its breathing room. -->
     <footer
+      v-show="!review.inFocus"
       class="border-t border-border-subtle bg-bg-elevated/60 px-4 py-2 sm:px-6"
     >
       <div

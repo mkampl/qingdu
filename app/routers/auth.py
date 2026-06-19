@@ -92,6 +92,7 @@ async def get_me(user: User = Depends(get_current_user)):
             "review_retention": (
                 user.review_retention if user.review_retention is not None else 0.95
             ),
+            "review_window": user.review_window or "today",
         },
     }
 
@@ -122,6 +123,15 @@ async def update_my_settings(
             status_code=400,
             detail="review_retention must be between 0.85 and 0.97",
         )
+    if payload.review_window is not None and payload.review_window not in {
+        "now",
+        "today",
+        "tomorrow",
+    }:
+        raise HTTPException(
+            status_code=400,
+            detail="review_window must be 'now', 'today', or 'tomorrow'",
+        )
     user = db.merge(user)
     if payload.daily_new_words is not None:
         user.daily_new_words = payload.daily_new_words
@@ -131,12 +141,15 @@ async def update_my_settings(
         user.display_script = payload.display_script
     if payload.review_retention is not None:
         user.review_retention = payload.review_retention
+    if payload.review_window is not None:
+        user.review_window = payload.review_window
     db.commit()
     return {
         "daily_new_words": user.daily_new_words,
         "hsk_focus_version": user.hsk_focus_version,
         "display_script": user.display_script,
         "review_retention": user.review_retention,
+        "review_window": user.review_window,
     }
 
 

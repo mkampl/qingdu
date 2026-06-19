@@ -122,6 +122,8 @@ export interface User {
   display_script?: "auto" | "simp" | "trad";
   /** Phase #117 — FSRS desired retention. 0.85-0.97 valid range. */
   review_retention?: number;
+  /** Phase #119 — look-ahead window for the review queue. */
+  review_window?: "now" | "today" | "tomorrow";
 }
 
 export interface LoginResponse {

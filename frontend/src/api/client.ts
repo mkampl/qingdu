@@ -164,6 +164,7 @@ export interface UserSettingsPayload {
   hsk_focus_version?: "new" | "old";
   display_script?: "auto" | "simp" | "trad";
   review_retention?: number;
+  review_window?: "now" | "today" | "tomorrow";
 }
 
 export const updateMySettings = (payload: UserSettingsPayload) =>
@@ -172,6 +173,7 @@ export const updateMySettings = (payload: UserSettingsPayload) =>
     hsk_focus_version: string;
     display_script: string;
     review_retention: number;
+    review_window: string;
   }>("/api/auth/me/settings", { method: "PATCH", body: payload });
 
 export const signupWithInvite = (

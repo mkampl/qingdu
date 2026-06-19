@@ -187,6 +187,34 @@ const reviewBand = computed<ReviewBand>({
   },
 });
 
+// --- Phase #119 — Review window ---
+type ReviewWindow = "now" | "today" | "tomorrow";
+const reviewWindow = computed<ReviewWindow>({
+  get: () => (auth.user?.review_window as ReviewWindow) ?? "today",
+  set: (v) => {
+    void auth.updateSettings({ review_window: v }).catch(() => {
+      toasts.error("Couldn't save review window.");
+    });
+  },
+});
+const reviewWindowOptions: { value: ReviewWindow; label: string; hint: string }[] = [
+  {
+    value: "now",
+    label: "Just due",
+    hint: "Only cards whose FSRS due_at has already passed. Strict — wait for each card to flip due.",
+  },
+  {
+    value: "today",
+    label: "Today",
+    hint: "Default — pull every card due before midnight tonight so a once-a-day session covers the whole day.",
+  },
+  {
+    value: "tomorrow",
+    label: "Today + tomorrow",
+    hint: "Pre-pull tomorrow's batch too. Useful if you know you won't be around to review tomorrow.",
+  },
+];
+
 const reviewBandOptions: { value: ReviewBand; label: string; hint: string }[] = [
   {
     value: "relaxed",
@@ -360,6 +388,38 @@ async function runImport() {
           >
             <input
               v-model="hskVersion"
+              type="radio"
+              :value="opt.value"
+              class="mt-1 accent-accent"
+            />
+            <span class="flex-1">
+              <span class="block font-display text-base text-fg">
+                {{ opt.label }}
+              </span>
+              <span class="block text-xs text-fg-muted">{{ opt.hint }}</span>
+            </span>
+          </label>
+        </div>
+      </fieldset>
+
+      <!-- Phase #119 — Review window -->
+      <fieldset v-if="auth.isAuthed">
+        <legend
+          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          Review window
+        </legend>
+        <div class="space-y-2">
+          <label
+            v-for="opt in reviewWindowOptions"
+            :key="opt.value"
+            class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
+            :class="{
+              'border-accent bg-bg-sunken': reviewWindow === opt.value,
+            }"
+          >
+            <input
+              v-model="reviewWindow"
               type="radio"
               :value="opt.value"
               class="mt-1 accent-accent"

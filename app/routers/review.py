@@ -107,12 +107,25 @@ async def review_queue(
     if enrolled:
         db.commit()
     now = datetime.utcnow()
+    # Phase #119 — look-ahead window. People review once a day, not every
+    # 30 minutes; widening the cutoff to "today" covers the typical session
+    # without forcing the user to wait for each card to flip due. Strict
+    # FSRS-conformant pull is still available via review_window='now'.
+    window = user.review_window or "today"
+    if window == "today":
+        midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        cutoff = midnight
+    elif window == "tomorrow":
+        midnight = (now + timedelta(days=2)).replace(hour=0, minute=0, second=0, microsecond=0)
+        cutoff = midnight
+    else:
+        cutoff = now
     rows = (
         db.query(UserWord)
         .filter(
             UserWord.user_id == user.id,
             UserWord.state.in_(ACTIVE_REVIEW_STATES),
-            or_(UserWord.due_at.is_(None), UserWord.due_at <= now),
+            or_(UserWord.due_at.is_(None), UserWord.due_at <= cutoff),
         )
         .order_by(UserWord.due_at.is_(None).desc(), UserWord.due_at.asc())
         .limit(limit)
