@@ -206,15 +206,15 @@ watch(
   { immediate: false },
 );
 
-// Phase #119 — Mobile focus-mode. Once the writing quiz reaches the
-// result phase, hide the App.vue header/footer + ReviewView's
-// page-header + stats so the result block and the 4 rating buttons
-// (with the auto-grade countdown ring) land above the fold. Cleared
-// in gradeAndAdvance + onBeforeUnmount so the chrome comes back
-// between cards and on session exit.
-const focusMode = computed(
-  () => review.mode === "writing" && writingDone.value,
-);
+// Phase #119 — Mobile focus-mode. Stays on as long as a card is loaded,
+// regardless of whether we're in the write-phase or the result-phase.
+// The previous version only kicked in on writingDone, which left the
+// writing canvas pushed below the fold during the *active* drawing
+// (user had to scroll down to find their canvas) — defeated the purpose.
+// Cleared automatically when review.current becomes null (queue exhausted,
+// session reset, or load failure) so the stats + sparkline come back
+// for the "start a new session" decision.
+const focusMode = computed(() => review.current !== null);
 
 // Phase #119 — the queue-cutoff lives server-side per user.review_window.
 // The UI gates need to mirror that so "Due now: 0 / Due today: 17" with
