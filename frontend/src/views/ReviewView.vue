@@ -215,6 +215,15 @@ watch(
 const focusMode = computed(
   () => review.mode === "writing" && writingDone.value,
 );
+
+// Phase #119 — the queue-cutoff lives server-side per user.review_window.
+// The UI gates need to mirror that so "Due now: 0 / Due today: 17" with
+// window=today doesn't lock the user out of starting a session.
+const effectiveDueCount = computed(() => {
+  const w = (auth.user?.review_window as "now" | "today" | "tomorrow") ?? "today";
+  if (w === "now") return review.stats.due_now;
+  return review.stats.due_today; // 'today' and 'tomorrow' both pull today+
+});
 watch(focusMode, (v) => {
   review.inFocus = v;
 });
@@ -426,7 +435,7 @@ watch(
           v-for="m in modes"
           :key="m.id"
           type="button"
-          :disabled="!m.available || review.stats.due_now === 0"
+          :disabled="!m.available || effectiveDueCount === 0"
           class="group rounded-lg border border-border-subtle bg-bg-elevated px-5 py-4 text-left transition-colors hover:border-accent hover:bg-bg-sunken disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border-subtle disabled:hover:bg-bg-elevated"
           @click="start(m.id)"
         >
@@ -446,7 +455,7 @@ watch(
       </div>
 
       <div
-        v-if="review.stats.due_now === 0 && review.stats.learning > 0"
+        v-if="effectiveDueCount === 0 && review.stats.learning > 0"
         class="mt-6 rounded-lg border border-border-subtle bg-bg-elevated px-5 py-4 text-center text-sm text-fg-muted"
       >
         Nothing's due right now — come back later, or mark a few more words as
