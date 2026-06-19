@@ -647,7 +647,7 @@ watch(
             :show-outline="settings.writingShowOutline"
             @complete="onWritingComplete"
           />
-          <div v-if="writingDone" class="mt-6 space-y-1 text-center">
+          <div v-if="writingDone" class="mt-4 space-y-1 text-center">
             <p
               class="font-mono text-[11px] uppercase tracking-wider"
               :class="
@@ -660,21 +660,12 @@ watch(
             >
               {{
                 writingMistakes === 0
-                  ? "Perfect"
-                  : `${writingMistakes} mistake${writingMistakes === 1 ? "" : "s"}`
+                  ? `Perfect (${writingStrokes} stroke${writingStrokes === 1 ? "" : "s"})`
+                  : `${writingMistakes} mistake${writingMistakes === 1 ? "" : "s"} on ${writingStrokes} stroke${writingStrokes === 1 ? "" : "s"}`
               }}
             </p>
-            <p class="font-cn-serif text-3xl text-fg">{{ card.word }}</p>
-            <p class="font-sans text-sm text-fg-muted">{{ card.pinyin }}</p>
-            <p class="font-display text-base text-fg">{{ card.meaning }}</p>
-            <ul
-              v-if="card.meanings && card.meanings.length > 1"
-              class="mx-auto mt-1 max-w-xs space-y-0.5 text-xs text-fg-muted"
-            >
-              <li v-for="(m, i) in card.meanings.slice(1)" :key="i">{{ m }}</li>
-            </ul>
             <p
-              class="mt-2 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+              class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
             >
               Suggested grade:
               {{

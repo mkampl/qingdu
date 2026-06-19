@@ -321,6 +321,7 @@ watch(
   () => {
     currentIdx.value = 0;
     totalMistakes.value = 0;
+    totalStrokes.value = 0;
     currentMistakes.value = 0;
     completed.value = false;
     skipped.value = false;
