@@ -221,7 +221,9 @@ def _looks_register_only(primary: str) -> bool:
     )
 
 
-def _entry_quality(primary: str, numbered_pinyin: str, frequency: int = 0) -> int:
+def _entry_quality(
+    primary: str, numbered_pinyin: str, frequency: int = 0, num_meanings: int = 1
+) -> int:
     """Higher = better headline candidate. Used to resolve collisions
     when CC-CEDICT lists multiple readings of the same simplified form.
 
@@ -272,6 +274,15 @@ def _entry_quality(primary: str, numbered_pinyin: str, frequency: int = 0) -> in
         and "(" not in bare
     ):
         score -= 25
+    # Sense-count bonus. A reading with multiple distinct senses
+    # (separated by `/` in CC-CEDICT) is almost always the everyday
+    # meaning: 中 zhōng has 4 senses ("within; among; in / middle;
+    # center / while (doing sth); during / (dialect) OK; all right"),
+    # while 中 zhòng has just one ("to hit (a target)"). Caps at +20
+    # so it's a meaningful tiebreaker without overwhelming the
+    # structural penalties.
+    if num_meanings > 1:
+        score += min(20, (num_meanings - 1) * 5)
     return score
 
 
@@ -358,7 +369,9 @@ def _parse_text(text: str) -> dict[str, dict]:
         primary = meanings[0]
         if simplified not in char_freq_cache:
             char_freq_cache[simplified] = _per_char_frequency(jieba_freq, simplified)
-        new_quality = _entry_quality(primary, numbered_pinyin, char_freq_cache[simplified])
+        new_quality = _entry_quality(
+            primary, numbered_pinyin, char_freq_cache[simplified], num_meanings=len(meanings)
+        )
         existing_quality = quality_cache.get(simplified)
         # `<` (not `<=`) so a later entry with equal score doesn't lose
         # to file-order alone. That kept 读 stuck on the dòu "comma"
