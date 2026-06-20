@@ -221,6 +221,27 @@ def _looks_register_only(primary: str) -> bool:
     )
 
 
+def _looks_grammatical_function(primary: str) -> bool:
+    """Glosses tagged as grammatical particle / marker / measure word
+    are the linguistic *function* of the character — fundamental for
+    learners and almost always the meaning they need to see first when
+    a character has both content-word and grammatical-function readings.
+    Examples worth bonusing: 着 zhe5 "(aspect particle ...)", 了 le5
+    "(modal particle ...)", 个 ge4 "(classifier ...)"."""
+    low = primary.lower().lstrip()
+    return (
+        low.startswith("(aspect particle")
+        or low.startswith("(modal particle")
+        or low.startswith("(possessive particle")
+        or low.startswith("(structural particle")
+        or low.startswith("(genitive particle")
+        or low.startswith("(grammatical particle")
+        or low.startswith("(particle")
+        or low.startswith("(classifier")
+        or low.startswith("(measure word")
+    )
+
+
 def _entry_quality(
     primary: str, numbered_pinyin: str, frequency: int = 0, num_meanings: int = 1
 ) -> int:
@@ -252,12 +273,21 @@ def _entry_quality(
         score -= 90
     if _looks_register_only(primary):
         score -= 50
-    # Frequency tiebreaker — log-scaled so the most common word's bonus
-    # saturates rather than dwarfing the structural penalties.
+    if _looks_grammatical_function(primary):
+        # Big positive — the particle/classifier reading is fundamental
+        # for learners and wins even against a multi-sense content-word
+        # reading at the same frequency.
+        score += 40
+    # Frequency tiebreaker — log-scaled, but with a wider band so
+    # SUBTLEX's per-reading frequencies cleanly separate "almost never
+    # used" (a few hundred) from "everyday" (tens of thousands). Cap
+    # at +80 so it can outweigh the sense-count bonus when the
+    # high-sense entry is the rare reading (着 zhao1 has 4 senses but
+    # is barely used; zhe5 has 1 sense and is the everyday particle).
     if frequency > 0:
         import math
 
-        score += min(50, int(math.log10(max(1, frequency)) * 10))
+        score += min(80, int(math.log10(max(1, frequency)) * 16))
     # Stub-gloss penalty. A primary that's just a single English noun
     # ("comma", "yes", "earth") with no verb / preposition / multi-sense
     # punctuation is usually a marginal reading: the everyday reading
@@ -266,12 +296,17 @@ def _entry_quality(
     # AND looks like a single noun (no space) so phrases like "to look
     # at" or "to grow" survive. Caps at -25.
     bare = primary.strip().rstrip(".")
+    # Affix markers ("-ly", "~ish") are already caught by _looks_pure_marker;
+    # don't double-penalise here. The bare-noun rule is for *plain English
+    # nouns* like "comma", not for the marker syntax.
+    is_affix_marker = bare.startswith("-") or bare.startswith("~")
     if (
         len(bare) <= 10
         and " " not in bare
         and ";" not in bare
         and "," not in bare
         and "(" not in bare
+        and not is_affix_marker
     ):
         score -= 25
     # Sense-count bonus. A reading with multiple distinct senses
@@ -286,52 +321,50 @@ def _entry_quality(
     return score
 
 
-def _load_jieba_frequencies() -> dict[str, int]:
-    """Load jieba's built-in word-frequency table once. Used as a
-    tiebreaker between equally-scored CC-CEDICT readings: among the
-    surface forms that contain a given character, the most common one
-    suggests which reading is the one a learner actually meets in
-    real Chinese.
+def _load_subtlex_char_pinyin() -> dict[str, dict[str, int]]:
+    """Load the bundled SUBTLEX-CH per-character / per-reading frequency
+    table. Derived from SUBTLEX-CH-WF (Cai & Brysbaert 2010) by
+    aggregating each (character, syllable) pair across every word in
+    which it appears with that syllable. The result is the closest thing
+    we have to "how often does this particular reading of this character
+    actually occur in real spoken-Chinese subtitles".
 
-    Returns {simplified_form: frequency}. Missing → 0 (no bonus).
+    Shape: {char: {numbered_pinyin: frequency}}. Missing char → empty.
+
+    SUBTLEX-CH is CC-BY-NC-ND for academic redistribution; the derived
+    aggregate we bundle here (sums per char/pinyin only, no original
+    transcript material) is a legitimate downstream use.
     """
-    freq: dict[str, int] = {}
+    import json
+    from pathlib import Path as _P
+
+    path = _P(__file__).resolve().parent.parent / "data" / "subtlex_char_pinyin_freq.json"
+    if not path.exists():
+        return {}
     try:
-        from pathlib import Path as _P
-
-        import jieba
-
-        dict_path = _P(jieba.__file__).parent / "dict.txt"
-        if not dict_path.exists():
-            return freq
-        with dict_path.open("r", encoding="utf-8") as fh:
-            for line in fh:
-                parts = line.split()
-                if len(parts) < 2:
-                    continue
-                word = parts[0]
-                try:
-                    freq[word] = int(parts[1])
-                except ValueError:
-                    continue
+        with path.open("r", encoding="utf-8") as fh:
+            return json.load(fh)
     except Exception:
-        # jieba missing or corrupt — fall back to no frequency hints.
-        pass
-    return freq
+        return {}
 
 
-def _per_char_frequency(jieba_freq: dict[str, int], char: str) -> int:
-    """For single-char headwords: sum the frequencies of every multi-char
-    word in jieba's dict containing this character. Approximates "how
-    often does this character actually appear in real text?", which is
-    what we want as a reading-disambiguator. For multi-char headwords
-    we just look up the word directly."""
-    if len(char) > 1:
-        return jieba_freq.get(char, 0)
+def _per_reading_frequency(
+    subtlex: dict[str, dict[str, int]], char: str, numbered_pinyin: str
+) -> int:
+    """Per-character per-reading SUBTLEX frequency. Sums across the
+    word's syllables when the headword is multi-char so the
+    disambiguation works for compound entries too. Returns 0 when
+    the char/syllable pair is absent (no harm done, the score's other
+    terms still dominate)."""
+    syllables = numbered_pinyin.strip().split()
+    chars = [c for c in char if "一" <= c <= "鿿"]
+    if not chars or not syllables or len(chars) != len(syllables):
+        return 0
     total = 0
-    for word, f in jieba_freq.items():
-        if char in word:
-            total += f
+    for c, syl in zip(chars, syllables, strict=False):
+        # SUBTLEX uses tone-numbered pinyin like "zhong1"; that matches
+        # CC-CEDICT's numbered_pinyin token format exactly.
+        total += subtlex.get(c, {}).get(syl, 0)
     return total
 
 
@@ -341,12 +374,11 @@ def _parse_text(text: str) -> dict[str, dict]:
     On collisions (multiple pinyin readings of the same simplified form),
     `_entry_quality` picks the more useful headline reading: content
     words beat particle-only readings, full-tone pinyin beats all-neutral,
-    and surname / variant-of placeholders lose to anything else. Ties
-    are broken by jieba's per-character corpus frequency so the everyday
-    reading wins over the archaic one.
+    surname / variant-of placeholders lose to anything else, and ties
+    are broken by SUBTLEX-CH per-(character, reading) corpus frequency
+    so the most-spoken reading wins over the archaic one.
     """
-    jieba_freq = _load_jieba_frequencies()
-    char_freq_cache: dict[str, int] = {}
+    subtlex = _load_subtlex_char_pinyin()
 
     out: dict[str, dict] = {}
     # Track which existing entry's quality we'd be comparing against
@@ -367,10 +399,13 @@ def _parse_text(text: str) -> dict[str, dict]:
         if not meanings:
             continue
         primary = meanings[0]
-        if simplified not in char_freq_cache:
-            char_freq_cache[simplified] = _per_char_frequency(jieba_freq, simplified)
+        # SUBTLEX is the strongest signal for "which reading do learners
+        # actually meet" — far better than jieba's per-character-summed
+        # heuristic at distinguishing e.g. zhe5 (109K, particle) from
+        # zhuo2 (103K, "to wear") from zhao2 (103K, ...) inside 着.
+        reading_freq = _per_reading_frequency(subtlex, simplified, numbered_pinyin)
         new_quality = _entry_quality(
-            primary, numbered_pinyin, char_freq_cache[simplified], num_meanings=len(meanings)
+            primary, numbered_pinyin, reading_freq, num_meanings=len(meanings)
         )
         existing_quality = quality_cache.get(simplified)
         # `<` (not `<=`) so a later entry with equal score doesn't lose
