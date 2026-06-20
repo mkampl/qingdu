@@ -68,12 +68,18 @@ const sizeClasses = {
              the modal instead of pushing past the screen edge. The flex
              column keeps the header / footer pinned while only the body
              slot scrolls. On mobile the modal sits at the bottom as a
-             sheet — the same cap works there too. -->
+             sheet — the same cap works there too.
+
+             The mobile max-h subtracts both safe-area insets so the
+             dialog can't grow taller than the visible area between
+             status bar and gesture nav bar. Without this the bottom-
+             anchored sheet pushes its header above the status bar and
+             the close button becomes unreachable. -->
         <div
           role="dialog"
           aria-modal="true"
           :aria-label="title"
-          class="relative flex w-full max-h-[calc(100dvh-1rem)] flex-col rounded-t-2xl bg-bg-elevated shadow-2xl ring-1 ring-border sm:max-h-[calc(100dvh-3rem)] sm:rounded-2xl"
+          class="dialog-shell relative flex w-full flex-col rounded-t-2xl bg-bg-elevated shadow-2xl ring-1 ring-border sm:max-h-[calc(100dvh-3rem)] sm:rounded-2xl"
           :class="sizeClasses[size ?? 'md']"
         >
           <header
@@ -129,6 +135,15 @@ const sizeClasses = {
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+  }
+  /* The mobile cap subtracts the same insets the overlay adds so the
+     dialog can't grow past the visible area. Without this the bottom
+     anchor pushes the header off-screen and its close button becomes
+     unreachable when the body content overflows. */
+  .dialog-shell {
+    max-height: calc(
+      100dvh - 1rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+    );
   }
 }
 </style>
