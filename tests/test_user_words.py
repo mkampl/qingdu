@@ -237,9 +237,7 @@ def test_package_snapshot_idempotent_within_same_package(words_client):
     row = _fetch_row(words_client, "无")
     assert row is not None
     matching = [
-        g
-        for g in row.glosses
-        if g.source == "package" and g.source_tag == "dao_de_jing_ch1"
+        g for g in row.glosses if g.source == "package" and g.source_tag == "dao_de_jing_ch1"
     ]
     assert len(matching) == 1
 
@@ -313,8 +311,7 @@ def test_bulk_mark_known_with_snapshots(words_client):
     assert tian is not None
     pkg = [g for g in tian.glosses if g.source == "package"]
     assert any(
-        g.meaning == "Heaven (cosmological)" and g.source_tag == "dao_de_jing_ch1"
-        for g in pkg
+        g.meaning == "Heaven (cosmological)" and g.source_tag == "dao_de_jing_ch1" for g in pkg
     )
 
     di = _fetch_row(words_client, "地")
