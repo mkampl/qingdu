@@ -241,7 +241,13 @@ async function startCharQuiz(idx: number) {
             skipped: false,
           });
         } else {
-          currentIdx.value += 1;
+          // Linger on the completed char for ~700ms so the user can see
+          // the green highlight + grade the stroke shape before the next
+          // canvas takes over. hanzi-writer's highlight fade is ~600ms;
+          // a hair longer than that lets it settle visually.
+          window.setTimeout(() => {
+            currentIdx.value += 1;
+          }, 700);
         }
       },
     });

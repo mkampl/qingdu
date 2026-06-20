@@ -105,9 +105,22 @@ def _apply_tone(syllable: str) -> str:
 
 
 def _convert_pinyin(numbered: str) -> str:
-    """Convert space-separated numbered pinyin to space-separated tone-marked."""
+    """Convert space-separated numbered pinyin to space-separated tone-marked.
+
+    Erhua suffix (`r5`) is glued onto the preceding syllable: "yi1 kuai4 r5"
+    → "yī kuàir" rather than "yī kuài r". CC-CEDICT marks erhua as a
+    standalone "r5" syllable, but for display "kuàir" reads naturally and
+    "kuài r" reads as a separate phantom syllable.
+    """
     syllables = numbered.strip().split()
-    return " ".join(_apply_tone(s.lower()) for s in syllables)
+    out: list[str] = []
+    for s in syllables:
+        s_low = s.lower()
+        if s_low == "r5" and out:
+            out[-1] = out[-1] + "r"
+        else:
+            out.append(_apply_tone(s_low))
+    return " ".join(out)
 
 
 # --- file fetch + parse --------------------------------------------------------
@@ -142,7 +155,13 @@ def _decompress(archive_bytes: bytes) -> str:
 def _looks_minor(primary: str) -> bool:
     """Surname or variant-of placeholder entries — almost never what a
     learner is looking up first."""
-    return primary.startswith("surname ") or primary.startswith("variant of ")
+    low = primary.lower()
+    return (
+        low.startswith("surname ")
+        or low.startswith("variant of ")
+        or low.startswith("old variant of ")
+        or low.startswith("erhua variant of ")
+    )
 
 
 def _looks_pure_marker(primary: str) -> bool:
@@ -170,16 +189,53 @@ def _looks_abbreviation(primary: str) -> bool:
     return "abbr." in low or low.startswith("(abbr")
 
 
-def _entry_quality(primary: str, numbered_pinyin: str) -> int:
+def _looks_bound_form(primary: str) -> bool:
+    """CC-CEDICT marks readings that exist only inside compounds as
+    `(bound form) ...`. For a learner browsing a *single character* card,
+    a bound-form gloss is almost never what they want — there's usually
+    a free-standing reading of the same character that should win.
+    Examples we want to demote: 行 "(bound form) row; line" (the haang2
+    reading) loses to xíng "to walk; OK"; 中 "(bound form) China; Chinese"
+    loses to zhōng "middle; within"."""
+    return primary.lower().lstrip().startswith("(bound form)")
+
+
+def _looks_referential(primary: str) -> bool:
+    """Entries whose entire primary gloss is "used in X" point at another
+    word without carrying meaning themselves. Examples: 个 "used in 自個兒"
+    or 家 "used in 傢伙|家伙". These are referential stubs — there's almost
+    always a real semantic reading we should prefer."""
+    return primary.lower().lstrip().startswith("used in ")
+
+
+def _looks_register_only(primary: str) -> bool:
+    """Glosses tagged as literary, classical, archaic, or dialect-only
+    are usually dead-language or regional readings that lose to the
+    standard modern Mandarin meaning of the same character."""
+    low = primary.lower().lstrip()
+    return (
+        low.startswith("(literary)")
+        or low.startswith("(classical)")
+        or low.startswith("(archaic)")
+        or low.startswith("(dialect)")
+    )
+
+
+def _entry_quality(primary: str, numbered_pinyin: str, frequency: int = 0) -> int:
     """Higher = better headline candidate. Used to resolve collisions
     when CC-CEDICT lists multiple readings of the same simplified form.
 
-    The heuristics are deliberately conservative — we only demote
-    entries whose primary gloss is plainly wrong as a headline:
-    surname placeholders, "-ly"-style bare markers, and abbreviations.
-    Everything else stays at full score and the file's natural order
-    decides (CC-CEDICT tends to put the most common reading first
-    within a character's entry block)."""
+    The penalty stack catches the structural marker patterns CC-CEDICT
+    uses to flag readings that are usually wrong as a learner headline:
+    surnames, "-ly"-style bare markers, abbreviations, (bound form)
+    annotations, "used in X" referential stubs, and tagged-register
+    (literary / classical / dialect) entries.
+
+    `frequency` is a per-reading corpus frequency hint (higher = more
+    common); breaks ties between two otherwise-equally-scored readings
+    by favouring the more common one. Defaults to 0 (no preference)
+    when the caller doesn't have a frequency table on hand.
+    """
     del numbered_pinyin  # kept in the signature for future heuristics
     score = 100
     if _looks_minor(primary):
@@ -188,7 +244,84 @@ def _entry_quality(primary: str, numbered_pinyin: str) -> int:
         score -= 80
     if _looks_abbreviation(primary):
         score -= 40
+    if _looks_bound_form(primary):
+        score -= 60
+    if _looks_referential(primary):
+        score -= 90
+    if _looks_register_only(primary):
+        score -= 50
+    # Frequency tiebreaker — log-scaled so the most common word's bonus
+    # saturates rather than dwarfing the structural penalties.
+    if frequency > 0:
+        import math
+
+        score += min(50, int(math.log10(max(1, frequency)) * 10))
+    # Stub-gloss penalty. A primary that's just a single English noun
+    # ("comma", "yes", "earth") with no verb / preposition / multi-sense
+    # punctuation is usually a marginal reading: the everyday reading
+    # of the same simplified form will spell out 2-3 senses separated
+    # by `;` or `,`. The penalty fires only when the gloss is short
+    # AND looks like a single noun (no space) so phrases like "to look
+    # at" or "to grow" survive. Caps at -25.
+    bare = primary.strip().rstrip(".")
+    if (
+        len(bare) <= 10
+        and " " not in bare
+        and ";" not in bare
+        and "," not in bare
+        and "(" not in bare
+    ):
+        score -= 25
     return score
+
+
+def _load_jieba_frequencies() -> dict[str, int]:
+    """Load jieba's built-in word-frequency table once. Used as a
+    tiebreaker between equally-scored CC-CEDICT readings: among the
+    surface forms that contain a given character, the most common one
+    suggests which reading is the one a learner actually meets in
+    real Chinese.
+
+    Returns {simplified_form: frequency}. Missing → 0 (no bonus).
+    """
+    freq: dict[str, int] = {}
+    try:
+        from pathlib import Path as _P
+
+        import jieba
+
+        dict_path = _P(jieba.__file__).parent / "dict.txt"
+        if not dict_path.exists():
+            return freq
+        with dict_path.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                parts = line.split()
+                if len(parts) < 2:
+                    continue
+                word = parts[0]
+                try:
+                    freq[word] = int(parts[1])
+                except ValueError:
+                    continue
+    except Exception:
+        # jieba missing or corrupt — fall back to no frequency hints.
+        pass
+    return freq
+
+
+def _per_char_frequency(jieba_freq: dict[str, int], char: str) -> int:
+    """For single-char headwords: sum the frequencies of every multi-char
+    word in jieba's dict containing this character. Approximates "how
+    often does this character actually appear in real text?", which is
+    what we want as a reading-disambiguator. For multi-char headwords
+    we just look up the word directly."""
+    if len(char) > 1:
+        return jieba_freq.get(char, 0)
+    total = 0
+    for word, f in jieba_freq.items():
+        if char in word:
+            total += f
+    return total
 
 
 def _parse_text(text: str) -> dict[str, dict]:
@@ -197,8 +330,13 @@ def _parse_text(text: str) -> dict[str, dict]:
     On collisions (multiple pinyin readings of the same simplified form),
     `_entry_quality` picks the more useful headline reading: content
     words beat particle-only readings, full-tone pinyin beats all-neutral,
-    and surname / variant-of placeholders lose to anything else.
+    and surname / variant-of placeholders lose to anything else. Ties
+    are broken by jieba's per-character corpus frequency so the everyday
+    reading wins over the archaic one.
     """
+    jieba_freq = _load_jieba_frequencies()
+    char_freq_cache: dict[str, int] = {}
+
     out: dict[str, dict] = {}
     # Track which existing entry's quality we'd be comparing against
     # without recomputing on each pass.
@@ -218,9 +356,15 @@ def _parse_text(text: str) -> dict[str, dict]:
         if not meanings:
             continue
         primary = meanings[0]
-        new_quality = _entry_quality(primary, numbered_pinyin)
+        if simplified not in char_freq_cache:
+            char_freq_cache[simplified] = _per_char_frequency(jieba_freq, simplified)
+        new_quality = _entry_quality(primary, numbered_pinyin, char_freq_cache[simplified])
         existing_quality = quality_cache.get(simplified)
-        if existing_quality is not None and new_quality <= existing_quality:
+        # `<` (not `<=`) so a later entry with equal score doesn't lose
+        # to file-order alone. That kept 读 stuck on the dòu "comma"
+        # reading because it happened to parse first; with `<` and the
+        # frequency tiebreaker the dú reading wins.
+        if existing_quality is not None and new_quality < existing_quality:
             continue
         out[simplified] = {
             "traditional": traditional,
