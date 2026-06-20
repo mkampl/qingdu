@@ -222,9 +222,15 @@ const MIN_TEXT_LENGTH_FOR_TOC = 900;
 /** A useful TOC needs at least this many sections; below it we suppress it. */
 const MIN_SECTION_COUNT = 3;
 
-/** A paragraph-start sentence that begins with a numbered prefix —
- *  "一、", "二.", "1.", "10、" etc. We treat these as authored headings. */
-const HEADING_PREFIX_RE = /^[一二三四五六七八九十百千万0-9]+[、.,．：:]/;
+/** Chinese-numeral prefix like "一、", "二.", "十、". We treat these as
+ *  unambiguous chapter markers — strong enough that we don't require a
+ *  paragraph break to land on them, because some package authors flow
+ *  their whole text into one paragraph and linebreaks become unreliable. */
+const CN_HEADING_RE = /^[一二三四五六七八九十百千万]+[、.,．：:]/;
+/** Arabic-numeral prefix like "1.", "10、". Weaker signal — only counts
+ *  when the sentence sits at the start of a paragraph so we don't grab
+ *  list bullets mid-sentence ("等于1.5倍"). */
+const AR_HEADING_RE = /^[0-9]+[、.,．：:]/;
 
 export function detectSections(sentences: Sentence[]): Section[] {
   if (!sentences.length) return [];
@@ -232,16 +238,25 @@ export function detectSections(sentences: Sentence[]): Section[] {
   const totalChars = sentences.reduce((sum, s) => sum + s.text.length, 0);
   if (totalChars < MIN_TEXT_LENGTH_FOR_TOC) return [];
 
-  // 1) Try numbered-heading mode. A sentence counts as a heading only when
-  // it sits at the start of a paragraph (idx 0 or preceded by a line
-  // break) so we don't catch "一、二" embedded inside running prose.
-  const headingIdxs: number[] = [];
+  // 1) Numbered-heading mode. Prefer Chinese-numeral chapter markers
+  // (一、二、…) outright; if there are enough of them we ignore the
+  // weaker Arabic-numeral signal so the TOC stays at chapter granularity
+  // instead of exploding into per-bullet-point entries.
+  const cnIdxs: number[] = [];
+  const arIdxs: number[] = [];
   for (let i = 0; i < sentences.length; i++) {
+    const txt = sentences[i].text.trim();
+    if (CN_HEADING_RE.test(txt)) {
+      cnIdxs.push(i);
+      continue;
+    }
     const isParaStart = i === 0 || sentences[i - 1].endsWithLineBreak;
-    if (isParaStart && HEADING_PREFIX_RE.test(sentences[i].text.trim())) {
-      headingIdxs.push(i);
+    if (isParaStart && AR_HEADING_RE.test(txt)) {
+      arIdxs.push(i);
     }
   }
+  const headingIdxs =
+    cnIdxs.length >= MIN_SECTION_COUNT ? cnIdxs : [...cnIdxs, ...arIdxs].sort((a, b) => a - b);
 
   if (headingIdxs.length >= MIN_SECTION_COUNT) {
     const sections: Section[] = [];
