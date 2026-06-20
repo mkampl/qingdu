@@ -63,6 +63,48 @@ def _known_set_for(db: Session, user_id: int) -> set[str]:
     return {word for (word,) in rows}
 
 
+def _user_glosses_map(db: Session, user_id: int) -> dict[str, list[dict]]:
+    """Phase #120 — every gloss this user has collected, keyed by word.
+    Attached to the saved-text payload so the reader's popover surfaces
+    the user's curated meanings (dictionary + package tags) even on the
+    cached analysis_data path that doesn't re-run /api/analyze."""
+    from app.database import UserWordGloss
+
+    rows = (
+        db.query(
+            UserWord.word,
+            UserWordGloss.source,
+            UserWordGloss.source_tag,
+            UserWordGloss.meaning,
+            UserWordGloss.pinyin,
+        )
+        .join(UserWordGloss, UserWordGloss.user_word_id == UserWord.id)
+        .filter(UserWord.user_id == user_id)
+        .order_by(UserWord.word, UserWordGloss.created_at)
+        .all()
+    )
+    out: dict[str, list[dict]] = {}
+    for word, source, tag, meaning, pinyin in rows:
+        out.setdefault(word, []).append(
+            {"source": source, "tag": tag, "meaning": meaning, "pinyin": pinyin}
+        )
+    return out
+
+
+def _attach_user_glosses(analysis_data: dict, glosses_map: dict[str, list[dict]]) -> None:
+    """Walk analysis_data['words'] and attach user_glosses to each word
+    that has any glosses in the map. Mutates in place."""
+    if not glosses_map or not analysis_data:
+        return
+    for word in analysis_data.get("words", []) or []:
+        text = word.get("text")
+        if not text:
+            continue
+        glosses = glosses_map.get(text)
+        if glosses:
+            word["user_glosses"] = glosses
+
+
 @router.post("/api/texts/save")
 async def save_text(
     request: Request,
@@ -104,6 +146,7 @@ async def get_texts(
     # Pull the user's known/ignored word set once and reuse for every text;
     # the per-text comprehension calc is then pure-Python set intersection.
     known_set = _known_set_for(db, user.id)
+    glosses_map = _user_glosses_map(db, user.id)
 
     result = []
     for text in texts:
@@ -113,6 +156,11 @@ async def get_texts(
         # by canonical (simp) UserWord rows, so we match against the
         # original (pre-conversion) analysis_data words.
         comp = _comprehension(migrated_data, known_set)
+        # Phase #120 — attach the user's tagged glosses to each word so
+        # the popover shows package + dictionary side by side. Also runs
+        # against the canonical (pre-conversion) text since UserWord
+        # rows are simp-keyed.
+        _attach_user_glosses(migrated_data, glosses_map)
         # Then convert the analysis_data (and the raw `content`) to the
         # user's display script. analysis_data is walked in place: every
         # word.text and grammar sentence.text gets converted.
