@@ -375,7 +375,7 @@ async function setWordState(state: UserWordState) {
                   "
                 />
               </div>
-              <HskChip :level="wordLevel" />
+              <HskChip v-if="wordLevel" :level="wordLevel" />
             </div>
           </div>
 
