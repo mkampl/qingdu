@@ -6,8 +6,12 @@ const toasts = useToastStore();
 
 <template>
   <Teleport to="body">
+    <!-- top/right offsets compose the visual gutter with the safe-area
+         inset so toasts can't hide under Android's status bar (top) or
+         the right-edge gesture inset in landscape. env() = 0 in plain
+         browsers, so this stays a 1rem gutter on desktop. -->
     <div
-      class="pointer-events-none fixed top-4 right-4 z-[60] flex w-full max-w-sm flex-col gap-2"
+      class="toaster-root pointer-events-none fixed z-[60] flex w-full max-w-sm flex-col gap-2"
       aria-live="polite"
     >
       <TransitionGroup
@@ -70,3 +74,10 @@ const toasts = useToastStore();
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.toaster-root {
+  top: calc(env(safe-area-inset-top) + 1rem);
+  right: calc(env(safe-area-inset-right) + 1rem);
+}
+</style>

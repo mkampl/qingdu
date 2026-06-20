@@ -50,9 +50,14 @@ const sizeClasses = {
       enter-from-class="opacity-0"
       leave-to-class="opacity-0"
     >
+      <!-- modal-overlay carries safe-area padding via scoped <style> below.
+           Needed because the dialog is Teleport'd to body and uses
+           position:fixed, which bypasses body's own safe-area padding.
+           Without it the bottom-sheet footer (e.g. package Import button)
+           sits under Android's gesture nav bar. -->
       <div
         v-if="open"
-        class="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6"
+        class="modal-overlay fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6"
       >
         <div
           class="absolute inset-0 bg-black/40 backdrop-blur-sm"
@@ -108,3 +113,22 @@ const sizeClasses = {
     </Transition>
   </Teleport>
 </template>
+
+<style scoped>
+/* Capacitor Android draws the WebView behind the status + nav bars
+   (Android 15 edge-to-edge). Indent the overlay by the inset so the
+   bottom-anchored mobile sheet keeps its footer above the nav bar and
+   the top-anchored close button stays under the status bar.
+
+   Desktop / mobile-web: env() returns 0 → no visual change. We only
+   apply this below the sm: breakpoint; on sm+ the existing sm:p-6
+   provides the visual gutter and the safe-area insets are 0 anyway. */
+@media (max-width: 639px) {
+  .modal-overlay {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+</style>

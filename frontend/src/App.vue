@@ -411,6 +411,10 @@ watch(
               v-if="mobileNavOpen"
               id="mobile-nav-drawer"
               class="absolute inset-y-0 left-0 flex w-[min(18rem,80vw)] flex-col bg-bg-elevated shadow-2xl ring-1 ring-border"
+              :style="{
+                paddingTop: 'env(safe-area-inset-top)',
+                paddingBottom: 'env(safe-area-inset-bottom)',
+              }"
             >
               <header
                 class="flex items-center justify-between border-b border-border-subtle px-5 py-3"
