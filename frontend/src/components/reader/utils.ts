@@ -178,15 +178,23 @@ export function levelDisplayName(level: HskLevel | null | undefined): string {
 /* --- Section detection ----------------------------------------------------
  *
  * Long texts (articles, book chapters, anything imported from /discover)
- * need internal navigation. We detect sections by walking the already-
- * sentence-grouped output and grouping consecutive sentences into chunks
- * of roughly TARGET_SECTION_CHARS, breaking at paragraph boundaries
- * (`endsWithLineBreak`) so a section never starts mid-paragraph.
+ * need internal navigation. Two strategies, in order:
  *
- * The section title is the first ~28 chars of the section's opening
- * sentence — for narrative prose this consistently gives a sense of
- * "what this part is about", and for headings-style text where the
- * heading sits on its own paragraph, it surfaces the actual heading.
+ *  1. Numbered-heading mode — texts authored with explicit headings like
+ *     "一、…", "二、…", "1.…" land here. We split at every paragraph-start
+ *     sentence whose first glyph matches that pattern. The H2 anchor then
+ *     carries a real heading instead of a truncated mid-paragraph snippet,
+ *     and "Mark remaining as known" buttons land at semantically meaningful
+ *     boundaries instead of every ~480 chars.
+ *
+ *  2. Char-budget mode — fallback for unstructured prose. We walk sentences
+ *     and break at paragraph boundaries once we've accumulated
+ *     TARGET_SECTION_CHARS. Without this many long articles would render as
+ *     a single section with no internal navigation.
+ *
+ * Both modes only kick in when the text is long enough to warrant a TOC
+ * and at least MIN_SECTION_COUNT sections come out — a 2-entry TOC looks
+ * broken and gives no navigation value.
  */
 
 export interface Section {
@@ -198,12 +206,17 @@ export interface Section {
   startSentenceIdx: number;
 }
 
-/** Target chars per section. Smaller -> finer TOC, more clicks. */
+/** Target chars per section in char-budget mode. Smaller = finer TOC,
+ *  more clicks. Only used when no numbered headings exist. */
 const TARGET_SECTION_CHARS = 480;
 /** Below this total length, we don't bother with sections at all. */
 const MIN_TEXT_LENGTH_FOR_TOC = 900;
 /** A useful TOC needs at least this many sections; below it we suppress it. */
 const MIN_SECTION_COUNT = 3;
+
+/** A paragraph-start sentence that begins with a numbered prefix —
+ *  "一、", "二.", "1.", "10、" etc. We treat these as authored headings. */
+const HEADING_PREFIX_RE = /^[一二三四五六七八九十百千万0-9]+[、.,．：:]/;
 
 export function detectSections(sentences: Sentence[]): Section[] {
   if (!sentences.length) return [];
@@ -211,6 +224,41 @@ export function detectSections(sentences: Sentence[]): Section[] {
   const totalChars = sentences.reduce((sum, s) => sum + s.text.length, 0);
   if (totalChars < MIN_TEXT_LENGTH_FOR_TOC) return [];
 
+  // 1) Try numbered-heading mode. A sentence counts as a heading only when
+  // it sits at the start of a paragraph (idx 0 or preceded by a line
+  // break) so we don't catch "一、二" embedded inside running prose.
+  const headingIdxs: number[] = [];
+  for (let i = 0; i < sentences.length; i++) {
+    const isParaStart = i === 0 || sentences[i - 1].endsWithLineBreak;
+    if (isParaStart && HEADING_PREFIX_RE.test(sentences[i].text.trim())) {
+      headingIdxs.push(i);
+    }
+  }
+
+  if (headingIdxs.length >= MIN_SECTION_COUNT) {
+    const sections: Section[] = [];
+    // If the first heading isn't at idx 0, the preamble (title page,
+    // intro paragraph, etc.) forms its own section so it still gets a
+    // bulk-mark action of its own.
+    if (headingIdxs[0] > 0) {
+      sections.push({
+        key: "sec-pre",
+        title: snippetTitle(sentences[0].text),
+        startSentenceIdx: 0,
+      });
+    }
+    for (let j = 0; j < headingIdxs.length; j++) {
+      const startIdx = headingIdxs[j];
+      sections.push({
+        key: `sec-${j}`,
+        title: snippetTitle(sentences[startIdx].text),
+        startSentenceIdx: startIdx,
+      });
+    }
+    return sections;
+  }
+
+  // 2) Char-budget fallback.
   const sections: Section[] = [];
   let pendingStart = 0;
   let acc = 0;
