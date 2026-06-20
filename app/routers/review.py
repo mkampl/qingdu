@@ -79,11 +79,27 @@ def _enrich(row: UserWord) -> dict:
     if not meanings and meaning:
         meanings = [meaning]
 
+    # Phase #120 — tagged glosses. Each is one (source, source_tag,
+    # meaning, pinyin) row, surfaced in creation order so the
+    # dictionary entry (which we always seed first) lands at index 0
+    # and package entries follow. The frontend renders these with
+    # provenance chips ("[Dao De Jing]").
+    glosses_payload = [
+        {
+            "source": g.source,
+            "tag": g.source_tag,
+            "meaning": g.meaning,
+            "pinyin": g.pinyin,
+        }
+        for g in (row.glosses or [])
+    ]
+
     return {
         "pinyin": pinyin,
         "meaning": meaning,
         "meanings": meanings,
         "hsk_level": hsk_level,
+        "glosses": glosses_payload,
     }
 
 

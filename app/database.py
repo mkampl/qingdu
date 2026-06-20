@@ -184,11 +184,56 @@ class UserWord(Base):
 
     user = relationship("User", back_populates="user_words")
 
+    glosses = relationship(
+        "UserWordGloss",
+        back_populates="user_word",
+        cascade="all, delete-orphan",
+        order_by="UserWordGloss.created_at",
+    )
+
     __table_args__ = (
         UniqueConstraint("user_id", "word", name="uq_user_word"),
         Index("ix_user_words_user_state", "user_id", "state"),
         # Hot path: "what's due right now for user X" — used by /api/review/queue.
         Index("ix_user_words_user_due", "user_id", "due_at"),
+    )
+
+
+class UserWordGloss(Base):
+    """Phase #120 — one of possibly many glosses for the same user-word.
+
+    Lets a daoist 道 carry both the CEDICT primary ("the way; path;
+    principle") AND the Dao-De-Jing package gloss ("Tao — the source")
+    side by side on the same SRS card, so review shows both with their
+    provenance tag and the reader popover surfaces the right one for
+    the active text without having to choose one as the canonical.
+
+    Provenance:
+    - source='dictionary': the CEDICT / HSK / compound chain lookup at
+      the time of insertion. Refreshed by snapshot_backfill on startup.
+    - source='package': a curated gloss from a pre-analyzed JSON
+      package. `source_tag` carries the package name so the popover /
+      review-card can show e.g. "[Dao De Jing]".
+    """
+
+    __tablename__ = "user_word_glosses"
+
+    id = Column(Integer, primary_key=True)
+    user_word_id = Column(Integer, ForeignKey("user_words.id", ondelete="CASCADE"), nullable=False)
+    pinyin = Column(String(128), nullable=True)
+    meaning = Column(Text, nullable=False)
+    # 'dictionary' | 'package'
+    source = Column(String(32), nullable=False)
+    # NULL for dictionary; the package name (e.g. "dao_de_jing_ch1") for
+    # package-sourced glosses. Used as the human-facing tag in the UI.
+    source_tag = Column(String(64), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user_word = relationship("UserWord", back_populates="glosses")
+
+    __table_args__ = (
+        UniqueConstraint("user_word_id", "source", "source_tag", name="uq_userword_gloss"),
+        Index("ix_userword_gloss_userword", "user_word_id"),
     )
 
 
@@ -421,6 +466,46 @@ def init_db():
                 with engine.connect() as conn:
                     conn.execute(text("ALTER TABLE user_word_events ADD COLUMN grade INTEGER"))
                     conn.commit()
+
+        # Phase #120 — backfill user_word_glosses for legacy rows. Every
+        # existing UserWord with a meaning gets one initial gloss row
+        # carrying its current meaning + pinyin + source. Idempotent:
+        # rows with at least one gloss are skipped.
+        if inspector.has_table("user_words") and inspector.has_table("user_word_glosses"):
+            session = SessionLocal()
+            try:
+                missing = (
+                    session.query(UserWord)
+                    .outerjoin(UserWordGloss, UserWordGloss.user_word_id == UserWord.id)
+                    .filter(UserWordGloss.id.is_(None), UserWord.meaning.isnot(None))
+                    .all()
+                )
+                if missing:
+                    logger.info("Backfilling user_word_glosses for %d legacy rows", len(missing))
+                    for r in missing:
+                        if not r.meaning:
+                            continue
+                        source = "package" if r.meaning_source == "package" else "dictionary"
+                        # We don't have the original package name on legacy
+                        # rows — tag with "legacy" so the UI can render
+                        # something. Future package clicks will create
+                        # fresh tagged entries.
+                        source_tag = "legacy" if source == "package" else None
+                        session.add(
+                            UserWordGloss(
+                                user_word_id=r.id,
+                                pinyin=r.pinyin,
+                                meaning=r.meaning,
+                                source=source,
+                                source_tag=source_tag,
+                            )
+                        )
+                    session.commit()
+            except Exception as e:  # noqa: BLE001
+                logger.warning("user_word_glosses backfill failed (%s) — skipping", e)
+                session.rollback()
+            finally:
+                session.close()
     except Exception as e:
         logger.error(f"Error updating database schema: {e}")
     finally:

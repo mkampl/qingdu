@@ -21,7 +21,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.auth import require_auth
-from app.database import User, UserWord, UserWordEvent, get_db
+from app.database import User, UserWord, UserWordEvent, UserWordGloss, get_db
 from app.schemas import (
     VALID_WORD_STATES,
     BulkMarkKnownRequest,
@@ -90,6 +90,62 @@ def _resolve_snapshot(
     return pinyin, meaning, "dictionary"
 
 
+def _ensure_gloss(
+    db: Session,
+    row: UserWord,
+    *,
+    pinyin: str | None,
+    meaning: str | None,
+    source: str,
+    source_tag: str | None,
+) -> None:
+    """Phase #120 — add a gloss to a UserWord row if no equivalent one
+    exists yet. Equivalence: same (source, source_tag) pair.
+
+    The first dictionary gloss added is the row's primary meaning. The
+    legacy `meaning`/`pinyin` columns on UserWord still get populated
+    with the *first* gloss we see (so existing read paths keep working
+    until they're migrated); subsequent glosses go to UserWordGloss
+    only.
+    """
+    if not meaning:
+        return
+    existing = next(
+        (
+            g
+            for g in row.glosses
+            if g.source == source and (g.source_tag or None) == (source_tag or None)
+        ),
+        None,
+    )
+    if existing is not None:
+        # Refresh the meaning if the dictionary's view of this word
+        # drifted (e.g. CC-CEDICT picked a better primary after a
+        # heuristic tune). Package glosses are immutable.
+        if source == "dictionary":
+            if meaning and meaning != existing.meaning:
+                existing.meaning = meaning
+            if pinyin and pinyin != existing.pinyin:
+                existing.pinyin = pinyin
+        return
+    db.add(
+        UserWordGloss(
+            user_word=row,
+            pinyin=pinyin or None,
+            meaning=meaning,
+            source=source,
+            source_tag=source_tag,
+        )
+    )
+    # Mirror the first gloss into the legacy columns so callers that
+    # haven't been migrated yet still see *something* on the row. The
+    # gloss list itself is the source of truth.
+    if not row.meaning:
+        row.meaning = meaning
+        row.pinyin = pinyin or None
+        row.meaning_source = source
+
+
 def _upsert(
     db: Session,
     user_id: int,
@@ -99,27 +155,22 @@ def _upsert(
     pkg_meaning: str | None = None,
     pkg_pinyin: str | None = None,
     pkg_translation_source: str | None = None,
+    pkg_source_tag: str | None = None,
 ) -> UserWord:
+    is_pkg = pkg_translation_source == "package" and (pkg_meaning or pkg_pinyin) is not None
+
     row = db.query(UserWord).filter(UserWord.user_id == user_id, UserWord.word == word).first()
     if row is None:
-        pinyin, meaning, source = _resolve_snapshot(
-            word, pkg_meaning, pkg_pinyin, pkg_translation_source
-        )
         row = UserWord(
             user_id=user_id,
             word=word,
             state=state,
             seen_count=1,
-            pinyin=pinyin or None,
-            meaning=meaning or None,
-            meaning_source=source,
         )
-        # 'known' is no longer a terminal "out-of-SRS" state — we seed a
-        # high-stability Review-phase FSRS card so the row stays in the
-        # review queue but isn't due for months.
         if state == "known":
             _apply_known_scheduling(row)
         db.add(row)
+        db.flush()  # row.id needed for gloss FK
     else:
         if state == "known":
             _apply_known_scheduling(row)
@@ -127,29 +178,34 @@ def _upsert(
             row.state = state
         row.seen_count = (row.seen_count or 0) + 1
         row.updated_at = datetime.utcnow()
-        # Package upgrade path: if the caller passed a package snapshot
-        # AND this row isn't already package-sourced, overwrite the
-        # snapshot so the contextual gloss the user just read wins over
-        # the dictionary fallback we resolved on the first click.
-        # First-package wins — a package-B click on a package-A row is
-        # left alone so SRS reviews stay stable across imports.
-        is_pkg = pkg_translation_source == "package" and (pkg_meaning or pkg_pinyin) is not None
-        if is_pkg and row.meaning_source != "package":
-            row.pinyin = pkg_pinyin or None
-            row.meaning = pkg_meaning or None
-            row.meaning_source = "package"
-        elif not row.pinyin or not row.meaning:
-            # Backfill snapshots on existing rows that never got them,
-            # using the dictionary chain (legacy / non-package path).
-            pinyin, meaning = lookup_pinyin_meaning(word)
-            if not row.pinyin and pinyin:
-                row.pinyin = pinyin
-            if not row.meaning and meaning:
-                row.meaning = meaning
-            # Only stamp "dictionary" if we actually pulled anything in
-            # AND the row had no provenance recorded yet (legacy NULL).
-            if row.meaning_source is None and (row.pinyin or row.meaning):
-                row.meaning_source = "dictionary"
+
+    # Always ensure a dictionary gloss exists — that's the default
+    # learner-facing meaning regardless of which context they clicked
+    # the word in. lookup_pinyin_meaning hits HSK/CC-CEDICT/compound/pypinyin.
+    dict_pinyin, dict_meaning = lookup_pinyin_meaning(word)
+    if dict_meaning:
+        _ensure_gloss(
+            db,
+            row,
+            pinyin=dict_pinyin,
+            meaning=dict_meaning,
+            source="dictionary",
+            source_tag=None,
+        )
+
+    # Add the package gloss as its own row if the click came from a
+    # package. Multiple packages can co-exist as separate glosses
+    # tagged by package name.
+    if is_pkg:
+        _ensure_gloss(
+            db,
+            row,
+            pinyin=pkg_pinyin,
+            meaning=pkg_meaning,
+            source="package",
+            source_tag=pkg_source_tag or "package",
+        )
+
     _record_event(db, user_id, word, "state_change", state, source_text_id)
     return row
 
@@ -189,6 +245,7 @@ async def set_word_state(
         pkg_meaning=payload.meaning,
         pkg_pinyin=payload.pinyin,
         pkg_translation_source=payload.translation_source,
+        pkg_source_tag=payload.package_source,
     )
     record_activity(user, db)
     db.commit()
@@ -254,37 +311,42 @@ async def bulk_mark_known(
         pkg_meaning = snap.meaning if snap else None
         pkg_pinyin = snap.pinyin if snap else None
         pkg_source = snap.translation_source if snap else None
+        pkg_tag = snap.package_source if snap else None
         is_pkg = pkg_source == "package" and (pkg_meaning or pkg_pinyin) is not None
 
         row = existing.get(word)
         if row is None:
-            pinyin, meaning, source = _resolve_snapshot(word, pkg_meaning, pkg_pinyin, pkg_source)
-            row = UserWord(
-                user_id=user.id,
-                word=word,
-                state="learning",
-                seen_count=1,
-                pinyin=pinyin or None,
-                meaning=meaning or None,
-                meaning_source=source,
-            )
+            row = UserWord(user_id=user.id, word=word, state="learning", seen_count=1)
             _apply_known_scheduling(row)
             db.add(row)
+            db.flush()
             updated += 1
-        else:
-            if (row.stability or 0) < 90:
-                # Existing low-stability row → promote it to a Review-phase
-                # card so it sits at known stability but stays in rotation.
-                _apply_known_scheduling(row)
-                row.updated_at = datetime.utcnow()
-                updated += 1
-            # Apply the same first-package-wins upgrade rule as _upsert():
-            # a package snapshot can overwrite a dictionary-stamped row,
-            # but never another package row.
-            if is_pkg and row.meaning_source != "package":
-                row.pinyin = pkg_pinyin or None
-                row.meaning = pkg_meaning or None
-                row.meaning_source = "package"
+        elif (row.stability or 0) < 90:
+            _apply_known_scheduling(row)
+            row.updated_at = datetime.utcnow()
+            updated += 1
+
+        # Phase #120 — same gloss logic as _upsert(): always seed a
+        # dictionary gloss, plus a tagged package gloss when relevant.
+        dict_pinyin, dict_meaning = lookup_pinyin_meaning(word)
+        if dict_meaning:
+            _ensure_gloss(
+                db,
+                row,
+                pinyin=dict_pinyin,
+                meaning=dict_meaning,
+                source="dictionary",
+                source_tag=None,
+            )
+        if is_pkg:
+            _ensure_gloss(
+                db,
+                row,
+                pinyin=pkg_pinyin,
+                meaning=pkg_meaning,
+                source="package",
+                source_tag=pkg_tag or "package",
+            )
         _record_event(db, user.id, word, "bulk_mark_known", "known", payload.source_text_id)
     record_activity(user, db)
     db.commit()

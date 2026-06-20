@@ -236,6 +236,7 @@ function buildSnapshot(): WordSnapshot | null {
     meaning: w.meaning ?? null,
     pinyin: w.pinyin ?? null,
     translation_source: "package",
+    package_source: w.package_source ?? null,
   };
 }
 
@@ -408,8 +409,45 @@ async function setWordState(state: UserWordState) {
             {{ word.glossary_source }}
           </div>
 
-          <!-- Meaning(s) -->
-          <div v-if="word.meaning || word.meanings?.length" class="mt-4">
+          <!-- Meaning(s). Phase #120: when the user has any tagged
+               glosses (= they've clicked this word in a package context),
+               show every gloss with its provenance chip so dictionary
+               and package meanings sit side-by-side. Falls back to the
+               flat meaning + meanings list for words the user hasn't
+               touched yet. -->
+          <div
+            v-if="word.user_glosses && word.user_glosses.length"
+            class="mt-4 space-y-2"
+          >
+            <div
+              v-for="(g, i) in word.user_glosses"
+              :key="i"
+              class="flex items-start gap-2"
+            >
+              <span
+                :class="[
+                  'mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider',
+                  g.source === 'package'
+                    ? 'bg-accent/15 text-accent'
+                    : 'bg-bg-sunken text-fg-subtle',
+                ]"
+                :title="
+                  g.source === 'package' && g.tag
+                    ? `From package ${g.tag}`
+                    : 'Dictionary'
+                "
+              >
+                {{ g.source === 'package' ? g.tag || 'Package' : 'Dict' }}
+              </span>
+              <p class="font-display text-[14px] leading-snug text-fg">
+                {{ g.meaning }}
+              </p>
+            </div>
+          </div>
+          <div
+            v-else-if="word.meaning || word.meanings?.length"
+            class="mt-4"
+          >
             <p class="font-display text-[15px] leading-snug text-fg">
               {{ word.meaning }}
             </p>

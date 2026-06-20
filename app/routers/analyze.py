@@ -23,6 +23,37 @@ def _user_state_map(db: Session, user: User | None) -> dict[str, str]:
     return dict(rows)
 
 
+def _user_glosses_map(db: Session, user: User | None) -> dict[str, list[dict]]:
+    """Phase #120 — for each word the user has touched, the list of
+    glosses they've collected with provenance. Surfaced in the popover so
+    a Daoist 道 in /reader shows both the dictionary primary AND the
+    Daodejing package gloss with their tags. Cheap: one indexed join."""
+    if user is None:
+        return {}
+    from app.database import UserWordGloss
+
+    rows = (
+        db.query(
+            UserWord.word,
+            UserWordGloss.source,
+            UserWordGloss.source_tag,
+            UserWordGloss.meaning,
+            UserWordGloss.pinyin,
+            UserWordGloss.created_at,
+        )
+        .join(UserWordGloss, UserWordGloss.user_word_id == UserWord.id)
+        .filter(UserWord.user_id == user.id)
+        .order_by(UserWord.word, UserWordGloss.created_at)
+        .all()
+    )
+    out: dict[str, list[dict]] = {}
+    for word, source, tag, meaning, pinyin, _ in rows:
+        out.setdefault(word, []).append(
+            {"source": source, "tag": tag, "meaning": meaning, "pinyin": pinyin}
+        )
+    return out
+
+
 def _build_glossary(
     db: Session,
     user: User | None,
@@ -142,6 +173,7 @@ async def analyze_text(
     # the canonical (simp) text before we convert anything to the user's
     # display script.
     states = _user_state_map(db, user)
+    glosses_map = _user_glosses_map(db, user)
     pref = user_script(user)
     for word in result.get("words", []):
         canonical_text = word.get("text", "")
@@ -149,6 +181,10 @@ async def analyze_text(
             state = states.get(canonical_text)
             if state is not None:
                 word["user_state"] = state
+        if glosses_map:
+            user_glosses = glosses_map.get(canonical_text)
+            if user_glosses:
+                word["user_glosses"] = user_glosses
         if pref == "trad" and canonical_text:
             word["text"] = to_user_script(canonical_text, user)
 

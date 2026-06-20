@@ -653,6 +653,10 @@ export interface WordSnapshot {
   meaning?: string | null;
   pinyin?: string | null;
   translation_source?: string | null;
+  /** Phase #120 — package name that owns this gloss. Backend uses it as
+   *  the source_tag on the resulting UserWordGloss row so the UI can
+   *  show "[Dao De Jing]" next to the meaning. */
+  package_source?: string | null;
 }
 
 export const setUserWordState = (
@@ -763,6 +767,15 @@ export interface ReviewCard {
   stability: number | null;
   difficulty: number | null;
   due_at: string | null;
+  /** Phase #120 — every gloss this user has on the word, with
+   *  provenance. Review card renders them as chips so the same
+   *  character can carry CEDICT + multiple package meanings. */
+  glosses?: Array<{
+    source: "dictionary" | "package";
+    tag: string | null;
+    meaning: string;
+    pinyin: string | null;
+  }>;
   /** Cloze mode only — sentence with the target word replaced by "___". */
   cloze_template?: string;
   /** Cloze mode only — the full sentence (revealed after answer). */

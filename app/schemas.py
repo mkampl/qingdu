@@ -103,6 +103,10 @@ class WordStateUpdate(BaseModel):
     meaning: str | None = None
     pinyin: str | None = None
     translation_source: str | None = None
+    # Phase #120 — the package name (e.g. "dao_de_jing_ch1") that owns
+    # this gloss. Used as the source_tag on the resulting user_word_glosses
+    # row so the UI can show "[Dao De Jing]" next to that meaning.
+    package_source: str | None = None
 
 
 class WordSnapshot(BaseModel):
@@ -112,6 +116,7 @@ class WordSnapshot(BaseModel):
     meaning: str | None = None
     pinyin: str | None = None
     translation_source: str | None = None
+    package_source: str | None = None  # Phase #120 — see WordStateUpdate
 
 
 class BulkMarkKnownRequest(BaseModel):

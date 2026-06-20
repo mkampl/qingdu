@@ -524,13 +524,38 @@ watch(
           </p>
           <div v-if="revealed" class="mt-6 space-y-1.5">
             <p class="font-sans text-base text-fg-muted">{{ card.pinyin }}</p>
-            <p class="font-display text-xl text-fg">{{ card.meaning }}</p>
-            <ul
-              v-if="card.meanings && card.meanings.length > 1"
-              class="mt-1 space-y-0.5 text-sm text-fg-muted"
+            <!-- Phase #120 — tagged glosses if any, fallback to flat meaning -->
+            <div
+              v-if="card.glosses && card.glosses.length"
+              class="mt-1 space-y-1.5 text-left max-w-md mx-auto"
             >
-              <li v-for="(m, i) in card.meanings.slice(1)" :key="i">{{ m }}</li>
-            </ul>
+              <div
+                v-for="(g, i) in card.glosses"
+                :key="i"
+                class="flex items-start gap-2"
+              >
+                <span
+                  :class="[
+                    'mt-1 shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider',
+                    g.source === 'package'
+                      ? 'bg-accent/15 text-accent'
+                      : 'bg-bg-sunken text-fg-subtle',
+                  ]"
+                >
+                  {{ g.source === 'package' ? g.tag || 'Pkg' : 'Dict' }}
+                </span>
+                <p class="font-display text-lg text-fg">{{ g.meaning }}</p>
+              </div>
+            </div>
+            <template v-else>
+              <p class="font-display text-xl text-fg">{{ card.meaning }}</p>
+              <ul
+                v-if="card.meanings && card.meanings.length > 1"
+                class="mt-1 space-y-0.5 text-sm text-fg-muted"
+              >
+                <li v-for="(m, i) in card.meanings.slice(1)" :key="i">{{ m }}</li>
+              </ul>
+            </template>
           </div>
 
           <button

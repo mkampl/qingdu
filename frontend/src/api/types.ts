@@ -50,6 +50,21 @@ export interface WordInfo {
   /** Phase #99 — name of the user's glossary list this word came from
    *  (translation_source === "glossary"). The popover surfaces it. */
   glossary_source?: string | null;
+  /** Phase #100 — when this word came from a pre-analyzed package, the
+   *  package name. Used as the source_tag when persisting the gloss. */
+  package_source?: string | null;
+  /** Phase #120 — every gloss this user has accumulated for the word,
+   *  with provenance. Surfaced as chips in WordPopover and on the
+   *  review card so the same character can carry both a CEDICT default
+   *  and one or more package-specific meanings side-by-side. */
+  user_glosses?: WordGloss[];
+}
+
+export interface WordGloss {
+  source: "dictionary" | "package";
+  tag: string | null;
+  meaning: string;
+  pinyin: string | null;
 }
 
 export interface AnalysisStatistics {
