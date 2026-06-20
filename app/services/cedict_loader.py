@@ -221,25 +221,43 @@ def _looks_register_only(primary: str) -> bool:
     )
 
 
+_GRAMMATICAL_TRIGGERS = (
+    "aspect particle",
+    "modal particle",
+    "possessive particle",
+    "structural particle",
+    "genitive particle",
+    "grammatical particle",
+    "particle indicating",
+    "particle expressing",
+    "particle used",
+    "particle for",
+    "classical particle",
+    "completed action marker",
+    "action marker",
+    "tense marker",
+    "classifier",
+    "measure word",
+)
+
+
 def _looks_grammatical_function(primary: str) -> bool:
-    """Glosses tagged as grammatical particle / marker / measure word
-    are the linguistic *function* of the character — fundamental for
-    learners and almost always the meaning they need to see first when
-    a character has both content-word and grammatical-function readings.
-    Examples worth bonusing: 着 zhe5 "(aspect particle ...)", 了 le5
-    "(modal particle ...)", 个 ge4 "(classifier ...)"."""
-    low = primary.lower().lstrip()
-    return (
-        low.startswith("(aspect particle")
-        or low.startswith("(modal particle")
-        or low.startswith("(possessive particle")
-        or low.startswith("(structural particle")
-        or low.startswith("(genitive particle")
-        or low.startswith("(grammatical particle")
-        or low.startswith("(particle")
-        or low.startswith("(classifier")
-        or low.startswith("(measure word")
-    )
+    """Glosses describing the character's grammatical function — particle,
+    marker, classifier, measure word — are the linguistic *function* of
+    the character and almost always the meaning a learner needs to see
+    first when a character has both content-word and grammatical-function
+    readings. Strips the optional leading "(" so both
+    "(aspect particle ...)" and "aspect particle indicating ..." match —
+    CEDICT styles them inconsistently.
+
+    Examples that should bonus:
+      着 zhe5 "aspect particle indicating action in progress..."
+      了 le5  "(completed action marker)"
+      个 ge4  "(classifier used before a noun ...)"
+      的 de5  "(possessive particle)"
+    """
+    low = primary.lower().lstrip().lstrip("(")
+    return any(low.startswith(trigger) for trigger in _GRAMMATICAL_TRIGGERS)
 
 
 def _entry_quality(
@@ -422,7 +440,45 @@ def _parse_text(text: str) -> dict[str, dict]:
             "source": CEDICT_SOURCE_TAG,
         }
         quality_cache[simplified] = new_quality
+    _resolve_variant_references(out)
     return out
+
+
+# Matches "erhua variant of X", "variant of X", "old variant of X",
+# "see X", "abbr. for X" — the X target uses the CEDICT "trad|simp[pinyin]"
+# notation, or just simp if there's no trad form. We pull the simp form
+# out and use it as a lookup key.
+_VARIANT_REF_RE = re.compile(
+    r"^(?:erhua variant of|old variant of|variant of|see|abbr\. for)\s+"
+    r"(?:[^|\s\[]+\|)?([^\s\[]+)",
+    re.IGNORECASE,
+)
+
+
+def _resolve_variant_references(parsed: dict[str, dict]) -> None:
+    """When the primary gloss is *only* a pointer at another entry
+    ("erhua variant of 一塊|一块"), follow the pointer and copy the
+    target's primary + meanings here. Without this, 一块儿 displays
+    "erhua variant of 一塊|一块[yi1 kuai4]" instead of the actual
+    meaning "(coll.) together".
+
+    Mutates `parsed` in place. Skips entries whose primary mixes a
+    reference with real content (e.g. "abbr. for 中国 / China") —
+    those are usable as-is."""
+    for entry in parsed.values():
+        primary = entry["meaning"]
+        m = _VARIANT_REF_RE.match(primary)
+        if not m:
+            continue
+        target_word = m.group(1).strip()
+        target = parsed.get(target_word)
+        if target is None:
+            continue
+        if target["meaning"] == primary:
+            # Cycle (target also points back here) — leave as-is.
+            continue
+        entry["meaning"] = target["meaning"]
+        entry["meanings"] = list(target["meanings"])
 
 
 def _merge_into_hsk_vocab() -> tuple[int, int]:
