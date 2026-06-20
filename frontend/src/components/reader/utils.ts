@@ -54,7 +54,15 @@ export function groupIntoSentences(words: WordInfo[]): Sentence[] {
 
   for (const w of words) {
     if (w.translation_source === "linebreak" || w.text === "\n") {
-      flush(true);
+      // A linebreak after a sentence-ender (e.g. "。\n") used to disappear
+      // because the period already flushed the sentence with
+      // endsWithLineBreak=false. Promote the just-flushed sentence so
+      // section detection sees the paragraph boundary it actually was.
+      if (current.length) {
+        flush(true);
+      } else if (sentences.length) {
+        sentences[sentences.length - 1].endsWithLineBreak = true;
+      }
       absoluteIdx += 1;
       nextBaseIdx = absoluteIdx;
       continue;
