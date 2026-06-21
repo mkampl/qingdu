@@ -179,10 +179,12 @@ watch(
         <div class="ml-auto flex items-center gap-1">
           <!-- Daily streak badge — flame + day count. Sits before the
                known-words badge so the prosocial habit signal lands first.
-               Hidden when streak is 0 to avoid demoralising a new user. -->
+               Hidden when streak is 0 to avoid demoralising a new user.
+               On mobile we tighten padding and drop the uppercase tracking
+               so the chip stays visible without crowding out the icons. -->
           <span
             v-if="auth.isAuthed && userWords.hydrated && userWords.stats.streak > 0"
-            class="hidden items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-amber-800 sm:inline-flex dark:border-amber-700 dark:bg-amber-500/15 dark:text-amber-200"
+            class="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 font-mono text-[10px] tracking-wider text-amber-800 sm:px-2.5 sm:py-1 sm:uppercase dark:border-amber-700 dark:bg-amber-500/15 dark:text-amber-200"
             :title="`${userWords.stats.streak.toLocaleString()}-day streak — come back tomorrow to keep it going`"
           >
             <svg width="10" height="11" viewBox="0 0 10 11" fill="currentColor" aria-hidden="true">

@@ -237,18 +237,18 @@ const groups: Group[] = [
 
 <template>
   <section
-    class="mx-auto max-w-5xl px-5 py-10 sm:px-8 md:py-14 lg:px-10"
+    class="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-10 md:py-14 lg:px-10"
   >
-    <header class="mb-10 flex items-baseline justify-between gap-4">
-      <div class="flex items-baseline gap-3">
+    <header class="mb-6 sm:mb-10">
+      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span
           class="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-fg-subtle"
         >
           Discover
         </span>
-        <span class="h-px w-12 bg-border-subtle" aria-hidden="true" />
+        <span class="hidden h-px w-12 bg-border-subtle sm:block" aria-hidden="true" />
         <h1
-          class="font-display text-2xl font-medium tracking-tight text-fg sm:text-3xl"
+          class="font-display text-xl font-medium tracking-tight text-fg sm:text-3xl"
         >
           Where to find Chinese
         </h1>
@@ -256,45 +256,51 @@ const groups: Group[] = [
     </header>
 
     <!-- Browse — anonymous-friendly entry into the library by HSK band. -->
-    <section v-if="browseBands.length" class="mb-14">
-      <header class="mb-5 flex items-end justify-between gap-4">
-        <div>
-          <div class="mb-2 flex items-baseline gap-3">
-            <span
-              class="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-fg-subtle"
-            >
-              Browse
-            </span>
-            <span class="h-px w-8 bg-border-subtle" aria-hidden="true" />
-          </div>
-          <h2
-            class="font-display text-xl font-medium tracking-tight text-fg sm:text-2xl"
+    <section v-if="browseBands.length" class="mb-10 sm:mb-14">
+      <header class="mb-4 sm:mb-5">
+        <div class="mb-1.5 flex items-baseline gap-3 sm:mb-2">
+          <span
+            class="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-fg-subtle"
           >
-            From the library
-          </h2>
-          <p class="mt-2 max-w-prose text-sm leading-relaxed text-fg-muted">
-            180 bundled HSK-aligned texts in the app. A taste below; the full
-            collection lives on the
-            <RouterLink
-              to="/library"
-              class="font-medium text-accent hover:underline"
-            >
-              Library
-            </RouterLink>
-            page with filters.
-          </p>
+            Browse
+          </span>
+          <span class="hidden h-px w-8 bg-border-subtle sm:block" aria-hidden="true" />
         </div>
+        <h2
+          class="font-display text-lg font-medium tracking-tight text-fg sm:text-2xl"
+        >
+          From the library
+        </h2>
+        <p class="mt-1.5 max-w-prose text-sm leading-relaxed text-fg-muted sm:mt-2">
+          180 bundled HSK-aligned texts in the app. A taste below; the full
+          collection lives on the
+          <RouterLink
+            to="/library"
+            class="font-medium text-accent hover:underline"
+          >
+            Library
+          </RouterLink>
+          page with filters.
+        </p>
       </header>
 
-      <div class="space-y-6">
+      <div class="space-y-5 sm:space-y-6">
         <div v-for="band in browseBands" :key="band.band">
           <p
             class="mb-2 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
           >
             {{ band.label }}
           </p>
-          <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <li v-for="item in band.items" :key="item.slug">
+          <!-- Mobile: horizontal snap-scroll keeps each band a single visual
+               row instead of a 4-tall stack. sm+: original grid. -->
+          <ul
+            class="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:snap-none sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4"
+          >
+            <li
+              v-for="item in band.items"
+              :key="item.slug"
+              class="w-[64%] shrink-0 snap-start sm:w-auto sm:shrink"
+            >
               <button
                 type="button"
                 class="group flex h-full w-full flex-col gap-1 rounded-lg border border-border bg-bg-elevated p-3 text-left transition-shadow hover:shadow-md"
@@ -328,22 +334,22 @@ const groups: Group[] = [
     </section>
 
     <!-- For You — bundled library texts in the user's comprehension zone. -->
-    <section v-if="forYou.length" class="mb-14">
-      <header class="mb-5">
-        <div class="mb-2 flex items-baseline gap-3">
+    <section v-if="forYou.length" class="mb-10 sm:mb-14">
+      <header class="mb-4 sm:mb-5">
+        <div class="mb-1.5 flex items-baseline gap-3 sm:mb-2">
           <span
             class="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-fg-subtle"
           >
             For you
           </span>
-          <span class="h-px w-8 bg-border-subtle" aria-hidden="true" />
+          <span class="hidden h-px w-8 bg-border-subtle sm:block" aria-hidden="true" />
         </div>
         <h2
-          class="font-display text-xl font-medium tracking-tight text-fg sm:text-2xl"
+          class="font-display text-lg font-medium tracking-tight text-fg sm:text-2xl"
         >
           On your level
         </h2>
-        <p class="mt-2 max-w-prose text-sm leading-relaxed text-fg-muted">
+        <p class="mt-1.5 max-w-prose text-sm leading-relaxed text-fg-muted sm:mt-2">
           Short bundled texts where you already know 85-98% of the words.
           The sweet spot for reading without a dictionary on every line.
         </p>
@@ -396,9 +402,9 @@ const groups: Group[] = [
 
     <!-- Intro / how-to-use -->
     <div
-      class="mb-12 max-w-prose rounded-lg border border-border-subtle bg-bg-elevated p-5"
+      class="mb-8 max-w-prose rounded-lg border border-border-subtle bg-bg-elevated p-4 sm:mb-12 sm:p-5"
     >
-      <p class="font-display text-base italic leading-relaxed text-fg-muted">
+      <p class="font-display text-sm italic leading-relaxed text-fg-muted sm:text-base">
         Open any source below to browse for something interesting. When you
         find an article you want to read, copy its URL and use
         <span class="font-medium text-fg">Import from URL</span>
@@ -411,23 +417,23 @@ const groups: Group[] = [
     </div>
 
     <!-- Groups -->
-    <div class="space-y-14">
+    <div class="space-y-10 sm:space-y-14">
       <section v-for="group in groups" :key="group.title">
-        <header class="mb-5">
-          <div class="mb-2 flex items-baseline gap-3">
+        <header class="mb-4 sm:mb-5">
+          <div class="mb-1.5 flex items-baseline gap-3 sm:mb-2">
             <span
               class="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-fg-subtle"
             >
               {{ group.kicker }}
             </span>
-            <span class="h-px w-8 bg-border-subtle" aria-hidden="true" />
+            <span class="hidden h-px w-8 bg-border-subtle sm:block" aria-hidden="true" />
           </div>
           <h2
-            class="font-display text-xl font-medium tracking-tight text-fg sm:text-2xl"
+            class="font-display text-lg font-medium tracking-tight text-fg sm:text-2xl"
           >
             {{ group.title }}
           </h2>
-          <p class="mt-2 max-w-prose text-sm leading-relaxed text-fg-muted">
+          <p class="mt-1.5 max-w-prose text-sm leading-relaxed text-fg-muted sm:mt-2">
             {{ group.blurb }}
           </p>
         </header>

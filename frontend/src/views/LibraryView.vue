@@ -93,24 +93,24 @@ async function open(slug: string) {
 </script>
 
 <template>
-  <section class="mx-auto max-w-6xl px-5 py-10 sm:px-8 md:py-14 lg:px-10">
-    <header class="mb-10 flex items-baseline justify-between gap-4">
-      <div class="flex items-baseline gap-3">
+  <section class="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-10 md:py-14 lg:px-10">
+    <header class="mb-5 sm:mb-10">
+      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span
           class="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-fg-subtle"
         >
           Library
         </span>
-        <span class="h-px w-12 bg-border-subtle" aria-hidden="true" />
+        <span class="hidden h-px w-12 bg-border-subtle sm:block" aria-hidden="true" />
         <h1
-          class="font-display text-2xl font-medium tracking-tight text-fg sm:text-3xl"
+          class="font-display text-xl font-medium tracking-tight text-fg sm:text-3xl"
         >
           Bundled reading texts
         </h1>
       </div>
     </header>
 
-    <p class="mb-8 max-w-prose text-sm leading-relaxed text-fg-muted">
+    <p class="mb-5 max-w-prose text-sm leading-relaxed text-fg-muted sm:mb-8">
       180 short texts, 20 per HSK level, written to demonstrate the
       vocabulary and grammar of each level. Click one to open it in the
       reader. No login required to browse — sign in to track progress and
@@ -120,50 +120,58 @@ async function open(slug: string) {
       </RouterLink>.
     </p>
 
-    <!-- Filter bar -->
-    <div class="mb-8 flex flex-wrap items-center gap-3">
-      <button
-        type="button"
-        :class="[
-          'rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-wider transition-colors',
-          selectedLevels.size === 0
-            ? 'border-accent bg-accent/10 text-accent'
-            : 'border-border bg-bg-elevated text-fg-muted hover:text-fg',
-        ]"
-        @click="clearLevels"
+    <!-- Filter bar — on mobile the HSK chips ride a horizontal snap-scroll
+         strip and the search + sort drop onto their own row, so the page
+         doesn't open with a three-line wall of controls. -->
+    <div class="mb-6 space-y-2 sm:mb-8 sm:flex sm:flex-wrap sm:items-center sm:gap-3 sm:space-y-0">
+      <div
+        class="-mx-4 flex snap-x snap-mandatory items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
       >
-        All
-      </button>
-      <button
-        v-for="n in 9"
-        :key="n"
-        type="button"
-        :class="[
-          'rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-wider transition-colors',
-          selectedLevels.has(n)
-            ? 'border-accent bg-accent/10 text-accent'
-            : 'border-border bg-bg-elevated text-fg-muted hover:text-fg',
-        ]"
-        @click="toggleLevel(n)"
-      >
-        HSK {{ n }}
-        <span class="ml-1 text-fg-subtle">{{ countByLevel[n] || 0 }}</span>
-      </button>
-      <div class="flex-1" />
-      <input
-        v-model="search"
-        type="search"
-        placeholder="Search title or topic"
-        class="w-48 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-sm placeholder:text-fg-subtle focus:border-accent focus:outline-none"
-      />
-      <select
-        v-model="sortKey"
-        class="rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-sm focus:border-accent focus:outline-none"
-      >
-        <option value="hsk">Sort: HSK level</option>
-        <option value="chars-asc">Sort: shortest first</option>
-        <option value="chars-desc">Sort: longest first</option>
-      </select>
+        <button
+          type="button"
+          :class="[
+            'shrink-0 snap-start rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-wider transition-colors',
+            selectedLevels.size === 0
+              ? 'border-accent bg-accent/10 text-accent'
+              : 'border-border bg-bg-elevated text-fg-muted hover:text-fg',
+          ]"
+          @click="clearLevels"
+        >
+          All
+        </button>
+        <button
+          v-for="n in 9"
+          :key="n"
+          type="button"
+          :class="[
+            'shrink-0 snap-start rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-wider transition-colors',
+            selectedLevels.has(n)
+              ? 'border-accent bg-accent/10 text-accent'
+              : 'border-border bg-bg-elevated text-fg-muted hover:text-fg',
+          ]"
+          @click="toggleLevel(n)"
+        >
+          HSK {{ n }}
+          <span class="ml-1 text-fg-subtle">{{ countByLevel[n] || 0 }}</span>
+        </button>
+      </div>
+      <div class="hidden flex-1 sm:block" />
+      <div class="flex items-center gap-2 sm:gap-3">
+        <input
+          v-model="search"
+          type="search"
+          placeholder="Search title or topic"
+          class="min-w-0 flex-1 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-sm placeholder:text-fg-subtle focus:border-accent focus:outline-none sm:w-48 sm:flex-none"
+        />
+        <select
+          v-model="sortKey"
+          class="shrink-0 rounded-md border border-border bg-bg-elevated px-2 py-1.5 text-sm focus:border-accent focus:outline-none sm:px-3"
+        >
+          <option value="hsk">Sort: HSK</option>
+          <option value="chars-asc">Sort: shortest</option>
+          <option value="chars-desc">Sort: longest</option>
+        </select>
+      </div>
     </div>
 
     <p v-if="loading" class="py-12 text-center text-sm text-fg-subtle">

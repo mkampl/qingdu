@@ -344,18 +344,18 @@ watch(
         : 'px-4 py-10 sm:px-6 sm:py-14',
     ]"
   >
-    <header v-if="!focusMode" class="mb-8">
+    <header v-if="!focusMode" class="mb-6 sm:mb-8">
       <p
         class="font-mono text-[11px] uppercase tracking-[0.22em] text-fg-subtle"
       >
         Spaced repetition
       </p>
       <h1
-        class="mt-1 font-display text-3xl font-medium tracking-tight text-fg sm:text-4xl"
+        class="mt-1 font-display text-2xl font-medium tracking-tight text-fg sm:text-4xl"
       >
         Review
       </h1>
-      <p class="mt-2 text-sm leading-relaxed text-fg-muted">
+      <p class="mt-2 hidden text-sm leading-relaxed text-fg-muted sm:block">
         Words you've marked as learning come back here on a schedule — sooner if
         you grade them <em>Again</em>, much later if you grade them
         <em>Easy</em>. Built on FSRS-4.5.
@@ -378,10 +378,11 @@ watch(
          counter strip so the "how's the habit going?" view lands first. -->
     <WeeklySparkline v-if="auth.isAuthed && !focusMode" class="mb-4" />
 
-    <!-- Stats strip -->
+    <!-- Stats strip — denser typography on mobile where four 60px-wide cards
+         used to wear text-2xl numbers. -->
     <div
       v-if="auth.isAuthed && !focusMode"
-      class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4"
+      class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3"
     >
       <div
         v-for="(stat, key) in {
@@ -391,14 +392,14 @@ watch(
           'Reviewed today': review.stats.reviewed_today,
         }"
         :key="key"
-        class="rounded-lg border border-border-subtle bg-bg-elevated px-4 py-3"
+        class="rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 sm:px-4 sm:py-3"
       >
         <p
           class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
         >
           {{ key }}
         </p>
-        <p class="mt-1 font-display text-2xl tabular-nums text-fg">
+        <p class="mt-0.5 font-display text-xl tabular-nums text-fg sm:mt-1 sm:text-2xl">
           {{ stat.toLocaleString() }}
         </p>
       </div>
@@ -430,17 +431,17 @@ watch(
       >
         Pick a mode to begin
       </p>
-      <div class="grid gap-3 sm:grid-cols-3">
+      <div class="grid gap-2 sm:grid-cols-3 sm:gap-3">
         <button
           v-for="m in modes"
           :key="m.id"
           type="button"
           :disabled="!m.available || effectiveDueCount === 0"
-          class="group rounded-lg border border-border-subtle bg-bg-elevated px-5 py-4 text-left transition-colors hover:border-accent hover:bg-bg-sunken disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border-subtle disabled:hover:bg-bg-elevated"
+          class="group rounded-lg border border-border-subtle bg-bg-elevated px-4 py-3 text-left transition-colors hover:border-accent hover:bg-bg-sunken disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border-subtle disabled:hover:bg-bg-elevated sm:px-5 sm:py-4"
           @click="start(m.id)"
         >
           <div class="flex items-center justify-between">
-            <span class="font-display text-lg font-medium text-fg">
+            <span class="font-display text-base font-medium text-fg sm:text-lg">
               {{ m.label }}
             </span>
             <span
@@ -450,7 +451,7 @@ watch(
               soon
             </span>
           </div>
-          <p class="mt-1 text-xs text-fg-muted">{{ m.hint }}</p>
+          <p class="mt-0.5 text-xs text-fg-muted sm:mt-1">{{ m.hint }}</p>
         </button>
       </div>
 
