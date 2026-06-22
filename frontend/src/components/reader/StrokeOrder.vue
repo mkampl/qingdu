@@ -8,7 +8,17 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
-const props = defineProps<{ chars: string }>();
+const props = withDefaults(
+  defineProps<{
+    chars: string;
+    /** When true, multi-char words auto-advance to the next character
+     *  once the current stroke animation finishes. Used by the review
+     *  intro stage so a fresh card draws every character in sequence
+     *  without the user having to tap chips. */
+    autoAdvance?: boolean;
+  }>(),
+  { autoAdvance: false },
+);
 
 const cjkChars = computed(() =>
   Array.from(props.chars || "").filter((c) => /[一-鿿]/.test(c)),
@@ -18,10 +28,13 @@ const activeIdx = ref(0);
 const containerRef = ref<HTMLDivElement | null>(null);
 
 // Hold the live HanziWriter instance so we can replay / destroy it.
-type AnyHanziWriter = { animateCharacter: () => void } | null;
+type AnyHanziWriter = {
+  animateCharacter: (opts?: { onComplete?: () => void }) => void;
+} | null;
 const writer = ref<AnyHanziWriter>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
+let advanceTimer: number | null = null;
 
 async function ensureWriterFor(idx: number) {
   if (!cjkChars.value[idx] || !containerRef.value) return;
@@ -42,7 +55,24 @@ async function ensureWriterFor(idx: number) {
       strokeColor: "#1f2937", // resolved from --color-fg at light theme; OK for both via opacity
     });
     writer.value = w;
-    w.animateCharacter();
+    w.animateCharacter({
+      onComplete: () => {
+        // Auto-cycle to the next character when the parent opted in
+        // (review intro stage). Pause briefly so the user catches the
+        // last stroke before the next char swaps in.
+        if (
+          props.autoAdvance &&
+          activeIdx.value === idx &&
+          idx + 1 < cjkChars.value.length
+        ) {
+          if (advanceTimer !== null) window.clearTimeout(advanceTimer);
+          advanceTimer = window.setTimeout(() => {
+            advanceTimer = null;
+            activeIdx.value = idx + 1;
+          }, 700);
+        }
+      },
+    });
   } catch (e) {
     error.value =
       e instanceof Error ? e.message : "Couldn't load stroke data.";
@@ -78,6 +108,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  if (advanceTimer !== null) window.clearTimeout(advanceTimer);
   // hanzi-writer doesn't expose an explicit destroy, but nuking the
   // container DOM ensures its requestAnimationFrame loop GCs cleanly.
   if (containerRef.value) containerRef.value.innerHTML = "";

@@ -81,12 +81,10 @@ const clozeInput = ref("");
 const clozeFeedback = ref<"" | "correct" | "wrong">("");
 
 // Phase 1.3b — intro stage. The card auto-plays TTS and animates
-// stroke order on mount; the user just absorbs. Once the cooldown ends
-// (or the user taps "Continue") the auto-Good countdown fires. No
-// reveal — everything is shown from the start; the "Continue" button
-// just skips ahead instead of waiting out the natural cooldown.
+// stroke order on mount; the user just absorbs. The auto-Good
+// countdown is gated on the user tapping "Got it" — without a tap
+// the card just sits there with audio + strokes, no time pressure.
 const introReady = ref(false);
-const INTRO_COOLDOWN_MS = 4500; // a beat past typical TTS + stroke animation
 
 function suggestedGradeForMistakes(mistakes: number, strokes: number): ReviewGrade {
   // Ratio-based instead of hardcoded thresholds — 3 mistakes on 一 (1 stroke)
@@ -216,44 +214,38 @@ async function gradeAndAdvance(g: ReviewGrade) {
   introReady.value = false;
 }
 
-// Intro stage — let the strokes finish drawing and the TTS play out,
-// then surface the auto-Good countdown without any user action. The
-// timer is the only thing that flips introReady on its own; clicking
-// "Continue" calls introContinue() to skip the wait.
-let introTimer: number | null = null;
-function clearIntroTimer() {
-  if (introTimer !== null) {
-    window.clearTimeout(introTimer);
-    introTimer = null;
-  }
-}
+// Intro stage — passive absorption. TTS auto-plays and strokes animate
+// on card open, but the auto-Good countdown waits for the user to tap
+// "Got it". Without that gate the timer would fire even when the user
+// is just listening or hasn't looked yet — too aggressive on a fresh
+// word.
 function introContinue() {
-  clearIntroTimer();
   introReady.value = true;
 }
 watch(
   () => [card.value?.word, activeSurface.value] as const,
   ([word, surface]) => {
-    clearIntroTimer();
     if (!word) return;
-    if (surface === "intro") {
-      // Auto-play TTS once when the intro card opens — the user doesn't
-      // have to remember to hit a button. Stroke animation kicks off in
-      // its own component as soon as it mounts.
-      void playTts();
-      introTimer = window.setTimeout(() => {
-        introTimer = null;
-        introReady.value = true;
-      }, INTRO_COOLDOWN_MS);
-    } else if (surface === "trace") {
-      // Trace stage also opens with audio — pinyin is visible above
-      // and TTS reinforces the sound→glyph link.
+    if (surface === "intro" || surface === "trace") {
+      // Both stages open with audio so the sound→glyph link gets
+      // anchored from the first frame.
       void playTts();
     }
   },
   { immediate: true },
 );
-onBeforeUnmount(clearIntroTimer);
+
+// When the queue runs out during a session, refresh stats so the
+// session-complete screen shows the true "still due" count rather than
+// whatever the optimistic per-grade decrement left in place.
+watch(
+  () => review.current,
+  (cur, prev) => {
+    if (prev && !cur && review.queue.length > 0) {
+      void review.refreshStats();
+    }
+  },
+);
 
 // --- Phase #118 (2b) — Auto-grade countdown for writing mode ---------------
 //
@@ -690,9 +682,16 @@ watch(
           </ul>
 
           <!-- Stroke animation: auto-replays each card via the :key bind
-               so the animation restarts when the cursor advances. -->
+               so the animation restarts when the cursor advances. For
+               multi-char words (e.g. 修为) auto-advance cycles through
+               every character in sequence — the user sees each one drawn
+               from scratch without having to tap the chips. -->
           <div class="mt-6 flex justify-center">
-            <StrokeOrder :key="card.word" :chars="card.word" />
+            <StrokeOrder
+              :key="card.word"
+              :chars="card.word"
+              auto-advance
+            />
           </div>
 
           <div class="mt-6 flex flex-col items-center gap-2">
@@ -708,7 +707,7 @@ watch(
               v-if="!introReady"
               class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
             >
-              Listen, then continue when ready
+              Listen + watch · tap when you've taken it in
             </p>
           </div>
         </template>
@@ -1197,15 +1196,22 @@ watch(
         {{ review.sessionGraded.toLocaleString() }} card{{
           review.sessionGraded === 1 ? "" : "s"
         }}
-        reviewed. New due cards may have surfaced since you started.
+        reviewed.
+        <template v-if="effectiveDueCount > 0">
+          {{ effectiveDueCount.toLocaleString() }} still due — keep going?
+        </template>
+        <template v-else>
+          Nothing else due right now. Come back later.
+        </template>
       </p>
       <div class="mt-6 flex justify-center gap-3">
         <button
+          v-if="effectiveDueCount > 0"
           type="button"
           class="rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90"
           @click="start(review.queueMode)"
         >
-          Continue
+          Continue ({{ effectiveDueCount }})
         </button>
         <button
           type="button"
