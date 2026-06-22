@@ -1,7 +1,8 @@
 """
 Sentence-pattern detection for the reader.
 
-Phase D ships ~10 high-value HSK 1–3 grammar patterns as inline annotations.
+Ships ~30 HSK 1–5 grammar patterns as inline annotations (Phase D shipped
+the first 10, Phase 1.7 added the next 20).
 The detector runs after jieba segmentation and emits per-pattern matches
 with their token-range positions so the SPA can underline + popover them.
 
@@ -196,6 +197,269 @@ PATTERNS: list[PatternDef] = [
         # Highlight a verb + 了 cluster. We bound to 1 preceding CJK char to
         # keep the span tight; only the first occurrence per sentence fires.
         regex=re.compile(r"[一-鿿]了"),
+    ),
+    # --- Phase 1.7 expansion: HSK 2–5 patterns -------------------------------
+    PatternDef(
+        id="cong-dao",
+        title="从…到…",
+        pinyin="cóng … dào …",
+        hsk_level=2,
+        explanation=(
+            '"From X to Y" — frames a range, whether physical (Beijing to Shanghai), '
+            "temporal (Monday to Friday), or logical (beginner to advanced)."
+        ),
+        example="从北京到上海很远。",
+        example_translation="It's far from Beijing to Shanghai.",
+        regex=re.compile(r"从[一-鿿]{1,15}?到[一-鿿]{1,10}"),
+    ),
+    PatternDef(
+        id="gen-yiqi",
+        title="跟/和…一起",
+        pinyin="gēn / hé … yìqǐ",
+        hsk_level=2,
+        explanation=(
+            '"Together with X." 跟 and 和 are interchangeable here; the 一起 closes '
+            "the structure. Common with verbs of activity (eat, go, work)."
+        ),
+        example="我跟朋友一起吃饭。",
+        example_translation="I'm eating together with friends.",
+        regex=re.compile(r"(?:跟|和)[一-鿿]{1,15}?一起"),
+    ),
+    PatternDef(
+        id="guo-experiential",
+        title="…过 — experiential aspect",
+        pinyin="guò",
+        hsk_level=2,
+        explanation=(
+            'Marks "has experienced X before" — distinct from 了 (completed action). '
+            "Often pairs with 没 in the negative: 没去过 = have never been."
+        ),
+        example="我去过中国。",
+        example_translation="I have been to China (before).",
+        regex=re.compile(r"[一-鿿]过"),
+    ),
+    PatternDef(
+        id="bi-comparison",
+        title="比…",
+        pinyin="bǐ …",
+        hsk_level=2,
+        explanation=(
+            'Basic comparison: "A 比 B + adjective" — A is more [adj] than B. '
+            "Intensifiers 还 / 更 can sit before the adjective to mean 'even more'."
+        ),
+        example="他比我还高。",
+        example_translation="He's even taller than me.",
+        regex=re.compile(r"比[一-鿿]{1,8}?(?:还|更)?[一-鿿]"),
+    ),
+    PatternDef(
+        id="zhe-durative",
+        title="…着 — durative aspect",
+        pinyin="zhe",
+        hsk_level=3,
+        explanation=(
+            "Sits after a verb to mark an ongoing state or accompanying action. "
+            'Think "while" — 笑着说 = "said while smiling".'
+        ),
+        example="他笑着说话。",
+        example_translation="He spoke while smiling.",
+        regex=re.compile(r"[一-鿿]着[一-鿿]"),
+    ),
+    PatternDef(
+        id="de-resultative",
+        title="…得 + result",
+        pinyin="… de …",
+        hsk_level=3,
+        explanation=(
+            "Verb + 得 + complement describes the manner or degree of the action: "
+            '"runs fast", "speaks clearly". The complement is usually an adjective '
+            "or short phrase."
+        ),
+        example="他跑得很快。",
+        example_translation="He runs very fast.",
+        regex=re.compile(r"[一-鿿]得[一-鿿]{1,8}"),
+    ),
+    PatternDef(
+        id="you-you",
+        title="又…又…",
+        pinyin="yòu … yòu …",
+        hsk_level=3,
+        explanation=(
+            '"Both X and Y" — pairs two qualities or actions that hold at the '
+            "same time. 又 is repeated before each."
+        ),
+        example="她又聪明又漂亮。",
+        example_translation="She's both smart and beautiful.",
+        regex=re.compile(r"又[一-鿿]{1,6}?又[一-鿿]{1,6}"),
+    ),
+    PatternDef(
+        id="rang-jiao",
+        title="让/叫 + sb + verb",
+        pinyin="ràng / jiào",
+        hsk_level=3,
+        explanation=(
+            'Causative: "make / let / have someone do something". 让 and 叫 are '
+            "near-synonyms here; 叫 is slightly more colloquial."
+        ),
+        example="妈妈让我学习。",
+        example_translation="Mom has me study.",
+        regex=re.compile(r"(?:让|叫)[一-鿿]{1,6}?[一-鿿]"),
+    ),
+    PatternDef(
+        id="gei-benefactive",
+        title="给 + sb + verb",
+        pinyin="gěi",
+        hsk_level=3,
+        explanation=(
+            'Marks the beneficiary or recipient of an action: "do X for / to someone". '
+            "Distinguish from 给 as the main verb (=to give)."
+        ),
+        example="我给你打电话。",
+        example_translation="I'll call you (for you).",
+        regex=re.compile(r"给[一-鿿]{1,5}?(?:打|写|做|发|买|带|寄|讲|说)"),
+    ),
+    PatternDef(
+        id="jiuyao-le",
+        title="就要…了",
+        pinyin="jiùyào … le",
+        hsk_level=3,
+        explanation=(
+            'Imminent future: "about to do X". The 了 closes the structure. '
+            "快要…了 and 快…了 are near-synonyms."
+        ),
+        example="火车就要开了。",
+        example_translation="The train is about to leave.",
+        regex=re.compile(r"(?:就要|快要|快)[一-鿿]{1,8}?了"),
+    ),
+    PatternDef(
+        id="yi-jiu",
+        title="一…就…",
+        pinyin="yī … jiù …",
+        hsk_level=3,
+        explanation=(
+            '"As soon as X, then Y." Both halves take a verb phrase. Common in '
+            "narrative: 一到家就… = as soon as I get home, ..."
+        ),
+        example="我一回家就吃饭。",
+        example_translation="As soon as I get home, I eat.",
+        regex=re.compile(r"一[一-鿿]{1,8}?就[一-鿿]{1,8}"),
+    ),
+    PatternDef(
+        id="gang-jiu",
+        title="刚…就…",
+        pinyin="gāng … jiù …",
+        hsk_level=3,
+        explanation=(
+            '"Just (did X), and then Y immediately happened." Marks a tight '
+            "temporal sequence — Y follows hard on the heels of X."
+        ),
+        example="我刚到家就下雨了。",
+        example_translation="I had just got home when it started raining.",
+        regex=re.compile(r"刚[一-鿿]{1,8}?就[一-鿿]{1,8}"),
+    ),
+    PatternDef(
+        id="chule-yiwai",
+        title="除了…以外",
+        pinyin="chúle … yǐwài",
+        hsk_level=3,
+        explanation=(
+            '"Apart from X" — followed by 还 / 也 (also Y) or 都 (everything but X). '
+            "Watch the second clause; it flips the meaning entirely."
+        ),
+        example="除了汉语以外,他还会日语。",
+        example_translation="Apart from Chinese, he also speaks Japanese.",
+        regex=re.compile(r"除了[一-鿿,，]{1,20}?以外"),
+    ),
+    PatternDef(
+        id="lian-ye",
+        title="连…也/都…",
+        pinyin="lián … yě / dōu …",
+        hsk_level=4,
+        explanation=(
+            '"Even X (does/doesn\'t) Y" — focus marker that elevates X as '
+            "surprising. The second half almost always carries 也 or 都."
+        ),
+        example="他连米饭也不吃。",
+        example_translation="He won't even eat rice.",
+        regex=re.compile(r"连[一-鿿]{1,10}?(?:也|都)[一-鿿]{1,8}"),
+    ),
+    PatternDef(
+        id="zhiyao-jiu",
+        title="只要…就…",
+        pinyin="zhǐyào … jiù …",
+        hsk_level=4,
+        explanation=(
+            '"As long as X, then Y" — sufficient condition. Distinguish from '
+            "只有…才… (only if), which marks a necessary condition."
+        ),
+        example="只要努力,就会成功。",
+        example_translation="As long as you try hard, you'll succeed.",
+        regex=re.compile(r"只要[一-鿿,，]{1,20}?就[一-鿿]{1,10}"),
+    ),
+    PatternDef(
+        id="zhiyou-cai",
+        title="只有…才…",
+        pinyin="zhǐyǒu … cái …",
+        hsk_level=4,
+        explanation=(
+            '"Only if X, can Y" — necessary condition. Compare 只要…就 (sufficient): '
+            "this is strictly stronger and the 才 underlines the exclusivity."
+        ),
+        example="只有努力学习才能进步。",
+        example_translation="Only with hard study can you progress.",
+        regex=re.compile(r"只有[一-鿿,，]{1,20}?才[一-鿿]{1,10}"),
+    ),
+    PatternDef(
+        id="bushi-ershi",
+        title="不是…而是…",
+        pinyin="bù shì … ér shì …",
+        hsk_level=4,
+        explanation=(
+            '"Not X, but rather Y" — corrective construction. The 而是 introduces '
+            "the actual answer after rejecting an apparent one."
+        ),
+        example="这不是错误,而是新发现。",
+        example_translation="This isn't an error — it's a new discovery.",
+        regex=re.compile(r"不是[一-鿿,，]{1,20}?而是[一-鿿]{1,10}"),
+    ),
+    PatternDef(
+        id="yaome-yaome",
+        title="要么…要么…",
+        pinyin="yàome … yàome …",
+        hsk_level=5,
+        explanation=(
+            '"Either X or Y" — exclusive alternatives. Each half can take a verb '
+            "phrase; the two options are presented as mutually exclusive."
+        ),
+        example="要么去看电影,要么留在家里。",
+        example_translation="Either go to the movies or stay home.",
+        regex=re.compile(r"要么[一-鿿,，]{1,20}?要么[一-鿿]{1,15}"),
+    ),
+    PatternDef(
+        id="dehua-jiu",
+        title="…的话,就…",
+        pinyin="… dehuà, jiù …",
+        hsk_level=4,
+        explanation=(
+            'Conditional softener: "if X, then Y". The 的话 sits at the end of the '
+            "condition clause; 就 (or 那) opens the consequence. Often more "
+            "colloquial than 如果…就…."
+        ),
+        example="累的话,就休息一下。",
+        example_translation="If you're tired, take a break.",
+        regex=re.compile(r"[一-鿿]的话[,，]?[一-鿿]{0,3}?(?:就|那)"),
+    ),
+    PatternDef(
+        id="kenenghui",
+        title="可能 + verb",
+        pinyin="kěnéng …",
+        hsk_level=3,
+        explanation=(
+            'Speculative modal: "may / might X". Often paired with 会 (will) for '
+            'future probability: 可能会下雨 = "it might rain".'
+        ),
+        example="他可能会来。",
+        example_translation="He might come.",
+        regex=re.compile(r"可能[一-鿿]{0,3}?(?:会|是|有|要|来|去|得)"),
     ),
 ]
 
