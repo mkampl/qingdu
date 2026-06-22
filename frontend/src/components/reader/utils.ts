@@ -225,8 +225,13 @@ const MIN_SECTION_COUNT = 3;
 /** Chinese-numeral prefix like "一、", "二.", "十、". We treat these as
  *  unambiguous chapter markers — strong enough that we don't require a
  *  paragraph break to land on them, because some package authors flow
- *  their whole text into one paragraph and linebreaks become unreliable. */
-const CN_HEADING_RE = /^[一二三四五六七八九十百千万]+[、.,．：:]/;
+ *  their whole text into one paragraph and linebreaks become unreliable.
+ *
+ *  Negative lookahead rejects a *second* numeric prefix straight after the
+ *  first one ("九、八、七外…"): that pattern is a back-reference to earlier
+ *  chapters inside running prose, not a heading. The previous regex saw
+ *  the leading "九、" and falsely opened a chapter anchor on that sentence. */
+const CN_HEADING_RE = /^[一二三四五六七八九十百千万]+[、.,．：:](?!\s*[一二三四五六七八九十百千万0-9]+[、.,．：:])/;
 /** Arabic-numeral prefix like "1.", "10、". Weaker signal — only counts
  *  when the sentence sits at the start of a paragraph so we don't grab
  *  list bullets mid-sentence ("等于1.5倍"). */

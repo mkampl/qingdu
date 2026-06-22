@@ -196,11 +196,13 @@ watch(
           </span>
 
           <!-- Known-words badge — at-a-glance progress + entry point into
-               /words queue browser. Hidden on the very narrowest screens. -->
+               the /words queue browser. Same treatment as the streak chip:
+               visible on every viewport with tighter padding below sm so
+               the icon cluster stays balanced on a 360px phone. -->
           <RouterLink
             v-if="auth.isAuthed && userWords.hydrated"
             to="/words"
-            class="hidden items-center gap-1 rounded-full border border-border-subtle bg-bg-sunken/60 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted hover:text-fg hover:border-border sm:inline-flex"
+            class="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-bg-sunken/60 px-2 py-0.5 font-mono text-[10px] tracking-wider text-fg-muted hover:text-fg hover:border-border sm:px-2.5 sm:py-1 sm:uppercase"
             active-class="text-fg border-border"
             :title="`${userWords.stats.known.toLocaleString()} known · ${userWords.stats.learning.toLocaleString()} learning${userWords.stats.ignored ? ` · ${userWords.stats.ignored.toLocaleString()} ignored` : ''} — click to browse`"
           >
