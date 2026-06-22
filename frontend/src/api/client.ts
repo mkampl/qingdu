@@ -22,24 +22,63 @@ import type {
 } from "./types";
 
 const TOKEN_KEY = "qingdu.token.v2";
+const API_BASE_KEY = "qingdu.api_base.v1";
 
 /**
- * Base URL for every API call. Empty for the web build (same-origin
- * relative URLs), set at build time for native wrappers (Capacitor)
- * where the SPA loads from `https://localhost` and the backend lives
- * elsewhere.
+ * Base URL for every API call. Resolved on every request so a runtime
+ * change in Settings → Server propagates without reload.
  *
- * Configure in `.env.production` / build env as:
- *   VITE_API_BASE_URL=https://qingdu.itvoodoo.at
+ * Resolution order:
+ *  1. `localStorage["qingdu.api_base.v1"]` — runtime override the user
+ *     set in Settings or via the first-launch onboarding modal. Lets
+ *     self-hosters point an F-Droid build at their own server without
+ *     a rebuild.
+ *  2. `VITE_API_BASE_URL` build-time env — what the Capacitor wrapper
+ *     bakes in (defaults to https://qingdu.itvoodoo.at for the maintainer
+ *     build; an F-Droid build leaves this empty so the first launch
+ *     forces the user to choose).
+ *  3. Empty string — web build at the same origin; relative URLs work.
  */
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+const BUILD_TIME_API_BASE = (
+  import.meta.env.VITE_API_BASE_URL ?? ""
+).replace(/\/$/, "");
+
+export function getApiBase(): string {
+  try {
+    const stored = localStorage.getItem(API_BASE_KEY);
+    if (stored !== null) return stored.replace(/\/$/, "");
+  } catch {
+    /* localStorage unavailable — fall through */
+  }
+  return BUILD_TIME_API_BASE;
+}
+
+/** Build-time default, exposed so the Settings modal can show 'currently
+ *  using the default URL' without a separate flag. */
+export function getDefaultApiBase(): string {
+  return BUILD_TIME_API_BASE;
+}
+
+/** Set or clear the runtime override. Pass `null` to revert to the
+ *  build-time default. */
+export function setApiBase(url: string | null) {
+  try {
+    if (url === null || url === "") {
+      localStorage.removeItem(API_BASE_KEY);
+    } else {
+      localStorage.setItem(API_BASE_KEY, url.replace(/\/$/, ""));
+    }
+  } catch {
+    /* ignore — the override is best-effort */
+  }
+}
 
 /** Prepend the configured base URL to an API path. Exported so direct
  *  `fetch()` calls outside `request()` (file uploads, audio blobs) can
  *  share the same logic. */
 export function apiUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path; // already absolute
-  return API_BASE + path;
+  return getApiBase() + path;
 }
 
 export class ApiError extends Error {

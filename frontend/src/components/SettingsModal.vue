@@ -2,7 +2,7 @@
 import { computed, ref } from "vue";
 
 import * as api from "@/api/client";
-import { ApiError } from "@/api/client";
+import { ApiError, getApiBase, getDefaultApiBase, setApiBase } from "@/api/client";
 import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
 import {
@@ -282,6 +282,79 @@ async function runImport() {
   } finally {
     importing.value = false;
   }
+}
+
+// --- Phase 1.6: server-switcher --------------------------------------------
+//
+// Runtime override for the API base URL. Set to the empty string here when
+// the user is on the default; the input doubles as the override field. The
+// "Test" button hits /api/health on whatever URL is in the field so a
+// typo'd server doesn't strand the user mid-config.
+
+const apiBaseDefault = getDefaultApiBase();
+const apiBaseInput = ref(getApiBase());
+const apiBaseTesting = ref(false);
+const apiBaseStatus = ref<
+  | { kind: "idle" }
+  | { kind: "ok"; vocabCount: number }
+  | { kind: "error"; message: string }
+>({ kind: "idle" });
+
+const apiBaseChanged = computed(
+  () => apiBaseInput.value.replace(/\/$/, "") !== getApiBase(),
+);
+const apiBaseIsDefault = computed(
+  () => apiBaseInput.value.replace(/\/$/, "") === apiBaseDefault,
+);
+
+async function testApiBase() {
+  const target = apiBaseInput.value.replace(/\/$/, "");
+  if (!target) {
+    apiBaseStatus.value = {
+      kind: "error",
+      message: "Enter a URL like https://qingdu.example.com",
+    };
+    return;
+  }
+  apiBaseTesting.value = true;
+  apiBaseStatus.value = { kind: "idle" };
+  try {
+    const r = await fetch(`${target}/api/health`, { method: "GET" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const body = (await r.json()) as { vocab_count?: number };
+    apiBaseStatus.value = {
+      kind: "ok",
+      vocabCount: body.vocab_count ?? 0,
+    };
+  } catch (e) {
+    apiBaseStatus.value = {
+      kind: "error",
+      message:
+        e instanceof Error
+          ? `Couldn't reach that URL — ${e.message}`
+          : "Couldn't reach that URL",
+    };
+  } finally {
+    apiBaseTesting.value = false;
+  }
+}
+
+function saveApiBase() {
+  const target = apiBaseInput.value.replace(/\/$/, "");
+  // Empty input is interpreted as "reset to default" so the user can
+  // wipe the override by clearing the field.
+  setApiBase(target === apiBaseDefault || target === "" ? null : target);
+  toasts.success(
+    "Server updated. You may need to sign in again on the new server.",
+  );
+  modals.closeAll();
+  // Force a clean reload so every store hydrates against the new URL.
+  setTimeout(() => window.location.reload(), 400);
+}
+
+function resetApiBase() {
+  apiBaseInput.value = apiBaseDefault;
+  apiBaseStatus.value = { kind: "idle" };
 }
 </script>
 
@@ -841,6 +914,85 @@ async function runImport() {
             words.apkg
           </a>
         </div>
+      </fieldset>
+
+      <!-- Phase 1.6 — server-switcher for self-hosters. The default URL
+           the maintainer ships is just a demo host; F-Droid / Capacitor
+           users can repoint at their own backend without rebuilding.
+           Hidden on web builds where the SPA is same-origin anyway (no
+           cross-origin call would succeed without CORS on a custom host
+           and the user already knows what server they hit). -->
+      <fieldset v-if="apiBaseDefault !== ''">
+        <legend
+          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          Server
+        </legend>
+        <p class="mb-3 text-xs text-fg-muted leading-relaxed">
+          By default this app talks to
+          <code class="rounded bg-bg-sunken px-1 py-0.5 font-mono text-[11px] text-fg">{{ apiBaseDefault }}</code> —
+          a public demo server. Point it at your own Qingdu instance to
+          keep your data on infrastructure you control. Changing server
+          signs you out; the new server has its own accounts.
+        </p>
+        <label class="block">
+          <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+            API URL
+          </span>
+          <input
+            v-model="apiBaseInput"
+            type="url"
+            inputmode="url"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="https://qingdu.example.com"
+            class="w-full rounded-md border border-border-subtle bg-bg px-3 py-2 font-mono text-sm text-fg focus:border-accent focus:outline-none"
+          />
+        </label>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="apiBaseTesting || !apiBaseInput"
+            @click="testApiBase"
+          >
+            <span v-if="apiBaseTesting" class="inline-flex items-center gap-1.5">
+              <span
+                class="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+              />
+              Testing…
+            </span>
+            <span v-else>Test</span>
+          </button>
+          <button
+            type="button"
+            class="inline-flex items-center rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!apiBaseChanged"
+            @click="saveApiBase"
+          >
+            Save &amp; reload
+          </button>
+          <button
+            v-if="!apiBaseIsDefault"
+            type="button"
+            class="text-xs text-fg-muted underline-offset-2 hover:text-fg hover:underline"
+            @click="resetApiBase"
+          >
+            Use default
+          </button>
+        </div>
+        <p
+          v-if="apiBaseStatus.kind === 'ok'"
+          class="mt-3 text-xs text-emerald-700 dark:text-emerald-300"
+        >
+          ✓ Connected. Vocab loaded ({{ apiBaseStatus.vocabCount.toLocaleString() }} entries).
+        </p>
+        <p
+          v-else-if="apiBaseStatus.kind === 'error'"
+          class="mt-3 text-xs text-red-700 dark:text-red-300"
+        >
+          {{ apiBaseStatus.message }}
+        </p>
       </fieldset>
     </div>
   </Modal>

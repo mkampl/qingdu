@@ -34,6 +34,15 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 See [README_SETUP.md](README_SETUP.md) for optional API-key configuration (DeepL, Google Translate).
 
+## Self-hosting + mobile app
+
+Run your own backend; point the official Android APK at it via **Settings → Server** (or the first-launch prompt). Two environment variables matter for cross-origin access:
+
+- `ALLOWED_ORIGINS` — comma-separated list of origins allowed by CORS. Set this if the SPA / Capacitor wrapper talks to your server from a different host. Example: `ALLOWED_ORIGINS=https://qingdu.example.com,capacitor://localhost,http://localhost`.
+- `SECRET_KEY` — JWT signing key; rotate per deployment.
+
+The web build at `/` is same-origin so CORS isn't needed for browser users. The Capacitor build hits the server cross-origin (its WebView loads from `capacitor://localhost`), so the wrapper origin must appear in `ALLOWED_ORIGINS` on the server.
+
 ## Technology
 
 Backend: FastAPI, jieba, pypinyin, FSRS, faster-whisper, librosa, SQLite.

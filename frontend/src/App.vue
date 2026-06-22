@@ -11,12 +11,14 @@ import { useUserWordsStore } from "@/stores/userWords";
 
 import AuthControls from "@/components/auth/AuthControls.vue";
 import InvitationsModal from "@/components/InvitationsModal.vue";
+import ServerPicker from "@/components/onboarding/ServerPicker.vue";
 import SettingsModal from "@/components/SettingsModal.vue";
 import ShortcutsOverlay from "@/components/ShortcutsOverlay.vue";
 import Toaster from "@/components/ui/Toaster.vue";
 
+import { getApiBase } from "@/api/client";
 import { useKeyboardShortcuts } from "@/composables/use-keyboard-shortcuts";
-import { hideSplash, syncStatusBar } from "@/services/native";
+import { hideSplash, isNative, syncStatusBar } from "@/services/native";
 import {
   onNotificationTap,
   syncFromSettings as syncReminder,
@@ -38,6 +40,13 @@ function compactNumber(n: number): string {
 }
 
 useKeyboardShortcuts();
+
+// First-launch server picker — only ever fires for native Capacitor builds
+// that shipped without a baked-in API URL (the F-Droid track). Web users
+// hit the SPA same-origin so getApiBase() === '' is the expected case and
+// the picker stays hidden. Capacitor with a custom-server localStorage
+// override also skips it: getApiBase() returns the saved URL.
+const needsServerPicker = isNative() && getApiBase() === "";
 
 // Mobile nav drawer state — visible only via the hamburger on narrow viewports.
 const mobileNavOpen = ref(false);
@@ -380,6 +389,7 @@ watch(
     <SettingsModal />
     <InvitationsModal />
     <ShortcutsOverlay />
+    <ServerPicker v-if="needsServerPicker" />
 
     <!-- Mobile navigation drawer. Teleports to body so it overlays everything,
          only meaningful below sm where the inline nav is hidden. -->
