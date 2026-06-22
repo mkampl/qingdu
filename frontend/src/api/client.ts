@@ -178,6 +178,39 @@ export const translate = (text: string, signal?: AbortSignal) =>
 export const vocabularyStats = () =>
   request<VocabStatsResponse>("/api/vocabulary-stats", { anonymous: true });
 
+export interface HskBrowseItem {
+  hanzi: string;
+  pinyin: string | null;
+  meaning: string | null;
+  meanings: string[];
+  level_new: string | null;
+  level_old: string | null;
+  frequency: number | null;
+  user_state: "learning" | "known" | "ignored" | null;
+}
+
+export interface HskBrowseResponse {
+  items: HskBrowseItem[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export const browseHsk = (params: {
+  level?: string;
+  q?: string;
+  offset?: number;
+  limit?: number;
+}) => {
+  const search = new URLSearchParams();
+  if (params.level) search.set("level", params.level);
+  if (params.q) search.set("q", params.q);
+  if (params.offset !== undefined) search.set("offset", String(params.offset));
+  if (params.limit !== undefined) search.set("limit", String(params.limit));
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  return request<HskBrowseResponse>(`/api/vocab/hsk${suffix}`);
+};
+
 export const tts = (text: string) =>
   fetch(apiUrl(`/api/tts/${encodeURIComponent(text)}`));
 

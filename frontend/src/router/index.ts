@@ -16,7 +16,7 @@ export const router = createRouter({
     {
       path: "/vocab",
       name: "vocab-index",
-      component: () => import("@/views/VocabListsView.vue"),
+      component: () => import("@/views/VocabView.vue"),
     },
     {
       path: "/discover",

@@ -129,35 +129,27 @@ async function confirmDelete(list: VocabularyListSummary) {
 </script>
 
 <template>
-  <section class="mx-auto max-w-5xl px-5 py-10 sm:px-8 md:py-14 lg:px-10">
-    <header class="mb-8 flex items-baseline justify-between gap-4">
-      <div class="flex items-baseline gap-3">
-        <span
-          class="font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-fg-subtle"
-        >
-          Library
-        </span>
-        <span class="h-px w-12 bg-border-subtle" aria-hidden="true" />
-        <h1 class="font-display text-2xl font-medium tracking-tight text-fg">
-          Vocabulary lists
-        </h1>
-      </div>
-      <div class="flex items-baseline gap-3">
-        <span
-          v-if="state.status === 'ok'"
-          class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
-        >
-          {{ total }} {{ total === 1 ? "list" : "lists" }}
-        </span>
-        <Button
-          v-if="auth.isAuthed"
-          variant="primary"
-          size="sm"
-          @click="openCreate"
-        >
-          + New list
-        </Button>
-      </div>
+  <!-- Rendered as a tab inside VocabView since Phase 1.4; the parent owns
+       the page wrapper + heading + tab switcher. We keep just the count
+       chip and the New-list button here as a thin action row so the tab
+       doesn't carry a redundant title. -->
+  <div class="space-y-5">
+    <header class="flex items-baseline justify-between gap-4">
+      <span
+        v-if="state.status === 'ok'"
+        class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+      >
+        {{ total }} {{ total === 1 ? "list" : "lists" }}
+      </span>
+      <span v-else aria-hidden="true" />
+      <Button
+        v-if="auth.isAuthed"
+        variant="primary"
+        size="sm"
+        @click="openCreate"
+      >
+        + New list
+      </Button>
     </header>
 
     <!-- Anonymous -->
@@ -378,5 +370,5 @@ async function confirmDelete(list: VocabularyListSummary) {
         </div>
       </form>
     </Modal>
-  </section>
+  </div>
 </template>
