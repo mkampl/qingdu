@@ -598,7 +598,7 @@ onBeforeUnmount(() => {
               sentence you select.
             </p>
             <p
-              class="text-[12px] text-fg-subtle"
+              class="hidden text-[12px] text-fg-subtle sm:block"
             >
               Press
               <kbd

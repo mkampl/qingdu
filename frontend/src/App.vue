@@ -129,9 +129,10 @@ watch(
 
         <RouterLink
           to="/"
-          class="text-cn text-xl font-semibold tracking-tight"
+          class="text-cn whitespace-nowrap text-xl font-semibold tracking-tight"
         >
-          轻读 <span class="text-fg-muted font-normal">QingDu</span>
+          轻读
+          <span class="hidden text-fg-muted font-normal sm:inline">QingDu</span>
         </RouterLink>
         <nav class="hidden gap-1 sm:flex">
           <RouterLink

@@ -234,11 +234,16 @@ async function convert(direction: ConvertDirection) {
           class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
         >
           {{ characterCount }} chars · {{ wordCountEstimate }} hanzi
-          <span class="mx-1.5 text-fg-subtle/40">·</span>
-          <kbd
-            class="rounded border border-border-subtle bg-bg-elevated px-1.5 py-0.5 font-sans text-[10px] font-medium tracking-normal normal-case text-fg-muted"
-          >{{ submitShortcutLabel }}</kbd>
-          to analyze
+          <!-- The keyboard shortcut hint is dead weight on phones (no
+               Ctrl key) and pushes the row to 3 lines at 320px. Hide
+               below sm so the counts stay on one line. -->
+          <span class="hidden sm:inline">
+            <span class="mx-1.5 text-fg-subtle/40">·</span>
+            <kbd
+              class="rounded border border-border-subtle bg-bg-elevated px-1.5 py-0.5 font-sans text-[10px] font-medium tracking-normal normal-case text-fg-muted"
+            >{{ submitShortcutLabel }}</kbd>
+            to analyze
+          </span>
         </span>
         <div class="flex items-center gap-2">
           <button
