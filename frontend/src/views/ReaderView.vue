@@ -16,6 +16,7 @@ import GrammarPanel from "@/components/reader/GrammarPanel.vue";
 import ImportUrlModal from "@/components/reader/ImportUrlModal.vue";
 import InputPanel from "@/components/reader/InputPanel.vue";
 import PlayerBar from "@/components/reader/PlayerBar.vue";
+import ReaderTodayPanel from "@/components/reader/ReaderTodayPanel.vue";
 import ReadingProgress from "@/components/reader/ReadingProgress.vue";
 import ReadingText from "@/components/reader/ReadingText.vue";
 import ShareModal from "@/components/reader/ShareModal.vue";
@@ -579,11 +580,13 @@ onBeforeUnmount(() => {
                reachable as you scroll. -->
           <PlayerBar v-if="analysis.result" :analysis="analysis.result" />
 
-          <!-- Empty state: a quiet invitation. -->
-          <div
-            v-else
-            class="flex flex-col items-start gap-4 border-t border-border-subtle pt-10 text-fg-muted"
-          >
+          <!-- Empty state. For authed users, ReaderTodayPanel surfaces the
+               three actionable hooks (due reviews, continue reading, library
+               pick) above the paste prompt; anonymous users (or authed users
+               with no hooks yet) only see the invitation below. -->
+          <div v-else class="flex flex-col items-start gap-4 text-fg-muted">
+            <ReaderTodayPanel />
+            <div class="flex flex-col items-start gap-4 border-t border-border-subtle pt-10">
             <span
               class="font-display text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
             >
@@ -603,6 +606,7 @@ onBeforeUnmount(() => {
               >{{ submitShortcutLabel }}</kbd>
               to analyse.
             </p>
+            </div>
           </div>
         </article>
       </main>
