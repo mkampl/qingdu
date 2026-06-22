@@ -255,6 +255,77 @@ const groups: Group[] = [
       </div>
     </header>
 
+    <!-- Phase 1.5 — For You moves above Browse for authed users so the
+         first thing they see is something tuned to their level, not a
+         generic HSK rail. The block is auth-gated server-side (returns
+         an empty items array when there's no known-word data), so it
+         only renders for signed-in users with progress. -->
+    <section v-if="forYou.length" class="mb-10 sm:mb-14">
+      <header class="mb-4 sm:mb-5">
+        <div class="mb-1.5 flex items-baseline gap-3 sm:mb-2">
+          <span
+            class="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-fg-subtle"
+          >
+            For you
+          </span>
+          <span class="hidden h-px w-8 bg-border-subtle sm:block" aria-hidden="true" />
+        </div>
+        <h2
+          class="font-display text-lg font-medium tracking-tight text-fg sm:text-2xl"
+        >
+          On your level
+        </h2>
+        <p class="mt-1.5 max-w-prose text-sm leading-relaxed text-fg-muted sm:mt-2">
+          Short bundled texts where you already know 85-98% of the words.
+          The sweet spot for reading without a dictionary on every line.
+        </p>
+      </header>
+
+      <ul class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+        <li v-for="item in forYou" :key="item.slug">
+          <button
+            type="button"
+            class="group flex h-full w-full flex-col gap-2 rounded-lg border border-border bg-bg-elevated p-4 text-left transition-shadow hover:shadow-md"
+            @click="openLibraryText(item.slug)"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <p
+                class="text-cn-serif text-base font-medium leading-snug text-fg group-hover:text-accent"
+              >
+                {{ item.title }}
+              </p>
+              <span
+                class="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent"
+              >
+                {{ Math.round(item.comprehension_score * 100) }}%
+              </span>
+            </div>
+            <p class="text-cn-serif text-sm leading-relaxed text-fg-muted">
+              {{ item.preview }}…
+            </p>
+            <div class="mt-auto flex items-center gap-2 pt-2">
+              <span
+                class="rounded-full bg-bg-sunken px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted"
+              >
+                HSK {{ item.hsk_level }}
+              </span>
+              <span
+                class="rounded-full bg-bg-sunken px-2 py-0.5 font-mono text-[10px] tracking-wider text-fg-muted"
+              >
+                {{ item.char_count }} 字
+              </span>
+              <span
+                v-if="item.new_words > 0"
+                class="rounded-full bg-bg-sunken px-2 py-0.5 font-mono text-[10px] tracking-wider text-fg-muted"
+              >
+                {{ item.new_words }} new
+              </span>
+            </div>
+          </button>
+        </li>
+      </ul>
+    </section>
+
     <!-- Browse — anonymous-friendly entry into the library by HSK band. -->
     <section v-if="browseBands.length" class="mb-10 sm:mb-14">
       <header class="mb-4 sm:mb-5">
@@ -333,172 +404,132 @@ const groups: Group[] = [
       </div>
     </section>
 
-    <!-- For You — bundled library texts in the user's comprehension zone. -->
-    <section v-if="forYou.length" class="mb-10 sm:mb-14">
-      <header class="mb-4 sm:mb-5">
-        <div class="mb-1.5 flex items-baseline gap-3 sm:mb-2">
-          <span
-            class="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-fg-subtle"
-          >
-            For you
-          </span>
-          <span class="hidden h-px w-8 bg-border-subtle sm:block" aria-hidden="true" />
-        </div>
-        <h2
-          class="font-display text-lg font-medium tracking-tight text-fg sm:text-2xl"
-        >
-          On your level
-        </h2>
-        <p class="mt-1.5 max-w-prose text-sm leading-relaxed text-fg-muted sm:mt-2">
-          Short bundled texts where you already know 85-98% of the words.
-          The sweet spot for reading without a dictionary on every line.
-        </p>
-      </header>
-
-      <ul class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-        <li v-for="item in forYou" :key="item.slug">
-          <button
-            type="button"
-            class="group flex h-full w-full flex-col gap-2 rounded-lg border border-border bg-bg-elevated p-4 text-left transition-shadow hover:shadow-md"
-            @click="openLibraryText(item.slug)"
-          >
-            <div class="flex items-start justify-between gap-2">
-              <p
-                class="text-cn-serif text-base font-medium leading-snug text-fg group-hover:text-accent"
-              >
-                {{ item.title }}
-              </p>
-              <span
-                class="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent"
-              >
-                {{ Math.round(item.comprehension_score * 100) }}%
-              </span>
-            </div>
-            <p class="text-cn-serif text-sm leading-relaxed text-fg-muted">
-              {{ item.preview }}…
-            </p>
-            <div class="mt-auto flex items-center gap-2 pt-2">
-              <span
-                class="rounded-full bg-bg-sunken px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted"
-              >
-                HSK {{ item.hsk_level }}
-              </span>
-              <span
-                class="rounded-full bg-bg-sunken px-2 py-0.5 font-mono text-[10px] tracking-wider text-fg-muted"
-              >
-                {{ item.char_count }} 字
-              </span>
-              <span
-                v-if="item.new_words > 0"
-                class="rounded-full bg-bg-sunken px-2 py-0.5 font-mono text-[10px] tracking-wider text-fg-muted"
-              >
-                {{ item.new_words }} new
-              </span>
-            </div>
-          </button>
-        </li>
-      </ul>
-    </section>
-
-    <!-- Intro / how-to-use -->
-    <div
-      class="mb-8 max-w-prose rounded-lg border border-border-subtle bg-bg-elevated p-4 sm:mb-12 sm:p-5"
+    <!-- Phase 1.5 — External-source groups collapsed into one disclosure.
+         The 14 cards used to dominate the page (~2/3 of the scroll on
+         mobile) even though they're static references most users hit
+         rarely. Inside the details: each group's kicker becomes a
+         subhead so the structure (Graded / News / Long-form / Meta)
+         survives the collapse. -->
+    <details
+      class="group/disclosure rounded-lg border border-border-subtle bg-bg-elevated"
     >
-      <p class="font-display text-sm italic leading-relaxed text-fg-muted sm:text-base">
-        Open any source below to browse for something interesting. When you
-        find an article you want to read, copy its URL and use
-        <span class="font-medium text-fg">Import from URL</span>
-        on the
-        <RouterLink to="/" class="font-medium text-accent hover:underline">
-          Reader
-        </RouterLink>
-        — the article body comes through clean of navigation and ads.
-      </p>
-    </div>
-
-    <!-- Groups -->
-    <div class="space-y-10 sm:space-y-14">
-      <section v-for="group in groups" :key="group.title">
-        <header class="mb-4 sm:mb-5">
-          <div class="mb-1.5 flex items-baseline gap-3 sm:mb-2">
-            <span
-              class="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-fg-subtle"
-            >
-              {{ group.kicker }}
-            </span>
-            <span class="hidden h-px w-8 bg-border-subtle sm:block" aria-hidden="true" />
-          </div>
-          <h2
-            class="font-display text-lg font-medium tracking-tight text-fg sm:text-2xl"
+      <summary
+        class="flex cursor-pointer items-baseline justify-between gap-3 px-4 py-3 sm:px-5"
+      >
+        <span>
+          <span
+            class="block font-mono text-[10px] uppercase tracking-[0.22em] text-fg-subtle"
           >
-            {{ group.title }}
-          </h2>
-          <p class="mt-1.5 max-w-prose text-sm leading-relaxed text-fg-muted sm:mt-2">
-            {{ group.blurb }}
-          </p>
-        </header>
+            External sources
+          </span>
+          <span class="block font-display text-base font-medium text-fg sm:text-lg">
+            Explore the wider Chinese web
+          </span>
+        </span>
+        <span
+          class="font-mono text-[10px] uppercase tracking-wider text-fg-muted transition-transform group-open/disclosure:rotate-180"
+          aria-hidden="true"
+        >
+          ▾
+        </span>
+      </summary>
 
-        <ul class="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <li v-for="src in group.sources" :key="src.url">
-            <a
-              :href="src.url"
-              target="_blank"
-              rel="noopener"
-              class="group flex h-full flex-col gap-2 rounded-lg border border-border bg-bg-elevated p-4 transition-shadow hover:shadow-md"
-            >
-              <div class="flex items-start justify-between gap-2">
-                <div class="min-w-0 flex-1">
-                  <p
-                    class="text-cn-serif text-base font-medium leading-snug text-fg group-hover:text-accent"
-                  >
-                    {{ src.name }}
-                  </p>
-                  <p
-                    v-if="src.subtitle"
-                    class="font-display text-[11px] italic text-fg-subtle"
-                  >
-                    {{ src.subtitle }}
-                  </p>
-                </div>
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 13 13"
-                  fill="none"
-                  class="mt-1 shrink-0 text-fg-subtle transition-colors group-hover:text-accent"
-                  aria-hidden="true"
+      <div class="border-t border-border-subtle px-4 py-4 sm:px-5 sm:py-5">
+        <p
+          class="mb-6 max-w-prose font-display text-sm italic leading-relaxed text-fg-muted sm:text-base"
+        >
+          Pick a source, find an article, copy its URL and use
+          <span class="font-medium text-fg">Import from URL</span>
+          on the
+          <RouterLink to="/" class="font-medium text-accent hover:underline">
+            Reader
+          </RouterLink>
+          — the article body comes through clean of navigation and ads.
+        </p>
+
+        <div class="space-y-8">
+          <section v-for="group in groups" :key="group.title">
+            <header class="mb-3">
+              <div class="mb-1 flex items-baseline gap-2">
+                <span
+                  class="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-fg-subtle"
                 >
-                  <path
-                    d="M4 3h6v6M9.5 3.5L3 10"
-                    stroke="currentColor"
-                    stroke-width="1.4"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
+                  {{ group.kicker }}
+                </span>
               </div>
-
-              <p class="text-sm leading-relaxed text-fg-muted">
-                {{ src.note }}
+              <h3
+                class="font-display text-base font-medium tracking-tight text-fg sm:text-lg"
+              >
+                {{ group.title }}
+              </h3>
+              <p class="mt-1 max-w-prose text-xs leading-relaxed text-fg-muted">
+                {{ group.blurb }}
               </p>
+            </header>
 
-              <div class="mt-auto flex items-center gap-2 pt-2">
-                <span
-                  class="rounded-full bg-bg-sunken px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted"
+            <ul class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <li v-for="src in group.sources" :key="src.url">
+                <a
+                  :href="src.url"
+                  target="_blank"
+                  rel="noopener"
+                  class="group flex h-full flex-col gap-2 rounded-lg border border-border bg-bg p-4 transition-shadow hover:shadow-md"
                 >
-                  {{ src.level }}
-                </span>
-                <span
-                  v-if="src.marker"
-                  class="rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent"
-                >
-                  {{ src.marker }}
-                </span>
-              </div>
-            </a>
-          </li>
-        </ul>
-      </section>
-    </div>
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0 flex-1">
+                      <p
+                        class="text-cn-serif text-base font-medium leading-snug text-fg group-hover:text-accent"
+                      >
+                        {{ src.name }}
+                      </p>
+                      <p
+                        v-if="src.subtitle"
+                        class="font-display text-[11px] italic text-fg-subtle"
+                      >
+                        {{ src.subtitle }}
+                      </p>
+                    </div>
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 13 13"
+                      fill="none"
+                      class="mt-1 shrink-0 text-fg-subtle transition-colors group-hover:text-accent"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 3h6v6M9.5 3.5L3 10"
+                        stroke="currentColor"
+                        stroke-width="1.4"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </div>
+
+                  <p class="text-sm leading-relaxed text-fg-muted">
+                    {{ src.note }}
+                  </p>
+
+                  <div class="mt-auto flex items-center gap-2 pt-2">
+                    <span
+                      class="rounded-full bg-bg-sunken px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted"
+                    >
+                      {{ src.level }}
+                    </span>
+                    <span
+                      v-if="src.marker"
+                      class="rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent"
+                    >
+                      {{ src.marker }}
+                    </span>
+                  </div>
+                </a>
+              </li>
+            </ul>
+          </section>
+        </div>
+      </div>
+    </details>
   </section>
 </template>
