@@ -179,6 +179,15 @@ class UserWord(Base):
     fsrs_state = Column(Text, nullable=True)
     due_at = Column(DateTime, nullable=True)
     last_reviewed_at = Column(DateTime, nullable=True)
+    # Phase 1.3 — Mixed-mode review cycle tracking. `modes_completed` is a
+    # JSON list of mode names already graded `Good` or better in the
+    # current cycle (e.g. ["recognition", "cloze"]); FSRS only advances
+    # once all four mode names are present. Any failing grade clears the
+    # list so the next attempt re-starts the cycle. `modes_cycle_started_at`
+    # stamps the first grade of a cycle for analytics; it's NULL until a
+    # mixed-mode cycle is in flight.
+    modes_completed = Column(Text, nullable=False, default="[]")
+    modes_cycle_started_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -254,6 +263,10 @@ class UserWordEvent(Base):
     new_state = Column(String(16), nullable=True)
     # 1-4 when event_type == 'review' (FSRS Rating: Again/Hard/Good/Easy).
     grade = Column(Integer, nullable=True)
+    # Phase 1.3 — which modality fired this review event ('recognition',
+    # 'dictation', 'writing', 'cloze'). NULL on non-review events and on
+    # legacy review events pre-Phase 1.3.
+    mode = Column(String(16), nullable=True)
     source_text_id = Column(
         Integer, ForeignKey("saved_texts.id", ondelete="SET NULL"), nullable=True
     )
@@ -417,6 +430,9 @@ def init_db():
                 # so package-sourced glosses can be preserved against
                 # dictionary fallback on re-clicks. See UserWord model.
                 ("meaning_source", "VARCHAR(32)"),
+                # Phase 1.3 — Mixed-mode review cycle tracking.
+                ("modes_completed", "TEXT NOT NULL DEFAULT '[]'"),
+                ("modes_cycle_started_at", "DATETIME"),
             ]
             with engine.connect() as conn:
                 for name, sql_type in needed:
@@ -465,6 +481,12 @@ def init_db():
                 logger.info("Adding grade column to user_word_events")
                 with engine.connect() as conn:
                     conn.execute(text("ALTER TABLE user_word_events ADD COLUMN grade INTEGER"))
+                    conn.commit()
+            # Phase 1.3 — review event modality.
+            if "mode" not in ev_cols:
+                logger.info("Adding mode column to user_word_events")
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE user_word_events ADD COLUMN mode VARCHAR(16)"))
                     conn.commit()
 
         # Phase #120 — backfill user_word_glosses for legacy rows. Every

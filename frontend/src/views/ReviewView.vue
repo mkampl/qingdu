@@ -16,10 +16,11 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import * as api from "@/api/client";
-import type { ReviewGrade, ReviewMode } from "@/api/client";
+import type { QueueMode, ReviewGrade, ReviewMode } from "@/api/client";
 import WeeklySparkline from "@/components/reader/WeeklySparkline.vue";
 import PronunciationCheck from "@/components/reader/PronunciationCheck.vue";
 import WritingQuiz from "@/components/reader/WritingQuiz.vue";
+import CycleProgress from "@/components/review/CycleProgress.vue";
 import { useAuthStore } from "@/stores/auth";
 import { useReviewStore } from "@/stores/review";
 import { useSettingsStore } from "@/stores/settings";
@@ -110,7 +111,7 @@ const card = computed(() => review.current);
 const total = computed(() => review.queue.length);
 const idx = computed(() => Math.min(review.cursor + 1, total.value));
 
-async function start(mode: ReviewMode) {
+async function start(mode: QueueMode) {
   revealed.value = false;
   dictationInput.value = "";
   dictationFeedback.value = "";
@@ -120,6 +121,29 @@ async function start(mode: ReviewMode) {
   clozeInput.value = "";
   clozeFeedback.value = "";
   await review.loadQueue(mode);
+}
+
+// Phase 1.3 — Advanced single-mode disclosure. Hidden by default;
+// expands to expose the four ReviewModes for power users who want to
+// drill one modality. Flipping the toggle persists to settings so the
+// preference survives next session.
+const advancedOpen = ref(false);
+
+function startMixed() {
+  void start("mixed");
+}
+
+function startSingle(mode: ReviewMode) {
+  // Persist the user's intent: they explicitly chose single-mode here,
+  // so future "Start review" calls (from /today panel, streak chip)
+  // default to it too. Flip back to Mixed by tapping "Mixed (default)".
+  settings.reviewSingleMode = true;
+  void start(mode);
+}
+
+function switchToMixed() {
+  settings.reviewSingleMode = false;
+  void start("mixed");
 }
 
 function reveal() {
@@ -420,51 +444,93 @@ watch(
       </span>
     </p>
 
-    <!-- Mode picker — visible until the user starts a session, then collapses
-         into the in-session header. -->
+    <!-- Phase 1.3 — Start screen. Mixed mode (every card cycles
+         Recognition → Cloze → Dictation → Writing) is the default
+         button; the four single-modality picks live behind an Advanced
+         disclosure so they're available to power users who want to
+         drill one modality at a time. -->
     <div
       v-if="auth.isAuthed && review.queue.length === 0 && !review.loading"
-      class="space-y-3"
+      class="space-y-4"
     >
       <p
         class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
       >
-        Pick a mode to begin
+        {{ settings.reviewSingleMode ? "Pick a mode to begin" : "Ready to review" }}
       </p>
-      <div class="grid gap-2 sm:grid-cols-3 sm:gap-3">
-        <button
-          v-for="m in modes"
-          :key="m.id"
-          type="button"
-          :disabled="!m.available || effectiveDueCount === 0"
-          class="group rounded-lg border border-border-subtle bg-bg-elevated px-4 py-3 text-left transition-colors hover:border-accent hover:bg-bg-sunken disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border-subtle disabled:hover:bg-bg-elevated sm:px-5 sm:py-4"
-          @click="start(m.id)"
-        >
-          <div class="flex items-center justify-between">
-            <span class="font-display text-base font-medium text-fg sm:text-lg">
-              {{ m.label }}
-            </span>
-            <span
-              v-if="!m.available"
-              class="font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
+
+      <!-- Default: big Mixed-mode Start button. Hidden when the user
+           opted into Advanced single-mode last session. -->
+      <button
+        v-if="!settings.reviewSingleMode"
+        type="button"
+        :disabled="effectiveDueCount === 0"
+        class="group flex w-full items-center justify-between rounded-lg border border-accent/40 bg-accent/5 px-5 py-4 text-left transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50"
+        @click="startMixed"
+      >
+        <span>
+          <span class="block font-display text-lg font-medium text-fg">
+            Start review
+          </span>
+          <span class="block text-xs text-fg-muted">
+            Every card cycles through Recognition → Cloze → Dictation →
+            Writing. FSRS advances when all four pass.
+          </span>
+        </span>
+        <span class="font-mono text-[10px] uppercase tracking-wider text-fg-muted group-hover:text-fg">
+          Mixed →
+        </span>
+      </button>
+
+      <!-- Advanced disclosure — single-modality picks. Always visible
+           when the user previously chose single-mode (so they can find
+           it and either continue or switch back). -->
+      <details
+        :open="settings.reviewSingleMode || advancedOpen"
+        class="group rounded-lg border border-border-subtle bg-bg-elevated"
+        @toggle="advancedOpen = ($event.target as HTMLDetailsElement).open"
+      >
+        <summary class="flex cursor-pointer items-center justify-between px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted hover:text-fg">
+          {{ settings.reviewSingleMode ? "Single-mode picker" : "Advanced — drill one modality" }}
+          <span class="text-fg-subtle">⌃</span>
+        </summary>
+        <div class="border-t border-border-subtle px-4 py-3">
+          <button
+            v-if="settings.reviewSingleMode"
+            type="button"
+            class="mb-3 w-full rounded-md border border-accent/40 bg-accent/5 px-3 py-2 text-left text-xs font-medium text-accent transition-colors hover:bg-accent/10"
+            @click="switchToMixed"
+          >
+            ← Use Mixed mode (recommended)
+          </button>
+          <div class="grid gap-2 sm:grid-cols-2 sm:gap-3">
+            <button
+              v-for="m in modes"
+              :key="m.id"
+              type="button"
+              :disabled="!m.available || effectiveDueCount === 0"
+              class="rounded-md border border-border-subtle bg-bg px-3 py-2.5 text-left transition-colors hover:border-accent hover:bg-bg-sunken disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border-subtle disabled:hover:bg-bg"
+              @click="startSingle(m.id)"
             >
-              soon
-            </span>
+              <span class="block font-display text-sm font-medium text-fg">
+                {{ m.label }}
+              </span>
+              <span class="block text-xs text-fg-muted">{{ m.hint }}</span>
+            </button>
           </div>
-          <p class="mt-0.5 text-xs text-fg-muted sm:mt-1">{{ m.hint }}</p>
-        </button>
-      </div>
+        </div>
+      </details>
 
       <div
         v-if="effectiveDueCount === 0 && review.stats.learning > 0"
-        class="mt-6 rounded-lg border border-border-subtle bg-bg-elevated px-5 py-4 text-center text-sm text-fg-muted"
+        class="mt-2 rounded-lg border border-border-subtle bg-bg-elevated px-5 py-4 text-center text-sm text-fg-muted"
       >
         Nothing's due right now — come back later, or mark a few more words as
         Learning in the reader.
       </div>
       <div
         v-else-if="review.stats.learning === 0"
-        class="mt-6 rounded-lg border border-border-subtle bg-bg-elevated px-5 py-4 text-center text-sm text-fg-muted"
+        class="mt-2 rounded-lg border border-border-subtle bg-bg-elevated px-5 py-4 text-center text-sm text-fg-muted"
       >
         No words in Learning yet. Click any word in the reader, then choose
         "Learning" from the popover.
@@ -507,6 +573,16 @@ watch(
           }"
         />
       </div>
+
+      <!-- Phase 1.3 — Mixed-mode cycle progress strip. Only renders when
+           the queue was loaded in mixed mode; single-mode hides it
+           since the modality never changes mid-session. -->
+      <CycleProgress
+        v-if="review.queueMode === 'mixed' && card"
+        :completed="card.cycle_modes_completed ?? []"
+        :current="review.currentCycleMode"
+        :has-sample-sentence="card.has_sample_sentence !== false"
+      />
 
       <!-- Card -->
       <div
@@ -919,7 +995,7 @@ watch(
         <button
           type="button"
           class="rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90"
-          @click="start(review.mode)"
+          @click="start(review.queueMode)"
         >
           Continue
         </button>

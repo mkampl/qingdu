@@ -153,11 +153,56 @@ def already_known_state(jitter_seed: int | None = None) -> dict:
     }
 
 
+# --- Phase 1.3: mixed-mode cycle gating ------------------------------------
+#
+# When the user reviews a card in Mixed mode, FSRS only advances after
+# every modality has been graded Good (3) or Easy (4). A Hard (2) or
+# Again (1) on any modality resets the cycle so the next attempt starts
+# from Recognition. The four modes are the same as ReviewMode in
+# app/routers/review.py.
+
+ALL_REVIEW_MODES = ("recognition", "cloze", "dictation", "writing")
+PASSING_GRADE = 3  # Good or Easy advances the cycle; Hard / Again resets.
+
+
+def should_advance_fsrs(modes_completed: list[str], mode: str, grade: int) -> bool:
+    """Decide whether this grade should call apply_grade and advance the FSRS
+    scheduler in Mixed mode.
+
+    Returns True only when:
+    1. The grade is Good or Easy (a Hard / Again always defers FSRS to the
+       next attempt and the caller should reset `modes_completed`), and
+    2. With `mode` added to `modes_completed`, every modality in
+       ALL_REVIEW_MODES is covered.
+
+    Single-mode reviews (Advanced toggle) bypass this helper and call
+    apply_grade directly — they're equivalent to today's behaviour.
+    """
+    if grade < PASSING_GRADE:
+        return False
+    covered = set(modes_completed) | {mode}
+    return all(m in covered for m in ALL_REVIEW_MODES)
+
+
+def next_cycle_mode(modes_completed: list[str]) -> str | None:
+    """Pick the next modality to test in a Mixed-mode cycle, in canonical
+    Recognition → Cloze → Dictation → Writing order. Returns None when
+    the cycle is already complete."""
+    for m in ALL_REVIEW_MODES:
+        if m not in modes_completed:
+            return m
+    return None
+
+
 __all__ = [
+    "ALL_REVIEW_MODES",
     "ALREADY_KNOWN_STABILITY_DAYS",
+    "PASSING_GRADE",
     "VALID_GRADES",
     "already_known_state",
     "apply_grade",
     "card_from_state",
     "initial_state",
+    "next_cycle_mode",
+    "should_advance_fsrs",
 ]

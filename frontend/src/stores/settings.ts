@@ -29,6 +29,14 @@ interface Persisted {
   // and the user's usual intent on tap is "what does this mean", not
   // "schedule a review of this word for the next decade".
   autoLearnOnClick: boolean;
+  // Phase 1.3 — when true, the review session uses a single modality
+  // (the one the user picks from the picker) and advances FSRS on every
+  // grade — the pre-Phase-1.3 behaviour. False (default) runs Mixed mode:
+  // each card cycles through Recognition → Cloze → Dictation → Writing
+  // and FSRS only advances when all four have been graded Good+. Power
+  // users who only want to drill one modality can flip this from the
+  // Review view's Advanced disclosure; we persist it across sessions.
+  reviewSingleMode: boolean;
 }
 
 function loadFromStorage(): Persisted {
@@ -63,6 +71,7 @@ function defaults(): Persisted {
     reminderTime: "19:00",
     hapticsEnabled: true,
     autoLearnOnClick: false,
+    reviewSingleMode: false,
   };
 }
 
@@ -77,6 +86,7 @@ export const useSettingsStore = defineStore("settings", () => {
   const reminderTime = ref("19:00");
   const hapticsEnabled = ref(true);
   const autoLearnOnClick = ref(false);
+  const reviewSingleMode = ref(false);
   let hydrated = false;
 
   function applyTheme(value: Theme) {
@@ -97,6 +107,7 @@ export const useSettingsStore = defineStore("settings", () => {
     reminderTime.value = persisted.reminderTime;
     hapticsEnabled.value = persisted.hapticsEnabled;
     autoLearnOnClick.value = persisted.autoLearnOnClick;
+    reviewSingleMode.value = persisted.reviewSingleMode;
     applyTheme(theme.value);
     hydrated = true;
   }
@@ -114,13 +125,15 @@ export const useSettingsStore = defineStore("settings", () => {
       reminderTime: reminderTime.value,
       hapticsEnabled: hapticsEnabled.value,
       autoLearnOnClick: autoLearnOnClick.value,
+      reviewSingleMode: reviewSingleMode.value,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }
 
   watch(
     [theme, pinyinMode, hskVersion, showLegend, colorMode, writingShowOutline,
-     reminderEnabled, reminderTime, hapticsEnabled, autoLearnOnClick],
+     reminderEnabled, reminderTime, hapticsEnabled, autoLearnOnClick,
+     reviewSingleMode],
     () => {
       if (hydrated) persist();
     },
@@ -143,6 +156,7 @@ export const useSettingsStore = defineStore("settings", () => {
     reminderTime,
     hapticsEnabled,
     autoLearnOnClick,
+    reviewSingleMode,
     hydrate,
     toggleTheme,
   };

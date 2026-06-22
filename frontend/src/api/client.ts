@@ -828,6 +828,11 @@ export const getWordStats = () =>
 // --- Review (Phase B) ------------------------------------------------------
 
 export type ReviewMode = "recognition" | "dictation" | "writing" | "cloze";
+/** Mixed-mode review session cycles a single card through all four
+ *  ReviewModes before letting FSRS advance. Only the queue endpoint
+ *  accepts "mixed"; gradeReviewCard always takes one of the four real
+ *  modes since a grade is per-modality. */
+export type QueueMode = ReviewMode | "mixed";
 export type ReviewGrade = 1 | 2 | 3 | 4;
 
 export interface ReviewCard {
@@ -852,11 +857,35 @@ export interface ReviewCard {
   cloze_template?: string;
   /** Cloze mode only — the full sentence (revealed after answer). */
   cloze_sentence?: string;
+  /** Phase 1.3 — modalities already graded Good+ in the current cycle.
+   *  Empty array means no cycle in progress. */
+  cycle_modes_completed?: ReviewMode[];
+  /** Phase 1.3 — does this row have a sample sentence for cloze? Mixed
+   *  mode skips cloze on cards where this is false. */
+  has_sample_sentence?: boolean;
 }
 
 export interface ReviewQueueResponse {
-  mode: ReviewMode;
+  mode: QueueMode;
   cards: ReviewCard[];
+}
+
+export interface ReviewGradeResponse {
+  word: string;
+  due_at: string | null;
+  stability: number | null;
+  difficulty: number | null;
+  /** Phase 1.3 — modalities done so far this cycle (after this grade). */
+  cycle_modes_completed: ReviewMode[];
+  /** Phase 1.3 — the next modality the frontend should cycle to, or
+   *  null when the cycle just completed or single-mode was used. */
+  cycle_next_mode: ReviewMode | null;
+  /** Phase 1.3 — true when this grade closed the four-mode cycle and
+   *  FSRS advanced. */
+  cycle_complete: boolean;
+  /** Phase 1.3 — true when FSRS scheduled the next due_at on this
+   *  grade. Mixed-mode passing grades during a cycle return false. */
+  fsrs_advanced: boolean;
 }
 
 export interface ReviewStatsResponse {
@@ -870,20 +899,18 @@ export interface ReviewStatsResponse {
   daily_target: number;
 }
 
-export const getReviewQueue = (mode: ReviewMode = "recognition", limit = 20) =>
+export const getReviewQueue = (mode: QueueMode = "recognition", limit = 20) =>
   request<ReviewQueueResponse>(`/api/review/queue?mode=${mode}&limit=${limit}`);
 
 export const gradeReviewCard = (
   word: string,
   grade: ReviewGrade,
   mode: ReviewMode = "recognition",
+  cycle = true,
 ) =>
-  request<{
-    word: string;
-    due_at: string | null;
-    stability: number | null;
-    difficulty: number | null;
-  }>("/api/review/grade", { body: { word, grade, mode } });
+  request<ReviewGradeResponse>("/api/review/grade", {
+    body: { word, grade, mode, cycle },
+  });
 
 export const getReviewStats = () =>
   request<ReviewStatsResponse>("/api/review/stats");

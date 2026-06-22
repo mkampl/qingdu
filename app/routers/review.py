@@ -14,6 +14,7 @@ Mode hints in the queue payload:
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 from typing import Literal
 
@@ -43,12 +44,21 @@ KNOWN_STABILITY_THRESHOLD_DAYS = 90.0
 
 
 ReviewMode = Literal["recognition", "dictation", "writing", "cloze"]
+# Queue can also be fetched in "mixed" — one queue that carries the data for
+# all four modalities so the frontend can cycle a single card through every
+# mode without re-fetching. Grading endpoint still requires a real mode.
+QueueMode = Literal["recognition", "dictation", "writing", "cloze", "mixed"]
 
 
 class GradeRequest(BaseModel):
     word: str
     grade: int  # 1=Again, 2=Hard, 3=Good, 4=Easy
     mode: ReviewMode = "recognition"
+    # Phase 1.3 — when True (default), this grade is part of a Mixed-mode
+    # cycle: a passing grade only advances FSRS once all four modes have
+    # been graded Good or better. When False (Advanced single-mode users),
+    # every grade advances FSRS immediately — the pre-Phase-1.3 behaviour.
+    cycle: bool = True
 
 
 def _enrich(row: UserWord) -> dict:
@@ -105,7 +115,7 @@ def _enrich(row: UserWord) -> dict:
 
 @router.get("/api/review/queue")
 async def review_queue(
-    mode: ReviewMode = "recognition",
+    mode: QueueMode = "recognition",
     limit: int = Query(20, ge=1, le=100),
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
@@ -162,23 +172,35 @@ async def review_queue(
             backfilled = True
 
         sentence: str | None = None
-        if mode == "cloze":
+        if mode in ("cloze", "mixed"):
             sentence = r.sample_sentence or cloze.populate_sample_sentence(r, db)
             if sentence:
                 backfilled = True
-            else:
-                # Skip rows that have no sample sentence — cloze requires
-                # one, and other modes will still cover them.
+            elif mode == "cloze":
+                # Strict cloze mode skips rows that have no sample sentence —
+                # the modality requires one. Mixed mode keeps them and just
+                # rotates around the missing cloze step.
                 continue
+
+        # Phase 1.3 — cycle progress so a session that resumed mid-cycle
+        # picks up at the right modality.
+        try:
+            cycle_done = json.loads(r.modes_completed or "[]")
+            if not isinstance(cycle_done, list):
+                cycle_done = []
+        except (ValueError, TypeError):
+            cycle_done = []
 
         card = {
             "word": to_user_script(r.word, user),
             "due_at": r.due_at.isoformat() if r.due_at else None,
             "stability": r.stability,
             "difficulty": r.difficulty,
+            "cycle_modes_completed": cycle_done,
+            "has_sample_sentence": bool(sentence),
             **enriched,
         }
-        if mode == "cloze" and sentence:
+        if sentence:
             displayed_sentence = to_user_script(sentence, user)
             displayed_word = to_user_script(r.word, user)
             card["cloze_template"] = cloze.make_cloze_template(displayed_sentence, displayed_word)
@@ -195,6 +217,22 @@ async def grade_card(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> dict:
+    """Grade one review card.
+
+    Two paths depending on `payload.cycle`:
+
+    - **Mixed-mode (default)** — the grade is part of a Recognition →
+      Cloze → Dictation → Writing cycle. A passing grade (≥ Good) only
+      advances FSRS once all four modalities have been graded; until
+      then we record the event, append the modality to
+      `UserWord.modes_completed`, and return cycle progress so the
+      frontend can advance to the next modality on the same card. A
+      failing grade (Hard / Again) DOES advance FSRS (the scheduler
+      needs the negative signal) and resets the modality cycle.
+
+    - **Single-mode (Advanced toggle)** — every grade advances FSRS
+      immediately; `modes_completed` is left untouched.
+    """
     if payload.grade not in srs.VALID_GRADES:
         raise HTTPException(status_code=400, detail=f"grade must be one of {srs.VALID_GRADES}")
 
@@ -210,12 +248,53 @@ async def grade_card(
         row = UserWord(user_id=user.id, word=word_simp, state="learning", seen_count=1)
         db.add(row)
 
-    updated = srs.apply_grade(row.fsrs_state, payload.grade, retention=user.review_retention)
-    row.fsrs_state = updated["fsrs_state"]
-    row.stability = updated["stability"]
-    row.difficulty = updated["difficulty"]
-    row.due_at = updated["due_at"]
-    row.last_reviewed_at = updated["last_reviewed_at"]
+    # Decode the cycle list. Defensive parse — a corrupted column shouldn't
+    # take down grading; fall back to an empty cycle.
+    try:
+        modes_done: list[str] = json.loads(row.modes_completed or "[]")
+        if not isinstance(modes_done, list):
+            modes_done = []
+    except (ValueError, TypeError):
+        modes_done = []
+
+    is_pass = payload.grade >= srs.PASSING_GRADE
+    advance_fsrs = (
+        (not payload.cycle)
+        or (not is_pass)
+        or srs.should_advance_fsrs(modes_done, payload.mode, payload.grade)
+    )
+
+    cycle_complete = False
+    if payload.cycle:
+        if is_pass:
+            if payload.mode not in modes_done:
+                modes_done.append(payload.mode)
+            # Stamp the cycle start on the first passing grade so analytics
+            # know how long a full cycle took. Cleared again on completion.
+            if row.modes_cycle_started_at is None and len(modes_done) == 1:
+                row.modes_cycle_started_at = datetime.utcnow()
+            if advance_fsrs:
+                # Cycle just completed — clear so the next due-date starts
+                # a fresh cycle. Without this, the user's next review of
+                # the same card would skip straight to FSRS-advance again.
+                cycle_complete = True
+                modes_done = []
+                row.modes_cycle_started_at = None
+        else:
+            # Failing grade in mixed mode wipes the cycle so the user
+            # starts over on the next pass through this card.
+            modes_done = []
+            row.modes_cycle_started_at = None
+
+    row.modes_completed = json.dumps(modes_done)
+
+    if advance_fsrs:
+        updated = srs.apply_grade(row.fsrs_state, payload.grade, retention=user.review_retention)
+        row.fsrs_state = updated["fsrs_state"]
+        row.stability = updated["stability"]
+        row.difficulty = updated["difficulty"]
+        row.due_at = updated["due_at"]
+        row.last_reviewed_at = updated["last_reviewed_at"]
     row.updated_at = datetime.utcnow()
 
     # Auto-transition between 'learning' and 'known' based on the new
@@ -244,6 +323,7 @@ async def grade_card(
             event_type="review",
             new_state=row.state,
             grade=payload.grade,
+            mode=payload.mode,
         )
     )
     record_activity(user, db)
@@ -253,6 +333,13 @@ async def grade_card(
         "due_at": row.due_at.isoformat() if row.due_at else None,
         "stability": row.stability,
         "difficulty": row.difficulty,
+        # Cycle telemetry for the frontend's CycleProgress component.
+        "cycle_modes_completed": modes_done,
+        "cycle_next_mode": srs.next_cycle_mode(modes_done)
+        if payload.cycle and not cycle_complete
+        else None,
+        "cycle_complete": cycle_complete,
+        "fsrs_advanced": advance_fsrs,
     }
 
 
