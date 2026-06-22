@@ -156,7 +156,9 @@ export const useReviewStore = defineStore("review", () => {
     queue.value = [];
     cursor.value = 0;
     sessionGraded.value = 0;
-    stats.value = { ...DEFAULT_STATS };
+    // Leave stats alone — they reflect the user's persistent learning
+    // state (due counts, streak, total learning words). Pressing Done
+    // ends the session, not the day's stats.
     error.value = null;
     inFocus.value = false;
   }

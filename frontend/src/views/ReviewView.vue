@@ -696,7 +696,7 @@ watch(
                from scratch without having to tap the chips. -->
           <div class="mt-6 flex justify-center">
             <StrokeOrder
-              :key="card.word"
+              :key="`${card.word}-${review.cursor}`"
               :chars="card.word"
               auto-advance
             />
@@ -732,7 +732,7 @@ watch(
           </p>
           <div class="mt-3">
             <WritingQuiz
-              :key="card.word"
+              :key="`${card.word}-${review.cursor}`"
               :word="card.word"
               :pinyin="card.pinyin"
               :meaning="card.meaning"
@@ -769,7 +769,7 @@ watch(
           </p>
           <div class="mt-3">
             <WritingQuiz
-              :key="card.word"
+              :key="`${card.word}-${review.cursor}`"
               :word="card.word"
               :pinyin="card.pinyin"
               :meaning="card.meaning"
