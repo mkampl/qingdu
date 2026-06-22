@@ -145,8 +145,17 @@ export const useReviewStore = defineStore("review", () => {
   async function refreshStats() {
     try {
       stats.value = await api.getReviewStats();
-      const { rememberDueCount } = await import("@/services/notifications");
-      rememberDueCount(stats.value.due_now);
+      const notif = await import("@/services/notifications");
+      notif.rememberDueCount(stats.value.due_now);
+      // Phase 1.8 — pipe streak into the notification cache too so the
+      // streak-at-risk ping has the right number to lead with.
+      notif.rememberStreak(useUserWordsStore().stats.streak);
+      if (stats.value.reviewed_today > 0) {
+        // The user has reviewed at least once today — flag activity so
+        // the evening at-risk ping doesn't fire if streak isn't actually
+        // in danger.
+        notif.rememberActiveToday();
+      }
     } catch {
       // Anonymous calls hit 401 — leave defaults in place.
     }

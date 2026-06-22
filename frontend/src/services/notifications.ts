@@ -19,8 +19,15 @@ import {
 
 const CHANNEL_ID = "qingdu-daily-reminder";
 const NOTIFICATION_BASE_ID = 71700;
+// Phase 1.8 — secondary "evening last-chance" slot fires ~3h after the
+// main reminder. Different ID range so we can cancel/replace just the
+// at-risk side without touching the main daily ping.
+const AT_RISK_BASE_ID = 71800;
+const AT_RISK_OFFSET_HOURS = 3;
 const HORIZON_DAYS = 30;
 const CACHE_KEY = "qingdu.notif.lastDueCount";
+const STREAK_KEY = "qingdu.notif.lastStreak";
+const ACTIVE_DATE_KEY = "qingdu.notif.lastActiveDate";
 
 export function isNative(): boolean {
   return Capacitor.isNativePlatform();
@@ -41,6 +48,47 @@ function lastDueCount(): number {
     return Math.max(0, parseInt(localStorage.getItem(CACHE_KEY) ?? "0", 10));
   } catch {
     return 0;
+  }
+}
+
+/** Phase 1.8 — cache the streak count alongside the due count so the
+ *  reminder bodies can speak in streak terms when one is alive. */
+export function rememberStreak(n: number): void {
+  try {
+    localStorage.setItem(STREAK_KEY, String(Math.max(0, Math.floor(n))));
+  } catch {
+    // ignore
+  }
+}
+
+function lastStreak(): number {
+  try {
+    return Math.max(0, parseInt(localStorage.getItem(STREAK_KEY) ?? "0", 10));
+  } catch {
+    return 0;
+  }
+}
+
+/** Phase 1.8 — every successful user action (open the app, finish a
+ *  review) calls this with today's date. The at-risk evening ping checks
+ *  the cache: if today's date already matches, skip — the streak isn't
+ *  in danger yet. */
+export function rememberActiveToday(): void {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    localStorage.setItem(ACTIVE_DATE_KEY, today);
+  } catch {
+    // ignore
+  }
+}
+
+function activeToday(): boolean {
+  try {
+    const stored = localStorage.getItem(ACTIVE_DATE_KEY);
+    const today = new Date().toISOString().slice(0, 10);
+    return stored === today;
+  } catch {
+    return false;
   }
 }
 
@@ -77,9 +125,12 @@ async function cancelExisting(): Promise<void> {
   if (!isNative()) return;
   try {
     const pending = await LocalNotifications.getPending();
-    const ours = pending.notifications.filter((n) =>
-      typeof n.id === "number" && n.id >= NOTIFICATION_BASE_ID &&
-      n.id < NOTIFICATION_BASE_ID + HORIZON_DAYS + 5,
+    const ours = pending.notifications.filter(
+      (n) =>
+        typeof n.id === "number" &&
+        ((n.id >= NOTIFICATION_BASE_ID &&
+          n.id < NOTIFICATION_BASE_ID + HORIZON_DAYS + 5) ||
+          (n.id >= AT_RISK_BASE_ID && n.id < AT_RISK_BASE_ID + HORIZON_DAYS + 5)),
     );
     if (ours.length) {
       await LocalNotifications.cancel({ notifications: ours.map((n) => ({ id: n.id })) });
@@ -101,10 +152,43 @@ function nextSlot(timeHHMM: string, dayOffset: number): Date {
   return d;
 }
 
-function body(count: number): string {
+/** Phase 1.8 — at-risk slot fires AT_RISK_OFFSET_HOURS after the main
+ *  reminder, capped at 23:30 so it stays at a reasonable hour even if
+ *  the user picked a late main slot. */
+function atRiskSlot(timeHHMM: string, dayOffset: number): Date {
+  const [hh, mm] = timeHHMM.split(":").map((s) => parseInt(s, 10) || 0);
+  const totalMin = Math.min(hh * 60 + mm + AT_RISK_OFFSET_HOURS * 60, 23 * 60 + 30);
+  const d = new Date();
+  d.setDate(d.getDate() + dayOffset);
+  d.setHours(Math.floor(totalMin / 60), totalMin % 60, 0, 0);
+  if (dayOffset === 0 && d.getTime() < Date.now()) {
+    d.setDate(d.getDate() + 1);
+  }
+  return d;
+}
+
+function body(count: number, streak: number): string {
+  // Phase 1.8 — streak-aware copy. Once a streak is alive, lead with it;
+  // the prosocial signal hits harder than the raw queue count.
+  if (streak > 0 && count > 0) {
+    return `🔥 ${streak}-day streak · ${count} ${count === 1 ? "word" : "words"} to review`;
+  }
+  if (streak > 0) {
+    return `🔥 ${streak}-day streak — keep it going with a quick review.`;
+  }
   if (count <= 0) return "📚 Time to read — your queue is waiting.";
   if (count === 1) return "📚 1 word is due to review.";
   return `📚 ${count} words are due to review.`;
+}
+
+function atRiskBody(count: number, streak: number): string {
+  if (streak > 1) {
+    return `🔥 Your ${streak}-day streak ends at midnight — one review keeps it alive.`;
+  }
+  if (count >= 10) {
+    return `📚 ${count} words overdue — a quick session catches you up.`;
+  }
+  return "📚 Last chance today — open the queue for a few minutes.";
 }
 
 export async function scheduleDaily(timeHHMM: string): Promise<boolean> {
@@ -115,8 +199,13 @@ export async function scheduleDaily(timeHHMM: string): Promise<boolean> {
   await cancelExisting();
 
   const count = lastDueCount();
-  const text = body(count);
-  const notifications = Array.from({ length: HORIZON_DAYS }, (_, i) => ({
+  const streak = lastStreak();
+  const wasActiveToday = activeToday();
+  const text = body(count, streak);
+  const atRiskText = atRiskBody(count, streak);
+
+  // Build the main daily ping for the next HORIZON_DAYS slots.
+  const dailyNotifications = Array.from({ length: HORIZON_DAYS }, (_, i) => ({
     id: NOTIFICATION_BASE_ID + i,
     title: "QingDu — 轻读",
     body: text,
@@ -128,8 +217,31 @@ export async function scheduleDaily(timeHHMM: string): Promise<boolean> {
     // them onto the Reader.
     extra: { route: "/review" },
   }));
+
+  // Phase 1.8 — at-risk evening ping. We schedule it for every future
+  // day too; if the user opens the app earlier in the day, the next
+  // syncFromSettings() call (App.vue onMounted) re-runs this scheduler
+  // and the at-risk slot is rebuilt with refreshed cache values.
+  // Today's at-risk slot is skipped when the user has already been
+  // active today AND has no overdue queue — there's nothing to nag
+  // them about.
+  const skipToday = wasActiveToday && count < 10;
+  const atRiskNotifications = Array.from({ length: HORIZON_DAYS }, (_, i) => {
+    if (i === 0 && skipToday) return null;
+    return {
+      id: AT_RISK_BASE_ID + i,
+      title: "QingDu — 轻读",
+      body: atRiskText,
+      schedule: { at: atRiskSlot(timeHHMM, i) },
+      channelId: CHANNEL_ID,
+      extra: { route: "/review" },
+    };
+  }).filter((n): n is NonNullable<typeof n> => n !== null);
+
   try {
-    await LocalNotifications.schedule({ notifications } as ScheduleOptions);
+    await LocalNotifications.schedule({
+      notifications: [...dailyNotifications, ...atRiskNotifications],
+    } as ScheduleOptions);
     return true;
   } catch {
     return false;
