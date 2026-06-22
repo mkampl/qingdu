@@ -131,7 +131,15 @@ type Surface =
 
 const activeSurface = computed<Surface>(() => {
   if (review.queueMode === "mixed") {
-    return (card.value?.prompt_stage as Surface) ?? "intro";
+    const stage = (card.value?.prompt_stage as Surface) ?? "intro";
+    // Phase 1.3b follow-up — the intro stage is absorption only; after
+    // the user taps 'Got it' the same card swaps to the trace surface
+    // so they write it in the same encounter. FSRS only grades once,
+    // on the writing-quiz completion. Without this, fresh cards would
+    // disappear from today's queue (next due ≥ 1d) and the user would
+    // wait until tomorrow to write them for the first time.
+    if (stage === "intro" && introReady.value) return "trace";
+    return stage;
   }
   // Single-mode — surface is the queueMode itself (one of the four
   // ReviewModes; mixed is excluded by the conditional above).
@@ -285,18 +293,18 @@ watch(
       writingDone.value,
       writingMistakes.value,
       writingStrokes.value,
-      introReady.value,
     ] as const,
-  ([surface, done, mistakes, strokes, intro]) => {
+  ([surface, done, mistakes, strokes]) => {
     cancelAutoGrade();
     // Writing-style surfaces autograde once the WritingQuiz fires its
-    // complete event; intro autoogrades once the cooldown elapses (or
-    // the user tapped Continue), with Good pre-selected for the
-    // absorption stage.
-    if ((surface === "writing" || surface === "trace" || surface === "produce") && done) {
+    // complete event. Intro doesn't grade on its own anymore — the user
+    // taps 'Got it' which swaps the surface to trace; that surface's
+    // writing-quiz completion is what produces the FSRS grade.
+    if (
+      (surface === "writing" || surface === "trace" || surface === "produce") &&
+      done
+    ) {
       scheduleAutoGrade(suggestedGradeForMistakes(mistakes, strokes));
-    } else if (surface === "intro" && intro) {
-      scheduleAutoGrade(3);
     }
   },
   { immediate: false },
@@ -697,17 +705,15 @@ watch(
           <div class="mt-6 flex flex-col items-center gap-2">
             <button
               type="button"
-              class="rounded-full bg-accent px-5 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
-              :disabled="introReady"
+              class="rounded-full bg-accent px-5 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90"
               @click="introContinue"
             >
-              {{ introReady ? "Auto-advancing…" : "Got it" }}
+              Got it · try writing it
             </button>
             <p
-              v-if="!introReady"
               class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
             >
-              Listen + watch · tap when you've taken it in
+              Listen + watch · then write it from memory
             </p>
           </div>
         </template>
@@ -1067,15 +1073,15 @@ watch(
 
       <!-- Grade row — visible after reveal in recognition, after answer in
            dictation, after the writing quiz completes, after a cloze answer.
-           For Phase 1.3b: also after the intro cooldown (introReady) and
-           after the trace/produce WritingQuiz completes. -->
+           Intro never reaches this row directly: tapping 'Got it' on an
+           intro card swaps the surface to trace, and the grade row appears
+           once the trace WritingQuiz completes. -->
       <div
         v-if="
           (activeSurface === 'recognition' && revealed) ||
           (activeSurface === 'dictation' && dictationFeedback !== '') ||
           (activeSurface === 'writing' && writingDone) ||
           (activeSurface === 'cloze' && clozeFeedback !== '') ||
-          (activeSurface === 'intro' && introReady) ||
           (activeSurface === 'trace' && writingDone) ||
           (activeSurface === 'produce' && writingDone)
         "
