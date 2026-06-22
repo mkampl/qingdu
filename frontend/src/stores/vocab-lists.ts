@@ -4,6 +4,7 @@ import { computed, ref } from "vue";
 import * as api from "@/api/client";
 import { ApiError } from "@/api/client";
 import type { VocabularyListSummary } from "@/api/types";
+import { useAuthStore } from "@/stores/auth";
 
 /**
  * Session-scoped cache of the user's vocab lists. Used by the word popover
@@ -22,6 +23,9 @@ export const useVocabListsStore = defineStore("vocabLists", () => {
   async function ensureLoaded(force = false): Promise<void> {
     if (loading.value) return;
     if (loadedAt.value !== null && !force) return;
+    // Anonymous users can't see lists — skip the call so we don't log
+    // a 401 every time the Reader's popover / glossary picker mounts.
+    if (!useAuthStore().isAuthed) return;
     loading.value = true;
     error.value = null;
     try {

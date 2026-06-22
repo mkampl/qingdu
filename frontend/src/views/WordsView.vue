@@ -15,11 +15,13 @@ import { RouterLink } from "vue-router";
 import * as api from "@/api/client";
 import type { WordsQueueItem, WordsQueueParams } from "@/api/client";
 import { useAuthStore } from "@/stores/auth";
+import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReviewStore } from "@/stores/review";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 
 const auth = useAuthStore();
+const authModals = useAuthModalsStore();
 const review = useReviewStore();
 const toast = useToastStore();
 const userWords = useUserWordsStore();
@@ -183,6 +185,13 @@ function toggleExpanded(word: string) {
     <p class="font-display text-base italic leading-relaxed text-fg-muted">
       Sign in to see the words you're learning.
     </p>
+    <button
+      type="button"
+      class="mt-4 inline-flex items-center rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90"
+      @click="authModals.openLogin()"
+    >
+      Sign in
+    </button>
   </section>
 
   <section

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
@@ -27,11 +27,11 @@ const loading = ref(true);
 const openingSlug = ref<string | null>(null);
 const openingTextId = ref<number | null>(null);
 
-onMounted(async () => {
-  if (!auth.isAuthed) {
-    loading.value = false;
-    return;
-  }
+let fetched = false;
+async function fetchTodayHooks() {
+  if (fetched || !auth.isAuthed) return;
+  fetched = true;
+  loading.value = true;
   try {
     const [texts, forYou] = await Promise.all([
       api.listTexts().catch(() => [] as SavedTextSummary[]),
@@ -54,7 +54,33 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+}
+
+onMounted(() => {
+  // Try immediately — covers the "auth already hydrated" path. Also
+  // watch auth.isAuthed so we re-fire once hydrate finishes if we
+  // were premature on mount (the auth store hydrates async on App.vue
+  // boot; ReaderTodayPanel is in the Reader route which can render
+  // before that completes).
+  if (auth.isAuthed) {
+    void fetchTodayHooks();
+  } else {
+    loading.value = false;
+  }
 });
+watch(
+  () => auth.isAuthed,
+  (next) => {
+    if (next) void fetchTodayHooks();
+    else {
+      // Logged out: clear the panel.
+      fetched = false;
+      recentText.value = null;
+      pick.value = null;
+      loading.value = false;
+    }
+  },
+);
 
 const reviewDue = computed(() => review.dueNow);
 const streak = computed(() => userWords.stats.streak);
