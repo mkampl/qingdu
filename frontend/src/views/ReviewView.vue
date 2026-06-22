@@ -19,8 +19,8 @@ import * as api from "@/api/client";
 import type { QueueMode, ReviewGrade, ReviewMode } from "@/api/client";
 import WeeklySparkline from "@/components/reader/WeeklySparkline.vue";
 import PronunciationCheck from "@/components/reader/PronunciationCheck.vue";
+import StrokeOrder from "@/components/reader/StrokeOrder.vue";
 import WritingQuiz from "@/components/reader/WritingQuiz.vue";
-import CycleProgress from "@/components/review/CycleProgress.vue";
 import { useAuthStore } from "@/stores/auth";
 import { useReviewStore } from "@/stores/review";
 import { useSettingsStore } from "@/stores/settings";
@@ -80,6 +80,14 @@ const writingDone = ref(false);
 const clozeInput = ref("");
 const clozeFeedback = ref<"" | "correct" | "wrong">("");
 
+// Phase 1.3b — intro stage. The card auto-plays TTS and animates
+// stroke order on mount; the user just absorbs. Once the cooldown ends
+// (or the user taps "Continue") the auto-Good countdown fires. No
+// reveal — everything is shown from the start; the "Continue" button
+// just skips ahead instead of waiting out the natural cooldown.
+const introReady = ref(false);
+const INTRO_COOLDOWN_MS = 4500; // a beat past typical TTS + stroke animation
+
 function suggestedGradeForMistakes(mistakes: number, strokes: number): ReviewGrade {
   // Ratio-based instead of hardcoded thresholds — 3 mistakes on 一 (1 stroke)
   // is catastrophic, on 鬱 (29 strokes) it's solid. Falls back to the old
@@ -110,6 +118,27 @@ function onWritingComplete(payload: {
 const card = computed(() => review.current);
 const total = computed(() => review.queue.length);
 const idx = computed(() => Math.min(review.cursor + 1, total.value));
+
+// Phase 1.3b — the active "surface" the card renders. In Mixed mode the
+// server picks via prompt_stage (intro/trace/produce); in Advanced
+// single-mode it locks to whatever ReviewMode the user picked.
+type Surface =
+  | "intro"
+  | "trace"
+  | "produce"
+  | "recognition"
+  | "dictation"
+  | "writing"
+  | "cloze";
+
+const activeSurface = computed<Surface>(() => {
+  if (review.queueMode === "mixed") {
+    return (card.value?.prompt_stage as Surface) ?? "intro";
+  }
+  // Single-mode — surface is the queueMode itself (one of the four
+  // ReviewModes; mixed is excluded by the conditional above).
+  return review.queueMode as Surface;
+});
 
 async function start(mode: QueueMode) {
   revealed.value = false;
@@ -184,7 +213,47 @@ async function gradeAndAdvance(g: ReviewGrade) {
   writingDone.value = false;
   clozeInput.value = "";
   clozeFeedback.value = "";
+  introReady.value = false;
 }
+
+// Intro stage — let the strokes finish drawing and the TTS play out,
+// then surface the auto-Good countdown without any user action. The
+// timer is the only thing that flips introReady on its own; clicking
+// "Continue" calls introContinue() to skip the wait.
+let introTimer: number | null = null;
+function clearIntroTimer() {
+  if (introTimer !== null) {
+    window.clearTimeout(introTimer);
+    introTimer = null;
+  }
+}
+function introContinue() {
+  clearIntroTimer();
+  introReady.value = true;
+}
+watch(
+  () => [card.value?.word, activeSurface.value] as const,
+  ([word, surface]) => {
+    clearIntroTimer();
+    if (!word) return;
+    if (surface === "intro") {
+      // Auto-play TTS once when the intro card opens — the user doesn't
+      // have to remember to hit a button. Stroke animation kicks off in
+      // its own component as soon as it mounts.
+      void playTts();
+      introTimer = window.setTimeout(() => {
+        introTimer = null;
+        introReady.value = true;
+      }, INTRO_COOLDOWN_MS);
+    } else if (surface === "trace") {
+      // Trace stage also opens with audio — pinyin is visible above
+      // and TTS reinforces the sound→glyph link.
+      void playTts();
+    }
+  },
+  { immediate: true },
+);
+onBeforeUnmount(clearIntroTimer);
 
 // --- Phase #118 (2b) — Auto-grade countdown for writing mode ---------------
 //
@@ -218,13 +287,24 @@ function scheduleAutoGrade(g: ReviewGrade) {
 }
 
 watch(
-  () => [review.mode, writingDone.value, writingMistakes.value, writingStrokes.value],
-  () => {
+  () =>
+    [
+      activeSurface.value,
+      writingDone.value,
+      writingMistakes.value,
+      writingStrokes.value,
+      introReady.value,
+    ] as const,
+  ([surface, done, mistakes, strokes, intro]) => {
     cancelAutoGrade();
-    if (review.mode === "writing" && writingDone.value) {
-      scheduleAutoGrade(
-        suggestedGradeForMistakes(writingMistakes.value, writingStrokes.value),
-      );
+    // Writing-style surfaces autograde once the WritingQuiz fires its
+    // complete event; intro autoogrades once the cooldown elapses (or
+    // the user tapped Continue), with Good pre-selected for the
+    // absorption stage.
+    if ((surface === "writing" || surface === "trace" || surface === "produce") && done) {
+      scheduleAutoGrade(suggestedGradeForMistakes(mistakes, strokes));
+    } else if (surface === "intro" && intro) {
+      scheduleAutoGrade(3);
     }
   },
   { immediate: false },
@@ -459,8 +539,10 @@ watch(
         {{ settings.reviewSingleMode ? "Pick a mode to begin" : "Ready to review" }}
       </p>
 
-      <!-- Default: big Mixed-mode Start button. Hidden when the user
-           opted into Advanced single-mode last session. -->
+      <!-- Default: progressive Mixed-mode Start. Each card's surface is
+           picked from its FSRS stability (intro → trace → produce) so
+           you absorb fresh words, build motor memory in the middle, and
+           produce mature ones from cues. Single grade per card. -->
       <button
         v-if="!settings.reviewSingleMode"
         type="button"
@@ -473,8 +555,9 @@ watch(
             Start review
           </span>
           <span class="block text-xs text-fg-muted">
-            Every card cycles through Recognition → Cloze → Dictation →
-            Writing. FSRS advances when all four pass.
+            New words land soft (listen + watch the strokes); maturing
+            cards trace by hand; established words you produce from
+            pinyin alone.
           </span>
         </span>
         <span class="font-mono text-[10px] uppercase tracking-wider text-fg-muted group-hover:text-fg">
@@ -553,7 +636,7 @@ watch(
         <p
           class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
         >
-          {{ review.mode }} · card {{ idx }} / {{ total }}
+          {{ activeSurface }} · card {{ idx }} / {{ total }}
         </p>
         <button
           type="button"
@@ -574,22 +657,140 @@ watch(
         />
       </div>
 
-      <!-- Phase 1.3 — Mixed-mode cycle progress strip. Only renders when
-           the queue was loaded in mixed mode; single-mode hides it
-           since the modality never changes mid-session. -->
-      <CycleProgress
-        v-if="review.queueMode === 'mixed' && card"
-        :completed="card.cycle_modes_completed ?? []"
-        :current="review.currentCycleMode"
-        :has-sample-sentence="card.has_sample_sentence !== false"
-      />
 
       <!-- Card -->
       <div
         class="rounded-2xl border border-border-subtle bg-bg-elevated px-6 py-10 text-center sm:px-10 sm:py-14"
       >
+        <!-- Phase 1.3b — intro stage. Fresh / never-reviewed cards.
+             Everything's shown from the start: hanzi big, pinyin, meaning,
+             stroke animation, and TTS auto-plays. No quiz, no typing —
+             just absorption. A 'Continue' button skips the cooldown
+             ahead to the auto-Good countdown. -->
+        <template v-if="activeSurface === 'intro'">
+          <p
+            class="font-mono text-[10px] uppercase tracking-wider text-accent"
+          >
+            New · listen + read + watch
+          </p>
+          <p class="mt-3 font-mono text-sm tracking-widest text-fg-muted">
+            {{ card.pinyin }}
+          </p>
+          <p class="font-cn-serif text-6xl text-fg sm:text-7xl">
+            {{ card.word }}
+          </p>
+          <p class="mt-4 font-display text-base leading-snug text-fg">
+            {{ card.meaning }}
+          </p>
+          <ul
+            v-if="card.meanings && card.meanings.length > 1"
+            class="mt-1 space-y-0.5 text-xs text-fg-muted"
+          >
+            <li v-for="(m, i) in card.meanings.slice(1)" :key="i">{{ m }}</li>
+          </ul>
+
+          <!-- Stroke animation: auto-replays each card via the :key bind
+               so the animation restarts when the cursor advances. -->
+          <div class="mt-6 flex justify-center">
+            <StrokeOrder :key="card.word" :chars="card.word" />
+          </div>
+
+          <div class="mt-6 flex flex-col items-center gap-2">
+            <button
+              type="button"
+              class="rounded-full bg-accent px-5 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
+              :disabled="introReady"
+              @click="introContinue"
+            >
+              {{ introReady ? "Auto-advancing…" : "Got it" }}
+            </button>
+            <p
+              v-if="!introReady"
+              class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+            >
+              Listen, then continue when ready
+            </p>
+          </div>
+        </template>
+
+        <!-- Phase 1.3b — trace stage (1d ≤ stability < 10d). Past the
+             first encounter; pinyin + meaning sit above the canvas and
+             the user produces the hanzi via hanzi-writer's stroke quiz.
+             TTS auto-plays on mount so audio still anchors motor memory.
+             showOutline mirrors the user's preference so beginners can
+             trace; the produce stage forces no-outline. -->
+        <template v-else-if="activeSurface === 'trace'">
+          <p
+            class="font-mono text-[10px] uppercase tracking-wider text-accent"
+          >
+            Trace · stability {{ Math.round(card.stability ?? 0) }}d
+          </p>
+          <div class="mt-3">
+            <WritingQuiz
+              :key="card.word"
+              :word="card.word"
+              :pinyin="card.pinyin"
+              :meaning="card.meaning"
+              :meanings="card.meanings"
+              :show-outline="settings.writingShowOutline"
+              @complete="onWritingComplete"
+            />
+          </div>
+          <p
+            v-if="writingDone"
+            class="mt-4 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+          >
+            {{ writingMistakes }} mistake{{ writingMistakes === 1 ? "" : "s" }} over
+            {{ writingStrokes }} strokes — auto-grading
+            <span class="text-fg">
+              {{
+                ["", "Again", "Hard", "Good", "Easy"][
+                  suggestedGradeForMistakes(writingMistakes, writingStrokes)
+                ]
+              }}
+            </span>
+          </p>
+        </template>
+
+        <!-- Phase 1.3b — produce stage (stability ≥ 10d). Established
+             card; outline is forced off so the user has to recall the
+             hanzi from pinyin + meaning. No TTS this round — sound
+             cues are gone too. -->
+        <template v-else-if="activeSurface === 'produce'">
+          <p
+            class="font-mono text-[10px] uppercase tracking-wider text-accent"
+          >
+            Produce · stability {{ Math.round(card.stability ?? 0) }}d
+          </p>
+          <div class="mt-3">
+            <WritingQuiz
+              :key="card.word"
+              :word="card.word"
+              :pinyin="card.pinyin"
+              :meaning="card.meaning"
+              :meanings="card.meanings"
+              :show-outline="false"
+              @complete="onWritingComplete"
+            />
+          </div>
+          <p
+            v-if="writingDone"
+            class="mt-4 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+          >
+            {{ writingMistakes }} mistake{{ writingMistakes === 1 ? "" : "s" }} over
+            {{ writingStrokes }} strokes — auto-grading
+            <span class="text-fg">
+              {{
+                ["", "Again", "Hard", "Good", "Easy"][
+                  suggestedGradeForMistakes(writingMistakes, writingStrokes)
+                ]
+              }}
+            </span>
+          </p>
+        </template>
+
         <!-- Recognition mode -->
-        <template v-if="review.mode === 'recognition'">
+        <template v-else-if="activeSurface === 'recognition'">
           <p
             v-if="card.hsk_level"
             class="mb-4 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
@@ -651,7 +852,7 @@ watch(
         </template>
 
         <!-- Dictation mode -->
-        <template v-else-if="review.mode === 'dictation'">
+        <template v-else-if="activeSurface === 'dictation'">
           <button
             type="button"
             class="mx-auto inline-flex size-20 items-center justify-center rounded-full border border-border bg-bg-elevated text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg disabled:opacity-50"
@@ -728,7 +929,7 @@ watch(
         </template>
 
         <!-- Writing mode -->
-        <template v-else-if="review.mode === 'writing'">
+        <template v-else-if="activeSurface === 'writing'">
           <div class="mb-3 flex justify-center">
             <button
               type="button"
@@ -780,7 +981,7 @@ watch(
         </template>
 
         <!-- Cloze mode — sentence with the target word blanked. -->
-        <template v-else-if="review.mode === 'cloze'">
+        <template v-else-if="activeSurface === 'cloze'">
           <p
             class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
           >
@@ -845,10 +1046,12 @@ watch(
       <div
         v-if="
           card &&
-          ((review.mode === 'recognition' && revealed) ||
-            (review.mode === 'dictation' && dictationFeedback !== '') ||
-            (review.mode === 'writing' && writingDone) ||
-            (review.mode === 'cloze' && clozeFeedback !== ''))
+          ((activeSurface === 'recognition' && revealed) ||
+            (activeSurface === 'dictation' && dictationFeedback !== '') ||
+            (activeSurface === 'writing' && writingDone) ||
+            (activeSurface === 'trace' && writingDone) ||
+            (activeSurface === 'produce' && writingDone) ||
+            (activeSurface === 'cloze' && clozeFeedback !== ''))
         "
         class="mb-4 flex items-start justify-center gap-3 border-t border-border-subtle pt-4"
       >
@@ -864,13 +1067,18 @@ watch(
       </div>
 
       <!-- Grade row — visible after reveal in recognition, after answer in
-           dictation, after the writing quiz completes, after a cloze answer. -->
+           dictation, after the writing quiz completes, after a cloze answer.
+           For Phase 1.3b: also after the intro cooldown (introReady) and
+           after the trace/produce WritingQuiz completes. -->
       <div
         v-if="
-          (review.mode === 'recognition' && revealed) ||
-          (review.mode === 'dictation' && dictationFeedback !== '') ||
-          (review.mode === 'writing' && writingDone) ||
-          (review.mode === 'cloze' && clozeFeedback !== '')
+          (activeSurface === 'recognition' && revealed) ||
+          (activeSurface === 'dictation' && dictationFeedback !== '') ||
+          (activeSurface === 'writing' && writingDone) ||
+          (activeSurface === 'cloze' && clozeFeedback !== '') ||
+          (activeSurface === 'intro' && introReady) ||
+          (activeSurface === 'trace' && writingDone) ||
+          (activeSurface === 'produce' && writingDone)
         "
         class="grid grid-cols-4 gap-2"
       >

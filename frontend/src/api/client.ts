@@ -828,11 +828,14 @@ export const getWordStats = () =>
 // --- Review (Phase B) ------------------------------------------------------
 
 export type ReviewMode = "recognition" | "dictation" | "writing" | "cloze";
-/** Mixed-mode review session cycles a single card through all four
- *  ReviewModes before letting FSRS advance. Only the queue endpoint
- *  accepts "mixed"; gradeReviewCard always takes one of the four real
- *  modes since a grade is per-modality. */
+/** Phase 1.3b — the queue can also be fetched in "mixed", which is the
+ *  default and returns cards with their server-assigned prompt_stage so
+ *  the SPA can render intro/trace/produce per card. Advanced single-mode
+ *  passes one of the four ReviewModes instead. */
 export type QueueMode = ReviewMode | "mixed";
+/** Phase 1.3b — server-picked prompt stage based on FSRS stability.
+ *  Drives which review surface the SPA renders for the card. */
+export type PromptStage = "intro" | "trace" | "produce";
 export type ReviewGrade = 1 | 2 | 3 | 4;
 
 export interface ReviewCard {
@@ -857,11 +860,10 @@ export interface ReviewCard {
   cloze_template?: string;
   /** Cloze mode only — the full sentence (revealed after answer). */
   cloze_sentence?: string;
-  /** Phase 1.3 — modalities already graded Good+ in the current cycle.
-   *  Empty array means no cycle in progress. */
-  cycle_modes_completed?: ReviewMode[];
-  /** Phase 1.3 — does this row have a sample sentence for cloze? Mixed
-   *  mode skips cloze on cards where this is false. */
+  /** Phase 1.3b — server-picked progressive prompt stage. */
+  prompt_stage?: PromptStage;
+  /** Phase 1.3b — does this row have a sample sentence (for cloze
+   *  Advanced single-mode + future use)? */
   has_sample_sentence?: boolean;
 }
 
@@ -875,17 +877,9 @@ export interface ReviewGradeResponse {
   due_at: string | null;
   stability: number | null;
   difficulty: number | null;
-  /** Phase 1.3 — modalities done so far this cycle (after this grade). */
-  cycle_modes_completed: ReviewMode[];
-  /** Phase 1.3 — the next modality the frontend should cycle to, or
-   *  null when the cycle just completed or single-mode was used. */
-  cycle_next_mode: ReviewMode | null;
-  /** Phase 1.3 — true when this grade closed the four-mode cycle and
-   *  FSRS advanced. */
-  cycle_complete: boolean;
-  /** Phase 1.3 — true when FSRS scheduled the next due_at on this
-   *  grade. Mixed-mode passing grades during a cycle return false. */
-  fsrs_advanced: boolean;
+  /** Phase 1.3b — the card's new prompt stage given the updated
+   *  stability after this grade. Informational. */
+  prompt_stage: PromptStage;
 }
 
 export interface ReviewStatsResponse {
@@ -906,10 +900,9 @@ export const gradeReviewCard = (
   word: string,
   grade: ReviewGrade,
   mode: ReviewMode = "recognition",
-  cycle = true,
 ) =>
   request<ReviewGradeResponse>("/api/review/grade", {
-    body: { word, grade, mode, cycle },
+    body: { word, grade, mode },
   });
 
 export const getReviewStats = () =>

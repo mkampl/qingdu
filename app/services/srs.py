@@ -153,56 +153,59 @@ def already_known_state(jitter_seed: int | None = None) -> dict:
     }
 
 
-# --- Phase 1.3: mixed-mode cycle gating ------------------------------------
+# --- Phase 1.3b: stability-driven progressive prompt stages ----------------
 #
-# When the user reviews a card in Mixed mode, FSRS only advances after
-# every modality has been graded Good (3) or Easy (4). A Hard (2) or
-# Again (1) on any modality resets the cycle so the next attempt starts
-# from Recognition. The four modes are the same as ReviewMode in
-# app/routers/review.py.
+# A card's "prompt stage" tells the SPA which review surface to render.
+# Three stages, picked from the FSRS stability number that the scheduler
+# already maintains:
+#
+#   intro    — stability < 1d / NULL    — first encounters
+#              UI shows hanzi + pinyin + TTS + stroke animation; Good is
+#              auto-selected and fires after a 3s countdown. The user
+#              can't really "fail" here; the goal is encoding.
+#
+#   trace    — 1d ≤ stability < 10d     — building motor memory
+#              UI shows pinyin + meaning; user traces strokes via
+#              hanzi-writer; grade is derived from stroke-mistake ratio.
+#              TTS auto-plays for pronunciation reinforcement.
+#
+#   produce  — stability ≥ 10d          — established cards
+#              UI shows only pinyin + meaning; user has to recall the
+#              hanzi from cues alone, then reveal + self-grade. No
+#              default grade — deliberate grading on the hardest stage.
+#
+# The thresholds are tunable; we expose them as module constants so a
+# future Settings → Review challenge slider can shift them.
 
-ALL_REVIEW_MODES = ("recognition", "cloze", "dictation", "writing")
-PASSING_GRADE = 3  # Good or Easy advances the cycle; Hard / Again resets.
+INTRO_STABILITY_THRESHOLD_DAYS = 1.0
+PRODUCE_STABILITY_THRESHOLD_DAYS = 10.0
+
+PromptStage = str  # 'intro' | 'trace' | 'produce'
 
 
-def should_advance_fsrs(modes_completed: list[str], mode: str, grade: int) -> bool:
-    """Decide whether this grade should call apply_grade and advance the FSRS
-    scheduler in Mixed mode.
-
-    Returns True only when:
-    1. The grade is Good or Easy (a Hard / Again always defers FSRS to the
-       next attempt and the caller should reset `modes_completed`), and
-    2. With `mode` added to `modes_completed`, every modality in
-       ALL_REVIEW_MODES is covered.
-
-    Single-mode reviews (Advanced toggle) bypass this helper and call
-    apply_grade directly — they're equivalent to today's behaviour.
-    """
-    if grade < PASSING_GRADE:
-        return False
-    covered = set(modes_completed) | {mode}
-    return all(m in covered for m in ALL_REVIEW_MODES)
+def prompt_stage_for(stability: float | None) -> PromptStage:
+    """Pick the progressive prompt stage for a card based on its current
+    FSRS stability (in days). NULL stability means the card has never
+    been reviewed — treat as intro."""
+    if stability is None or stability < INTRO_STABILITY_THRESHOLD_DAYS:
+        return "intro"
+    if stability < PRODUCE_STABILITY_THRESHOLD_DAYS:
+        return "trace"
+    return "produce"
 
 
-def next_cycle_mode(modes_completed: list[str]) -> str | None:
-    """Pick the next modality to test in a Mixed-mode cycle, in canonical
-    Recognition → Cloze → Dictation → Writing order. Returns None when
-    the cycle is already complete."""
-    for m in ALL_REVIEW_MODES:
-        if m not in modes_completed:
-            return m
-    return None
+# Phase 1.3 cycle helpers were superseded by stage selection; the columns
+# remain on UserWord/UserWordEvent as event telemetry only.
 
 
 __all__ = [
-    "ALL_REVIEW_MODES",
     "ALREADY_KNOWN_STABILITY_DAYS",
-    "PASSING_GRADE",
+    "INTRO_STABILITY_THRESHOLD_DAYS",
+    "PRODUCE_STABILITY_THRESHOLD_DAYS",
     "VALID_GRADES",
     "already_known_state",
     "apply_grade",
     "card_from_state",
     "initial_state",
-    "next_cycle_mode",
-    "should_advance_fsrs",
+    "prompt_stage_for",
 ]

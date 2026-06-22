@@ -14,7 +14,6 @@ Mode hints in the queue payload:
 
 from __future__ import annotations
 
-import json
 from datetime import datetime, timedelta
 from typing import Literal
 
@@ -54,11 +53,11 @@ class GradeRequest(BaseModel):
     word: str
     grade: int  # 1=Again, 2=Hard, 3=Good, 4=Easy
     mode: ReviewMode = "recognition"
-    # Phase 1.3 — when True (default), this grade is part of a Mixed-mode
-    # cycle: a passing grade only advances FSRS once all four modes have
-    # been graded Good or better. When False (Advanced single-mode users),
-    # every grade advances FSRS immediately — the pre-Phase-1.3 behaviour.
-    cycle: bool = True
+    # Phase 1.3 introduced a cycle-gating flag; Phase 1.3b reverted to
+    # single-FSRS-advance and uses prompt_stage instead. Field stays in
+    # the schema for client back-compat — any value is accepted and
+    # ignored. New clients should omit it.
+    cycle: bool = False
 
 
 def _enrich(row: UserWord) -> dict:
@@ -182,21 +181,19 @@ async def review_queue(
                 # rotates around the missing cloze step.
                 continue
 
-        # Phase 1.3 — cycle progress so a session that resumed mid-cycle
-        # picks up at the right modality.
-        try:
-            cycle_done = json.loads(r.modes_completed or "[]")
-            if not isinstance(cycle_done, list):
-                cycle_done = []
-        except (ValueError, TypeError):
-            cycle_done = []
+        # Phase 1.3b — progressive prompt stage picked from FSRS stability.
+        # intro for fresh / unreviewed cards (full info + auto-pass),
+        # trace once the card has any stability < 10d (hanzi-writer
+        # production with pinyin cues), produce once stability ≥ 10d
+        # (pinyin + meaning only, recall + reveal + self-grade).
+        stage = srs.prompt_stage_for(r.stability)
 
         card = {
             "word": to_user_script(r.word, user),
             "due_at": r.due_at.isoformat() if r.due_at else None,
             "stability": r.stability,
             "difficulty": r.difficulty,
-            "cycle_modes_completed": cycle_done,
+            "prompt_stage": stage,
             "has_sample_sentence": bool(sentence),
             **enriched,
         }
@@ -217,21 +214,12 @@ async def grade_card(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Grade one review card.
-
-    Two paths depending on `payload.cycle`:
-
-    - **Mixed-mode (default)** — the grade is part of a Recognition →
-      Cloze → Dictation → Writing cycle. A passing grade (≥ Good) only
-      advances FSRS once all four modalities have been graded; until
-      then we record the event, append the modality to
-      `UserWord.modes_completed`, and return cycle progress so the
-      frontend can advance to the next modality on the same card. A
-      failing grade (Hard / Again) DOES advance FSRS (the scheduler
-      needs the negative signal) and resets the modality cycle.
-
-    - **Single-mode (Advanced toggle)** — every grade advances FSRS
-      immediately; `modes_completed` is left untouched.
+    """Grade one review card. Phase 1.3b — single FSRS advance per grade.
+    The card's prompt stage (intro / trace / produce) is picked by
+    `srs.prompt_stage_for(stability)` on the queue side, so the grade
+    endpoint stays simple: one grade, one FSRS step. The Mixed-mode
+    cycle that Phase 1.3 introduced is gone; the schema columns remain
+    for event telemetry only.
     """
     if payload.grade not in srs.VALID_GRADES:
         raise HTTPException(status_code=400, detail=f"grade must be one of {srs.VALID_GRADES}")
@@ -248,53 +236,12 @@ async def grade_card(
         row = UserWord(user_id=user.id, word=word_simp, state="learning", seen_count=1)
         db.add(row)
 
-    # Decode the cycle list. Defensive parse — a corrupted column shouldn't
-    # take down grading; fall back to an empty cycle.
-    try:
-        modes_done: list[str] = json.loads(row.modes_completed or "[]")
-        if not isinstance(modes_done, list):
-            modes_done = []
-    except (ValueError, TypeError):
-        modes_done = []
-
-    is_pass = payload.grade >= srs.PASSING_GRADE
-    advance_fsrs = (
-        (not payload.cycle)
-        or (not is_pass)
-        or srs.should_advance_fsrs(modes_done, payload.mode, payload.grade)
-    )
-
-    cycle_complete = False
-    if payload.cycle:
-        if is_pass:
-            if payload.mode not in modes_done:
-                modes_done.append(payload.mode)
-            # Stamp the cycle start on the first passing grade so analytics
-            # know how long a full cycle took. Cleared again on completion.
-            if row.modes_cycle_started_at is None and len(modes_done) == 1:
-                row.modes_cycle_started_at = datetime.utcnow()
-            if advance_fsrs:
-                # Cycle just completed — clear so the next due-date starts
-                # a fresh cycle. Without this, the user's next review of
-                # the same card would skip straight to FSRS-advance again.
-                cycle_complete = True
-                modes_done = []
-                row.modes_cycle_started_at = None
-        else:
-            # Failing grade in mixed mode wipes the cycle so the user
-            # starts over on the next pass through this card.
-            modes_done = []
-            row.modes_cycle_started_at = None
-
-    row.modes_completed = json.dumps(modes_done)
-
-    if advance_fsrs:
-        updated = srs.apply_grade(row.fsrs_state, payload.grade, retention=user.review_retention)
-        row.fsrs_state = updated["fsrs_state"]
-        row.stability = updated["stability"]
-        row.difficulty = updated["difficulty"]
-        row.due_at = updated["due_at"]
-        row.last_reviewed_at = updated["last_reviewed_at"]
+    updated = srs.apply_grade(row.fsrs_state, payload.grade, retention=user.review_retention)
+    row.fsrs_state = updated["fsrs_state"]
+    row.stability = updated["stability"]
+    row.difficulty = updated["difficulty"]
+    row.due_at = updated["due_at"]
+    row.last_reviewed_at = updated["last_reviewed_at"]
     row.updated_at = datetime.utcnow()
 
     # Auto-transition between 'learning' and 'known' based on the new
@@ -333,13 +280,10 @@ async def grade_card(
         "due_at": row.due_at.isoformat() if row.due_at else None,
         "stability": row.stability,
         "difficulty": row.difficulty,
-        # Cycle telemetry for the frontend's CycleProgress component.
-        "cycle_modes_completed": modes_done,
-        "cycle_next_mode": srs.next_cycle_mode(modes_done)
-        if payload.cycle and not cycle_complete
-        else None,
-        "cycle_complete": cycle_complete,
-        "fsrs_advanced": advance_fsrs,
+        # The card's new prompt stage given the just-updated stability —
+        # informational, the SPA uses it to pre-render the next-cards
+        # surfaces without a second fetch.
+        "prompt_stage": srs.prompt_stage_for(row.stability),
     }
 
 
