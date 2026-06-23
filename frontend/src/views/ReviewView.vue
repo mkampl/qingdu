@@ -185,15 +185,47 @@ function reveal() {
   revealed.value = true;
 }
 
+// Hold a reference to the currently-playing TTS audio so back-to-back
+// playTts() calls (intro auto-play + intro→trace surface flip both
+// firing) don't stack into an echo. Each new play stops the previous
+// one cleanly and revokes its blob URL.
+let activeTtsAudio: HTMLAudioElement | null = null;
+let activeTtsUrl: string | null = null;
+
+function stopActiveTts() {
+  if (activeTtsAudio) {
+    try {
+      activeTtsAudio.pause();
+      activeTtsAudio.currentTime = 0;
+    } catch {
+      // ignore — element may have been GC'd
+    }
+    activeTtsAudio = null;
+  }
+  if (activeTtsUrl) {
+    URL.revokeObjectURL(activeTtsUrl);
+    activeTtsUrl = null;
+  }
+}
+
 async function playTts() {
   if (!card.value) return;
+  stopActiveTts();
   ttsLoading.value = true;
   try {
     const r = await api.tts(card.value.word);
     if (!r.ok) throw new Error("TTS failed");
     const url = URL.createObjectURL(await r.blob());
     const audio = new Audio(url);
-    audio.addEventListener("ended", () => URL.revokeObjectURL(url));
+    activeTtsAudio = audio;
+    activeTtsUrl = url;
+    audio.addEventListener("ended", () => {
+      if (activeTtsAudio === audio) {
+        URL.revokeObjectURL(url);
+        activeTtsAudio = null;
+        activeTtsUrl = null;
+      }
+    });
     await audio.play();
   } catch {
     /* keep button responsive */
@@ -230,13 +262,15 @@ async function gradeAndAdvance(g: ReviewGrade) {
 function introContinue() {
   introReady.value = true;
 }
+// Auto-play TTS once per card encounter. We watch the word (not the
+// surface) so an intro→trace flip on the *same* card doesn't re-fire
+// the audio — that flip was the source of the echo a user reported on
+// v1.0.34 (intro auto-play + transition auto-play overlapped).
 watch(
-  () => [card.value?.word, activeSurface.value] as const,
-  ([word, surface]) => {
-    if (!word) return;
-    if (surface === "intro" || surface === "trace") {
-      // Both stages open with audio so the sound→glyph link gets
-      // anchored from the first frame.
+  () => card.value?.word,
+  (word, prev) => {
+    if (!word || word === prev) return;
+    if (activeSurface.value === "intro" || activeSurface.value === "trace") {
       void playTts();
     }
   },
@@ -403,6 +437,7 @@ async function dictationContinue() {
 
 onBeforeUnmount(() => {
   cancelAutoGrade();
+  stopActiveTts();
   review.inFocus = false;
 });
 
@@ -539,29 +574,21 @@ watch(
         {{ settings.reviewSingleMode ? "Pick a mode to begin" : "Ready to review" }}
       </p>
 
-      <!-- Default: progressive Mixed-mode Start. Each card's surface is
-           picked from its FSRS stability (intro → trace → produce) so
-           you absorb fresh words, build motor memory in the middle, and
-           produce mature ones from cues. Single grade per card. -->
+      <!-- Default: progressive Mixed-mode Start. The hint copy from
+           v1.0.30 cluttered the home for users who already know what
+           Start does — collapsed to a single tight button. -->
       <button
         v-if="!settings.reviewSingleMode"
         type="button"
         :disabled="effectiveDueCount === 0"
-        class="group flex w-full items-center justify-between rounded-lg border border-accent/40 bg-accent/5 px-5 py-4 text-left transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50"
+        class="group flex w-full items-center justify-between rounded-lg border border-accent/40 bg-accent/5 px-5 py-3.5 text-left transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50"
         @click="startMixed"
       >
-        <span>
-          <span class="block font-display text-lg font-medium text-fg">
-            Start review
-          </span>
-          <span class="block text-xs text-fg-muted">
-            New words land soft (listen + watch the strokes); maturing
-            cards trace by hand; established words you produce from
-            pinyin alone.
-          </span>
+        <span class="font-display text-lg font-medium text-fg">
+          Start review
         </span>
         <span class="font-mono text-[10px] uppercase tracking-wider text-fg-muted group-hover:text-fg">
-          Mixed →
+          →
         </span>
       </button>
 

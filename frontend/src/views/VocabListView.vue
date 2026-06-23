@@ -633,15 +633,20 @@ function sectionWordCount(section: VocabularySection): number {
                 class="mt-1 accent-accent"
                 @change="toggleGlossary"
               />
-              <span class="flex-1">
+              <span class="min-w-0 flex-1">
                 <span class="block font-display text-sm font-medium text-fg">
                   Use as glossary
                 </span>
+                <!-- Short hint on mobile; full explanation only shows
+                     above sm so the row doesn't dominate a phone column. -->
                 <span class="block text-xs text-fg-muted leading-relaxed">
-                  Words in this list will override HSK meanings when analysing
-                  text. Useful for specialised corpora (Daoist, Buddhist,
-                  business jargon) where the default glosses don't fit. Toggle
-                  per-text from the reader's <em>Glossaries</em> picker.
+                  <span class="sm:hidden">Overrides HSK meanings during analysis.</span>
+                  <span class="hidden sm:inline">
+                    Words in this list will override HSK meanings when analysing
+                    text. Useful for specialised corpora (Daoist, Buddhist,
+                    business jargon) where the default glosses don't fit.
+                    Toggle per-text from the reader's <em>Glossaries</em> picker.
+                  </span>
                 </span>
               </span>
             </label>
