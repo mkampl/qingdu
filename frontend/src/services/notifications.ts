@@ -123,20 +123,28 @@ async function ensureChannel(): Promise<void> {
 
 async function cancelExisting(): Promise<void> {
   if (!isNative()) return;
+  // Defensive cancel: enumerate every ID we've ever scheduled across all
+  // app versions and pass the lot to LocalNotifications.cancel. Passing
+  // unknown IDs is a no-op, so this is safe; it's also more reliable
+  // than filtering getPending() — that path silently dropped at-risk
+  // slots on some Android builds and left them firing alongside the
+  // main reminder (a user reported 'two identical' notifications after
+  // the Phase 1.8 → 1.9 transition). A second guard `removeAllDelivered`
+  // clears any already-shown copies sitting in the shade.
+  const ids: { id: number }[] = [];
+  for (let i = 0; i < HORIZON_DAYS + 5; i++) {
+    ids.push({ id: NOTIFICATION_BASE_ID + i });
+    ids.push({ id: AT_RISK_BASE_ID + i });
+  }
   try {
-    const pending = await LocalNotifications.getPending();
-    const ours = pending.notifications.filter(
-      (n) =>
-        typeof n.id === "number" &&
-        ((n.id >= NOTIFICATION_BASE_ID &&
-          n.id < NOTIFICATION_BASE_ID + HORIZON_DAYS + 5) ||
-          (n.id >= AT_RISK_BASE_ID && n.id < AT_RISK_BASE_ID + HORIZON_DAYS + 5)),
-    );
-    if (ours.length) {
-      await LocalNotifications.cancel({ notifications: ours.map((n) => ({ id: n.id })) });
-    }
+    await LocalNotifications.cancel({ notifications: ids });
   } catch {
     // ignore — the next schedule call will overwrite by id anyway
+  }
+  try {
+    await LocalNotifications.removeAllDeliveredNotifications();
+  } catch {
+    // older plugin versions don't expose this — fine.
   }
 }
 
