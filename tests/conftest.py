@@ -12,6 +12,10 @@ os.environ.setdefault("ALLOWED_ORIGINS", "*")
 # the (small handful) that test lookup chains involving cedict have
 # their own fixtures that clear + seed.
 os.environ.setdefault("QINGDU_SKIP_CEDICT_LOAD", "1")
+# Phase 2.7 — disable the background lifecycle scheduler under tests so its
+# asyncio task doesn't outlive the TestClient context. See main.py shutdown
+# handler for the corresponding cleanup path.
+os.environ.setdefault("QINGDU_SKIP_SCHEDULER", "1")
 
 
 @pytest.fixture(scope="session")

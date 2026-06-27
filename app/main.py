@@ -307,26 +307,50 @@ async def startup_event() -> None:
     # so a fresh container catches up on anyone who went dormant while it
     # was offline, then again every 6 h. Silently no-ops when both
     # soft_delete_days and hard_delete_days are 0 (the default).
-    import asyncio
+    #
+    # Skipped under pytest (conftest sets QINGDU_SKIP_SCHEDULER=1) — the
+    # TestClient context manager triggers this startup, and an orphan
+    # asyncio task that outlives the test session crashes CI on event-loop
+    # teardown with "Task was destroyed but it is pending!" errors.
+    if not os.getenv("QINGDU_SKIP_SCHEDULER"):
+        import asyncio
 
-    from app.services.lifecycle import run_lifecycle_pass
+        from app.services.lifecycle import run_lifecycle_pass
 
-    LIFECYCLE_INTERVAL_S = 6 * 60 * 60
+        LIFECYCLE_INTERVAL_S = 6 * 60 * 60
 
-    async def _lifecycle_loop() -> None:
-        try:
-            run_lifecycle_pass()
-        except Exception:
-            logger.exception("initial lifecycle pass failed")
-        while True:
-            await asyncio.sleep(LIFECYCLE_INTERVAL_S)
+        async def _lifecycle_loop() -> None:
             try:
                 run_lifecycle_pass()
             except Exception:
-                logger.exception("scheduled lifecycle pass failed")
+                logger.exception("initial lifecycle pass failed")
+            while True:
+                await asyncio.sleep(LIFECYCLE_INTERVAL_S)
+                try:
+                    run_lifecycle_pass()
+                except Exception:
+                    logger.exception("scheduled lifecycle pass failed")
 
-    asyncio.create_task(_lifecycle_loop())
-    logger.info("Lifecycle scheduler started (interval=%ds)", LIFECYCLE_INTERVAL_S)
+        task = asyncio.create_task(_lifecycle_loop())
+        app.state.lifecycle_task = task
+        logger.info("Lifecycle scheduler started (interval=%ds)", LIFECYCLE_INTERVAL_S)
+
+
+@app.on_event("shutdown")
+async def shutdown_event() -> None:
+    """Cancel background tasks cleanly. Without this the asyncio loop
+    teardown logs `Task was destroyed but it is pending!` for our
+    lifecycle scheduler, which CI sometimes promotes to a non-zero
+    exit code."""
+    import asyncio
+    import contextlib
+
+    task = getattr(app.state, "lifecycle_task", None)
+    if task is None or task.done():
+        return
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError, Exception):
+        await task
 
 
 if __name__ == "__main__":
