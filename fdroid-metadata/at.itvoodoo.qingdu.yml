@@ -1,0 +1,67 @@
+Categories:
+  - Reading
+  - Writing
+License: MIT
+WebSite: https://qingdu.itvoodoo.at
+SourceCode: https://github.com/mkampl/qingdu
+IssueTracker: https://github.com/mkampl/qingdu/issues
+
+AutoName: QingDu
+Summary: HSK-coloured Chinese reader with spaced-repetition review.
+Description: |-
+    Read any Chinese text against the HSK 1–9 vocabulary list and study what
+    you don't know yet.
+
+    Features
+      * Paste, import a URL, drop an EPUB / PDF, or scan a page with the camera
+      * Every word colour-coded by HSK level or by your personal progress
+      * Click for definitions sourced from CC-CEDICT; click sentences for translation
+      * Audio narration for words and full passages, with speed control
+      * Spaced-repetition review (FSRS) with four modes: Recognition, Dictation, Writing, Cloze
+      * Pronunciation check with per-syllable tone scoring
+      * Personal glossaries that override the dictionary for specialised corpora
+      * Simplified ⇄ Traditional toggle across the whole app
+      * Export vocabulary to Anki or CSV
+      * Local daily reminders, streak tracking, no trackers, no ads
+
+    The Android app is a thin Capacitor wrapper around the web app at
+    qingdu.itvoodoo.at (a free public demo run by the maintainer). An
+    internet connection is required. You can point it at any self-hosted
+    Qingdu backend via Settings -> Server; both the server and the app
+    are MIT-licenced.
+
+RepoType: git
+Repo: https://github.com/mkampl/qingdu.git
+
+Builds:
+  - versionName: 1.0.43
+    versionCode: 44
+    commit: v1.0.43
+    subdir: frontend/android/app
+    sudo:
+      - apt-get update
+      - apt-get install -y nodejs npm
+    init: |-
+        cd ../.. && npm ci && npx vite build && npx cap sync android
+    gradle:
+      - yes
+    output: app/build/outputs/apk/release/app-release-unsigned.apk
+    rm:
+      - frontend/android/app/google-services.json
+
+AntiFeatures:
+  NonFreeNet:
+    en-US: |-
+        The app depends on a backend server for Chinese text analysis,
+        dictionary lookup, translation chain, and SRS review state. By
+        default it talks to qingdu.itvoodoo.at, a free demo server run by
+        the maintainer. The server source code is in the same repository
+        under the MIT licence and can be self-hosted; the API URL is
+        switchable at runtime via Settings -> Server. Some translation
+        providers (DeepL, Google Translate) called by the backend are
+        commercial third-party services.
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 1.0.43
+CurrentVersionCode: 44

@@ -1,0 +1,11 @@
+F-Droid readiness release.
+
+- F-Droid: the Android build no longer makes outbound calls to Google Fonts;
+  the system CJK font handles Noto Sans/Serif SC on Android.
+- Settings modal grouped into five collapsible sections so it stops being
+  a single 3-screen scroll.
+- Phase 1 UX sweep: trimmed text bloat across Review, Reader, Settings,
+  Words. /vocab/browse and /vocab/lists deep links now route correctly.
+- Header known/learning chip stays on one line at 320 / 390 px.
+- Defensive cancel of legacy at-risk notification slots — should be the
+  end of the "two identical reminders" bug.

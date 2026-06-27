@@ -16,11 +16,10 @@
     />
     <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
     <link rel="manifest" href="/static/site.webmanifest" />
-    <!-- Preconnect to Google Fonts for the CJK families (Noto Serif SC + Noto
-         Sans SC). gstatic delivers the woff2; the dual hint shaves ~150 ms off
-         the first Chinese glyph render. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Note: previously preconnected to fonts.googleapis.com / fonts.gstatic.com
+         for CJK glyphs. Moved to a runtime-only `<link rel=stylesheet>` injected
+         by main.ts so the Capacitor (Android / F-Droid) build never opens an
+         outbound socket to Google. Web users still get Noto SC on first render. -->
     <!-- Early error capture. Capacitor's bridge script runs inline BEFORE
          the module bundle initialises Vue, so the global handlers we wire
          up in main.ts can miss errors from that window (e.g. the

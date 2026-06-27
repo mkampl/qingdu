@@ -1,9 +1,8 @@
 /* Latin variable fonts: bundled via @fontsource-variable (imported in main.ts).
-   CJK serif/sans: served from Google Fonts so we get on-demand glyph subsetting —
-   self-hosting full Noto Serif SC would add 30+ MB. <link rel="preconnect"> in
-   index.html keeps the handshake cheap. */
-@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&display=swap");
+   CJK serif/sans: web build appends Google Fonts <link>s at runtime from
+   main.ts; the Capacitor (Android) build skips that and falls through to the
+   system stack (PingFang SC / system Noto SC / Source Han Serif SC). This
+   keeps the F-Droid APK free of external requests. */
 
 @import "tailwindcss";
 
