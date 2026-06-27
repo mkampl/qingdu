@@ -139,6 +139,15 @@ export interface User {
   review_retention?: number;
   /** Phase #119 — look-ahead window for the review queue. */
   review_window?: "now" | "today" | "tomorrow";
+  /** Phase 2.7 — lifecycle. `dormant` accounts get the in-app banner
+   *  prompting reactivation; `active` is the everyday case. */
+  account_status?: "active" | "dormant";
+  /** Phase 2.7 — instant the soft-delete sweep will flip this account to
+   *  `dormant`. ISO string or null when the instance has no soft cleanup. */
+  soft_delete_at?: string | null;
+  /** Phase 2.7 — instant the hard-delete sweep will delete this account
+   *  and all its data. ISO string or null when disabled. */
+  hard_delete_at?: string | null;
 }
 
 export interface LoginResponse {

@@ -10,6 +10,7 @@ import { useShortcutsStore } from "@/stores/shortcuts";
 import { useUserWordsStore } from "@/stores/userWords";
 
 import AuthControls from "@/components/auth/AuthControls.vue";
+import LifecycleBanner from "@/components/auth/LifecycleBanner.vue";
 import InvitationsModal from "@/components/InvitationsModal.vue";
 import ServerPicker from "@/components/onboarding/ServerPicker.vue";
 import SettingsModal from "@/components/SettingsModal.vue";
@@ -295,6 +296,11 @@ watch(
         </div>
       </div>
     </header>
+    <!-- Phase 2.9 — lifecycle warning. Renders nothing when the user is
+         active or when the instance has no inactivity cleanup. Stays
+         out of the header itself so the reader content keeps its
+         breathing room. -->
+    <LifecycleBanner v-show="!review.inFocus" />
     <main class="flex-1 overflow-y-auto">
       <RouterView />
     </main>

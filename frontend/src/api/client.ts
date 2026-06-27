@@ -268,6 +268,38 @@ export const generateInvitation = () =>
 export const myInvitations = () =>
   request<MyInvitationsResponse>("/api/invitations/my-invitations");
 
+// --- Open registration (Phase 2.9) -------------------------------------------
+
+export interface RegistrationStatus {
+  open: boolean;
+  captcha: boolean;
+}
+
+export const getRegistrationStatus = () =>
+  request<RegistrationStatus>("/api/auth/registration-status", {
+    anonymous: true,
+  });
+
+export interface Captcha {
+  question: string;
+  token: string;
+}
+
+export const getCaptcha = () =>
+  request<Captcha>("/api/auth/captcha", { anonymous: true });
+
+export const openRegister = (input: {
+  username: string;
+  password: string;
+  captcha_token?: string;
+  captcha_answer?: number | string;
+}) =>
+  request<{
+    access_token: string;
+    token_type: "bearer";
+    user: { id: number; username: string; is_admin: boolean };
+  }>("/api/auth/register", { body: input, anonymous: true });
+
 // --- Admin -------------------------------------------------------------------
 
 export const adminListUsers = () =>

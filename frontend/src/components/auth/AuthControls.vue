@@ -8,6 +8,7 @@ import { useAuthModalsStore } from "@/stores/auth-modals";
 import Button from "@/components/ui/Button.vue";
 import ChangePasswordModal from "./ChangePasswordModal.vue";
 import LoginModal from "./LoginModal.vue";
+import SignupOpenModal from "./SignupOpenModal.vue";
 import SignupWithInviteModal from "./SignupWithInviteModal.vue";
 import UserMenu from "./UserMenu.vue";
 
@@ -46,6 +47,7 @@ onMounted(async () => {
          decides which (if any) is open. Each modal Teleports to body. -->
     <LoginModal />
     <SignupWithInviteModal />
+    <SignupOpenModal />
     <ChangePasswordModal />
   </div>
 </template>

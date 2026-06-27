@@ -72,6 +72,37 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
+  // Phase 2.9 — public open-registration signup. Returns nothing; the caller
+  // catches ApiError to display field-specific errors. The captcha pair is
+  // optional from the client's perspective — the server ignores it when the
+  // instance has captcha turned off.
+  async function openRegister(
+    username: string,
+    password: string,
+    captcha?: { token: string; answer: number | string },
+  ) {
+    loading.value = true;
+    error.value = null;
+    try {
+      const result = await api.openRegister({
+        username,
+        password,
+        captcha_token: captcha?.token,
+        captcha_answer: captcha?.answer,
+      });
+      api.setToken(result.access_token);
+      // Reuse hydrate to pull the full /me payload (lifecycle stamps etc).
+      await hydrate();
+      useUserWordsStore().hydrate(true);
+      useReviewStore().refreshStats();
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : "Signup failed";
+      throw e;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function logout() {
     try {
       await api.logout();
@@ -116,6 +147,7 @@ export const useAuthStore = defineStore("auth", () => {
     hydrate,
     login,
     signupWithInvite,
+    openRegister,
     logout,
     changePassword,
     updateSettings,

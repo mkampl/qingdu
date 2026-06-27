@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 
+import * as api from "@/api/client";
 import { ApiError } from "@/api/client";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
@@ -18,14 +19,24 @@ const username = ref("");
 const password = ref("");
 const submitting = ref(false);
 const error = ref<string | null>(null);
+// Phase 2.9 — whether the instance accepts open signups. Drives the "Create
+// account" link below the form. Refreshed every time the login modal opens
+// so the admin toggling it shows up immediately on the next open.
+const openRegistrationAvailable = ref(false);
 
 watch(
   () => modals.loginOpen,
-  (open) => {
+  async (open) => {
     if (open) {
       username.value = "";
       password.value = "";
       error.value = null;
+      try {
+        const status = await api.getRegistrationStatus();
+        openRegistrationAvailable.value = status.open;
+      } catch {
+        openRegistrationAvailable.value = false;
+      }
     }
   },
 );
@@ -53,6 +64,11 @@ async function onSubmit(e: Event) {
 function switchToSignup() {
   modals.closeAll();
   modals.openSignup();
+}
+
+function switchToOpenSignup() {
+  modals.closeAll();
+  modals.openOpenSignup();
 }
 </script>
 
@@ -101,6 +117,24 @@ function switchToSignup() {
       <Button type="submit" full :loading="submitting">
         Sign in
       </Button>
+
+      <!-- Phase 2.9 — public signup link, only when the instance allows it.
+           The invite-token flow stays accessible underneath as the
+           "Have an invitation?" line so existing invite users keep their
+           shortcut. -->
+      <p
+        v-if="openRegistrationAvailable"
+        class="text-center text-xs text-fg-muted"
+      >
+        New here?
+        <button
+          type="button"
+          class="ml-1 font-medium text-accent hover:underline"
+          @click="switchToOpenSignup"
+        >
+          Create an account
+        </button>
+      </p>
       <p class="text-center text-xs text-fg-muted">
         Have an invitation?
         <button
@@ -108,7 +142,7 @@ function switchToSignup() {
           class="ml-1 font-medium text-accent hover:underline"
           @click="switchToSignup"
         >
-          Create account
+          Use invite token
         </button>
       </p>
     </form>
