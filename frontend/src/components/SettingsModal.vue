@@ -2,7 +2,7 @@
 import { computed, ref } from "vue";
 
 import * as api from "@/api/client";
-import { ApiError, getApiBase, getDefaultApiBase, setApiBase } from "@/api/client";
+import { ApiError, getApiBase, getDefaultApiBase, setApiBase, setToken } from "@/api/client";
 import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
 import {
@@ -344,8 +344,13 @@ function saveApiBase() {
   // Empty input is interpreted as "reset to default" so the user can
   // wipe the override by clearing the field.
   setApiBase(target === apiBaseDefault || target === "" ? null : target);
+  // Phase 2.11 — clear the auth token explicitly. The JWT is signed by
+  // the previous server's SECRET_KEY, so it would fail validation on
+  // the new one anyway; clearing it keeps localStorage tidy and makes
+  // the "sign in again" toast match reality.
+  setToken(null);
   toasts.success(
-    "Server updated. You may need to sign in again on the new server.",
+    "Server updated. Sign in again on the new server.",
   );
   modals.closeAll();
   // Force a clean reload so every store hydrates against the new URL.
