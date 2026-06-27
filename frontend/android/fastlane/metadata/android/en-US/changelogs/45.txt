@@ -1,0 +1,16 @@
+Phase 2 — F-Droid readiness, batch two.
+
+- Open registration: anyone can sign up on the demo at qingdu.itvoodoo.at,
+  protected by a server-side math captcha (no external script), per-IP
+  rate limit, and an honest soft-/hard-delete cycle (30 / 90 days of
+  inactivity by default; both off on a fresh self-hosted install).
+- Admin → Registration & lifecycle panel: six toggles plus a Run Sweep
+  Now button to verify settings without waiting for the schedule.
+- Account-lifecycle warning banner shows 7 days before a soft-delete
+  with a self-host hint.
+- Two new local notifications fire 7 days and 1 day before the soft-
+  delete so you can't accidentally lose your data on the demo server
+  by leaving the app closed.
+- Login modal shows a "Create an account" link only when the instance
+  has registration enabled; the existing invite-token flow is still
+  available below as "Use invite token".

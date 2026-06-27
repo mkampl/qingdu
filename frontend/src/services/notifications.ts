@@ -24,6 +24,12 @@ const NOTIFICATION_BASE_ID = 71700;
 // clear the dangling slots on devices that installed v1.0.36 / v1.0.37
 // before this revert lands.
 const AT_RISK_BASE_ID = 71800;
+// Phase 2.10 — lifecycle warnings. Two slots: a 7-day pre-warning and a
+// 1-day pre-warning before the server soft-deletes (dormant) the account.
+// `+0` = 7-day, `+1` = 1-day. Self-host instances and admin accounts get
+// `soft_delete_at = null` from /api/auth/me and we never schedule.
+const LIFECYCLE_BASE_ID = 71900;
+const LIFECYCLE_CHANNEL_ID = "qingdu-account-lifecycle";
 const HORIZON_DAYS = 30;
 const CACHE_KEY = "qingdu.notif.lastDueCount";
 const STREAK_KEY = "qingdu.notif.lastStreak";
@@ -148,6 +154,40 @@ async function cancelExisting(): Promise<void> {
   }
 }
 
+/** Phase 2.10 — cancel any previously-scheduled lifecycle warnings. Called
+ *  before every reschedule so old `soft_delete_at` slots don't linger when
+ *  the user moves their horizon forward by opening the app. */
+async function cancelLifecycleWarnings(): Promise<void> {
+  if (!isNative()) return;
+  try {
+    await LocalNotifications.cancel({
+      notifications: [
+        { id: LIFECYCLE_BASE_ID },
+        { id: LIFECYCLE_BASE_ID + 1 },
+      ],
+    });
+  } catch {
+    // ignore
+  }
+}
+
+async function ensureLifecycleChannel(): Promise<void> {
+  if (!isNative()) return;
+  try {
+    await LocalNotifications.createChannel({
+      id: LIFECYCLE_CHANNEL_ID,
+      name: "Account lifecycle",
+      description: "Heads-up before an unused demo account is paused.",
+      importance: 4, // IMPORTANCE_HIGH — wants to be seen, this one really matters
+      visibility: 1,
+      lights: false,
+      vibration: false,
+    });
+  } catch {
+    // Android 7 and below — no channels.
+  }
+}
+
 function nextSlot(timeHHMM: string, dayOffset: number): Date {
   const [hh, mm] = timeHHMM.split(":").map((s) => parseInt(s, 10) || 0);
   const d = new Date();
@@ -224,6 +264,70 @@ export async function syncFromSettings(
     await scheduleDaily(timeHHMM);
   } else {
     await cancelDaily();
+  }
+}
+
+/**
+ * Phase 2.10 — schedule the two account-lifecycle local notifications
+ * from the server's `soft_delete_at` stamp on `/api/auth/me`. Slots:
+ *   - 7 days before pause: "QingDu — Your account pauses in 7 days."
+ *   - 1 day before pause:  "QingDu — Your account pauses tomorrow."
+ *
+ * Re-callable: cancels any existing lifecycle slots first, so opening the
+ * app (which updates `last_active` server-side and pushes `soft_delete_at`
+ * forward) cleanly resets the horizon. Pass `null` to just cancel — used
+ * on logout or when the instance has lifecycle cleanup disabled.
+ *
+ * Web is a no-op. Tapping a fired notification deep-links to `/` so the
+ * user's open-the-app action resets `last_active` immediately.
+ */
+export async function scheduleLifecycleWarnings(
+  softDeleteAtIso: string | null,
+): Promise<boolean> {
+  if (!isNative()) return false;
+
+  await cancelLifecycleWarnings();
+  if (!softDeleteAtIso) return false;
+
+  const ok = await requestPermission();
+  if (!ok) return false;
+  await ensureLifecycleChannel();
+
+  const target = new Date(softDeleteAtIso);
+  if (Number.isNaN(target.getTime())) return false;
+
+  const sevenDay = new Date(target.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const oneDay = new Date(target.getTime() - 1 * 24 * 60 * 60 * 1000);
+  const now = Date.now();
+  const notifications: ScheduleOptions["notifications"] = [];
+
+  if (sevenDay.getTime() > now) {
+    notifications.push({
+      id: LIFECYCLE_BASE_ID,
+      title: "QingDu — 轻读",
+      body: "Your account pauses in 7 days. Open the app once to keep it active.",
+      schedule: { at: sevenDay },
+      channelId: LIFECYCLE_CHANNEL_ID,
+      extra: { route: "/" },
+    });
+  }
+  if (oneDay.getTime() > now) {
+    notifications.push({
+      id: LIFECYCLE_BASE_ID + 1,
+      title: "QingDu — 轻读",
+      body: "Your account pauses tomorrow. Open the app to keep it active.",
+      schedule: { at: oneDay },
+      channelId: LIFECYCLE_CHANNEL_ID,
+      extra: { route: "/" },
+    });
+  }
+
+  if (notifications.length === 0) return false;
+  try {
+    await LocalNotifications.schedule({ notifications } as ScheduleOptions);
+    return true;
+  } catch {
+    return false;
   }
 }
 

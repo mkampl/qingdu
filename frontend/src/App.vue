@@ -22,6 +22,7 @@ import { useKeyboardShortcuts } from "@/composables/use-keyboard-shortcuts";
 import { hideSplash, isNative, syncStatusBar } from "@/services/native";
 import {
   onNotificationTap,
+  scheduleLifecycleWarnings,
   syncFromSettings as syncReminder,
 } from "@/services/notifications";
 
@@ -102,6 +103,19 @@ watch(() => settings.theme, (t) => syncStatusBar(t));
 watch(
   () => [settings.reminderEnabled, settings.reminderTime] as const,
   ([enabled, time]) => syncReminder(enabled, time),
+);
+
+// Phase 2.10 — keep the account-lifecycle warnings in sync with the
+// server's stamp. Re-fires on login (auth.user populated), logout
+// (auth.user = null → cancels), and every app open via hydrate's
+// /me refresh (last_active moves forward → soft_delete_at moves
+// forward → reschedules to the new horizon). Web is a no-op.
+watch(
+  () => auth.user?.soft_delete_at ?? null,
+  (iso) => {
+    void scheduleLifecycleWarnings(iso);
+  },
+  { immediate: true },
 );
 </script>
 
