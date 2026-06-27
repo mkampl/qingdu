@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import * as api from "@/api/client";
@@ -321,6 +321,20 @@ async function runLifecycleNow() {
 onMounted(() => {
   void loadRegistrationSettings();
 });
+
+// Auth hydrates asynchronously in App.vue, so the initial onMounted call
+// in this view can fire before `auth.isAdmin` flips true. Watch for the
+// transition and refire both fetches so a hard-load on /admin doesn't
+// leave us looking at an empty table + empty settings card.
+watch(
+  () => auth.isAdmin,
+  (isAdmin) => {
+    if (isAdmin) {
+      void load();
+      void loadRegistrationSettings();
+    }
+  },
+);
 </script>
 
 <template>
