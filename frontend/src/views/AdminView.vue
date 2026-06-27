@@ -239,6 +239,88 @@ function formatDate(iso: string): string {
     return iso;
   }
 }
+
+// --- Phase 2.7 — Registration + lifecycle settings ------------------------
+
+interface RegSettingsForm {
+  registration_open: boolean;
+  registration_per_ip_24h: number;
+  registration_daily_cap: number;
+  registration_captcha: boolean;
+  lifecycle_soft_delete_days: number;
+  lifecycle_hard_delete_days: number;
+}
+
+const regForm = ref<RegSettingsForm | null>(null);
+const regLoading = ref(false);
+const regSaving = ref(false);
+const regError = ref<string | null>(null);
+const lifecycleRunning = ref(false);
+
+async function loadRegistrationSettings() {
+  if (!auth.isAdmin) return;
+  regLoading.value = true;
+  regError.value = null;
+  try {
+    const s = await api.adminGetRegistrationSettings();
+    regForm.value = {
+      registration_open: s["registration.open"],
+      registration_per_ip_24h: s["registration.per_ip_24h"],
+      registration_daily_cap: s["registration.daily_cap"],
+      registration_captcha: s["registration.captcha"],
+      lifecycle_soft_delete_days: s["lifecycle.soft_delete_days"],
+      lifecycle_hard_delete_days: s["lifecycle.hard_delete_days"],
+    };
+  } catch (e) {
+    regError.value = e instanceof ApiError ? e.message : "Couldn't load settings.";
+  } finally {
+    regLoading.value = false;
+  }
+}
+
+async function saveRegistrationSettings() {
+  if (!regForm.value) return;
+  regSaving.value = true;
+  regError.value = null;
+  try {
+    const s = await api.adminPatchRegistrationSettings({ ...regForm.value });
+    regForm.value = {
+      registration_open: s["registration.open"],
+      registration_per_ip_24h: s["registration.per_ip_24h"],
+      registration_daily_cap: s["registration.daily_cap"],
+      registration_captcha: s["registration.captcha"],
+      lifecycle_soft_delete_days: s["lifecycle.soft_delete_days"],
+      lifecycle_hard_delete_days: s["lifecycle.hard_delete_days"],
+    };
+    toasts.success("Settings saved.");
+  } catch (e) {
+    regError.value = e instanceof ApiError ? e.message : "Couldn't save settings.";
+  } finally {
+    regSaving.value = false;
+  }
+}
+
+async function runLifecycleNow() {
+  lifecycleRunning.value = true;
+  try {
+    const stats = await api.adminRunLifecycleNow();
+    toasts.success(
+      `Lifecycle pass: ${stats.soft_marked} marked dormant, ` +
+        `${stats.hard_deleted} hard-deleted, ${stats.attempts_pruned} attempts pruned.`,
+    );
+    void load();
+  } catch (e) {
+    toasts.error(
+      e instanceof ApiError ? e.message : "Lifecycle pass failed.",
+    );
+  } finally {
+    lifecycleRunning.value = false;
+  }
+}
+
+onMounted(() => {
+  void loadRegistrationSettings();
+});
 </script>
 
 <template>
@@ -459,6 +541,191 @@ function formatDate(iso: string): string {
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Phase 2.7 — Registration & lifecycle. Sits below the user table
+         because the controls are instance-wide; the toggles drive behaviour
+         in the open signup flow + the soft/hard delete scheduler. Only
+         rendered for admins, gated on the same auth checks as the table. -->
+    <div
+      v-if="auth.isAdmin"
+      class="mt-12 rounded-lg border border-border-subtle bg-bg-elevated p-6"
+    >
+      <div class="mb-5 flex items-baseline justify-between gap-3">
+        <div class="flex items-baseline gap-3">
+          <span
+            class="font-mono text-[11px] uppercase tracking-[0.22em] text-accent"
+          >
+            Instance
+          </span>
+          <span class="h-px w-12 bg-border-subtle" aria-hidden="true" />
+          <h2 class="font-display text-xl font-medium tracking-tight text-fg">
+            Registration &amp; lifecycle
+          </h2>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          :loading="lifecycleRunning"
+          :disabled="
+            !regForm ||
+            (regForm.lifecycle_soft_delete_days === 0 &&
+              regForm.lifecycle_hard_delete_days === 0)
+          "
+          @click="runLifecycleNow"
+        >
+          Run sweep now
+        </Button>
+      </div>
+
+      <div v-if="regLoading" class="flex items-center gap-3 text-fg-muted">
+        <Spinner size="sm" />
+        <span class="font-display italic">Loading settings…</span>
+      </div>
+
+      <div
+        v-else-if="regError"
+        class="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
+        role="alert"
+      >
+        {{ regError }}
+      </div>
+
+      <form
+        v-else-if="regForm"
+        class="grid gap-5 sm:grid-cols-2"
+        @submit.prevent="saveRegistrationSettings"
+      >
+        <!-- Registration master toggle. The four follow-on inputs are
+             still editable when off (defensible: the admin may be staging
+             a config), just visually de-emphasised. -->
+        <label class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-3 transition-colors hover:bg-bg-sunken sm:col-span-2">
+          <input
+            v-model="regForm.registration_open"
+            type="checkbox"
+            class="mt-1 accent-accent"
+          />
+          <span class="flex-1">
+            <span class="block font-display text-base text-fg">
+              Open registration
+            </span>
+            <span class="block text-xs text-fg-muted">
+              Lets anyone create an account on this instance. Off by default;
+              the maintainer's demo at qingdu.itvoodoo.at runs it on.
+            </span>
+          </span>
+        </label>
+
+        <label class="flex flex-col gap-1">
+          <span class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+            Per-IP limit / 24 h
+          </span>
+          <input
+            v-model.number="regForm.registration_per_ip_24h"
+            type="number"
+            min="0"
+            max="100"
+            :disabled="!regForm.registration_open"
+            class="w-32 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-sm text-fg focus:border-accent focus:outline-none disabled:opacity-50"
+          />
+          <span class="text-xs text-fg-muted">
+            0 = unlimited. Failed attempts count toward the cap.
+          </span>
+        </label>
+
+        <label class="flex flex-col gap-1">
+          <span class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+            Global daily cap
+          </span>
+          <input
+            v-model.number="regForm.registration_daily_cap"
+            type="number"
+            min="0"
+            max="10000"
+            :disabled="!regForm.registration_open"
+            class="w-32 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-sm text-fg focus:border-accent focus:outline-none disabled:opacity-50"
+          />
+          <span class="text-xs text-fg-muted">
+            Successful signups per 24 h. 0 = unlimited.
+          </span>
+        </label>
+
+        <label class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken sm:col-span-2">
+          <input
+            v-model="regForm.registration_captcha"
+            type="checkbox"
+            :disabled="!regForm.registration_open"
+            class="mt-1 accent-accent disabled:opacity-50"
+          />
+          <span class="flex-1">
+            <span class="block font-display text-base text-fg">
+              Math captcha on signup
+            </span>
+            <span class="block text-xs text-fg-muted">
+              Server-issued, no external script. Blocks the casual spam-bot
+              wave without leaking anything to a third party.
+            </span>
+          </span>
+        </label>
+
+        <!-- Lifecycle thresholds. These are separate from registration —
+             a self-hoster can run open registration without any cleanup
+             (storage is cheap) or run invite-only with a cleanup pass
+             for old test accounts. -->
+        <div class="sm:col-span-2 border-t border-border-subtle pt-4">
+          <span class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+            Lifecycle cleanup
+          </span>
+          <p class="mt-1 text-xs text-fg-muted">
+            Inactivity is measured against the last authenticated request
+            (every app open touches it). Admins are never auto-deleted.
+            Set both to 0 to disable the sweep entirely.
+          </p>
+        </div>
+
+        <label class="flex flex-col gap-1">
+          <span class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+            Soft-delete after (days)
+          </span>
+          <input
+            v-model.number="regForm.lifecycle_soft_delete_days"
+            type="number"
+            min="0"
+            max="3650"
+            class="w-32 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-sm text-fg focus:border-accent focus:outline-none"
+          />
+          <span class="text-xs text-fg-muted">
+            Marks the account dormant. 0 = disabled.
+          </span>
+        </label>
+
+        <label class="flex flex-col gap-1">
+          <span class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+            Hard-delete after (days)
+          </span>
+          <input
+            v-model.number="regForm.lifecycle_hard_delete_days"
+            type="number"
+            min="0"
+            max="3650"
+            class="w-32 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-sm text-fg focus:border-accent focus:outline-none"
+          />
+          <span class="text-xs text-fg-muted">
+            Deletes the account + all data. 0 = disabled. Must be ≥ soft.
+          </span>
+        </label>
+
+        <div class="sm:col-span-2 flex items-center justify-end gap-3">
+          <Button
+            variant="primary"
+            size="sm"
+            type="submit"
+            :loading="regSaving"
+          >
+            Save settings
+          </Button>
+        </div>
+      </form>
     </div>
 
     <!-- Create user modal -->

@@ -291,6 +291,40 @@ export const adminToggleAdmin = (id: number) =>
     method: "POST",
   });
 
+// Phase 2.7 — open-registration + lifecycle settings (admin-only).
+export interface RegistrationSettings {
+  "registration.open": boolean;
+  "registration.per_ip_24h": number;
+  "registration.daily_cap": number;
+  "registration.captcha": boolean;
+  "lifecycle.soft_delete_days": number;
+  "lifecycle.hard_delete_days": number;
+}
+
+export const adminGetRegistrationSettings = () =>
+  request<RegistrationSettings>("/api/admin/registration-settings");
+
+export const adminPatchRegistrationSettings = (
+  patch: Partial<{
+    registration_open: boolean;
+    registration_per_ip_24h: number;
+    registration_daily_cap: number;
+    registration_captcha: boolean;
+    lifecycle_soft_delete_days: number;
+    lifecycle_hard_delete_days: number;
+  }>,
+) =>
+  request<RegistrationSettings>("/api/admin/registration-settings", {
+    method: "PATCH",
+    body: patch,
+  });
+
+export const adminRunLifecycleNow = () =>
+  request<{ soft_marked: number; hard_deleted: number; attempts_pruned: number }>(
+    "/api/admin/lifecycle/run-now",
+    { method: "POST" },
+  );
+
 export const adminUpdateInviteQuota = (id: number, quota: number) =>
   request<{
     message: string;
