@@ -319,7 +319,10 @@ async function testApiBase() {
   apiBaseTesting.value = true;
   apiBaseStatus.value = { kind: "idle" };
   try {
-    const r = await fetch(`${target}/api/health`, { method: "GET" });
+    // /health (no /api prefix) is the JSON health endpoint; /api/health
+    // is caught by the SPA catch-all fallback and returns the index.html
+    // shell, which would make this test "succeed" against any web server.
+    const r = await fetch(`${target}/health`, { method: "GET" });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const body = (await r.json()) as { vocab_count?: number };
     apiBaseStatus.value = {
