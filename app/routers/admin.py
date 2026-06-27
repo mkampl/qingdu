@@ -7,9 +7,74 @@ from sqlalchemy.orm import Session
 from app.auth import get_password_hash, require_admin
 from app.core.constants import API_TIMEOUT, MIN_PASSWORD_LENGTH
 from app.database import User, get_db
-from app.schemas import CreateUserRequest, UpdateInviteQuotaRequest
+from app.schemas import (
+    CreateUserRequest,
+    RegistrationSettingsUpdate,
+    UpdateInviteQuotaRequest,
+)
+from app.services import lifecycle
 
 router = APIRouter(tags=["Admin"])
+
+
+@router.get("/api/admin/registration-settings")
+async def get_registration_settings(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Return the instance-wide registration + lifecycle config. Keys map
+    onto the toggles in the admin UI's `Registration & lifecycle` panel."""
+    return lifecycle.get_settings(db)
+
+
+@router.patch("/api/admin/registration-settings")
+async def update_registration_settings(
+    data: RegistrationSettingsUpdate,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Partial update. Field names map to the `lifecycle` service keys —
+    the dotted form is converted at the boundary so the UI doesn't have
+    to know the internal namespace."""
+    mapping = {
+        "registration_open": "registration.open",
+        "registration_per_ip_24h": "registration.per_ip_24h",
+        "registration_daily_cap": "registration.daily_cap",
+        "registration_captcha": "registration.captcha",
+        "lifecycle_soft_delete_days": "lifecycle.soft_delete_days",
+        "lifecycle_hard_delete_days": "lifecycle.hard_delete_days",
+    }
+    updates: dict[str, object] = {}
+    payload = data.model_dump(exclude_none=True)
+    for field, key in mapping.items():
+        if field in payload:
+            updates[key] = payload[field]
+    # Sanity: hard_delete_days must be >= soft_delete_days when both > 0.
+    soft = (
+        updates.get("lifecycle.soft_delete_days")
+        if "lifecycle.soft_delete_days" in updates
+        else lifecycle.get_setting(db, "lifecycle.soft_delete_days")
+    )
+    hard = (
+        updates.get("lifecycle.hard_delete_days")
+        if "lifecycle.hard_delete_days" in updates
+        else lifecycle.get_setting(db, "lifecycle.hard_delete_days")
+    )
+    if soft and hard and int(hard) < int(soft):
+        raise HTTPException(
+            status_code=400,
+            detail="Hard-delete threshold must be at least the soft-delete threshold.",
+        )
+    return lifecycle.set_settings(db, updates)
+
+
+@router.post("/api/admin/lifecycle/run-now")
+async def run_lifecycle_now(
+    admin: User = Depends(require_admin),
+):
+    """Manually trigger a lifecycle sweep. Useful from the admin UI to
+    verify settings without waiting for the scheduled tick."""
+    return lifecycle.run_lifecycle_pass()
 
 
 @router.get("/api/admin/users")

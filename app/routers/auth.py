@@ -16,11 +16,22 @@ from app.database import InvitationToken, User, get_db
 from app.schemas import (
     ChangePasswordRequest,
     LoginRequest,
+    OpenRegisterRequest,
     SignupWithInviteRequest,
     UserSettingsUpdate,
 )
+from app.services import captcha, lifecycle
 
 router = APIRouter(tags=["Authentication"])
+
+
+def _client_ip(request: Request) -> str:
+    """Best-effort client IP. Caddy / reverse-proxies set X-Forwarded-For
+    with the original client first; fall back to the socket peer."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 
 @router.post(
@@ -74,9 +85,14 @@ async def login(request: Request, data: LoginRequest, db: Session = Depends(get_
 
 
 @router.get("/api/auth/me")
-async def get_me(user: User = Depends(get_current_user)):
+async def get_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if not user:
         return {"authenticated": False}
+    # Phase 2.7 — lifecycle expiry. Computed from the live settings every
+    # call so the SPA can show countdowns / schedule local notifications
+    # without a separate fetch. Admin accounts always get None back.
+    settings = lifecycle.get_settings(db)
+    expiry = lifecycle.expiry_for(user, settings)
     return {
         "authenticated": True,
         "user": {
@@ -93,6 +109,116 @@ async def get_me(user: User = Depends(get_current_user)):
                 user.review_retention if user.review_retention is not None else 0.95
             ),
             "review_window": user.review_window or "today",
+            "account_status": user.account_status or "active",
+            "soft_delete_at": (
+                expiry["soft_delete_at"].isoformat() if expiry["soft_delete_at"] else None
+            ),
+            "hard_delete_at": (
+                expiry["hard_delete_at"].isoformat() if expiry["hard_delete_at"] else None
+            ),
+        },
+    }
+
+
+@router.get(
+    "/api/auth/captcha",
+    summary="Issue a math captcha for open registration",
+)
+@limiter.limit("30/minute")
+async def issue_captcha(request: Request):
+    """Stateless math captcha. Reply carries the question (e.g. '5 + 7') and
+    a short-lived JWT the client returns with `POST /api/auth/register`."""
+    return captcha.issue()
+
+
+@router.get(
+    "/api/auth/registration-status",
+    summary="Whether open registration is currently accepting new users",
+)
+async def registration_status(db: Session = Depends(get_db)):
+    """Public — used by the SPA to decide whether to render the Sign Up
+    link in the login modal. Returns the captcha flag so the form can
+    skip the captcha entirely when the instance disables it."""
+    settings = lifecycle.get_settings(db)
+    return {
+        "open": bool(settings.get("registration.open")),
+        "captcha": bool(settings.get("registration.captcha")),
+    }
+
+
+@router.post(
+    "/api/auth/register",
+    summary="Open registration (when enabled by the admin)",
+)
+@limiter.limit("10/minute")
+async def open_register(
+    request: Request,
+    data: OpenRegisterRequest,
+    db: Session = Depends(get_db),
+):
+    """Self-service signup. Subject to the instance settings:
+    `registration.open` must be on, captcha must validate (if enabled),
+    per-IP and global daily caps are enforced. Honeypot field is checked
+    silently."""
+    if data.honeypot:
+        # Spam-bot heuristic. Don't tell them what failed — pretend the
+        # request was malformed.
+        raise HTTPException(status_code=400, detail="Invalid request")
+
+    ip = _client_ip(request)
+    settings = lifecycle.get_settings(db)
+    try:
+        lifecycle.check_signup_allowed(db, ip)
+    except lifecycle.SignupBlocked as exc:
+        lifecycle.record_attempt(db, ip, successful=False)
+        status_code = 403 if exc.code == "closed" else 429
+        raise HTTPException(status_code=status_code, detail=exc.detail) from exc
+
+    if bool(settings.get("registration.captcha")) and not captcha.verify(
+        data.captcha_token or "", data.captcha_answer
+    ):
+        lifecycle.record_attempt(db, ip, successful=False)
+        raise HTTPException(
+            status_code=400,
+            detail="Captcha answer is incorrect or expired. Try again.",
+        )
+
+    username = (data.username or "").strip()
+    if not 3 <= len(username) <= 30 or not username.replace("_", "").replace("-", "").isalnum():
+        lifecycle.record_attempt(db, ip, successful=False)
+        raise HTTPException(
+            status_code=400,
+            detail="Username must be 3–30 characters, letters/digits/_/- only.",
+        )
+    if len(data.password or "") < MIN_PASSWORD_LENGTH:
+        lifecycle.record_attempt(db, ip, successful=False)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters.",
+        )
+    if db.query(User).filter(User.username == username).first():
+        lifecycle.record_attempt(db, ip, successful=False)
+        raise HTTPException(status_code=400, detail="Username already taken.")
+
+    new_user = User(
+        username=username,
+        password_hash=get_password_hash(data.password),
+        must_change_password=False,
+        invite_quota=0,  # no invite quota until the admin grants one
+    )
+    db.add(new_user)
+    db.flush()
+    lifecycle.record_attempt(db, ip, successful=True)
+    db.commit()
+
+    token = create_access_token(data={"sub": new_user.username})
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": new_user.id,
+            "username": new_user.username,
+            "is_admin": new_user.is_admin,
         },
     }
 

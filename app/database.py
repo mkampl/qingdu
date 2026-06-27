@@ -67,6 +67,11 @@ class User(Base):
     #   'tomorrow' → due_at < midnight day-after-tomorrow (pre-pull for
     #                "I won't be around tomorrow")
     review_window = Column(String(16), default="today")
+    # Phase 2.7 — account lifecycle. `active` is the default; the lifecycle
+    # scheduler flips dormant accounts to `dormant` and (after the hard
+    # threshold) hard-deletes them. Self-hosters can disable the whole
+    # mechanism via system_settings; defaults below leave it off.
+    account_status = Column(String(16), default="active")
 
     # Relationships
     texts = relationship("SavedText", back_populates="user", cascade="all, delete-orphan")
@@ -295,6 +300,37 @@ class InvitationToken(Base):
     )
 
 
+class SystemSetting(Base):
+    """Phase 2.7 — key/value store for instance-wide admin toggles. Lives in
+    the DB (not env vars) so the admin can flip them from the UI without a
+    redeploy. Keys are namespaced (e.g. `registration.open`,
+    `registration.per_ip_24h`, `lifecycle.soft_delete_days`). Values are
+    stored as JSON-encoded strings to allow ints, bools, and lists in one
+    column."""
+
+    __tablename__ = "system_settings"
+
+    key = Column(String(64), primary_key=True)
+    value = Column(Text, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class SignupAttempt(Base):
+    """Phase 2.7 — per-IP rate-limit tracking for open registration. Rows
+    older than 24 h are pruned in the lifecycle pass. `successful` lets us
+    differentiate failed captcha / username-taken / global-cap-hit attempts
+    from real signups when surfacing stats."""
+
+    __tablename__ = "signup_attempts"
+
+    id = Column(Integer, primary_key=True)
+    ip_address = Column(String(64), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    successful = Column(Boolean, default=False)
+
+    __table_args__ = (Index("ix_signup_attempts_ip_created", "ip_address", "created_at"),)
+
+
 # Database setup
 DATA_DIR = Path(__file__).parent.parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
@@ -409,6 +445,15 @@ def init_db():
                     conn.execute(
                         text(
                             "ALTER TABLE users ADD COLUMN review_window VARCHAR(16) DEFAULT 'today'"
+                        )
+                    )
+                # Phase 2.7 — account lifecycle status.
+                if "account_status" not in user_cols:
+                    logger.info("Adding account_status column to users")
+                    conn.execute(
+                        text(
+                            "ALTER TABLE users ADD COLUMN account_status "
+                            "VARCHAR(16) DEFAULT 'active'"
                         )
                     )
                 conn.commit()

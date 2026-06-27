@@ -303,6 +303,31 @@ async def startup_event() -> None:
     finally:
         db.close()
 
+    # Phase 2.7 — kick off the account-lifecycle sweep. Runs immediately
+    # so a fresh container catches up on anyone who went dormant while it
+    # was offline, then again every 6 h. Silently no-ops when both
+    # soft_delete_days and hard_delete_days are 0 (the default).
+    import asyncio
+
+    from app.services.lifecycle import run_lifecycle_pass
+
+    LIFECYCLE_INTERVAL_S = 6 * 60 * 60
+
+    async def _lifecycle_loop() -> None:
+        try:
+            run_lifecycle_pass()
+        except Exception:
+            logger.exception("initial lifecycle pass failed")
+        while True:
+            await asyncio.sleep(LIFECYCLE_INTERVAL_S)
+            try:
+                run_lifecycle_pass()
+            except Exception:
+                logger.exception("scheduled lifecycle pass failed")
+
+    asyncio.create_task(_lifecycle_loop())
+    logger.info("Lifecycle scheduler started (interval=%ds)", LIFECYCLE_INTERVAL_S)
+
 
 if __name__ == "__main__":
     import uvicorn

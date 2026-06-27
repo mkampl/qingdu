@@ -68,6 +68,32 @@ class UpdateInviteQuotaRequest(BaseModel):
     invite_quota: int
 
 
+class OpenRegisterRequest(BaseModel):
+    """Phase 2.7 — payload for `POST /api/auth/register` (open registration).
+    The captcha pair is required when the instance has captcha enabled; the
+    server treats a missing pair as a failed captcha when it's required."""
+
+    username: str
+    password: str
+    captcha_token: str | None = None
+    captcha_answer: int | str | None = None
+    # Honeypot — a hidden field that real users never see. Bots fill every
+    # input they find. Any non-empty value here → silent reject.
+    honeypot: str | None = None
+
+
+class RegistrationSettingsUpdate(BaseModel):
+    """Partial update of the instance-wide registration / lifecycle config.
+    Admin-only. Unknown keys are ignored by the service layer."""
+
+    registration_open: bool | None = None
+    registration_per_ip_24h: int | None = None
+    registration_daily_cap: int | None = None
+    registration_captcha: bool | None = None
+    lifecycle_soft_delete_days: int | None = None
+    lifecycle_hard_delete_days: int | None = None
+
+
 class UserSettingsUpdate(BaseModel):
     """Partial update of the current user's tunable settings.
 
