@@ -726,12 +726,6 @@ function resetApiBase() {
         >
           Daily learning
         </legend>
-        <p class="mb-3 text-xs text-fg-muted leading-relaxed">
-          When enabled, each time you open <em>Review</em> fresh HSK words top
-          up your learning pool until you've hit today's target. They're picked
-          at random within the lowest level you haven't finished yet, so you
-          progress sequentially.
-        </p>
         <label
           class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
         >
@@ -745,8 +739,7 @@ function resetApiBase() {
               Auto-enrol new HSK words
             </span>
             <span class="block text-xs text-fg-muted">
-              Off by default — only enable if you want a steady drip of new
-              vocabulary alongside the words you mark yourself.
+              Adds the next N HSK words to your queue daily.
             </span>
           </span>
         </label>
@@ -775,10 +768,8 @@ function resetApiBase() {
         >
           Onboarding shortcuts
         </legend>
-        <p class="mb-3 text-xs text-fg-muted leading-relaxed">
-          Already comfortable with some HSK? Bulk-mark every word up to a level
-          as known. You can still change individual words later by clicking them
-          in the reader.
+        <p class="mb-3 text-xs text-fg-muted">
+          Bulk-mark every word up to a level as known.
         </p>
         <div class="flex flex-wrap items-end gap-3">
           <label class="flex flex-col gap-1">

@@ -216,7 +216,7 @@ watch(
           <RouterLink
             v-if="auth.isAuthed && userWords.hydrated"
             to="/words"
-            class="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-bg-sunken/60 px-2 py-0.5 font-mono text-[10px] tracking-wider text-fg-muted hover:text-fg hover:border-border sm:px-2.5 sm:py-1 sm:uppercase"
+            class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border-subtle bg-bg-sunken/60 px-2 py-0.5 font-mono text-[10px] tracking-wider text-fg-muted hover:text-fg hover:border-border sm:px-2.5 sm:py-1 sm:uppercase"
             active-class="text-fg border-border"
             :title="`${userWords.stats.known.toLocaleString()} known · ${userWords.stats.learning.toLocaleString()} learning${userWords.stats.ignored ? ` · ${userWords.stats.ignored.toLocaleString()} ignored` : ''} — click to browse`"
           >
@@ -234,9 +234,7 @@ watch(
               v-if="userWords.stats.learning > 0"
               class="text-accent tabular-nums"
               :title="`${userWords.stats.learning.toLocaleString()} learning`"
-            >
-              · {{ compactNumber(userWords.stats.learning) }}
-            </span>
+            >·{{ compactNumber(userWords.stats.learning) }}</span>
           </RouterLink>
           <button
             type="button"

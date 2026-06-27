@@ -18,6 +18,12 @@ export const router = createRouter({
       name: "vocab-index",
       component: () => import("@/views/VocabView.vue"),
     },
+    // Path-style deep links — older docs / external links promised
+    // /vocab/browse and /vocab/lists, but the Vocab view uses ?tab=…
+    // query strings instead. Without these the strings get caught by
+    // /vocab/:id below and render "we couldn't find that list".
+    { path: "/vocab/browse", redirect: { name: "vocab-index", query: { tab: "browse" } } },
+    { path: "/vocab/lists", redirect: { name: "vocab-index", query: { tab: "lists" } } },
     {
       path: "/discover",
       name: "discover",

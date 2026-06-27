@@ -586,7 +586,10 @@ onBeforeUnmount(() => {
                with no hooks yet) only see the invitation below. -->
           <div v-else class="flex flex-col items-start gap-4 text-fg-muted">
             <ReaderTodayPanel />
-            <div class="flex flex-col items-start gap-4 border-t border-border-subtle pt-10">
+            <div
+              v-if="!analysis.inputText.trim()"
+              class="flex flex-col items-start gap-4 border-t border-border-subtle pt-10"
+            >
             <span
               class="font-display text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
             >

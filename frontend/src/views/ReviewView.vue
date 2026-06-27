@@ -494,11 +494,6 @@ watch(
       >
         Review
       </h1>
-      <p class="mt-2 hidden text-sm leading-relaxed text-fg-muted sm:block">
-        Words you've marked as learning come back here on a schedule — sooner if
-        you grade them <em>Again</em>, much later if you grade them
-        <em>Easy</em>. Built on FSRS-4.5.
-      </p>
     </header>
 
     <!-- Not authed -->

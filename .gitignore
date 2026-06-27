@@ -2,6 +2,11 @@
 __pycache__/
 *.pyc
 data/
+
+# LLM-session runbook (maintainer-local: deploy paths, ops notes, creds pointers).
+# Public docs live in README.md, FEATURES.md, ANDROID.md.
+CLAUDE.local.md
+.claude/
 # Phase #100 — bundled sample packages SHIP with the app, even though
 # `data/` is otherwise runtime state (DB, audio cache).
 !app/data/

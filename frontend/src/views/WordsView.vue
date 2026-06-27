@@ -214,12 +214,12 @@ function toggleExpanded(word: string) {
           Your review queue
         </h1>
         <p class="mt-2 max-w-prose text-sm text-fg-muted">
-          {{ total.toLocaleString() }} word{{ total === 1 ? "" : "s" }} in your collection.
+          {{ total.toLocaleString() }} word{{ total === 1 ? "" : "s" }} in this view.
           Open
           <RouterLink to="/review" class="font-medium text-accent hover:underline">
             Review
           </RouterLink>
-          to step through them as flashcards, or browse here.
+          to step through them as flashcards.
         </p>
       </div>
     </header>
