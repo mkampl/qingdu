@@ -378,7 +378,17 @@ function resetApiBase() {
       </div>
     </template>
 
-    <div class="space-y-7">
+    <div class="space-y-3">
+      <!-- Phase 1.9 v2 — group fieldsets into five collapsible sections.
+           Cuts the 15-fieldset wall to a five-tap surface; the two most
+           common groups (Display, Review) open by default. Native
+           <details> keeps the keyboard / a11y story simple. -->
+      <details class="group rounded-md" open>
+        <summary class="flex cursor-pointer list-none items-center justify-between rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 hover:bg-bg-sunken">
+          <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle">Display</span>
+          <svg class="size-3 text-fg-subtle transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </summary>
+        <div class="mt-4 space-y-7 pl-1">
       <!-- Word color mode -->
       <fieldset>
         <legend
@@ -475,6 +485,15 @@ function resetApiBase() {
         </div>
       </fieldset>
 
+        </div>
+      </details>
+
+      <details class="group rounded-md" open>
+        <summary class="flex cursor-pointer list-none items-center justify-between rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 hover:bg-bg-sunken">
+          <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle">Review</span>
+          <svg class="size-3 text-fg-subtle transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </summary>
+        <div class="mt-4 space-y-7 pl-1">
       <!-- Phase #119 — Review window -->
       <fieldset v-if="auth.isAuthed">
         <legend
@@ -583,6 +602,15 @@ function resetApiBase() {
         </span>
       </label>
 
+        </div>
+      </details>
+
+      <details class="group rounded-md">
+        <summary class="flex cursor-pointer list-none items-center justify-between rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 hover:bg-bg-sunken">
+          <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle">Appearance &amp; reminders</span>
+          <svg class="size-3 text-fg-subtle transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </summary>
+        <div class="mt-4 space-y-7 pl-1">
       <!-- Theme — same toggle as the header crescent, included here for
            discoverability. -->
       <fieldset>
@@ -716,6 +744,15 @@ function resetApiBase() {
         </div>
       </fieldset>
 
+        </div>
+      </details>
+
+      <details v-if="auth.isAuthed" class="group rounded-md">
+        <summary class="flex cursor-pointer list-none items-center justify-between rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 hover:bg-bg-sunken">
+          <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle">Learning</span>
+          <svg class="size-3 text-fg-subtle transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </summary>
+        <div class="mt-4 space-y-7 pl-1">
       <!-- Phase #96 — daily systematic-learning target. Auth-gated because
            the value lives on the user row server-side. Off by default;
            the checkbox flips the target between 0 and 5 (default), with a
@@ -845,6 +882,15 @@ function resetApiBase() {
         </p>
       </fieldset>
 
+        </div>
+      </details>
+
+      <details class="group rounded-md">
+        <summary class="flex cursor-pointer list-none items-center justify-between rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 hover:bg-bg-sunken">
+          <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle">Data &amp; account</span>
+          <svg class="size-3 text-fg-subtle transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </summary>
+        <div class="mt-4 space-y-7 pl-1">
       <!-- Phase G4 — data export. Two anchors download via the
            require_auth_flexible token-in-query pattern so the browser
            handles the file download natively. -->
@@ -985,6 +1031,8 @@ function resetApiBase() {
           {{ apiBaseStatus.message }}
         </p>
       </fieldset>
+        </div>
+      </details>
     </div>
   </Modal>
 </template>
