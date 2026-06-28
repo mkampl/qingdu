@@ -14,6 +14,13 @@ Features
 
 Open source under the MIT licence. The Android app is a thin Capacitor wrapper around the web app; an internet connection is required because the analysis, dictionary lookup, and review scheduling live on the server.
 
-By default the app talks to qingdu.itvoodoo.at (a free public demo run by the maintainer). You can point it at any self-hosted Qingdu backend via Settings → Server. Both the server and the app are MIT-licenced — see github.com/mkampl/qingdu.
+About the default server
+By default the app talks to qingdu.itvoodoo.at — a free public demo run by the maintainer. The demo is open for registration but lifecycle-managed:
+• A simple math captcha gates the signup form (no third-party script, no tracking)
+• Registrations are rate-limited per IP and per day
+• Accounts inactive for 30 days are paused; inactive for 90 days are deleted, with two local notifications (7 days and 1 day before pause) so you can't lose data by accident
+• Both the soft-pause warning and the deletion timeline are shown in-app
+
+For long-term use, self-host your own backend (Docker compose, ~5 min) and point the app at it via Settings → Server. The backend is in the same repository under the MIT licence with no retention limits of its own.
 
 Anti-Features: NonFreeNet — the app depends on a server, but the server source is in the same repository under the MIT licence and you can self-host it.

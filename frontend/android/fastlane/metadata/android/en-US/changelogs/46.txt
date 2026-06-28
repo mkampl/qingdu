@@ -1,0 +1,12 @@
+F-Droid submission polish.
+
+- Settings → Server: the "Test" button hits /health directly instead of
+  /api/health (which the SPA catch-all was swallowing, so the test
+  always failed).
+- Server-switch clears the previous server's auth token, so signing in
+  on the new server doesn't trip over a stale JWT.
+- Demo-server lifecycle is now spelled out in the listing description:
+  rate-limited signup, captcha, 30-day idle pause, 90-day deletion,
+  with 7-day and 1-day local warnings. Self-host for unlimited retention.
+- New screenshots reflecting the redesigned Vocab tabs, the Library
+  view, and the more compact Settings panel.

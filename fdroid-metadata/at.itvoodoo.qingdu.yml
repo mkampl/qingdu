@@ -26,9 +26,17 @@ Description: |-
 
     The Android app is a thin Capacitor wrapper around the web app at
     qingdu.itvoodoo.at (a free public demo run by the maintainer). An
-    internet connection is required. You can point it at any self-hosted
-    Qingdu backend via Settings -> Server; both the server and the app
-    are MIT-licenced.
+    internet connection is required.
+
+    The default demo is open for registration with a server-side math
+    captcha (no third-party scripts), per-IP rate-limiting, and
+    inactivity cleanup: accounts pause after 30 days idle and delete
+    after 90 days, with 7-day and 1-day local notifications so you
+    can't accidentally lose data by leaving the app closed.
+
+    For long-term use, self-host your own backend (Docker compose) and
+    point the app at it via Settings -> Server. Both the server and the
+    app are MIT-licenced.
 
 RepoType: git
 Repo: https://github.com/mkampl/qingdu.git
