@@ -7,6 +7,9 @@ data/
 # Public docs live in README.md, FEATURES.md, ANDROID.md.
 CLAUDE.local.md
 .claude/
+# gh CLI personal access token. Plain-text so `gh auth login --with-token`
+# can pipe it back in when the auth state is lost; mode 0600.
+.gh_token
 # Phase #100 — bundled sample packages SHIP with the app, even though
 # `data/` is otherwise runtime state (DB, audio cache).
 !app/data/
