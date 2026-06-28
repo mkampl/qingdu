@@ -33,9 +33,6 @@ const username = ref("");
 const password = ref("");
 const confirm = ref("");
 const captchaAnswer = ref("");
-// Honeypot — bots fill it, humans don't see it. Kept reactive so it can
-// be inspected (but never displayed) in DevTools.
-const honeypot = ref("");
 
 const submitting = ref(false);
 const error = ref<string | null>(null);
@@ -84,7 +81,6 @@ watch(
     password.value = "";
     confirm.value = "";
     captchaAnswer.value = "";
-    honeypot.value = "";
     error.value = null;
     // Pull the live status so we know if captcha is currently required —
     // self-hosters who turned it off shouldn't see a captcha block at all.
@@ -102,11 +98,6 @@ watch(
 async function onSubmit(e: Event) {
   e.preventDefault();
   if (!canSubmit.value) return;
-  // Honeypot tripwire — silently no-op so the bot thinks the form submitted.
-  if (honeypot.value) {
-    modals.closeAll();
-    return;
-  }
   error.value = null;
   submitting.value = true;
   try {
@@ -179,19 +170,6 @@ function switchToLogin() {
         autocomplete="new-password"
         required
       />
-
-      <!-- Honeypot. Off-screen + aria-hidden so humans never touch it. -->
-      <div class="sr-only" aria-hidden="true">
-        <label>
-          Leave this blank
-          <input
-            v-model="honeypot"
-            type="text"
-            tabindex="-1"
-            autocomplete="off"
-          />
-        </label>
-      </div>
 
       <!-- Math captcha block — hidden when the instance disables it. -->
       <div

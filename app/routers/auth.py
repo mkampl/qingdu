@@ -158,13 +158,13 @@ async def open_register(
 ):
     """Self-service signup. Subject to the instance settings:
     `registration.open` must be on, captcha must validate (if enabled),
-    per-IP and global daily caps are enforced. Honeypot field is checked
-    silently."""
-    if data.honeypot:
-        # Spam-bot heuristic. Don't tell them what failed — pretend the
-        # request was malformed.
-        raise HTTPException(status_code=400, detail="Invalid request")
+    per-IP and global daily caps are enforced.
 
+    The `honeypot` field is accepted for back-compat with v1.0.45 clients
+    but is NOT checked — Android autofill / password managers cheerfully
+    fill sr-only fields, which trapped legitimate signup attempts on
+    mobile. Captcha + IP rate limit + global daily cap are enough for a
+    demo this size."""
     ip = _client_ip(request)
     settings = lifecycle.get_settings(db)
     try:

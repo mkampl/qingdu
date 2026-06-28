@@ -1,0 +1,3 @@
+- Signup form: drop the bot-honeypot input that Android autofill was
+  filling for everyone, silently rejecting legitimate signups. Captcha
+  and rate limits stay in place.
