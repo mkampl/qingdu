@@ -189,14 +189,22 @@ async function ensureLifecycleChannel(): Promise<void> {
 }
 
 function nextSlot(timeHHMM: string, dayOffset: number): Date {
+  // Resolve the "first firing" first, then add the day offset. The naïve
+  // approach (offset first, then push i=0 by a day if past) collides i=0
+  // with i=1 whenever the user opens the app *after* the reminder time:
+  // pushed i=0 lands on tomorrow's slot at the same instant as
+  // (unshifted) i=1. Android treats them as separate notifications since
+  // the IDs differ — the user sees two identical reminders in the tray.
+  // The fix: compute the next absolute firing (today or tomorrow, never
+  // past), then add dayOffset days to that, so every i strictly leads
+  // i-1 by exactly 24 h.
   const [hh, mm] = timeHHMM.split(":").map((s) => parseInt(s, 10) || 0);
   const d = new Date();
-  d.setDate(d.getDate() + dayOffset);
   d.setHours(hh, mm, 0, 0);
-  // If today's slot has already passed, push to tomorrow.
-  if (dayOffset === 0 && d.getTime() < Date.now()) {
+  if (d.getTime() < Date.now()) {
     d.setDate(d.getDate() + 1);
   }
+  d.setDate(d.getDate() + dayOffset);
   return d;
 }
 

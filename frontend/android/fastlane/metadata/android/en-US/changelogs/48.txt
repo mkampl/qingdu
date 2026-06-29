@@ -1,0 +1,6 @@
+- Daily reminder: fix the duplicate notification that appeared for
+  users who open the app after their reminder time. The 'today' slot
+  was being pushed to tomorrow while the 'tomorrow' slot was already
+  set for tomorrow — two identical notifications fired at the same
+  instant with different IDs. Now the schedule shifts as a whole when
+  today's slot is in the past, so adjacent days never collide.
