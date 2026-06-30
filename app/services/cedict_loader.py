@@ -507,12 +507,18 @@ def _parse_text(text: str) -> dict[str, dict]:
     return out
 
 
-# Matches "erhua variant of X", "variant of X", "old variant of X",
-# "see X", "abbr. for X" — the X target uses the CEDICT "trad|simp[pinyin]"
-# notation, or just simp if there's no trad form. We pull the simp form
-# out and use it as a lookup key.
+# Matches "erhua variant of X", "erhua form of X", "variant of X",
+# "old variant of X", "see X", "abbr. for X" — the X target uses the
+# CEDICT "trad|simp[pinyin]" notation, or just simp if there's no trad
+# form. We pull the simp form out and use it as a lookup key.
+#
+# CC-CEDICT has six variant phrasings as of the 2026-06 snapshot. The
+# `erhua form of` and `erhua variant of` strings are interchangeable in
+# the source; missing one of them leaves entries like
+# 女孩儿 (`erhua form of 女孩[nu:3 hai2]`) un-resolved, showing the
+# pointer instead of the actual gloss ("girl").
 _VARIANT_REF_RE = re.compile(
-    r"^(?:erhua variant of|old variant of|variant of|see|abbr\. for)\s+"
+    r"^(?:erhua (?:variant|form) of|old variant of|variant of|see|abbr\. for)\s+"
     r"(?:[^|\s\[]+\|)?([^\s\[]+)",
     re.IGNORECASE,
 )
