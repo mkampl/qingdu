@@ -154,8 +154,15 @@ def clean_gloss_for_display(meaning: str) -> str:
     s = _TRAD_SIMP_RE.sub(r"\2", s)
 
     def _render_bracket(m: re.Match[str]) -> str:
+        inner = m.group(1)
+        # Some CC-CEDICT mirrors / re-exports inject spurious spaces
+        # around the umlaut colon and tone digit: "nu : 3 hai2" instead
+        # of the canonical "nu:3 hai2". Normalize them back so the
+        # tone-mark converter sees a well-formed token.
+        inner = re.sub(r"\s*:\s*", ":", inner)
+        inner = re.sub(r"([a-zü:]+)\s+([1-5])\b", r"\1\2", inner)
         try:
-            return f" ({_convert_pinyin(m.group(1))})"
+            return f" ({_convert_pinyin(inner)})"
         except Exception:
             return ""
 
