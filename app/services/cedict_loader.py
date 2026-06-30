@@ -123,6 +123,56 @@ def _convert_pinyin(numbered: str) -> str:
     return " ".join(out)
 
 
+# --- gloss cleanup for display ------------------------------------------------
+#
+# Raw CC-CEDICT glosses encode cross-references in a lexicographer-friendly
+# but learner-hostile format:
+#   "erhua form of 女孩[nu:3 hai2]"
+#   "the Great Learning, one of the Four Books 四書|四书[Si4 shu1] in Confucianism"
+#   "road; path (CL:條|条[tiao2],股[gu3])"
+# We rewrite the inline brackets to a rendered pinyin in parens, collapse
+# the trad|simp alternative to just the simplified form, drop classifier
+# annotations, and cap at the first ~3 semicolon-separated senses so the
+# display column doesn't run away with 150-char paragraphs. The lexico-
+# graphic detail is still present in the underlying CC-CEDICT data; this
+# is purely a display layer.
+
+_CL_INLINE_RE = re.compile(r"\s*\(CL:[^)]*\)")
+_TRAD_SIMP_RE = re.compile(r"([一-鿿]+)\|([一-鿿]+)")
+_BRACKET_PINYIN_RE = re.compile(r"\[([^\]]+)\]")
+_MAX_DISPLAY_SENSES = 3
+_MAX_DISPLAY_CHARS = 110
+
+
+def clean_gloss_for_display(meaning: str) -> str:
+    """Strip CC-CEDICT lexicographic markup so the gloss is readable in
+    the review queue / word popover. Idempotent: clean output passed in
+    again yields the same string. Empty input → empty output."""
+    if not meaning:
+        return meaning
+    s = _CL_INLINE_RE.sub("", meaning)
+    s = _TRAD_SIMP_RE.sub(r"\2", s)
+
+    def _render_bracket(m: re.Match[str]) -> str:
+        try:
+            return f" ({_convert_pinyin(m.group(1))})"
+        except Exception:
+            return ""
+
+    s = _BRACKET_PINYIN_RE.sub(_render_bracket, s)
+    s = re.sub(r"\s+", " ", s).strip()
+    # Cap to N semicolon-separated senses, ellipsis if there were more.
+    parts = [p.strip() for p in s.split(";") if p.strip()]
+    if len(parts) > _MAX_DISPLAY_SENSES:
+        s = "; ".join(parts[:_MAX_DISPLAY_SENSES]) + "…"
+    # Hard length cap — truncate at the last word boundary.
+    if len(s) > _MAX_DISPLAY_CHARS:
+        cut = s.rfind(" ", 0, _MAX_DISPLAY_CHARS)
+        if cut > 0:
+            s = s[:cut].rstrip(",;: ") + "…"
+    return s
+
+
 # --- file fetch + parse --------------------------------------------------------
 
 
@@ -435,8 +485,14 @@ def _parse_text(text: str) -> dict[str, dict]:
         out[simplified] = {
             "traditional": traditional,
             "pinyin": _convert_pinyin(numbered_pinyin),
-            "meaning": primary,
-            "meanings": meanings,
+            # Cleanup happens here — strip CL annotations, rewrite the
+            # `字[bracket pinyin]` cross-references as readable pinyin,
+            # collapse trad|simp to simp, cap senses + length. Variant
+            # resolution below still works because the cleanup preserves
+            # the target hanzi (just rewrites the bracket pinyin around
+            # it). See clean_gloss_for_display above.
+            "meaning": clean_gloss_for_display(primary),
+            "meanings": [clean_gloss_for_display(m) for m in meanings],
             "source": CEDICT_SOURCE_TAG,
         }
         quality_cache[simplified] = new_quality
