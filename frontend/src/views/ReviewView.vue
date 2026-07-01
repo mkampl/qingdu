@@ -14,6 +14,7 @@
  *   4. store applies the grade, advances the cursor, optimistic stats tick
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 
 import * as api from "@/api/client";
 import type { QueueMode, ReviewGrade, ReviewMode } from "@/api/client";
@@ -27,6 +28,12 @@ import { useSettingsStore } from "@/stores/settings";
 import { success as hapticSuccess, tap as hapticTap } from "@/services/native";
 
 const review = useReviewStore();
+const router = useRouter();
+
+function endPractice() {
+  review.reset();
+  void router.push("/words");
+}
 const auth = useAuthStore();
 const settings = useSettingsStore();
 
@@ -487,14 +494,40 @@ watch(
       <p
         class="font-mono text-[11px] uppercase tracking-[0.22em] text-fg-subtle"
       >
-        Spaced repetition
+        {{ review.practiceMode ? "Practice" : "Spaced repetition" }}
       </p>
       <h1
         class="mt-1 font-display text-2xl font-medium tracking-tight text-fg sm:text-4xl"
       >
-        Review
+        {{ review.practiceMode ? "Practice this word" : "Review" }}
       </h1>
     </header>
+
+    <!-- Practice-mode banner. Lives above the card body so it never
+         disappears when the SPA drops into focus-mode for writer /
+         cloze — the whole point is that the user sees this the entire
+         time. FSRS state, streak, and stats are all untouched. -->
+    <div
+      v-if="review.practiceMode"
+      class="mb-6 flex items-start gap-3 rounded-md border border-amber-300/60 bg-amber-50/70 px-4 py-3 text-sm text-amber-800 dark:border-amber-700/50 dark:bg-amber-500/10 dark:text-amber-200"
+      role="status"
+    >
+      <span aria-hidden="true">🎯</span>
+      <div class="flex-1 leading-snug">
+        <p class="font-medium">Practice mode — nothing is graded.</p>
+        <p class="text-xs opacity-80">
+          Grade buttons don't advance FSRS. Streak, due date, and stats
+          all stay put. End practice any time to return to your list.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-amber-800 hover:bg-amber-100 dark:border-amber-700/50 dark:bg-amber-500/20 dark:text-amber-100 dark:hover:bg-amber-500/30"
+        @click="endPractice"
+      >
+        End practice
+      </button>
+    </div>
 
     <!-- Not authed -->
     <div
@@ -663,9 +696,9 @@ watch(
         <button
           type="button"
           class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle transition-colors hover:text-fg"
-          @click="review.reset()"
+          @click="review.practiceMode ? endPractice() : review.reset()"
         >
-          End session
+          {{ review.practiceMode ? "End practice" : "End session" }}
         </button>
       </div>
 

@@ -974,6 +974,14 @@ export const gradeReviewCard = (
 export const getReviewStats = () =>
   request<ReviewStatsResponse>("/api/review/stats");
 
+// Practice mode — fetch a single card by word without any queue side
+// effects. The client cycles modes locally; no /grade call happens
+// during practice, so FSRS / stats / streak stay untouched.
+export const getPracticeCard = (word: string) =>
+  request<{ card: ReviewCard }>(
+    `/api/review/practice/${encodeURIComponent(word)}`,
+  );
+
 // --- Activity stats (Phase F3) --------------------------------------------
 
 export interface WeeklyActivityDay {

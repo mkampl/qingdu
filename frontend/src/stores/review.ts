@@ -46,6 +46,11 @@ export const useReviewStore = defineStore("review", () => {
   // Phase #119 — mobile focus-mode flag (collapses header/footer during
   // the result phase). Lives in the store so App.vue can read it.
   const inFocus = ref(false);
+  // Practice mode — session started from WordsView for a specific word.
+  // When true, grade() short-circuits the server call so FSRS state,
+  // streak, and stats stay untouched. ReviewView renders a persistent
+  // banner reminding the user the session is out-of-competition.
+  const practiceMode = ref(false);
 
   const current = computed<ReviewCard | null>(
     () => queue.value[cursor.value] ?? null,
@@ -96,9 +101,38 @@ export const useReviewStore = defineStore("review", () => {
     }
   }
 
+  async function startPractice(word: string) {
+    loading.value = true;
+    error.value = null;
+    practiceMode.value = true;
+    queueMode.value = "mixed";
+    cursor.value = 0;
+    sessionGraded.value = 0;
+    try {
+      const r = await api.getPracticeCard(word);
+      queue.value = [r.card];
+    } catch (e) {
+      error.value =
+        e instanceof Error ? e.message : "Couldn't load practice card";
+      queue.value = [];
+      practiceMode.value = false;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function grade(g: ReviewGrade) {
     const card = current.value;
     if (!card || grading.value) return;
+    // Practice mode — no server call, no FSRS mutation, no streak update.
+    // Just count the modality attempt so the SPA's UI counter still ticks
+    // and the cursor advances so the session ends naturally after all
+    // modes have been tried.
+    if (practiceMode.value) {
+      sessionGraded.value += 1;
+      cursor.value += 1;
+      return;
+    }
     grading.value = true;
     try {
       const response = await api.gradeReviewCard(card.word, g, mode.value);
@@ -170,6 +204,7 @@ export const useReviewStore = defineStore("review", () => {
     // ends the session, not the day's stats.
     error.value = null;
     inFocus.value = false;
+    practiceMode.value = false;
   }
 
   return {
@@ -187,7 +222,9 @@ export const useReviewStore = defineStore("review", () => {
     remaining,
     dueNow,
     inFocus,
+    practiceMode,
     loadQueue,
+    startPractice,
     grade,
     refreshStats,
     reset,

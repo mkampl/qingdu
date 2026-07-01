@@ -10,7 +10,7 @@
  */
 
 import { computed, onMounted, ref, watch } from "vue";
-import { RouterLink } from "vue-router";
+import { RouterLink, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
 import type { WordsQueueItem, WordsQueueParams } from "@/api/client";
@@ -25,6 +25,20 @@ const authModals = useAuthModalsStore();
 const review = useReviewStore();
 const toast = useToastStore();
 const userWords = useUserWordsStore();
+const router = useRouter();
+
+async function practice(word: string) {
+  try {
+    await review.startPractice(word);
+    if (review.error) {
+      toast.error(review.error);
+      return;
+    }
+    await router.push("/review");
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : "Practice failed to start.");
+  }
+}
 
 type StateFilter = "all" | "learning" | "known" | "ignored";
 type DueFilter = "all" | "today" | "week" | "month";
@@ -419,6 +433,18 @@ function toggleExpanded(word: string) {
                 @click.stop="makeDue(item.word)"
               >
                 ⚡ Review now
+              </button>
+              <!-- Practice — a no-consequences session for this one word.
+                   No FSRS advance, no streak update, no due-date shuffle.
+                   Handy for eyeballing how a card will look next time, or
+                   for extra writing practice out of turn. See the review
+                   store's startPractice() for the wiring. -->
+              <button
+                type="button"
+                class="rounded-md border border-border bg-bg-elevated px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted hover:text-fg"
+                @click.stop="practice(item.word)"
+              >
+                🎯 Practice
               </button>
               <button
                 v-if="item.state !== 'ignored'"

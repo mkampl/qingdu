@@ -1,0 +1,9 @@
+- New Practice button on every word in My Words. Opens a no-consequences
+  session for that one word so you can try the review card, cycle through
+  a modality, and even do the writing quiz without touching your streak,
+  FSRS due date, or stats. Persistent banner reminds you nothing is graded.
+- Dictionary glosses: prefer the first non-tagged sense when CC-CEDICT lists
+  archaic / literary / bound-form readings first. 号 now reads 'to mark; to
+  label; to assign a number' instead of the archaic 'to call out; to command'.
+- CC-CEDICT variant references support both 'erhua form of' and 'erhua
+  variant of' now — 女孩儿 shows 'girl; lass' instead of the raw pointer.

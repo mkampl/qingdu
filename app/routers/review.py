@@ -208,6 +208,47 @@ async def review_queue(
     return {"mode": mode, "cards": cards}
 
 
+@router.get("/api/review/practice/{word}")
+async def practice_card(
+    word: str,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Fetch a single UserWord as a practice card.
+
+    Same enrichment as the review queue, but no auto-enrol, no due-date
+    filter, no ordering. The client uses this to let the user cycle
+    through a specific word's four modalities without any server-side
+    FSRS / streak / stats mutation — practice is deliberately 'aus der
+    Konkurrenz raus'. Nothing is graded, so there's no matching
+    /api/review/grade sibling; the SPA advances modes locally and
+    returns to /words on End Practice."""
+    row = db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.word == word).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Not a tracked word")
+    enriched = _enrich(row)
+    sentence = row.sample_sentence or cloze.populate_sample_sentence(row, db)
+    stage = srs.prompt_stage_for(row.stability)
+    card = {
+        "word": to_user_script(row.word, user),
+        "due_at": row.due_at.isoformat() if row.due_at else None,
+        "stability": row.stability,
+        "difficulty": row.difficulty,
+        "prompt_stage": stage,
+        "has_sample_sentence": bool(sentence),
+        **enriched,
+    }
+    if sentence:
+        displayed_sentence = to_user_script(sentence, user)
+        displayed_word = to_user_script(row.word, user)
+        card["cloze_template"] = cloze.make_cloze_template(displayed_sentence, displayed_word)
+        card["cloze_sentence"] = displayed_sentence
+    # populate_sample_sentence may have written a new snapshot; commit that
+    # so a follow-up practice call doesn't do the lookup again.
+    db.commit()
+    return {"card": card}
+
+
 @router.post("/api/review/grade")
 async def grade_card(
     payload: GradeRequest,
