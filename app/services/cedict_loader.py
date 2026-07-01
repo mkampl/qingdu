@@ -221,6 +221,46 @@ def _looks_minor(primary: str) -> bool:
     )
 
 
+# Register / usage tags that CC-CEDICT prefixes to senses. Any sense
+# starting with one of these is dispreferred for a learner-facing primary
+# — it either isn't the everyday reading (archaic/literary) or doesn't
+# stand alone as a word (bound form).
+_DEPRIORITISE_TAGS = (
+    "(literary)",
+    "(classical)",
+    "(archaic)",
+    "(dialect)",
+    "(bound form)",
+    "(tcm)",  # technical, e.g. 号's "to feel (the pulse) (used in ...)"
+    "(vulgar)",
+    "(slang)",
+    "(coll.)",  # colloquial CC-CEDICT tag — still usable but not primary
+    "(old)",
+    "(erhua-only)",
+)
+
+
+def _pick_learner_primary(meanings: list[str]) -> str:
+    """CC-CEDICT often orders senses etymology-first, so `meanings[0]` for
+    多义-heavy characters like 号 can be a literary reading buried under
+    the everyday one ("(literary) to call out; to command" ahead of "day
+    of the month"). Pick the first sense that DOESN'T open with a
+    register tag from _DEPRIORITISE_TAGS. Falls back to `meanings[0]`
+    when every sense is tagged (e.g. purely-classical characters — no
+    winning move).
+
+    Idempotent + no lookahead — only sees the meanings we're passed.
+    Runs before clean_gloss_for_display, so the input still has raw
+    CC-CEDICT markup."""
+    if not meanings:
+        return ""
+    for sense in meanings:
+        low = sense.lower().lstrip()
+        if not any(low.startswith(tag) for tag in _DEPRIORITISE_TAGS):
+            return sense
+    return meanings[0]
+
+
 def _looks_pure_marker(primary: str) -> bool:
     """True when the primary gloss is a *bare* grammatical marker with
     no real meaning attached — e.g. "-ly" for 地's de reading. Distinct
@@ -473,7 +513,10 @@ def _parse_text(text: str) -> dict[str, dict]:
         meanings = [g for g in glosses_raw.split("/") if g and not _CL_RE.match(g)]
         if not meanings:
             continue
-        primary = meanings[0]
+        # Prefer the first non-register-tagged sense as the primary so
+        # everyday readings don't lose to CC-CEDICT's etymology-first
+        # ordering (see _pick_learner_primary).
+        primary = _pick_learner_primary(meanings)
         # SUBTLEX is the strongest signal for "which reading do learners
         # actually meet" — far better than jieba's per-character-summed
         # heuristic at distinguishing e.g. zhe5 (109K, particle) from
