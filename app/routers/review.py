@@ -76,6 +76,13 @@ def _enrich(row: UserWord) -> dict:
     # have CC-CEDICT meanings overlaid at startup, so hsk_vocab is the
     # primary; cedict_vocab covers non-HSK literary/proper-noun terms.
     meanings = (entry or cedict_entry or {}).get("meanings", []) or []
+    # Cap the alternatives shown on a review card. CC-CEDICT frequently
+    # ships 10+ etymologically-ordered senses (零 has 12: "zero, nought,
+    # zero sign, fractional, ..., to wither"); showing them all under
+    # the primary reading distracts from the everyday meaning. Analysis
+    # / popovers read the vocab dicts directly, so they still see the
+    # full list.
+    meanings = meanings[:5]
     hsk_level = entry.get("level") if entry else None
 
     if not pinyin or not meaning:

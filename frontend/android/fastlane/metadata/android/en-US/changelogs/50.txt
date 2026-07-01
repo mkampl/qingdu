@@ -1,0 +1,6 @@
+- Review card: cap the alternative-meanings list to 5 total senses.
+  Words like 零 that ship 12 etymological glosses now show only the
+  everyday ones instead of drowning the primary in the small text.
+- Practice mode: after grading, land back on My Words automatically
+  instead of on the Start Review screen. Manual End Practice still
+  works if you want to bail early.

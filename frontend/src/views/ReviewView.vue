@@ -34,6 +34,24 @@ function endPractice() {
   review.reset();
   void router.push("/words");
 }
+
+// Auto-end practice once the single practice card has been graded so the
+// user lands back on My Words instead of the Start Review screen. Guard
+// on sessionGraded > 0 so the empty state on first mount doesn't fire
+// this before the card has even loaded.
+watch(
+  () => [
+    review.practiceMode,
+    review.sessionGraded,
+    review.current,
+    review.loading,
+  ] as const,
+  ([practice, graded, current, loading]) => {
+    if (practice && graded > 0 && current === null && !loading) {
+      endPractice();
+    }
+  },
+);
 const auth = useAuthStore();
 const settings = useSettingsStore();
 
