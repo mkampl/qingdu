@@ -38,6 +38,22 @@ COPY static/ /app/static/
 # Copy the Vite build artefact from the frontend stage.
 COPY --from=frontend-build /build/dist /app/frontend/dist
 
+# Self-host the tesseract.js OCR assets (worker script, WASM core, chi_sim
+# language model) instead of letting the client fetch them from
+# cdn.jsdelivr.net at runtime — F-Droid disallows apps that download and
+# execute unreviewed code post-install. These files already land in
+# node_modules via the ordinary `npm ci` in Stage 1, so nothing here makes
+# an extra network call beyond what the frontend build already does.
+RUN mkdir -p /app/static/tesseract/core /app/static/tesseract/lang
+COPY --from=frontend-build /build/node_modules/tesseract.js/dist/worker.min.js /app/static/tesseract/worker.min.js
+COPY --from=frontend-build \
+    /build/node_modules/tesseract.js-core/tesseract-core-lstm.wasm.js \
+    /build/node_modules/tesseract.js-core/tesseract-core-lstm.wasm \
+    /build/node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm.js \
+    /build/node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm \
+    /app/static/tesseract/core/
+COPY --from=frontend-build /build/node_modules/@tesseract.js-data/chi_sim/4.0.0_best_int/chi_sim.traineddata.gz /app/static/tesseract/lang/chi_sim.traineddata.gz
+
 # Create a non-root user for security
 RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app

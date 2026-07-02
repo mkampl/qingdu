@@ -1,0 +1,4 @@
+Scan-to-import (OCR) no longer downloads its worker script, WASM engine,
+or Chinese language model from a third-party CDN at runtime - all three
+now ship from this app's own server, resolving the last known F-Droid
+review concern before submission.

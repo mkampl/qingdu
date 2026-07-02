@@ -2,7 +2,7 @@
 
 Libraries, data, and services used by QingDu, grouped by licence.
 
-Last reconciled: 2026-06-27 against `requirements.txt`, `frontend/package.json`, bundled `app/data/`, and Google-Fonts CDN imports in `frontend/index.html` + `frontend/src/styles/global.css`.
+Last reconciled: 2026-07-02 against `requirements.txt`, `frontend/package.json`, bundled `app/data/`, and Google-Fonts CDN imports in `frontend/index.html` + `frontend/src/styles/global.css`.
 
 ## Backend (Python)
 
@@ -74,7 +74,8 @@ Last reconciled: 2026-06-27 against `requirements.txt`, `frontend/package.json`,
 
 - **TypeScript** — Microsoft — <https://github.com/microsoft/TypeScript>
 - **tesseract.js** — Naptha — <https://github.com/naptha/tesseract.js>
-- **tessdata `chi_sim` model** — <https://github.com/naptha/tessdata>
+- **tesseract.js-core** — Naptha — <https://github.com/naptha/tesseract.js-core>
+- **@tesseract.js-data/chi_sim** (tessdata `chi_sim` model) — <https://github.com/naptha/tessdata>
 
 ## Fonts
 
@@ -106,9 +107,9 @@ QingDu uses self-hosted Latin display fonts via `@fontsource-variable` and CJK f
 - **Decision before Phase 2 (F-Droid)**: keep as-is for the OSS APK with the note above; remove cleanly before any commercial distribution.
 
 ### tesseract.js OCR model
-- **Source**: [tessdata `chi_sim`](https://github.com/naptha/tessdata)
+- **Source**: [tessdata `chi_sim`](https://github.com/naptha/tessdata), via the `@tesseract.js-data/chi_sim` npm package
 - **License**: Apache 2.0
-- **Description**: Simplified Chinese OCR model loaded in the browser when the user opens the Scan import tab.
+- **Description**: Simplified Chinese OCR model loaded in the browser when the user opens the Scan import tab. The worker script, WASM core, and this language model are vendored at Docker build time (`npm ci` in the frontend stage, copied into `/app/static/tesseract/` — see `Dockerfile`) and served same-origin from the backend. tesseract.js's own default is to fetch all three from `cdn.jsdelivr.net` at runtime; self-hosting avoids the app downloading and executing unreviewed code post-install, which F-Droid's build policy disallows.
 
 ### Bundled sample packages (`app/data/packages/`)
 - `dao_de_jing_ch1.json` — Daodejing (道德经) chapter 1 by Laozi — public domain (~600 BCE classical Chinese text).

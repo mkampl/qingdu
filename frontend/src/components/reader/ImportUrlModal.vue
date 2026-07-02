@@ -278,9 +278,16 @@ async function runOcr() {
   error.value = null;
   ocrProgress.value = 0;
   try {
-    // Dynamic import keeps tesseract out of the main bundle.
+    // Dynamic import keeps tesseract out of the main bundle. All three
+    // heavy assets (worker script, WASM core, chi_sim model) are served
+    // from this app's own backend — not tesseract.js's default
+    // cdn.jsdelivr.net — so nothing here fetches or executes code from a
+    // third party at runtime. See Dockerfile for how they're vendored.
     const { createWorker } = await import("tesseract.js");
     const worker = await createWorker("chi_sim", 1, {
+      workerPath: api.apiUrl("/static/tesseract/worker.min.js"),
+      corePath: api.apiUrl("/static/tesseract/core"),
+      langPath: api.apiUrl("/static/tesseract/lang"),
       logger: (m: { status?: string; progress?: number }) => {
         // 'recognizing text' is the main pass; show progress for that.
         if (m.status === "recognizing text" && typeof m.progress === "number") {

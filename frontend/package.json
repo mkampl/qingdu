@@ -18,6 +18,7 @@
     "@capacitor/share": "^7.0.4",
     "@capacitor/splash-screen": "^7.0.5",
     "@capacitor/status-bar": "^7.0.6",
+    "@tesseract.js-data/chi_sim": "1.0.0",
     "hanzi-writer": "^3.7.3",
     "pinia": "^2.3.1",
     "tesseract.js": "^5.1.1",
