@@ -29,7 +29,7 @@ The Android APK is a Capacitor wrapper bundling the Vite-built SPA (`frontend/di
 - the SUBTLEX-CH frequency file (`app/data/subtlex_char_pinyin_freq.json`)
 - any other server-side data
 
-These live on the server only. F-Droid evaluation is about the APK, not the server, so the CC-BY-NC-ND status of SUBTLEX-CH is not a concern for F-Droid distribution.
+These live on the server only. F-Droid evaluation is about the APK, not the server, so SUBTLEX-CH's licensing (see THIRD_PARTY_LICENSES.md — free academic download, not the NC-ND we'd previously assumed) is not a concern for F-Droid distribution either way.
 
 ## Anti-Features
 

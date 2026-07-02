@@ -454,9 +454,11 @@ def _load_subtlex_char_pinyin() -> dict[str, dict[str, int]]:
 
     Shape: {char: {numbered_pinyin: frequency}}. Missing char → empty.
 
-    SUBTLEX-CH is CC-BY-NC-ND for academic redistribution; the derived
+    SUBTLEX-CH is free academic-download data (the underlying word-frequency
+    files are PLOS ONE Supporting Information, published CC BY); the derived
     aggregate we bundle here (sums per char/pinyin only, no original
-    transcript material) is a legitimate downstream use.
+    transcript material) is a legitimate downstream use. See
+    THIRD_PARTY_LICENSES.md for the full provenance writeup.
     """
     import json
     from pathlib import Path as _P
