@@ -1,0 +1,13 @@
+Pre-F-Droid audit release. Highlights:
+- Signup fixed: typing into the captcha no longer closes the dialog.
+- Your data, your rules: download the whole account as one JSON file or
+  delete the account yourself (Settings -> Data & account). New privacy
+  page linked from the footer.
+- Opening the app offline no longer logs you out.
+- Server switcher now available in Settings on every Android build.
+- Android back button closes dialogs instead of exiting the app.
+- Review: keyboard shortcuts (space reveals, 1-4 grade); grades are
+  logged under the modality you actually practiced.
+- 苹果 is "apple" again, not the tech company - proper-noun dictionary
+  readings no longer win collisions.
+- Smaller APK (source maps removed), assorted hardening server-side.
