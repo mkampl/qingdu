@@ -162,6 +162,11 @@ app.include_router(library.router)
 spa.mount(app)
 
 
+# Dev key that shipped in .env.example until 2026-07. It is in git history,
+# so any instance still signing tokens with it is forgeable by anyone.
+_BURNED_SECRET_KEYS = {"9ndRcryRqp0DbvQBThQmjTybD6nIyHbAHiYOyj44DsE"}
+
+
 def _validate_environment() -> None:
     """Fail fast at startup if required env vars are missing."""
     required_vars = ["SECRET_KEY"]
@@ -170,6 +175,13 @@ def _validate_environment() -> None:
         raise ValueError(
             f"Missing required environment variables: {', '.join(missing)}\n"
             "Please check your .env file or environment configuration."
+        )
+    if os.getenv("SECRET_KEY") in _BURNED_SECRET_KEYS:
+        raise ValueError(
+            "SECRET_KEY is the publicly-known development key that used to "
+            "ship in .env.example - anyone can forge auth tokens against it. "
+            "Generate a fresh one:\n"
+            '  python -c "import secrets; print(secrets.token_urlsafe(32))"'
         )
     logger.info("Environment validation passed")
     logger.info(f"LOG_LEVEL: {os.getenv('LOG_LEVEL', 'INFO')}")

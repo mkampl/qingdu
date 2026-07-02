@@ -14,6 +14,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     create_engine,
+    event,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
@@ -79,10 +80,17 @@ class User(Base):
         "VocabularyList", back_populates="user", cascade="all, delete-orphan"
     )
     user_words = relationship("UserWord", back_populates="user", cascade="all, delete-orphan")
+    # cascade is load-bearing: created_by_user_id is NOT NULL, so without it
+    # SQLAlchemy tries to null the FK on user delete and the whole delete
+    # rolls back with an IntegrityError — which silently broke both the admin
+    # delete button and the lifecycle hard-delete sweep for any user who had
+    # ever created an invitation. Claimed invitations *by* the user are fine:
+    # claimed_by_user_id is nullable and gets SET NULL.
     created_invitations = relationship(
         "InvitationToken",
         foreign_keys="InvitationToken.created_by_user_id",
         back_populates="creator",
+        cascade="all, delete-orphan",
     )
     claimed_invitation = relationship(
         "InvitationToken",
@@ -337,6 +345,21 @@ DATA_DIR.mkdir(exist_ok=True)
 DATABASE_URL = f"sqlite:///{DATA_DIR}/qingdu.db"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+
+
+@event.listens_for(engine, "connect")
+def _sqlite_pragmas(dbapi_connection, _connection_record):
+    """WAL lets the two uvicorn workers write concurrently instead of
+    fighting over the rollback journal ("database is locked" 500s), and
+    busy_timeout makes the rare remaining collision wait instead of throw.
+    WAL is a persistent DB property but setting it per-connection is
+    harmless and covers fresh databases."""
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.close()
+
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

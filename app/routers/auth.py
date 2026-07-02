@@ -38,8 +38,8 @@ def _client_ip(request: Request) -> str:
     "/api/auth/login",
     summary="User login",
     description=(
-        "Authenticate user and receive JWT access token. Default credentials: "
-        "admin/admin123 (must be changed on first login)."
+        "Authenticate user and receive JWT access token. The admin password "
+        "is generated at first startup and written to data/admin_bootstrap.txt."
     ),
     response_description="JWT token and user information",
     responses={

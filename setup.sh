@@ -9,11 +9,12 @@ echo "🚀 Setting up QingDu development environment..."
 if [ ! -f .env ]; then
     echo "📋 Creating .env file from .env.example..."
     cp .env.example .env
-    echo "✅ .env file created"
-    echo ""
-    echo "⚠️  IMPORTANT: The default SECRET_KEY is for DEVELOPMENT only!"
-    echo "   Generate a new key for production:"
-    echo "   python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+    # Generate a unique signing key for this installation. .env.example
+    # deliberately ships SECRET_KEY empty - a shared key would let anyone
+    # forge auth tokens.
+    GENERATED_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
+    sed -i "s|^SECRET_KEY=.*|SECRET_KEY=${GENERATED_KEY}|" .env
+    echo "✅ .env file created with a freshly generated SECRET_KEY"
 else
     echo "✅ .env file already exists"
 fi
@@ -29,7 +30,6 @@ echo ""
 echo "🌐 Application will be available at:"
 echo "   http://localhost:8000"
 echo ""
-echo "🔑 Default admin credentials:"
-echo "   Username: admin"
-echo "   Password: admin123"
-echo "   (You will be prompted to change on first login)"
+echo "🔑 Admin credentials:"
+echo "   A random admin password is generated on first startup and"
+echo "   written to data/admin_bootstrap.txt (also shown in the logs)."

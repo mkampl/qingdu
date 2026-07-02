@@ -22,7 +22,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal, SignupAttempt, SystemSetting, User
+from app.database import SessionLocal, SignupAttempt, SystemSetting, User, UserWordEvent
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +173,26 @@ def record_attempt(db: Session, ip_address: str, *, successful: bool) -> None:
     db.commit()
 
 
+# ---- deletion ---------------------------------------------------------
+
+
+def purge_user(db: Session, user: User) -> None:
+    """Delete a user and everything that references them.
+
+    Texts, vocab lists, word states, and created invitations go via ORM
+    cascades; claimed invitations get their claimer nulled. The word-event
+    log has no ORM relationship (it can be thousands of rows — loading them
+    into the session just to delete them would be wasteful), so it is bulk-
+    deleted here. SQLite runs without FK enforcement, so forgetting a table
+    here leaks orphaned rows silently — keep this the single deletion path
+    (admin delete + lifecycle sweep both call it). Caller commits.
+    """
+    db.query(UserWordEvent).filter(UserWordEvent.user_id == user.id).delete(
+        synchronize_session=False
+    )
+    db.delete(user)
+
+
 # ---- the lifecycle pass ----------------------------------------------
 
 
@@ -195,6 +215,7 @@ def run_lifecycle_pass(db: Session | None = None) -> dict[str, int]:
         stats = {"soft_marked": 0, "hard_deleted": 0, "attempts_pruned": 0}
 
         now = datetime.utcnow()
+        just_marked_ids: set[int] = set()
         if soft_days > 0:
             soft_cutoff = now - timedelta(days=soft_days)
             soft_targets = (
@@ -206,18 +227,27 @@ def run_lifecycle_pass(db: Session | None = None) -> dict[str, int]:
             )
             for u in soft_targets:
                 u.account_status = "dormant"
+                just_marked_ids.add(u.id)
             stats["soft_marked"] = len(soft_targets)
 
         if hard_days > 0:
             hard_cutoff = now - timedelta(days=hard_days)
-            hard_targets = (
+            hard_query = (
                 db.query(User)
                 .filter(User.is_admin.is_(False))
                 .filter(User.last_active < hard_cutoff)
-                .all()
             )
+            # When a soft threshold exists, only delete accounts that have
+            # already been through the dormant warning state — a container
+            # that was offline across both thresholds must not skip straight
+            # to deletion without the user ever seeing the warning. (The
+            # dormant flip above runs first, so such accounts get deleted on
+            # the NEXT pass, one interval later.)
+            if soft_days > 0:
+                hard_query = hard_query.filter(User.account_status == "dormant")
+            hard_targets = [u for u in hard_query.all() if u.id not in just_marked_ids]
             for u in hard_targets:
-                db.delete(u)
+                purge_user(db, u)
             stats["hard_deleted"] = len(hard_targets)
 
         attempt_cutoff = now - timedelta(hours=24)

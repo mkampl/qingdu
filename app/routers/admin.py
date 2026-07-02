@@ -130,9 +130,10 @@ async def delete_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Cannot delete admin users"
         )
-    db.delete(user)
+    username = user.username
+    lifecycle.purge_user(db, user)
     db.commit()
-    return {"message": f"User {user.username} deleted"}
+    return {"message": f"User {username} deleted"}
 
 
 @router.post("/api/admin/users/{user_id}/reset-password")

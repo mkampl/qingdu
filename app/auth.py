@@ -50,6 +50,26 @@ def decode_token(token: str) -> dict:
         return None
 
 
+def _touch_last_active(db: Session, user: User) -> None:
+    """Record activity for the lifecycle sweep — throttled.
+
+    The sweep works in days, so minute precision is plenty. Committing on
+    every request turned each authed GET into a SQLite write, which under
+    two uvicorn workers is the classic "database is locked" recipe.
+    """
+    now = datetime.utcnow()
+    stale = user.last_active is None or (now - user.last_active) > timedelta(minutes=5)
+    dormant = user.account_status == "dormant"
+    if stale or dormant:
+        user.last_active = now
+        # A dormant user showing up again is reactivated on any authed
+        # request, so the sweep never deletes an account that has been
+        # active since its warning.
+        if dormant:
+            user.account_status = "active"
+        db.commit()
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)
 ) -> User | None:
@@ -68,9 +88,7 @@ async def get_current_user(
 
     user = db.query(User).filter(User.username == username).first()
     if user:
-        # Update last_active
-        user.last_active = datetime.utcnow()
-        db.commit()
+        _touch_last_active(db, user)
 
     return user
 
@@ -118,9 +136,7 @@ async def get_user_from_token_or_query(
 
     user = db.query(User).filter(User.username == username).first()
     if user:
-        # Update last_active
-        user.last_active = datetime.utcnow()
-        db.commit()
+        _touch_last_active(db, user)
 
     return user
 

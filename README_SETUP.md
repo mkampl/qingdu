@@ -56,7 +56,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 ## Troubleshooting
 
-**`"SECRET_KEY must be set"` at startup.**  Missing `.env`. Copy `.env.example` to `.env` and either keep the dev key or generate a fresh one.
+**`"SECRET_KEY must be set"` at startup.**  Missing `.env` or empty key. Run `./setup.sh` (generates one), or copy `.env.example` to `.env` and fill `SECRET_KEY=` with the output of `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Every installation needs its own key — a shared key lets anyone forge login tokens.
 
 **Container won't start.**  `docker compose logs web` — most failures are a missing required env var.
 
