@@ -116,6 +116,17 @@ interface RequestOptions {
   anonymous?: boolean;
 }
 
+// Fired when an authenticated request comes back 401 — the token expired
+// or was revoked server-side. The auth store registers a handler that
+// clears the session and reopens the login modal; without it, a mid-session
+// expiry surfaced as a trickle of raw "Not authenticated" toasts while
+// optimistic UI kept accepting edits that rolled back one by one.
+let unauthorizedHandler: (() => void) | null = null;
+
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  unauthorizedHandler = fn;
+}
+
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {};
   if (opts.body !== undefined) {
@@ -134,6 +145,17 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   });
 
   if (!response.ok) {
+    // Login/register 401s are "wrong credentials", not "session died" —
+    // they must not trigger the session-expired flow.
+    if (
+      response.status === 401 &&
+      !opts.anonymous &&
+      getToken() &&
+      !path.startsWith("/api/auth/login") &&
+      !path.startsWith("/api/auth/register")
+    ) {
+      unauthorizedHandler?.();
+    }
     let detail: unknown = null;
     try {
       detail = await response.json();
@@ -605,8 +627,11 @@ export async function importPackageFile(
   const token = getToken();
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  // apiUrl() is load-bearing: a relative URL resolves against the Capacitor
+  // WebView origin (bundled assets) on native builds and ignores a custom
+  // server override on web.
   const r = await fetch(
-    `/api/import/package/file?strict=${strict ? "true" : "false"}`,
+    apiUrl(`/api/import/package/file?strict=${strict ? "true" : "false"}`),
     { method: "POST", headers, body: form },
   );
   if (!r.ok) {
@@ -887,6 +912,23 @@ export function wordsAnkiUrl(): string {
     : "/api/words/export.apkg";
   return apiUrl(path);
 }
+
+// Full-account JSON export — texts, word states + FSRS scheduling, vocab
+// lists, glosses, review log, settings. The escape hatch the demo server's
+// inactivity-deletion policy owes its users.
+export function fullExportUrl(): string {
+  const token = getToken();
+  const path = token
+    ? `/api/auth/export?token=${encodeURIComponent(token)}`
+    : "/api/auth/export";
+  return apiUrl(path);
+}
+
+export const deleteAccount = (password: string) =>
+  request<{ message: string }>("/api/auth/me", {
+    method: "DELETE",
+    body: { password },
+  });
 
 export const getWordStats = () =>
   request<WordStatsResponse>("/api/words/stats");

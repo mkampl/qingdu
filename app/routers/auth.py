@@ -8,13 +8,23 @@ from app.auth import (
     get_current_user,
     get_password_hash,
     require_auth,
+    require_auth_flexible,
     verify_password,
 )
 from app.core.constants import AUTH_RATE_LIMIT, MIN_PASSWORD_LENGTH
 from app.core.rate_limit import limiter
-from app.database import InvitationToken, User, get_db
+from app.database import (
+    InvitationToken,
+    SavedText,
+    User,
+    UserWord,
+    UserWordEvent,
+    VocabularyList,
+    get_db,
+)
 from app.schemas import (
     ChangePasswordRequest,
+    DeleteAccountRequest,
     LoginRequest,
     OpenRegisterRequest,
     SignupWithInviteRequest,
@@ -283,6 +293,126 @@ async def update_my_settings(
 async def logout():
     """Client-side token removal — server-side this is a no-op."""
     return {"message": "Logged out successfully"}
+
+
+@router.get("/api/auth/export")
+async def export_my_data(
+    user: User = Depends(require_auth_flexible),
+    db: Session = Depends(get_db),
+):
+    """Everything the server knows about this account, as one JSON file.
+
+    The escape hatch the demo's inactivity deletion policy owes its users
+    (and what the F-Droid crowd rightly expects): texts, word states with
+    their FSRS scheduling, glosses, vocab lists, the review event log, and
+    profile settings. `analysis_data` is deliberately excluded — it is a
+    derived cache, re-created by pasting the text back in, and it dwarfs
+    everything else combined. Flexible auth so a plain <a download> works.
+    """
+    from fastapi.responses import JSONResponse
+
+    words = db.query(UserWord).filter(UserWord.user_id == user.id).all()
+    payload = {
+        "format": "qingdu-export",
+        "version": 1,
+        "exported_at": datetime.utcnow().isoformat() + "Z",
+        "profile": {
+            "username": user.username,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "settings": {
+                "daily_new_words": user.daily_new_words,
+                "hsk_focus_version": user.hsk_focus_version,
+                "display_script": user.display_script,
+                "review_retention": user.review_retention,
+                "review_window": user.review_window,
+            },
+        },
+        "texts": [
+            {
+                "title": t.title,
+                "content": t.content,
+                "tags": t.tags,
+                "reading_progress": t.reading_progress,
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+            }
+            for t in db.query(SavedText).filter(SavedText.user_id == user.id).all()
+        ],
+        "vocabulary_lists": [
+            {
+                "name": vl.name,
+                "list_type": vl.list_type,
+                "sections": vl.sections,
+                "apply_as_glossary": vl.apply_as_glossary,
+                "created_at": vl.created_at.isoformat() if vl.created_at else None,
+            }
+            for vl in db.query(VocabularyList).filter(VocabularyList.user_id == user.id).all()
+        ],
+        "words": [
+            {
+                "word": w.word,
+                "state": w.state,
+                "seen_count": w.seen_count,
+                "pinyin": w.pinyin,
+                "meaning": w.meaning,
+                "ease": w.ease,
+                "stability": w.stability,
+                "difficulty": w.difficulty,
+                "due_at": w.due_at.isoformat() if w.due_at else None,
+                "last_reviewed_at": (
+                    w.last_reviewed_at.isoformat() if w.last_reviewed_at else None
+                ),
+                "glosses": [
+                    {"gloss": g.gloss, "pinyin": g.pinyin, "source": g.source} for g in w.glosses
+                ],
+            }
+            for w in words
+        ],
+        "review_events": [
+            {
+                "word": e.word,
+                "event_type": e.event_type,
+                "new_state": e.new_state,
+                "grade": e.grade,
+                "mode": e.mode,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+            }
+            for e in db.query(UserWordEvent)
+            .filter(UserWordEvent.user_id == user.id)
+            .order_by(UserWordEvent.created_at)
+            .all()
+        ],
+    }
+    return JSONResponse(
+        content=payload,
+        headers={"Content-Disposition": f'attachment; filename="qingdu-{user.username}.json"'},
+    )
+
+
+@router.delete("/api/auth/me")
+async def delete_my_account(
+    data: DeleteAccountRequest,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Self-service account deletion — immediate and irreversible.
+
+    Password re-entry guards against a left-open session. Admins must
+    demote themselves first (or use another admin), mirroring the
+    admin-panel rule, so an instance can't delete its last admin by
+    accident.
+    """
+    if not verify_password(data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Password is incorrect"
+        )
+    if user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin accounts can't self-delete. Demote this account first.",
+        )
+    lifecycle.purge_user(db, user)
+    db.commit()
+    return {"message": "Account and all associated data deleted."}
 
 
 @router.post("/api/auth/change-password")

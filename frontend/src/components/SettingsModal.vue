@@ -11,6 +11,7 @@ import {
   type HskVersion,
   type PinyinMode,
 } from "@/stores/settings";
+import { isNative } from "@/services/native";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 
@@ -122,6 +123,31 @@ const roughTotal = computed(() => {
 
 const csvUrl = computed(() => api.wordsCsvUrl());
 const ankiUrl = computed(() => api.wordsAnkiUrl());
+const fullExportUrl = computed(() => api.fullExportUrl());
+
+// --- Account deletion (audit trust item) ---
+// Two-step inline confirm + password re-entry; irreversible.
+const deleteArmed = ref(false);
+const deletePassword = ref("");
+const deleteBusy = ref(false);
+
+async function confirmDeleteAccount() {
+  if (!deletePassword.value) return;
+  deleteBusy.value = true;
+  try {
+    await api.deleteAccount(deletePassword.value);
+    setToken(null);
+    toasts.success("Your account and all its data are gone. 再见!");
+    modals.closeAll();
+    setTimeout(() => window.location.reload(), 600);
+  } catch (e) {
+    toasts.error(
+      e instanceof ApiError ? e.message : "Couldn't delete the account.",
+    );
+  } finally {
+    deleteBusy.value = false;
+  }
+}
 
 // --- Phase #96: daily auto-enrol target ---
 //
@@ -292,6 +318,15 @@ async function runImport() {
 // typo'd server doesn't strand the user mid-config.
 
 const apiBaseDefault = getDefaultApiBase();
+// The Server section shows wherever switching servers makes sense: web
+// builds with a baked-in default (demo-hosted SPA) and EVERY native build.
+// F-Droid builds ship with an empty default on purpose (first-launch
+// ServerPicker), and that picker promises "switch later in Settings" —
+// hiding the section on exactly those builds broke the promise.
+const serverSectionVisible = apiBaseDefault !== "" || isNative();
+// On native-with-no-default there is no "default server" to name in the
+// copy; show the server currently in use instead.
+const apiBaseCurrent = getApiBase() || "(not set)";
 const apiBaseInput = ref(getApiBase());
 const apiBaseTesting = ref(false);
 const apiBaseStatus = ref<
@@ -893,7 +928,9 @@ function resetApiBase() {
         </div>
       </details>
 
-      <details class="group rounded-md">
+      <!-- Everything inside is auth-gated or server-related; logged-out on
+           a same-origin web build the section would expand to nothing. -->
+      <details v-if="auth.isAuthed || serverSectionVisible" class="group rounded-md">
         <summary class="flex cursor-pointer list-none items-center justify-between rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 hover:bg-bg-sunken">
           <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle">Data &amp; account</span>
           <svg class="size-3 text-fg-subtle transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -909,11 +946,33 @@ function resetApiBase() {
           Export
         </legend>
         <p class="mb-3 text-xs text-fg-muted leading-relaxed">
-          Take your data with you. CSV is a flat dump of every word state + FSRS
-          scheduling fields; the Anki deck includes everything you're learning
-          or already know with HSK level annotations.
+          Take your data with you. Everything is the complete account —
+          texts, word states with scheduling, lists, and review history —
+          as one JSON file. CSV and Anki cover just your words.
         </p>
         <div class="flex flex-wrap gap-2">
+          <a
+            :href="fullExportUrl"
+            class="inline-flex items-center gap-1.5 rounded-md border border-accent/40 bg-bg-elevated px-3 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-bg-sunken"
+            download
+          >
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 11 11"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M5.5 1.5v6M3 5l2.5 2.5L8 5M2 9.5h7"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            everything.json
+          </a>
           <a
             :href="csvUrl"
             class="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
@@ -961,24 +1020,23 @@ function resetApiBase() {
         </div>
       </fieldset>
 
-      <!-- Phase 1.6 — server-switcher for self-hosters. The default URL
-           the maintainer ships is just a demo host; F-Droid / Capacitor
-           users can repoint at their own backend without rebuilding.
-           Hidden on web builds where the SPA is same-origin anyway (no
-           cross-origin call would succeed without CORS on a custom host
-           and the user already knows what server they hit). -->
-      <fieldset v-if="apiBaseDefault !== ''">
+      <!-- Phase 1.6 — server-switcher for self-hosters. Shown on every
+           native build (F-Droid ships no baked-in default — the first-
+           launch ServerPicker promises "switch later in Settings") and on
+           web builds that carry a default URL. Hidden only on same-origin
+           web builds, where the user already knows what server they hit. -->
+      <fieldset v-if="serverSectionVisible">
         <legend
           class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
         >
           Server
         </legend>
         <p class="mb-3 text-xs text-fg-muted leading-relaxed">
-          By default this app talks to
-          <code class="rounded bg-bg-sunken px-1 py-0.5 font-mono text-[11px] text-fg">{{ apiBaseDefault }}</code> —
-          a public demo server. Point it at your own Qingdu instance to
-          keep your data on infrastructure you control. Changing server
-          signs you out; the new server has its own accounts.
+          This app currently talks to
+          <code class="rounded bg-bg-sunken px-1 py-0.5 font-mono text-[11px] text-fg">{{ apiBaseCurrent }}</code>.
+          Point it at your own Qingdu instance to keep your data on
+          infrastructure you control. Changing server signs you out; the
+          new server has its own accounts.
         </p>
         <label class="block">
           <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
@@ -1038,6 +1096,60 @@ function resetApiBase() {
         >
           {{ apiBaseStatus.message }}
         </p>
+      </fieldset>
+
+      <!-- Self-service account deletion (audit trust item). Inline two-step
+           confirm + password re-entry; there is no email, so there is no
+           undo path once this runs. -->
+      <fieldset v-if="auth.isAuthed && !auth.isAdmin">
+        <legend
+          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          Delete account
+        </legend>
+        <p class="mb-3 text-xs text-fg-muted leading-relaxed">
+          Removes your account and everything in it — texts, words, lists,
+          review history — immediately and permanently. Download your data
+          first if you might want it back.
+        </p>
+        <button
+          v-if="!deleteArmed"
+          type="button"
+          class="rounded-md border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/40"
+          @click="deleteArmed = true"
+        >
+          Delete my account…
+        </button>
+        <div v-else class="space-y-2">
+          <label class="block">
+            <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+              Confirm with your password
+            </span>
+            <input
+              v-model="deletePassword"
+              type="password"
+              autocomplete="current-password"
+              class="w-full max-w-xs rounded-md border border-border-subtle bg-bg px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none"
+            />
+          </label>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="!deletePassword || deleteBusy"
+              @click="confirmDeleteAccount"
+            >
+              {{ deleteBusy ? "Deleting…" : "Yes, delete everything" }}
+            </button>
+            <button
+              type="button"
+              class="text-xs text-fg-muted underline-offset-2 hover:text-fg hover:underline"
+              @click="deleteArmed = false; deletePassword = ''"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       </fieldset>
         </div>
       </details>

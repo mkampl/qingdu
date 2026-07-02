@@ -23,6 +23,7 @@ import PronunciationCheck from "@/components/reader/PronunciationCheck.vue";
 import StrokeOrder from "@/components/reader/StrokeOrder.vue";
 import WritingQuiz from "@/components/reader/WritingQuiz.vue";
 import { useAuthStore } from "@/stores/auth";
+import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReviewStore } from "@/stores/review";
 import { useSettingsStore } from "@/stores/settings";
 import { success as hapticSuccess, tap as hapticTap } from "@/services/native";
@@ -53,6 +54,7 @@ watch(
   },
 );
 const auth = useAuthStore();
+const authModals = useAuthModalsStore();
 const settings = useSettingsStore();
 
 const revealed = ref(false);
@@ -557,6 +559,13 @@ watch(
         Review draws from words you've marked as
         <span class="font-medium">Learning</span> in the reader.
       </p>
+      <button
+        type="button"
+        class="mt-4 inline-flex items-center rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90"
+        @click="authModals.openLogin()"
+      >
+        Sign in
+      </button>
     </div>
 
     <!-- 7-day activity sparkline — only when authed; lives above the

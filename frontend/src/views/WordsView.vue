@@ -47,6 +47,11 @@ type SortKey = "due" | "recent" | "hsk";
 const items = ref<WordsQueueItem[]>([]);
 const total = ref(0);
 const loading = ref(false);
+// True after the first successful fetch. Until then the list shows the
+// loading state, never "Nothing matches" — on a fresh page load onMounted
+// fires before the auth store has hydrated, refresh() early-returns, and
+// without this flag the user's first paint claimed their words were gone.
+const loaded = ref(false);
 const error = ref<string | null>(null);
 
 const stateFilter = ref<StateFilter>("all");
@@ -76,6 +81,7 @@ async function refresh() {
     const r = await api.listWordsQueue(queryParams.value);
     items.value = r.items;
     total.value = r.total;
+    loaded.value = true;
     // Pull the same numbers the header badge shows, so the user can't see
     // "38 due" in the nav and "28 due" here at the same time.
     review.refreshStats();
@@ -91,6 +97,14 @@ watch(search, () => {
   if (searchTimer) window.clearTimeout(searchTimer);
   searchTimer = window.setTimeout(() => refresh(), 200);
 });
+// Fresh page loads mount this view before the auth store finishes
+// hydrating; fetch as soon as the session materialises.
+watch(
+  () => auth.isAuthed,
+  (authed) => {
+    if (authed && !loaded.value) refresh();
+  },
+);
 onMounted(() => refresh());
 
 function toggleHsk(n: number) {
@@ -332,7 +346,7 @@ function toggleExpanded(word: string) {
       <span>{{ review.stats.learning }} learning · {{ counts.known }} known<span v-if="counts.ignored"> · {{ counts.ignored }} ignored</span></span>
     </div>
 
-    <p v-if="loading" class="py-10 text-center text-sm text-fg-subtle">Loading…</p>
+    <p v-if="loading || !loaded" class="py-10 text-center text-sm text-fg-subtle">Loading…</p>
     <p v-else-if="error" class="py-10 text-center text-sm text-rose-600">{{ error }}</p>
     <p
       v-else-if="items.length === 0"

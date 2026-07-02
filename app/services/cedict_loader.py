@@ -374,8 +374,16 @@ def _entry_quality(
     by favouring the more common one. Defaults to 0 (no preference)
     when the caller doesn't have a frequency table on hand.
     """
-    del numbered_pinyin  # kept in the signature for future heuristics
     score = 100
+    # CC-CEDICT capitalizes the pinyin of proper-noun readings
+    # ("Ping2 guo3" the company vs "ping2 guo3" the fruit). The company
+    # entry's long parenthesised gloss dodges every other penalty while
+    # the fruit's bare "apple" eats the stub-gloss one, so 苹果 (HSK 3!)
+    # was glossed "Apple (American tech company)" on review cards. When
+    # a word only HAS proper-noun readings (中国), they all carry the
+    # penalty and the relative ranking still works.
+    if numbered_pinyin[:1].isupper():
+        score -= 70
     if _looks_minor(primary):
         score -= 100
     if _looks_pure_marker(primary):

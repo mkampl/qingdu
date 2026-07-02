@@ -61,5 +61,10 @@ export const router = createRouter({
       component: () => import("@/views/PublicShareView.vue"),
       props: true,
     },
+    {
+      path: "/privacy",
+      name: "privacy",
+      component: () => import("@/views/PrivacyView.vue"),
+    },
   ],
 });

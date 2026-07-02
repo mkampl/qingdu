@@ -58,6 +58,13 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 
+class DeleteAccountRequest(BaseModel):
+    """Self-service account deletion — password re-entry required so a
+    left-open session can't nuke the account."""
+
+    password: str
+
+
 class SignupWithInviteRequest(BaseModel):
     token: str
     username: str

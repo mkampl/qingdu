@@ -59,6 +59,28 @@ def test_parser_prefers_real_gloss_over_surname_collision():
     assert parsed["张"]["meaning"] == "to open up"
 
 
+def test_parser_prefers_common_noun_over_proper_noun_collision():
+    """苹果 the fruit must beat 苹果 the tech company (2026-07 audit).
+
+    The company's long parenthesised gloss dodges the stub-gloss penalty
+    that the fruit's bare "apple" eats, so file order used to decide —
+    and drilled "Apple (American tech company)" into HSK-3 review cards.
+    CC-CEDICT's capitalized-pinyin convention marks the proper noun.
+    """
+    sample = (
+        "蘋果 苹果 [Ping2 guo3] /Apple (American multinational technology company)/\n"
+        "蘋果 苹果 [ping2 guo3] /apple/\n"
+    )
+    parsed = cedict_loader._parse_text(sample)
+    assert parsed["苹果"]["meaning"] == "apple"
+    assert parsed["苹果"]["pinyin"] == "píng guǒ"
+
+    # A word whose ONLY readings are proper nouns keeps working — the
+    # penalty is relative, not disqualifying.
+    only_proper = cedict_loader._parse_text("中國 中国 [Zhong1 guo2] /China/\n")
+    assert only_proper["中国"]["meaning"] == "China"
+
+
 def test_parser_demotes_bare_suffix_marker_against_content_reading():
     """地 (de, "-ly" suffix marker) vs 地 (di4, "earth") — content reading
     wins because the de entry's primary is a pure suffix marker with no

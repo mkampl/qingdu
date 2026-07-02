@@ -134,6 +134,30 @@ function collectUnknownWordsInRange(start: number, end: number): string[] {
 }
 
 const bulkMarkingRange = ref<string | null>(null);
+// One tap used to mark a whole section known instantly — prime mis-tap
+// territory right above the audio player on mobile, with no undo and
+// silent damage to level estimation. Arm first, confirm second, like
+// every other bulk action in the app.
+const bulkConfirm = ref<{ key: string; start: number; end: number; count: number } | null>(
+  null,
+);
+
+function requestBulkMark(start: number, end: number) {
+  const words = collectUnknownWordsInRange(start, end);
+  if (!words.length) {
+    toasts.info("Nothing left to mark — all words here are already known.");
+    return;
+  }
+  bulkConfirm.value = { key: `${start}-${end}`, start, end, count: words.length };
+}
+
+async function confirmBulkMark() {
+  if (!bulkConfirm.value) return;
+  const { start, end } = bulkConfirm.value;
+  bulkConfirm.value = null;
+  await bulkMarkRange(start, end);
+}
+
 async function bulkMarkRange(start: number, end: number) {
   const key = `${start}-${end}`;
   if (bulkMarkingRange.value === key) return;
@@ -388,12 +412,25 @@ watch(
       v-if="auth.isAuthed && sectionEndAt.has(idx)"
       class="mb-6 mt-2 flex justify-end"
     >
+      <div
+        v-if="bulkConfirm?.key === `${sectionEndAt.get(idx)!.start}-${sectionEndAt.get(idx)!.end}`"
+        class="inline-flex items-center gap-2 rounded-full border border-border bg-bg-elevated px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider"
+      >
+        <span class="text-fg">Mark {{ bulkConfirm.count }} words known?</span>
+        <button type="button" class="text-accent hover:underline" @click="confirmBulkMark">
+          Confirm
+        </button>
+        <button type="button" class="text-fg-muted hover:underline" @click="bulkConfirm = null">
+          Cancel
+        </button>
+      </div>
       <button
+        v-else
         type="button"
         class="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-bg-elevated px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="bulkMarkingRange !== null"
         @click="
-          bulkMarkRange(
+          requestBulkMark(
             sectionEndAt.get(idx)!.start,
             sectionEndAt.get(idx)!.end,
           )
@@ -418,11 +455,24 @@ watch(
       v-if="auth.isAuthed && showTailBulkAction"
       class="mt-4 flex justify-end"
     >
+      <div
+        v-if="bulkConfirm?.key === `0-${sentences.length}`"
+        class="inline-flex items-center gap-2 rounded-full border border-border bg-bg-elevated px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider"
+      >
+        <span class="text-fg">Mark {{ bulkConfirm.count }} words known?</span>
+        <button type="button" class="text-accent hover:underline" @click="confirmBulkMark">
+          Confirm
+        </button>
+        <button type="button" class="text-fg-muted hover:underline" @click="bulkConfirm = null">
+          Cancel
+        </button>
+      </div>
       <button
+        v-else
         type="button"
         class="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-bg-elevated px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="bulkMarkingRange !== null"
-        @click="bulkMarkRange(0, sentences.length)"
+        @click="requestBulkMark(0, sentences.length)"
       >
         <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
           <path

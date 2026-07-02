@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 
 import * as api from "@/api/client";
+import { ApiError } from "@/api/client";
 import type { User } from "@/api/types";
 import { useReviewStore } from "@/stores/review";
 import { useUserWordsStore } from "@/stores/userWords";
@@ -14,6 +15,24 @@ export const useAuthStore = defineStore("auth", () => {
   const isAuthed = computed(() => user.value !== null);
   const isAdmin = computed(() => user.value?.is_admin ?? false);
 
+  // Mid-session token expiry (30-day JWTs do run out). One 401 from any
+  // authed endpoint clears the session and brings the login modal back,
+  // instead of a trickle of raw "Not authenticated" toasts while
+  // optimistic UI keeps accepting edits that roll back one by one.
+  api.setUnauthorizedHandler(async () => {
+    if (!api.getToken() && user.value === null) return; // already handled
+    api.setToken(null);
+    user.value = null;
+    useUserWordsStore().reset();
+    useReviewStore().reset();
+    // Dynamic imports keep this file free of new static store edges
+    // (toast/auth-modals) that could form require cycles.
+    const { useToastStore } = await import("@/stores/toast");
+    const { useAuthModalsStore } = await import("@/stores/auth-modals");
+    useToastStore().info("Your session expired — please sign in again.");
+    useAuthModalsStore().openLogin();
+  });
+
   async function hydrate() {
     if (!api.getToken()) {
       user.value = null;
@@ -22,9 +41,15 @@ export const useAuthStore = defineStore("auth", () => {
     try {
       const me = await api.me();
       user.value = me.authenticated ? me.user : null;
-    } catch {
-      // Token rejected — clear it.
-      api.setToken(null);
+    } catch (e) {
+      // Only a server-side rejection means the token is bad. A network
+      // failure (offline app start, server blip) must NOT clear it —
+      // that logged phone users out every time they opened the app in
+      // airplane mode. Stay logged-out for this session but keep the
+      // token for the next launch.
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+        api.setToken(null);
+      }
       user.value = null;
     }
     if (user.value) {

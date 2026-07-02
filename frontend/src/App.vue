@@ -393,6 +393,13 @@ watch(
           APK
         </a>
         <span aria-hidden="true">·</span>
+        <RouterLink
+          to="/privacy"
+          class="inline-flex items-center gap-1 transition-colors hover:text-accent"
+        >
+          Privacy
+        </RouterLink>
+        <span aria-hidden="true">·</span>
         <button
           type="button"
           class="inline-flex items-center gap-1 transition-colors hover:text-accent"

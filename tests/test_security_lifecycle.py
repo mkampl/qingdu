@@ -188,7 +188,10 @@ def user_client(app_module, db_session):
 
     plain = _make_user(db_session, "plain")
 
-    app_module.dependency_overrides[get_db] = lambda: iter([db_session])
+    def _get_db():
+        yield db_session
+
+    app_module.dependency_overrides[get_db] = _get_db
     app_module.dependency_overrides[get_current_user] = lambda: plain
     with TestClient(app_module) as c:
         yield c
@@ -200,6 +203,84 @@ def test_admin_endpoints_forbid_non_admins(user_client):
     assert user_client.delete("/api/admin/users/1").status_code == 403
     assert user_client.get("/api/admin/registration-settings").status_code == 403
     assert user_client.patch("/api/admin/registration-settings", json={}).status_code == 403
+
+
+# ---- self-service deletion + full export --------------------------------
+
+
+@pytest.fixture
+def owner_client(app_module, db_session):
+    """TestClient authenticated as a user with a real bcrypt password."""
+    from fastapi.testclient import TestClient
+
+    from app.auth import get_current_user, get_password_hash, get_user_from_token_or_query
+    from app.database import get_db
+
+    owner = User(
+        username="owner",
+        password_hash=get_password_hash("hunter2-secure"),
+        invite_quota=0,
+    )
+    db_session.add(owner)
+    db_session.commit()
+    db_session.refresh(owner)
+
+    def _get_db():
+        yield db_session
+
+    app_module.dependency_overrides[get_db] = _get_db
+    app_module.dependency_overrides[get_current_user] = lambda: owner
+    app_module.dependency_overrides[get_user_from_token_or_query] = lambda: owner
+    with TestClient(app_module) as c:
+        yield c, owner
+    app_module.dependency_overrides.clear()
+
+
+def test_export_contains_all_user_data(owner_client, db_session):
+    client, owner = owner_client
+    db_session.add(
+        SavedText(user_id=owner.id, title="故事", content="很久很久以前", analysis_data="{}")
+    )
+    db_session.add(UserWord(user_id=owner.id, word="你好", state="learning", pinyin="nǐ hǎo"))
+    db_session.add(UserWordEvent(user_id=owner.id, word="你好", event_type="seen"))
+    db_session.commit()
+
+    r = client.get("/api/auth/export")
+    assert r.status_code == 200
+    assert "attachment" in r.headers["content-disposition"]
+    body = r.json()
+    assert body["format"] == "qingdu-export"
+    assert body["profile"]["username"] == "owner"
+    assert [t["title"] for t in body["texts"]] == ["故事"]
+    assert body["texts"][0]["content"] == "很久很久以前"
+    assert [w["word"] for w in body["words"]] == ["你好"]
+    assert body["review_events"][0]["event_type"] == "seen"
+
+
+def test_delete_account_requires_correct_password(owner_client, db_session):
+    client, owner = owner_client
+    r = client.request("DELETE", "/api/auth/me", json={"password": "wrong"})
+    assert r.status_code == 401
+    assert db_session.query(User).filter(User.username == "owner").first() is not None
+
+
+def test_delete_account_removes_everything(owner_client, db_session):
+    client, owner = owner_client
+    db_session.add(UserWord(user_id=owner.id, word="你好", state="learning"))
+    db_session.add(
+        InvitationToken(
+            token="tok-own",
+            created_by_user_id=owner.id,
+            expires_at=datetime.utcnow() + timedelta(days=7),
+        )
+    )
+    db_session.commit()
+
+    r = client.request("DELETE", "/api/auth/me", json={"password": "hunter2-secure"})
+    assert r.status_code == 200
+    assert db_session.query(User).filter(User.username == "owner").first() is None
+    assert db_session.query(UserWord).count() == 0
+    assert db_session.query(InvitationToken).count() == 0
 
 
 # ---- captcha -----------------------------------------------------------
