@@ -8,9 +8,10 @@
  * the math question; if off, the captcha block hides and the user just
  * picks a username + password.
  *
- * The honeypot input is rendered off-screen via `tabindex="-1"` and
- * `aria-hidden="true"` so screen readers and keyboard tabbing skip it.
- * A real user never fills it; bots that auto-complete every input do.
+ * The captcha input must stay `type="text"`: with `type="number"` Vue
+ * auto-casts the v-model to a number and every `.trim()` on it throws,
+ * unmounting the whole dialog mid-typing (shipped bug, 2026-07-02).
+ * `inputmode="numeric"` alone is what brings up the phone numpad.
  */
 
 import { computed, ref, watch } from "vue";
@@ -53,7 +54,7 @@ const canSubmit = computed(() => {
   if (password.value !== confirm.value) return false;
   if (captchaRequired.value) {
     if (captcha.value.status !== "ready") return false;
-    if (!captchaAnswer.value.trim()) return false;
+    if (!String(captchaAnswer.value).trim()) return false;
   }
   return true;
 });
@@ -103,7 +104,7 @@ async function onSubmit(e: Event) {
   try {
     const captchaPayload =
       captchaRequired.value && captcha.value.status === "ready"
-        ? { token: captcha.value.token, answer: captchaAnswer.value }
+        ? { token: captcha.value.token, answer: String(captchaAnswer.value).trim() }
         : undefined;
     await auth.openRegister(username.value.trim(), password.value, captchaPayload);
     toasts.success(`Welcome, ${auth.user?.username ?? "friend"}.`);
@@ -211,8 +212,9 @@ function switchToLogin() {
           </div>
           <input
             v-model="captchaAnswer"
-            type="number"
+            type="text"
             inputmode="numeric"
+            autocomplete="off"
             class="w-20 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-center text-base text-fg focus:border-accent focus:outline-none"
             :disabled="captcha.status !== 'ready'"
             aria-label="Captcha answer"
@@ -231,6 +233,12 @@ function switchToLogin() {
       <Button type="submit" full :loading="submitting" :disabled="!canSubmit">
         Create account
       </Button>
+
+      <p class="text-xs leading-relaxed text-fg-muted">
+        No email needed — which also means no password reset, so keep your
+        password somewhere safe. Accounts unused for 30 days are paused;
+        signing in again reactivates them.
+      </p>
 
       <p class="text-center text-xs text-fg-muted">
         Already have an account?
