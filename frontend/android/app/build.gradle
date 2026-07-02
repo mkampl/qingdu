@@ -42,13 +42,13 @@ android {
             def keystoreFile = System.getenv("RELEASE_KEYSTORE_FILE")
             if (keystoreFile && new File(keystoreFile).exists()) {
                 signingConfig signingConfigs.release
-            } else {
-                // No release keystore in this environment — sign with the
-                // ambient debug keystore so the release task still produces
-                // an installable (if non-publishable) APK. Useful for
-                // forks / PR builds where the secret is unavailable.
-                signingConfig signingConfigs.debug
             }
+            // No keystore -> leave the release build UNSIGNED. F-Droid's
+            // buildserver requires app-release-unsigned.apk (they sign with
+            // their own key); the previous debug-keystore fallback made
+            // gradle emit a debug-signed app-release.apk and would have
+            // failed their pipeline. Forks that want an installable build
+            // without secrets can use assembleDebug.
         }
     }
 }
@@ -72,12 +72,8 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
-
-try {
-    def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
-    }
-} catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
-}
+// The Capacitor template's google-services block used to live here. It was
+// inert (no google-services.json has ever been in this repo) but F-Droid
+// reviewers rightly flag any GMS wiring - removed together with the
+// classpath in ../build.gradle. Push notifications are deliberately not a
+// thing; reminders are local notifications.

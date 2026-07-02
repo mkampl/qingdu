@@ -23,4 +23,6 @@ By default the app talks to qingdu.itvoodoo.at — a free public demo run by the
 
 For long-term use, self-host your own backend (Docker compose, ~5 min) and point the app at it via Settings → Server. The backend is in the same repository under the MIT licence with no retention limits of its own.
 
+Your data stays yours: download the complete account as one JSON file or delete the account entirely, both from Settings → Data & account. The privacy policy is at https://qingdu.itvoodoo.at/privacy — no analytics, no trackers; sentence translations are processed by DeepL / Google Translate / MyMemory on the server.
+
 Anti-Features: NonFreeNet — the app depends on a server, but the server source is in the same repository under the MIT licence and you can self-host it.

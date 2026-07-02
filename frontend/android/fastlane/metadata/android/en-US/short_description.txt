@@ -1,1 +1,1 @@
-HSK-coloured Chinese reader with spaced-repetition review and pronunciation feedback.
+HSK-coloured Chinese reader with spaced-repetition review

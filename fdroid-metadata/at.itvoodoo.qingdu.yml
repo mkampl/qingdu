@@ -7,7 +7,7 @@ SourceCode: https://github.com/mkampl/qingdu
 IssueTracker: https://github.com/mkampl/qingdu/issues
 
 AutoName: QingDu
-Summary: HSK-coloured Chinese reader with spaced-repetition review.
+Summary: HSK-coloured Chinese reader with spaced-repetition review
 Description: |-
     Read any Chinese text against the HSK 1–9 vocabulary list and study what
     you don't know yet.
@@ -24,9 +24,11 @@ Description: |-
       * Export vocabulary to Anki or CSV
       * Local daily reminders, streak tracking, no trackers, no ads
 
-    The Android app is a thin Capacitor wrapper around the web app at
-    qingdu.itvoodoo.at (a free public demo run by the maintainer). An
-    internet connection is required.
+    The Android app is a thin Capacitor wrapper around the web app. An
+    internet connection is required. The F-Droid build ships with no
+    server baked in: on first launch you choose between the maintainer's
+    free public demo (qingdu.itvoodoo.at) and your own self-hosted
+    instance.
 
     The default demo is open for registration with a server-side math
     captcha (no third-party scripts), per-IP rate-limiting, and
@@ -42,20 +44,23 @@ RepoType: git
 Repo: https://github.com/mkampl/qingdu.git
 
 Builds:
-  - versionName: 1.0.43
-    versionCode: 44
-    commit: v1.0.43
+  - versionName: 1.0.50
+    versionCode: 51
+    commit: v1.0.50
     subdir: frontend/android/app
     sudo:
       - apt-get update
       - apt-get install -y nodejs npm
-    init: |-
+    prebuild: |-
         cd ../.. && npm ci && npx vite build && npx cap sync android
+    # node_modules must survive until the gradle build - capacitor.settings
+    # .gradle resolves :capacitor-android and the plugin projects from it -
+    # so scanignore (skip scanning), not scandelete (would delete them).
+    # The scanner otherwise errors on esbuild's ELF binary + tesseract wasm.
+    scanignore:
+      - frontend/node_modules
     gradle:
       - yes
-    output: app/build/outputs/apk/release/app-release-unsigned.apk
-    rm:
-      - frontend/android/app/google-services.json
 
 AntiFeatures:
   NonFreeNet:
@@ -71,5 +76,5 @@ AntiFeatures:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.0.43
-CurrentVersionCode: 44
+CurrentVersion: 1.0.50
+CurrentVersionCode: 51
