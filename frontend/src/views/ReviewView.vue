@@ -261,6 +261,58 @@ async function playTts() {
   }
 }
 
+// Grade row — visible after reveal in recognition, after answer in
+// dictation, after the writing quiz completes, after a cloze answer.
+// Intro never reaches this row directly: tapping 'Got it' on an intro
+// card swaps the surface to trace, and the row appears once the trace
+// WritingQuiz completes. Shared by the template and the keyboard handler.
+const gradeRowVisible = computed(
+  () =>
+    (activeSurface.value === "recognition" && revealed.value) ||
+    (activeSurface.value === "dictation" && dictationFeedback.value !== "") ||
+    (activeSurface.value === "writing" && writingDone.value) ||
+    (activeSurface.value === "cloze" && clozeFeedback.value !== "") ||
+    (activeSurface.value === "trace" && writingDone.value) ||
+    (activeSurface.value === "produce" && writingDone.value),
+);
+
+// Keyboard shortcuts SRS users expect: space reveals, 1-4 grade. The
+// "(space)" hint on the reveal button used to be a lie — no handler
+// existed. Skips entirely while typing in the dictation/cloze inputs.
+function onReviewKeydown(e: KeyboardEvent) {
+  const el = e.target as HTMLElement | null;
+  if (
+    el &&
+    (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)
+  ) {
+    return;
+  }
+  if (!card.value) return;
+  if (e.key === " ") {
+    if (activeSurface.value === "recognition" && !revealed.value) {
+      e.preventDefault();
+      reveal();
+    }
+    return;
+  }
+  if (
+    ["1", "2", "3", "4"].includes(e.key) &&
+    gradeRowVisible.value &&
+    !review.grading
+  ) {
+    e.preventDefault();
+    void gradeAndAdvance(Number(e.key) as ReviewGrade);
+  }
+}
+
+// The event-log modality for the surface the user just completed. The
+// stage surfaces (intro/trace/produce) are all hanzi-writing exercises.
+function surfaceMode(): ReviewMode {
+  const s = activeSurface.value;
+  if (s === "intro" || s === "trace" || s === "produce") return "writing";
+  return s;
+}
+
 async function gradeAndAdvance(g: ReviewGrade) {
   if (!card.value) return;
   // Light tap for Again/Hard, medium thump for Good/Easy — feels right
@@ -268,7 +320,7 @@ async function gradeAndAdvance(g: ReviewGrade) {
   if (g >= 3) hapticSuccess(settings.hapticsEnabled);
   else hapticTap(settings.hapticsEnabled);
   cancelAutoGrade();
-  await review.grade(g);
+  await review.grade(g, surfaceMode());
   // Reset reveal state for the next card.
   revealed.value = false;
   dictationInput.value = "";
@@ -466,10 +518,12 @@ onBeforeUnmount(() => {
   cancelAutoGrade();
   stopActiveTts();
   review.inFocus = false;
+  window.removeEventListener("keydown", onReviewKeydown);
 });
 
 onMounted(() => {
   if (auth.isAuthed) review.refreshStats();
+  window.addEventListener("keydown", onReviewKeydown);
 });
 
 // When the user toggles modes mid-session, reset the per-card state.
@@ -1158,17 +1212,7 @@ watch(
            Intro never reaches this row directly: tapping 'Got it' on an
            intro card swaps the surface to trace, and the grade row appears
            once the trace WritingQuiz completes. -->
-      <div
-        v-if="
-          (activeSurface === 'recognition' && revealed) ||
-          (activeSurface === 'dictation' && dictationFeedback !== '') ||
-          (activeSurface === 'writing' && writingDone) ||
-          (activeSurface === 'cloze' && clozeFeedback !== '') ||
-          (activeSurface === 'trace' && writingDone) ||
-          (activeSurface === 'produce' && writingDone)
-        "
-        class="grid grid-cols-4 gap-2"
-      >
+      <div v-if="gradeRowVisible" class="grid grid-cols-4 gap-2">
         <button
           type="button"
           :disabled="review.grading"

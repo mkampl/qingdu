@@ -62,6 +62,7 @@ Last reconciled: 2026-06-27 against `requirements.txt`, `frontend/package.json`,
 - **hanzi-writer** — Chris Nicholas — <https://github.com/chanind/hanzi-writer>
 - **@vitejs/plugin-vue** — Vite team — <https://github.com/vitejs/vite-plugin-vue>
 - **Capacitor (core, android, cli)** — Ionic — <https://github.com/ionic-team/capacitor>
+- **@capacitor/app** — Ionic — <https://github.com/ionic-team/capacitor-plugins>
 - **@capacitor/haptics** — Ionic — <https://github.com/ionic-team/capacitor-plugins>
 - **@capacitor/local-notifications** — Ionic — <https://github.com/ionic-team/capacitor-plugins>
 - **@capacitor/share** — Ionic — <https://github.com/ionic-team/capacitor-plugins>

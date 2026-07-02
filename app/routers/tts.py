@@ -1,10 +1,17 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 
+from app.core.rate_limit import limiter
 from app.services.tts import fetch_chinese_tts
 
 router = APIRouter(tags=["TTS"])
+
+# These endpoints proxy to Google's public TTS service and were shipped
+# with NO rate limit at all — an anonymous open proxy. 60/min per IP is
+# generous for real reading (the narration player requests sentence by
+# sentence) while capping abuse.
+TTS_RATE_LIMIT = "60/minute"
 
 
 class SentenceTtsRequest(BaseModel):
@@ -12,7 +19,8 @@ class SentenceTtsRequest(BaseModel):
 
 
 @router.get("/api/tts/{text}")
-async def text_to_speech(text: str):
+@limiter.limit(TTS_RATE_LIMIT)
+async def text_to_speech(request: Request, text: str):
     """Text-to-speech proxy for short text (word level). URL-path based."""
     try:
         audio = await fetch_chinese_tts(text)
@@ -26,7 +34,8 @@ async def text_to_speech(text: str):
 
 
 @router.post("/api/tts/sentence")
-async def sentence_to_speech(payload: SentenceTtsRequest):
+@limiter.limit(TTS_RATE_LIMIT)
+async def sentence_to_speech(request: Request, payload: SentenceTtsRequest):
     """
     TTS for sentence-length text. Body-based so we don't hit URL-path
     length limits, and the service layer transparently chunks anything

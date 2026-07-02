@@ -91,10 +91,16 @@ app = FastAPI(
 _cors_env = os.getenv("ALLOWED_ORIGINS", "").strip()
 if _cors_env:
     allowed_origins = [origin.strip() for origin in _cors_env.split(",") if origin.strip()]
+    # '*' + allow_credentials=True makes Starlette reflect any Origin with
+    # Access-Control-Allow-Credentials — "every site may make credentialed
+    # calls". Auth here is a Bearer header (not cookies) so the practical
+    # risk is low, but the pairing is never right: with a wildcard, drop
+    # credentials support; with an explicit whitelist, keep it.
+    _wildcard = "*" in allowed_origins
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
-        allow_credentials=True,
+        allow_credentials=not _wildcard,
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=[

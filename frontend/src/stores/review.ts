@@ -121,7 +121,7 @@ export const useReviewStore = defineStore("review", () => {
     }
   }
 
-  async function grade(g: ReviewGrade) {
+  async function grade(g: ReviewGrade, surface?: ReviewMode) {
     const card = current.value;
     if (!card || grading.value) return;
     // Practice mode — no server call, no FSRS mutation, no streak update.
@@ -135,7 +135,11 @@ export const useReviewStore = defineStore("review", () => {
     }
     grading.value = true;
     try {
-      const response = await api.gradeReviewCard(card.word, g, mode.value);
+      // `surface` is the modality the user actually just performed —
+      // ReviewView passes it in mixed mode. Without it every mixed-mode
+      // grade was logged as mode:"recognition" (the legacy fallback of
+      // `mode`), mislabelling per-modality stats server-side.
+      const response = await api.gradeReviewCard(card.word, g, surface ?? mode.value);
       sessionGraded.value += 1;
 
       // Phase #118 (5a) — Anki-style learning-queue re-insert. If FSRS
@@ -207,6 +211,13 @@ export const useReviewStore = defineStore("review", () => {
     practiceMode.value = false;
   }
 
+  // Logout variant: stats must go too, or the next account signing in on
+  // the same device briefly inherits the previous user's due-count badge.
+  function resetAll() {
+    reset();
+    stats.value = { ...DEFAULT_STATS };
+  }
+
   return {
     queue,
     queueMode,
@@ -228,5 +239,6 @@ export const useReviewStore = defineStore("review", () => {
     grade,
     refreshStats,
     reset,
+    resetAll,
   };
 });

@@ -52,7 +52,7 @@ Builds:
       - apt-get update
       - apt-get install -y nodejs npm
     prebuild: |-
-        cd ../.. && npm ci && npx vite build && npx cap sync android
+        cd ../.. && npm ci && npx vite build && find dist -name '*.map' -delete && npx cap sync android
     # node_modules must survive until the gradle build - capacitor.settings
     # .gradle resolves :capacitor-android and the plugin projects from it -
     # so scanignore (skip scanning), not scandelete (would delete them).

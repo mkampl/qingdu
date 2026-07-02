@@ -16,6 +16,7 @@ from __future__ import annotations
 from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 
 from app.auth import require_auth
 from app.database import User
@@ -51,7 +52,12 @@ async def pronounce(
     expected_pinyins = [p.strip() for p in pinyin.split(",") if p.strip()]
 
     try:
-        result = score_pronunciation(audio_bytes, word_simp, expected_pinyins)
+        # Whisper inference + librosa pitch extraction take seconds of CPU;
+        # run in the threadpool so they don't freeze the event loop (one of
+        # only two uvicorn workers) for every other request in flight.
+        result = await run_in_threadpool(
+            score_pronunciation, audio_bytes, word_simp, expected_pinyins
+        )
     except Exception as e:  # noqa: BLE001 — decode/transcription failures shouldn't 500
         raise HTTPException(
             status_code=500, detail=f"Couldn't process audio: {type(e).__name__}: {e}"

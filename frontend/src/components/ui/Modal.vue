@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, watch } from "vue";
+import { nextTick, onBeforeUnmount, ref, watch } from "vue";
 
 const props = defineProps<{
   open: boolean;
@@ -10,8 +10,42 @@ const props = defineProps<{
 
 const emit = defineEmits<{ (e: "close"): void }>();
 
+const shell = ref<HTMLElement | null>(null);
+// The element that opened the dialog — focus returns to it on close so
+// keyboard users don't get dumped at the top of the document.
+let opener: HTMLElement | null = null;
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 function handleKeydown(e: KeyboardEvent) {
-  if (e.key === "Escape" && props.open) emit("close");
+  if (!props.open) return;
+  if (e.key === "Escape") {
+    emit("close");
+    return;
+  }
+  // Focus trap. aria-modal alone doesn't stop Tab from walking the
+  // obscured page behind the backdrop; every one of the app's ~12 modals
+  // inherits this single trap.
+  if (e.key === "Tab" && shell.value) {
+    const focusables = Array.from(
+      shell.value.querySelectorAll<HTMLElement>(FOCUSABLE),
+    ).filter((el) => el.offsetParent !== null);
+    if (focusables.length === 0) {
+      e.preventDefault();
+      return;
+    }
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement as HTMLElement | null;
+    if (e.shiftKey && (active === first || !shell.value.contains(active))) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (active === last || !shell.value.contains(active))) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
 }
 
 watch(
@@ -19,11 +53,25 @@ watch(
   (open) => {
     if (typeof document === "undefined") return;
     if (open) {
+      opener = document.activeElement as HTMLElement | null;
       document.addEventListener("keydown", handleKeydown);
       document.body.style.overflow = "hidden";
+      // Move focus into the dialog once it has rendered. Prefer an
+      // autofocus-marked control; else the first focusable; else the
+      // shell itself (tabindex=-1) so Escape works immediately.
+      void nextTick(() => {
+        if (!shell.value) return;
+        const target =
+          shell.value.querySelector<HTMLElement>("[autofocus]") ??
+          shell.value.querySelector<HTMLElement>(FOCUSABLE) ??
+          shell.value;
+        target.focus();
+      });
     } else {
       document.removeEventListener("keydown", handleKeydown);
       document.body.style.overflow = "";
+      opener?.focus?.();
+      opener = null;
     }
   },
   { immediate: true },
@@ -76,10 +124,12 @@ const sizeClasses = {
              anchored sheet pushes its header above the status bar and
              the close button becomes unreachable. -->
         <div
+          ref="shell"
           role="dialog"
           aria-modal="true"
           :aria-label="title"
-          class="dialog-shell relative flex w-full flex-col rounded-t-2xl bg-bg-elevated shadow-2xl ring-1 ring-border sm:max-h-[calc(100dvh-3rem)] sm:rounded-2xl"
+          tabindex="-1"
+          class="dialog-shell relative flex w-full flex-col rounded-t-2xl bg-bg-elevated shadow-2xl outline-none ring-1 ring-border sm:max-h-[calc(100dvh-3rem)] sm:rounded-2xl"
           :class="sizeClasses[size ?? 'md']"
         >
           <header

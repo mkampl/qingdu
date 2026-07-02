@@ -80,7 +80,10 @@ export const useSettingsStore = defineStore("settings", () => {
   const pinyinMode = ref<PinyinMode>("auto");
   const hskVersion = ref<HskVersion>("new");
   const showLegend = ref(false);
-  const colorMode = ref<ColorMode>("progress");
+  // Must match defaults().colorMode — any read before hydrate() (or a
+  // storage failure) otherwise shows a different mode than a fresh user
+  // actually gets.
+  const colorMode = ref<ColorMode>("hsk");
   const writingShowOutline = ref(false);
   const reminderEnabled = ref(false);
   const reminderTime = ref("19:00");

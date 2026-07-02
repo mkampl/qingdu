@@ -7,6 +7,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useReviewStore } from "@/stores/review";
 import { useSettingsStore } from "@/stores/settings";
 import { useShortcutsStore } from "@/stores/shortcuts";
+import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 
 import AuthControls from "@/components/auth/AuthControls.vue";
@@ -18,6 +19,7 @@ import ShortcutsOverlay from "@/components/ShortcutsOverlay.vue";
 import Toaster from "@/components/ui/Toaster.vue";
 
 import { getApiBase } from "@/api/client";
+import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useKeyboardShortcuts } from "@/composables/use-keyboard-shortcuts";
 import { hideSplash, isNative, syncStatusBar } from "@/services/native";
 import {
@@ -32,6 +34,7 @@ const modals = useAppModalsStore();
 const shortcuts = useShortcutsStore();
 const userWords = useUserWordsStore();
 const review = useReviewStore();
+const toasts = useToastStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -102,7 +105,17 @@ onMounted(async () => {
 watch(() => settings.theme, (t) => syncStatusBar(t));
 watch(
   () => [settings.reminderEnabled, settings.reminderTime] as const,
-  ([enabled, time]) => syncReminder(enabled, time),
+  async ([enabled, time]) => {
+    const ok = await syncReminder(enabled, time);
+    if (enabled && !ok) {
+      // Permission denied — flip the toggle back so it doesn't claim a
+      // reminder that will never fire. (Re-enabling re-asks the OS.)
+      settings.reminderEnabled = false;
+      toasts.error(
+        "Notifications are blocked for QingDu — allow them in Android settings to use reminders.",
+      );
+    }
+  },
 );
 
 // Phase 2.10 — keep the account-lifecycle warnings in sync with the
@@ -117,6 +130,46 @@ watch(
   },
   { immediate: true },
 );
+
+// Android hardware back button. Without a listener Capacitor navigates
+// browser history — which, with a modal open, left the modal floating
+// over a different page, and from the start route exited the activity
+// mid-flow. Order: close the topmost overlay, then route history, then
+// let Android background the app.
+if (isNative()) {
+  const authModals = useAuthModalsStore();
+  void import("@capacitor/app").then(({ App: CapApp }) => {
+    void CapApp.addListener("backButton", ({ canGoBack }) => {
+      if (mobileNavOpen.value) {
+        mobileNavOpen.value = false;
+        return;
+      }
+      if (shortcuts.overlayOpen) {
+        shortcuts.closeOverlay();
+        return;
+      }
+      if (modals.settingsOpen || modals.invitationsOpen) {
+        modals.closeAll();
+        return;
+      }
+      if (
+        authModals.loginOpen ||
+        authModals.signupOpen ||
+        authModals.openSignupOpen ||
+        authModals.changePasswordOpen
+      ) {
+        // A forced password change must not be escapable via back.
+        if (!authModals.changePasswordForced) authModals.closeAll();
+        return;
+      }
+      if (canGoBack) {
+        router.back();
+        return;
+      }
+      void CapApp.minimizeApp();
+    });
+  });
+}
 </script>
 
 <template>

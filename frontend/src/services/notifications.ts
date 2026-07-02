@@ -110,6 +110,21 @@ export async function requestPermission(): Promise<boolean> {
   }
 }
 
+/** Permission check WITHOUT the system dialog. For background schedulers
+ *  (lifecycle warnings on login) that must never be the thing that pops
+ *  Android 13+'s permission prompt — an unexplained prompt is an instant
+ *  deny. Only a user gesture (the reminder toggle) may call
+ *  requestPermission(). */
+export async function hasPermission(): Promise<boolean> {
+  if (!isNative()) return false;
+  try {
+    const status = await LocalNotifications.checkPermissions();
+    return status.display === "granted";
+  } catch {
+    return false;
+  }
+}
+
 async function ensureChannel(): Promise<void> {
   if (!isNative()) return;
   try {
@@ -262,17 +277,22 @@ export async function cancelDaily(): Promise<void> {
   await cancelExisting();
 }
 
-/** Called on app boot + after settings change. */
+/** Called on app boot + after settings change.
+ *
+ *  Returns false ONLY when the user asked for reminders and scheduling
+ *  failed (permission denied). Callers use that to flip the Settings
+ *  toggle back off — a toggle that stays on while nothing is scheduled
+ *  is a lie. Web / disabled both return true ("nothing wrong"). */
 export async function syncFromSettings(
   enabled: boolean,
   timeHHMM: string,
-): Promise<void> {
-  if (!isNative()) return;
+): Promise<boolean> {
+  if (!isNative()) return true;
   if (enabled) {
-    await scheduleDaily(timeHHMM);
-  } else {
-    await cancelDaily();
+    return await scheduleDaily(timeHHMM);
   }
+  await cancelDaily();
+  return true;
 }
 
 /**
@@ -297,7 +317,12 @@ export async function scheduleLifecycleWarnings(
   await cancelLifecycleWarnings();
   if (!softDeleteAtIso) return false;
 
-  const ok = await requestPermission();
+  // Check-only: this runs on every demo-server login, which must not be
+  // the moment the OS permission dialog appears out of nowhere. If the
+  // user has granted notifications (via the reminder toggle), lifecycle
+  // warnings ride along; if not, the in-app LifecycleBanner still covers
+  // the warning window.
+  const ok = await hasPermission();
   if (!ok) return false;
   await ensureLifecycleChannel();
 

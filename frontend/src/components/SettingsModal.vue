@@ -353,28 +353,13 @@ async function testApiBase() {
   }
   apiBaseTesting.value = true;
   apiBaseStatus.value = { kind: "idle" };
-  try {
-    // /health (no /api prefix) is the JSON health endpoint; /api/health
-    // is caught by the SPA catch-all fallback and returns the index.html
-    // shell, which would make this test "succeed" against any web server.
-    const r = await fetch(`${target}/health`, { method: "GET" });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const body = (await r.json()) as { vocab_count?: number };
-    apiBaseStatus.value = {
-      kind: "ok",
-      vocabCount: body.vocab_count ?? 0,
-    };
-  } catch (e) {
-    apiBaseStatus.value = {
-      kind: "error",
-      message:
-        e instanceof Error
-          ? `Couldn't reach that URL — ${e.message}`
-          : "Couldn't reach that URL",
-    };
-  } finally {
-    apiBaseTesting.value = false;
-  }
+  // Shared probe with the first-launch ServerPicker (client.ts testServer)
+  // so the two testers can't disagree about what a valid server is.
+  const result = await api.testServer(target);
+  apiBaseTesting.value = false;
+  apiBaseStatus.value = result.ok
+    ? { kind: "ok", vocabCount: result.vocabCount }
+    : { kind: "error", message: `Couldn't verify that URL — ${result.message}` };
 }
 
 function saveApiBase() {

@@ -24,7 +24,7 @@ export const useAuthStore = defineStore("auth", () => {
     api.setToken(null);
     user.value = null;
     useUserWordsStore().reset();
-    useReviewStore().reset();
+    useReviewStore().resetAll();
     // Dynamic imports keep this file free of new static store edges
     // (toast/auth-modals) that could form require cycles.
     const { useToastStore } = await import("@/stores/toast");
@@ -137,7 +137,7 @@ export const useAuthStore = defineStore("auth", () => {
       api.setToken(null);
       user.value = null;
       useUserWordsStore().reset();
-      useReviewStore().reset();
+      useReviewStore().resetAll();
     }
   }
 

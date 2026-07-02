@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import os
@@ -17,6 +18,11 @@ from app.database import User, VocabularyList, get_db
 
 router = APIRouter(tags=["Anki Export"])
 logger = logging.getLogger(__name__)
+
+# All handlers here are deliberately plain `def`, not `async def`: they do
+# synchronous gTTS network calls (with time.sleep pacing), file IO, and
+# genanki packaging. Starlette runs sync handlers in its threadpool, so a
+# long export no longer freezes the event loop for every other request.
 
 
 def _owned_list(db: Session, user: User, list_id: int) -> VocabularyList:
@@ -39,7 +45,7 @@ def _cache_path_for(hanzi: str):
 
 
 @router.get("/api/vocabulary-lists/{list_id}/check-audio")
-async def check_audio_status(
+def check_audio_status(
     list_id: int,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
@@ -76,7 +82,7 @@ async def check_audio_status(
 
 
 @router.post("/api/vocabulary-lists/{list_id}/prepare-export")
-async def prepare_export_audio(
+def prepare_export_audio(
     list_id: int,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
@@ -130,7 +136,7 @@ async def prepare_export_audio(
 
 
 @router.get("/api/vocabulary-lists/{list_id}/export-anki")
-async def export_vocabulary_list_anki(
+def export_vocabulary_list_anki(
     list_id: int,
     user: User = Depends(require_auth_flexible),
     db: Session = Depends(get_db),
@@ -188,7 +194,13 @@ async def export_vocabulary_list_anki(
             if not words:
                 continue
             subdeck_name = f"{vocab_list.name}::{section_name}"
-            subdeck_id = deck_id_base + hash(section_name) % 100000
+            # Stable digest, NOT Python's hash(): PYTHONHASHSEED randomises
+            # str hashes per process, so re-exporting after a restart minted
+            # new deck IDs and duplicated every subdeck in the user's Anki.
+            section_digest = int.from_bytes(
+                hashlib.sha256(section_name.encode("utf-8")).digest()[:4], "big"
+            )
+            subdeck_id = deck_id_base + section_digest % 100000
             subdeck = genanki.Deck(subdeck_id, subdeck_name)
             deck_identifier = f"[{subdeck_name}]"
 
@@ -292,7 +304,7 @@ async def export_vocabulary_list_anki(
 
 
 @router.get("/api/vocabulary-lists/{list_id}/export")
-async def export_vocabulary_list_csv(
+def export_vocabulary_list_csv(
     list_id: int,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),

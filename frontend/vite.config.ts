@@ -3,9 +3,9 @@ import vue from "@vitejs/plugin-vue";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
 
-// Build to ../app/static_v2 so FastAPI can mount it from inside the container's
-// /app directory. (The Docker image copies frontend/dist via a multi-stage build —
-// see Dockerfile.) Base path is /v2/ so all asset URLs resolve under that prefix.
+// Builds to dist/ at base "/". FastAPI serves it via app/routers/spa.py;
+// the Docker image copies frontend/dist in a multi-stage build; the
+// Android wrapper syncs it into assets/public via `cap sync`.
 export default defineConfig({
   base: "/",
   plugins: [vue(), tailwindcss()],
@@ -17,7 +17,11 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
-    sourcemap: true,
+    // "hidden": still emit .map files for server-side debugging, but
+    // without the sourceMappingURL footer. Mobile pipelines delete
+    // dist/**/*.map before `cap sync` (android-release.yml + the F-Droid
+    // recipe) — the maps were ~2 MB of dead APK weight.
+    sourcemap: "hidden",
   },
   server: {
     port: 5173,

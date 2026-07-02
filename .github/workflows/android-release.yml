@@ -81,6 +81,12 @@ jobs:
           VITE_API_BASE_URL: https://qingdu.itvoodoo.at
         run: npm run build
 
+      # Source maps are for the web deploy; inside the APK they were ~2 MB
+      # of dead weight (2/3 of the synced asset dir).
+      - name: Strip source maps from the mobile bundle
+        working-directory: frontend
+        run: find dist -name '*.map' -delete
+
       - name: Capacitor sync Android
         working-directory: frontend
         run: npx cap sync android

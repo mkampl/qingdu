@@ -81,6 +81,34 @@ export function apiUrl(path: string): string {
   return getApiBase() + path;
 }
 
+/**
+ * Verify that `baseUrl` is actually a Qingdu backend, not just any web
+ * server. Hits /health (NOT /api/health — the SPA catch-all answers that
+ * with 200 + index.html, which made "Connect" false-positive against any
+ * website) and requires the JSON shape. Shared by the first-launch
+ * ServerPicker and the Settings server switcher so the two can't disagree.
+ */
+export async function testServer(
+  baseUrl: string,
+): Promise<{ ok: true; vocabCount: number } | { ok: false; message: string }> {
+  const target = baseUrl.trim().replace(/\/$/, "");
+  if (!target) return { ok: false, message: "Enter a URL like https://qingdu.example.com" };
+  try {
+    const r = await fetch(`${target}/health`, { method: "GET" });
+    if (!r.ok) return { ok: false, message: `HTTP ${r.status}` };
+    const body = (await r.json()) as { vocab_count?: number };
+    if (typeof body.vocab_count !== "number") {
+      return { ok: false, message: "That server doesn't look like a Qingdu backend." };
+    }
+    return { ok: true, vocabCount: body.vocab_count };
+  } catch (e) {
+    return {
+      ok: false,
+      message: e instanceof Error ? e.message : "Couldn't reach that URL",
+    };
+  }
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly detail: unknown;

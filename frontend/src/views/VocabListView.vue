@@ -12,6 +12,7 @@ import type {
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useToastStore } from "@/stores/toast";
+import { useVocabListsStore } from "@/stores/vocab-lists";
 
 import HskChip from "@/components/reader/HskChip.vue";
 import Button from "@/components/ui/Button.vue";
@@ -24,6 +25,10 @@ const props = defineProps<{ id: string }>();
 const auth = useAuthStore();
 const authModals = useAuthModalsStore();
 const toasts = useToastStore();
+// The reader's WordPopover / GlossaryPicker read the cached vocab-lists
+// store, not this view's local state — invalidate it after any mutation
+// so the pickers don't serve stale lists until a full page reload.
+const vocabListsCache = useVocabListsStore();
 const router = useRouter();
 
 const listId = computed(() => Number(props.id));
@@ -101,6 +106,7 @@ async function commitRename() {
       sections: list.value.sections,
     });
     syncList((l) => ({ ...l, name: newName }));
+    vocabListsCache.invalidate();
     toasts.success("Renamed.");
   } catch (e) {
     toasts.error(
@@ -123,6 +129,7 @@ async function toggleGlossary() {
       apply_as_glossary: next,
     });
     syncList((l) => ({ ...l, apply_as_glossary: next }));
+    vocabListsCache.invalidate();
     toasts.success(
       next
         ? "Now available as a glossary for analysis."
@@ -145,6 +152,7 @@ async function deleteList() {
   busy.value = true;
   try {
     await api.deleteVocabularyList(list.value.id);
+    vocabListsCache.invalidate();
     toasts.success(`Deleted “${list.value.name}”.`);
     void router.push("/vocab");
   } catch (e) {

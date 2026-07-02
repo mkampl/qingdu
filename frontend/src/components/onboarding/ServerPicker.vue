@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
-import { setApiBase } from "@/api/client";
+import { setApiBase, testServer } from "@/api/client";
 import { useToastStore } from "@/stores/toast";
 
 import Modal from "@/components/ui/Modal.vue";
@@ -30,21 +30,19 @@ async function pickCustom() {
   }
   testing.value = true;
   error.value = null;
-  try {
-    const r = await fetch(`${target}/api/health`, { method: "GET" });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    setApiBase(target);
-    toasts.success("Connected. Reloading…");
-    open.value = false;
-    setTimeout(() => window.location.reload(), 400);
-  } catch (e) {
-    error.value =
-      e instanceof Error
-        ? `Couldn't reach that URL — ${e.message}`
-        : "Couldn't reach that URL";
-  } finally {
-    testing.value = false;
+  // Shared health probe — validates the JSON shape so "Connect" can't
+  // false-positive against an arbitrary website whose catch-all returns
+  // 200 + HTML.
+  const result = await testServer(target);
+  testing.value = false;
+  if (!result.ok) {
+    error.value = `Couldn't verify that URL — ${result.message}`;
+    return;
   }
+  setApiBase(target);
+  toasts.success("Connected. Reloading…");
+  open.value = false;
+  setTimeout(() => window.location.reload(), 400);
 }
 </script>
 

@@ -75,11 +75,18 @@ async def get_my_invitations(
             return "expired"
         return "pending"
 
+    # One IN query for all claimer names instead of one query per invitation.
+    claimer_ids = {inv.claimed_by_user_id for inv in invitations if inv.claimed_by_user_id}
+    claimer_names = (
+        dict(db.query(User.id, User.username).filter(User.id.in_(claimer_ids)).all())
+        if claimer_ids
+        else {}
+    )
+
     def _claimed_username(inv: InvitationToken) -> str | None:
         if not inv.claimed_by_user_id:
             return None
-        claimer = db.query(User).filter(User.id == inv.claimed_by_user_id).first()
-        return claimer.username if claimer else None
+        return claimer_names.get(inv.claimed_by_user_id)
 
     return {
         "invitations": [

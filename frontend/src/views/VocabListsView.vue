@@ -8,6 +8,7 @@ import type { VocabularyListSummary } from "@/api/types";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useToastStore } from "@/stores/toast";
+import { useVocabListsStore } from "@/stores/vocab-lists";
 
 import Button from "@/components/ui/Button.vue";
 import Modal from "@/components/ui/Modal.vue";
@@ -17,6 +18,10 @@ import TextInput from "@/components/ui/TextInput.vue";
 const auth = useAuthStore();
 const authModals = useAuthModalsStore();
 const toasts = useToastStore();
+// The reader's WordPopover / GlossaryPicker read the cached store, not
+// this view's local state — every mutation here must invalidate it or
+// the picker shows stale lists until a full reload.
+const vocabListsCache = useVocabListsStore();
 const router = useRouter();
 
 type LoadState =
@@ -89,6 +94,7 @@ async function submitCreate(e: Event) {
       sections: [],
     });
     createOpen.value = false;
+    vocabListsCache.invalidate();
     toasts.success(`Created “${createName.value.trim()}”.`);
     await router.push(`/vocab/${result.id}`);
   } catch (e) {
@@ -110,6 +116,7 @@ async function confirmDelete(list: VocabularyListSummary) {
   deletingId.value = list.id;
   try {
     await api.deleteVocabularyList(list.id);
+    vocabListsCache.invalidate();
     if (state.value.status === "ok") {
       state.value = {
         status: "ok",

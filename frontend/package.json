@@ -12,6 +12,7 @@
     "format": "prettier --write \"src/**/*.{vue,ts,tsx,css}\""
   },
   "dependencies": {
+    "@capacitor/app": "^7.1.2",
     "@capacitor/haptics": "^7.0.5",
     "@capacitor/local-notifications": "^7.0.6",
     "@capacitor/share": "^7.0.4",
