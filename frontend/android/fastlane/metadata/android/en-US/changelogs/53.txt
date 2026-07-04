@@ -1,0 +1,5 @@
+Fix: tapping the daily reminder notification after the app had been
+closed in the background could open the Reader instead of jumping
+straight to your review queue. The notification tap is now re-checked
+once more right after the app finishes starting up, closing a timing
+gap in that specific cold-start path.
