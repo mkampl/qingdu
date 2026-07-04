@@ -234,7 +234,7 @@ if (isNative()) {
             <span
               v-if="review.dueNow > 0"
               class="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1.5 py-px font-mono text-[10px] font-medium leading-none tracking-tight text-accent-fg tabular-nums"
-              :title="`${review.dueNow.toLocaleString()} cards due now`"
+              :title="`${review.dueNow.toLocaleString()} cards due for review`"
             >
               {{ review.dueNow > 99 ? "99+" : review.dueNow }}
             </span>

@@ -436,11 +436,9 @@ const focusMode = computed(() => review.current !== null);
 // Phase #119 — the queue-cutoff lives server-side per user.review_window.
 // The UI gates need to mirror that so "Due now: 0 / Due today: 17" with
 // window=today doesn't lock the user out of starting a session.
-const effectiveDueCount = computed(() => {
-  const w = (auth.user?.review_window as "now" | "today" | "tomorrow") ?? "today";
-  if (w === "now") return review.stats.due_now;
-  return review.stats.due_today; // 'today' and 'tomorrow' both pull today+
-});
+// review.dueNow already resolves this the same way (see stores/review.ts)
+// so the home-screen badge and this view can't disagree.
+const effectiveDueCount = computed(() => review.dueNow);
 watch(focusMode, (v) => {
   review.inFocus = v;
 });

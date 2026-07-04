@@ -9,6 +9,7 @@ import type {
   ReviewMode,
   ReviewStatsResponse,
 } from "@/api/client";
+import { useAuthStore } from "@/stores/auth";
 import { useSettingsStore } from "@/stores/settings";
 import { useUserWordsStore } from "@/stores/userWords";
 
@@ -59,7 +60,16 @@ export const useReviewStore = defineStore("review", () => {
   const remaining = computed(() =>
     Math.max(0, queue.value.length - cursor.value),
   );
-  const dueNow = computed(() => stats.value.due_now);
+  // Mirrors the server-side queue cutoff (user.review_window: "now" pulls
+  // strictly due_at <= now; "today"/"tomorrow" both pull today's window —
+  // see /api/review/queue). Using stats.due_now unconditionally here used
+  // to show a badge count that didn't match what /review actually opened
+  // with, since the queue defaults to the wider "today" window.
+  const dueNow = computed(() => {
+    const auth = useAuthStore();
+    const window = auth.user?.review_window ?? "today";
+    return window === "now" ? stats.value.due_now : stats.value.due_today;
+  });
 
   // Back-compat alias — older components read `review.mode` expecting
   // the modality currently rendered. In stage-based mixed mode the
@@ -184,7 +194,9 @@ export const useReviewStore = defineStore("review", () => {
     try {
       stats.value = await api.getReviewStats();
       const notif = await import("@/services/notifications");
-      notif.rememberDueCount(stats.value.due_now);
+      // dueNow (not the raw stats field) so the reminder body matches
+      // what /review actually opens with per the user's window setting.
+      notif.rememberDueCount(dueNow.value);
       // Phase 1.8 — pipe streak into the notification cache too so the
       // streak-at-risk ping has the right number to lead with.
       notif.rememberStreak(useUserWordsStore().stats.streak);
