@@ -33,6 +33,26 @@ def test_tone_conversion_handles_u_umlaut():
     assert cedict_loader._apply_tone("nv3") == "nǚ"
 
 
+def test_clean_gloss_renders_single_word_trad_simp_pair():
+    raw = "傳統|传统[chuan2 tong3]"
+    assert cedict_loader.clean_gloss_for_display(raw) == "传统 (chuán tǒng)"
+
+
+def test_clean_gloss_multi_clause_idiom_trad_simp_pair_not_duplicated():
+    """A multi-clause proverb's trad|simp pair spans the whole phrase,
+    commas included — not one pair per clause. A hanzi-only character
+    class in _TRAD_SIMP_RE stopped at the internal fullwidth comma and
+    matched across clause boundaries instead of across the pair
+    boundary, duplicating a clause in the output."""
+    raw = (
+        "see 丈二和尚，摸不著頭腦|丈二和尚，摸不着头脑"
+        "[zhang4 er4 he2 shang5 , mo1 bu5 zhao2 tou2 nao3]"
+    )
+    cleaned = cedict_loader.clean_gloss_for_display(raw)
+    assert cleaned == "see 丈二和尚，摸不着头脑 (zhàng èr hé shang , mō bu zháo tóu nǎo)"
+    assert cleaned.count("丈二和尚") == 1
+
+
 def test_parser_extracts_meanings_drops_classifier_lines():
     sample = (
         "# header line that should be ignored\n"

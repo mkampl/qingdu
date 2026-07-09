@@ -138,7 +138,15 @@ def _convert_pinyin(numbered: str) -> str:
 # is purely a display layer.
 
 _CL_INLINE_RE = re.compile(r"\s*\(CL:[^)]*\)")
-_TRAD_SIMP_RE = re.compile(r"([一-鿿]+)\|([一-鿿]+)")
+# Multi-clause idioms/proverbs are still a single trad|simp pair spanning
+# the whole phrase (e.g. "一朝被蛇咬，十年怕井繩|一朝被蛇咬，十年怕井绳"), not
+# one pair per clause. A hanzi-only character class stops at the internal
+# fullwidth comma, so the substitution matched across clause boundaries
+# instead of across the pair boundary and produced a duplicated clause
+# ("一朝被蛇咬，一朝被蛇咬，十年怕井绳"). Including the punctuation CC-CEDICT
+# uses inside these phrases keeps the whole clause together as one side
+# of the pair.
+_TRAD_SIMP_RE = re.compile(r"([一-鿿，。！？、；：]+)\|([一-鿿，。！？、；：]+)")
 _BRACKET_PINYIN_RE = re.compile(r"\[([^\]]+)\]")
 _MAX_DISPLAY_SENSES = 3
 _MAX_DISPLAY_CHARS = 110
