@@ -44,9 +44,9 @@ RepoType: git
 Repo: https://github.com/mkampl/qingdu.git
 
 Builds:
-  - versionName: 1.0.51
-    versionCode: 52
-    commit: v1.0.51
+  - versionName: 1.0.52
+    versionCode: 53
+    commit: v1.0.52
     subdir: frontend/android/app
     sudo:
       - apt-get update
@@ -76,5 +76,5 @@ AntiFeatures:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 1.0.51
-CurrentVersionCode: 52
+CurrentVersion: 1.0.52
+CurrentVersionCode: 53
