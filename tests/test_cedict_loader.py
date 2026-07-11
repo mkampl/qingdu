@@ -53,6 +53,62 @@ def test_clean_gloss_multi_clause_idiom_trad_simp_pair_not_duplicated():
     assert cleaned.count("丈二和尚") == 1
 
 
+def test_parser_prefers_real_word_over_variant_character_padded_with_senses():
+    """秊 (a variant character of 年) lists three senses — "grain /
+    harvest (old) / variant of 年" — while 年 itself has just one
+    ("year"). The stub-gloss penalty hits "year" for being short, and
+    the sense-count bonus used to reward 秊's padding enough to win,
+    because the "variant of 年" sense sat third and _pick_learner_primary
+    only inspects the picked headline, not the full list. 年 (HSK-1!)
+    displayed "grain" on review cards until this was caught."""
+    sample = "年 年 [nian2] /year/\n秊 年 [nian2] /grain/harvest (old)/variant of 年[nian2]/\n"
+    parsed = cedict_loader._parse_text(sample)
+    assert parsed["年"]["meaning"] == "year"
+
+
+def test_parser_prefers_real_word_over_variant_character_trailing_marker():
+    """Same bug, marker in a trailing parenthetical instead of leading a
+    sense: 驩 (a variant character of 歡|欢) is "a breed of horse /
+    variant of 歡|欢" and used to beat 歡's "joyous / happy / pleased"."""
+    sample = (
+        "歡 欢 [huan1] /joyous/happy/pleased/\n"
+        "驩 欢 [huan1] /a breed of horse/variant of 歡|欢[huan1]/\n"
+    )
+    parsed = cedict_loader._parse_text(sample)
+    assert parsed["欢"]["meaning"] == "joyous"
+
+
+def test_parser_self_variant_check_does_not_penalise_unrelated_cross_reference():
+    """呆 has its OWN third sense "variant of 待[dai1]" (呆 is, in some
+    contexts, itself a variant of a DIFFERENT character, 待) — that must
+    not disqualify 呆 relative to 獃, which is a variant CHARACTER of 呆
+    specifically ("(variant of 呆[dai1])" embedded in both its senses).
+    A same-target check is what tells these apart; a bare "any sense
+    mentions variant of" check flags both equally and lets whichever has
+    more padding senses win regardless of which one is the real word."""
+    sample = (
+        "呆 呆 [dai1] /foolish; stupid/expressionless; blank/variant of 待[dai1]/\n"
+        "獃 呆 [dai1] /foolish; stupid (variant of 呆[dai1])/"
+        "expressionless; blank (variant of 呆[dai1])/\n"
+    )
+    parsed = cedict_loader._parse_text(sample)
+    assert parsed["呆"]["meaning"] == "foolish; stupid"
+
+
+def test_parser_self_variant_check_ignores_unrelated_secondary_sense():
+    """繭 (cocoon) has a fine primary sense but a SECONDARY sense that
+    mentions an unrelated character's variant relationship ("(bound
+    form) callus (variant of 趼[jian3])" — 趼 is a different word, not
+    a duplicate of 繭). That must not disqualify 繭 against 蠒, a pure
+    "variant of 繭|茧" stub with no real content of its own."""
+    sample = (
+        "繭 茧 [jian3] /(bound form) cocoon/(bound form) callus (variant of 趼[jian3])/\n"
+        "蠒 茧 [jian3] /variant of 繭|茧[jian3]/\n"
+    )
+    parsed = cedict_loader._parse_text(sample)
+    assert parsed["茧"]["meaning"] == "(bound form) cocoon"
+
+
 def test_parser_extracts_meanings_drops_classifier_lines():
     sample = (
         "# header line that should be ignored\n"

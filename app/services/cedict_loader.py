@@ -229,6 +229,41 @@ def _looks_minor(primary: str) -> bool:
     )
 
 
+_VARIANT_MARKER_RE = re.compile(r"variant of\s+([^\[\s]+)", re.IGNORECASE)
+
+
+def _any_sense_self_variant(meanings: list[str], simplified: str) -> bool:
+    """True when any sense marks this whole entry as a variant of / old
+    form of a DIFFERENT traditional character that happens to collapse to
+    the SAME simplified form we're filing this entry under — i.e. this
+    line is a redundant duplicate of a reading we already have elsewhere.
+    Whether the phrasing leads the sense ("variant of 年[nian2]") or
+    trails in a parenthetical ("foolish; stupid (variant of 呆[dai1])")
+    doesn't matter; what matters is the target.
+
+    Scoped to *self*-references on purpose. An entry whose real, primary
+    reading is fine but whose SECONDARY sense happens to describe an
+    unrelated variant relationship for a different word must not be
+    penalised for it: 繭 (cocoon)'s second sense is "(bound form) callus
+    (variant of 趼[jian3])" — 趼 is a different character entirely, not
+    a duplicate of 繭 — so a same-target check leaves 繭 unflagged while
+    a bare "any sense contains variant of" check wrongly demoted it below
+    蠒, a pure "variant of 繭|茧" stub with no real content of its own.
+
+    A leading-only check (`_looks_minor`, prefix match on the picked
+    *primary*) also misses the parenthetical-trailing form: 呆's own
+    third sense "variant of 待[dai1]" (leading, and NOT a self-reference
+    since 待 isn't 呆) correctly left 呆 unflagged by that mechanism, but
+    獃's "foolish; stupid (variant of 呆[dai1])" (trailing, embedded, and
+    a genuine self-reference since 呆 IS the character 獃 duplicates)
+    dodged the prefix check entirely and let 獃 outrank 呆."""
+    for m in meanings:
+        match = _VARIANT_MARKER_RE.search(m)
+        if match and simplified in match.group(1):
+            return True
+    return False
+
+
 # Register / usage tags that CC-CEDICT prefixes to senses. Any sense
 # starting with one of these is dispreferred for a learner-facing primary
 # — it either isn't the everyday reading (archaic/literary) or doesn't
@@ -366,7 +401,11 @@ def _looks_grammatical_function(primary: str) -> bool:
 
 
 def _entry_quality(
-    primary: str, numbered_pinyin: str, frequency: int = 0, num_meanings: int = 1
+    primary: str,
+    numbered_pinyin: str,
+    frequency: int = 0,
+    meanings: list[str] | None = None,
+    simplified: str = "",
 ) -> int:
     """Higher = better headline candidate. Used to resolve collisions
     when CC-CEDICT lists multiple readings of the same simplified form.
@@ -381,7 +420,16 @@ def _entry_quality(
     common); breaks ties between two otherwise-equally-scored readings
     by favouring the more common one. Defaults to 0 (no preference)
     when the caller doesn't have a frequency table on hand.
+
+    `meanings` is the full sense list for this entry (defaults to just
+    `[primary]` for callers that only have the headline). Used for the
+    variant/surname check below and the sense-count bonus. `simplified`
+    is the simplified form this entry is filed under — needed by the
+    self-variant check (see `_any_sense_self_variant`) to tell "this
+    line duplicates a reading we already have" from "this line merely
+    mentions an unrelated character's variant relationship."
     """
+    meanings = meanings if meanings is not None else [primary]
     score = 100
     # CC-CEDICT capitalizes the pinyin of proper-noun readings
     # ("Ping2 guo3" the company vs "ping2 guo3" the fruit). The company
@@ -392,7 +440,19 @@ def _entry_quality(
     # penalty and the relative ranking still works.
     if numbered_pinyin[:1].isupper():
         score -= 70
-    if _looks_minor(primary):
+    # Scan every sense, not just the picked primary. 秊 (a variant
+    # character of 年) lists "grain / harvest (old) / variant of 年" —
+    # _pick_learner_primary grabs "grain" since it isn't register-tagged,
+    # which hid the "variant of" marker from this check (it's sense #3)
+    # and let 秊's 3-sense padding outscore 年's clean single "year" via
+    # the sense-count bonus below. 年 was glossed "grain" on review cards
+    # until this was caught. Same mechanism broke 欢 (歡 "joyous" losing
+    # to 驩 "a breed of horse / variant of 歡|欢"). _any_sense_self_variant
+    # additionally catches the marker when it trails a sense in a
+    # parenthetical rather than leading it, scoped to self-references
+    # only so an unrelated variant mention in a secondary sense doesn't
+    # wrongly demote an otherwise-fine entry (see its docstring).
+    if _looks_minor(primary) or _any_sense_self_variant(meanings, simplified):
         score -= 100
     if _looks_pure_marker(primary):
         score -= 80
@@ -447,8 +507,8 @@ def _entry_quality(
     # while 中 zhòng has just one ("to hit (a target)"). Caps at +20
     # so it's a meaningful tiebreaker without overwhelming the
     # structural penalties.
-    if num_meanings > 1:
-        score += min(20, (num_meanings - 1) * 5)
+    if len(meanings) > 1:
+        score += min(20, (len(meanings) - 1) * 5)
     return score
 
 
@@ -541,7 +601,7 @@ def _parse_text(text: str) -> dict[str, dict]:
         # zhuo2 (103K, "to wear") from zhao2 (103K, ...) inside 着.
         reading_freq = _per_reading_frequency(subtlex, simplified, numbered_pinyin)
         new_quality = _entry_quality(
-            primary, numbered_pinyin, reading_freq, num_meanings=len(meanings)
+            primary, numbered_pinyin, reading_freq, meanings=meanings, simplified=simplified
         )
         existing_quality = quality_cache.get(simplified)
         # `<` (not `<=`) so a later entry with equal score doesn't lose
