@@ -109,6 +109,33 @@ def test_parser_self_variant_check_ignores_unrelated_secondary_sense():
     assert parsed["茧"]["meaning"] == "(bound form) cocoon"
 
 
+def test_parser_resolves_used_in_pointer_to_target_meaning():
+    """儡's only sense is "used in 傀儡[kui3 lei3]" -- a bare pointer, not
+    a real definition. It should resolve through to 傀儡's actual gloss
+    instead of displaying the dangling reference."""
+    sample = (
+        "儡 儡 [lei3] /used in 傀儡[kui3 lei3]/\n傀儡 傀儡 [kui3 lei3] /(lit. and fig.) puppet/\n"
+    )
+    parsed = cedict_loader._parse_text(sample)
+    assert parsed["儡"]["meaning"] == "(lit. and fig.) puppet"
+
+
+def test_parser_resolves_used_in_pointer_through_a_chain():
+    """峨嵋 is a variant of 峨眉, and 嵋 alone is "used in 峨嵋" -- two
+    levels of indirection. 嵋 should resolve all the way through to
+    峨眉's real terminal text, not stop one hop short at 峨嵋's own
+    unresolved "variant of" pointer."""
+    sample = (
+        "嵋 嵋 [mei2] /used in 峨嵋[E2 mei2]/\n"
+        "峨嵋 峨嵋 [E2 mei2] /variant of 峨眉[E2 mei2]/\n"
+        "峨眉 峨眉 [E2 mei2] /(used in place names, notably 峨眉山[E2 mei2 Shan1] Mount Emei in Sichuan)/\n"
+    )
+    parsed = cedict_loader._parse_text(sample)
+    expected = "(used in place names, notably 峨眉山 (é méi shān) Mount Emei in Sichuan)"
+    assert parsed["嵋"]["meaning"] == expected
+    assert parsed["峨嵋"]["meaning"] == expected
+
+
 def test_parser_extracts_meanings_drops_classifier_lines():
     sample = (
         "# header line that should be ignored\n"

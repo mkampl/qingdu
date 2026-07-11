@@ -629,17 +629,22 @@ def _parse_text(text: str) -> dict[str, dict]:
 
 
 # Matches "erhua variant of X", "erhua form of X", "variant of X",
-# "old variant of X", "see X", "abbr. for X" — the X target uses the
-# CEDICT "trad|simp[pinyin]" notation, or just simp if there's no trad
-# form. We pull the simp form out and use it as a lookup key.
+# "old variant of X", "see X", "abbr. for X", "used in X" — the X target
+# uses the CEDICT "trad|simp[pinyin]" notation, or just simp if there's
+# no trad form. We pull the simp form out and use it as a lookup key.
 #
-# CC-CEDICT has six variant phrasings as of the 2026-06 snapshot. The
+# CC-CEDICT has seven variant phrasings as of the 2026-07 snapshot. The
 # `erhua form of` and `erhua variant of` strings are interchangeable in
 # the source; missing one of them leaves entries like
 # 女孩儿 (`erhua form of 女孩[nu:3 hai2]`) un-resolved, showing the
-# pointer instead of the actual gloss ("girl").
+# pointer instead of the actual gloss ("girl"). `used in X` was added
+# after an audit found readings like 漂's piao4 ("used in 漂亮[piao4
+# liang5]") outscoring the piao1 "to float" reading on frequency —
+# correctly, since piao4 only exists inside 漂亮 and that compound is
+# very common — but then displaying the bare "used in 漂亮" pointer
+# instead of following it to 漂亮's actual meaning ("pretty").
 _VARIANT_REF_RE = re.compile(
-    r"^(?:erhua (?:variant|form) of|old variant of|variant of|see|abbr\. for)\s+"
+    r"^(?:erhua (?:variant|form) of|old variant of|variant of|see|abbr\. for|used in)\s+"
     r"(?:[^|\s\[]+\|)?([^\s\[]+)",
     re.IGNORECASE,
 )
@@ -652,23 +657,34 @@ def _resolve_variant_references(parsed: dict[str, dict]) -> None:
     "erhua variant of 一塊|一块[yi1 kuai4]" instead of the actual
     meaning "(coll.) together".
 
+    Runs to a fixed point (capped) rather than a single pass so chained
+    pointers (A -> B -> C) resolve fully instead of leaving A on B's
+    still-unresolved text — "used in X" made chains more likely since
+    it's common for the target of one referential stub to itself be a
+    variant-of another entry.
+
     Mutates `parsed` in place. Skips entries whose primary mixes a
     reference with real content (e.g. "abbr. for 中国 / China") —
     those are usable as-is."""
-    for entry in parsed.values():
-        primary = entry["meaning"]
-        m = _VARIANT_REF_RE.match(primary)
-        if not m:
-            continue
-        target_word = m.group(1).strip()
-        target = parsed.get(target_word)
-        if target is None:
-            continue
-        if target["meaning"] == primary:
-            # Cycle (target also points back here) — leave as-is.
-            continue
-        entry["meaning"] = target["meaning"]
-        entry["meanings"] = list(target["meanings"])
+    for _ in range(5):
+        changed = False
+        for entry in parsed.values():
+            primary = entry["meaning"]
+            m = _VARIANT_REF_RE.match(primary)
+            if not m:
+                continue
+            target_word = m.group(1).strip()
+            target = parsed.get(target_word)
+            if target is None:
+                continue
+            if target["meaning"] == primary:
+                # Cycle (target also points back here) — leave as-is.
+                continue
+            entry["meaning"] = target["meaning"]
+            entry["meanings"] = list(target["meanings"])
+            changed = True
+        if not changed:
+            break
 
 
 def _merge_into_hsk_vocab() -> tuple[int, int]:
