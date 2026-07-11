@@ -1,0 +1,20 @@
+{
+  "_comment": "Hand-verified overrides for the primary-sense/reading selection heuristic in app/services/cedict_loader.py. Each entry here was checked against raw CC-CEDICT + SUBTLEX-CH frequency data and confirmed by a human, not auto-generated. See the 2026-07 audit in project memory for methodology. Extend this list incrementally as new misfires are found -- do not bulk-generate from frequency data alone (frequency is a strong signal but not always right, e.g. structural heuristics correctly keep 便宜 as 'cheap' despite lower measured frequency than its 'convenient' reading).",
+  "preferred_reading": {
+    "汉": "Han4",
+    "什": "shen2",
+    "价": "jia4",
+    "不是": "bu4 shi4",
+    "供": "gong1",
+    "术": "shu4",
+    "衣": "yi1",
+    "妻": "qi1",
+    "隐": "yin3",
+    "陆": "lu4",
+    "傀": "kui3"
+  },
+  "preferred_sense": {
+    "韩": "Korea, esp. South Korea",
+    "包": "bag"
+  }
+}

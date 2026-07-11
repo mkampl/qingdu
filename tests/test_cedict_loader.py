@@ -136,6 +136,74 @@ def test_parser_resolves_used_in_pointer_through_a_chain():
     assert parsed["峨嵋"]["meaning"] == expected
 
 
+def test_preferred_reading_override_wins_regardless_of_heuristic_score(monkeypatch):
+    """汉's rich Han4 entry (Han ethnic group / Chinese language / the
+    Han dynasty) loses to its bare han4 "man" entry under the heuristic
+    alone -- the capitalized-pinyin proper-noun penalty (added to stop
+    Apple-the-company beating apple-the-fruit) fires on 汉 too, since
+    CC-CEDICT capitalizes pinyin for named concepts generally. The
+    hand-curated override should force Han4 to win outright."""
+    monkeypatch.setattr(
+        cedict_loader,
+        "_load_primary_overrides",
+        lambda: {"preferred_reading": {"汉": "Han4"}, "preferred_sense": {}},
+    )
+    sample = (
+        "漢 汉 [Han4] /Han ethnic group/Chinese (language)/the Han dynasty (206 BC-220 AD)/\n"
+        "漢 汉 [han4] /man/\n"
+    )
+    parsed = cedict_loader._parse_text(sample)
+    assert parsed["汉"]["meaning"] == "Han ethnic group"
+
+
+def test_preferred_sense_override_picks_a_later_sense_in_the_winning_entry(monkeypatch):
+    """韩's single Han2 entry lists four senses in etymology-first order
+    -- "one of the Seven Hero States of the Warring States" comes before
+    "Korea, esp. South Korea" -- and _pick_learner_primary has no signal
+    to reorder them since none carry a register tag. The override picks
+    the later, everyday sense by substring match."""
+    monkeypatch.setattr(
+        cedict_loader,
+        "_load_primary_overrides",
+        lambda: {"preferred_reading": {}, "preferred_sense": {"韩": "Korea, esp. South Korea"}},
+    )
+    sample = (
+        "韓 韩 [Han2] /Han, one of the Seven Hero States of the Warring States "
+        "戰國七雄|战国七雄/Korea from the fall of the Joseon dynasty in 1897/"
+        "Korea, esp. South Korea 大韓民國|大韩民国/surname Han/\n"
+    )
+    parsed = cedict_loader._parse_text(sample)
+    assert parsed["韩"]["meaning"].startswith("Korea, esp. South Korea")
+
+
+def test_preferred_sense_override_no_ops_when_substring_does_not_match(monkeypatch):
+    """If CC-CEDICT's wording ever shifts, the override should silently
+    fall back to the heuristic's normal pick rather than crash or leave
+    the entry unset."""
+    monkeypatch.setattr(
+        cedict_loader,
+        "_load_primary_overrides",
+        lambda: {"preferred_reading": {}, "preferred_sense": {"韩": "this text will never match"}},
+    )
+    sample = "韓 韩 [Han2] /Korea/surname Han/\n"
+    parsed = cedict_loader._parse_text(sample)
+    assert parsed["韩"]["meaning"] == "Korea"
+
+
+def test_missing_override_file_leaves_heuristic_behaviour_unchanged(monkeypatch, tmp_path):
+    """A missing/unreadable override file must degrade gracefully to
+    heuristic-only behaviour, not crash the whole CEDICT load."""
+    import app.services.cedict_loader as module
+
+    monkeypatch.setattr(
+        module,
+        "__file__",
+        str(tmp_path / "nonexistent_dir" / "cedict_loader.py"),
+    )
+    result = cedict_loader._load_primary_overrides()
+    assert result == {"preferred_reading": {}, "preferred_sense": {}}
+
+
 def test_parser_extracts_meanings_drops_classifier_lines():
     sample = (
         "# header line that should be ignored\n"

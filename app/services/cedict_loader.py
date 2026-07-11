@@ -541,6 +541,32 @@ def _load_subtlex_char_pinyin() -> dict[str, dict[str, int]]:
         return {}
 
 
+def _load_primary_overrides() -> dict[str, dict[str, str]]:
+    """Load the hand-curated primary-sense/reading override list (see
+    app/data/cedict_primary_overrides.json for provenance and the
+    rationale for keeping this manual rather than trying to make the
+    heuristic scoring perfect for every one of CC-CEDICT's ~120k entries.
+
+    Shape: {"preferred_reading": {simplified: numbered_pinyin}, "preferred_sense": {simplified: substring}}.
+    Missing/unparseable file -> both empty, heuristic-only behaviour unchanged.
+    """
+    import json
+    from pathlib import Path as _P
+
+    path = _P(__file__).resolve().parent.parent / "data" / "cedict_primary_overrides.json"
+    if not path.exists():
+        return {"preferred_reading": {}, "preferred_sense": {}}
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return {
+            "preferred_reading": data.get("preferred_reading", {}),
+            "preferred_sense": data.get("preferred_sense", {}),
+        }
+    except Exception:
+        return {"preferred_reading": {}, "preferred_sense": {}}
+
+
 def _per_reading_frequency(
     subtlex: dict[str, dict[str, int]], char: str, numbered_pinyin: str
 ) -> int:
@@ -572,6 +598,9 @@ def _parse_text(text: str) -> dict[str, dict]:
     so the most-spoken reading wins over the archaic one.
     """
     subtlex = _load_subtlex_char_pinyin()
+    overrides = _load_primary_overrides()
+    preferred_reading = overrides["preferred_reading"]
+    preferred_sense = overrides["preferred_sense"]
 
     out: dict[str, dict] = {}
     # Track which existing entry's quality we'd be comparing against
@@ -603,6 +632,15 @@ def _parse_text(text: str) -> dict[str, dict]:
         new_quality = _entry_quality(
             primary, numbered_pinyin, reading_freq, meanings=meanings, simplified=simplified
         )
+        # Hand-curated reading override wins outright, structural score
+        # notwithstanding. E.g. 汉's rich Han4 entry ("Han ethnic group /
+        # Chinese language / the Han dynasty") loses to its bare han4
+        # "man" entry under the heuristic alone -- the capitalized-pinyin
+        # proper-noun penalty (added to stop 苹果/Apple-the-company
+        # winning) fires on 汉 too, since CC-CEDICT capitalizes pinyin
+        # for named concepts generally, not just irrelevant proper nouns.
+        if preferred_reading.get(simplified) == numbered_pinyin:
+            new_quality = 10_000_000
         existing_quality = quality_cache.get(simplified)
         # `<` (not `<=`) so a later entry with equal score doesn't lose
         # to file-order alone. That kept 读 stuck on the dòu "comma"
@@ -624,6 +662,22 @@ def _parse_text(text: str) -> dict[str, dict]:
             "source": CEDICT_SOURCE_TAG,
         }
         quality_cache[simplified] = new_quality
+    # Hand-curated sense override, for entries where the *reading* already
+    # won correctly but CC-CEDICT's etymology-first sense ordering within
+    # that one entry buries the everyday meaning behind an obscure one --
+    # e.g. 韩's single Han2 entry lists "one of the Seven Hero States of
+    # the Warring States" before "Korea, esp. South Korea". Matches by
+    # substring against the already-cleaned senses so it survives
+    # clean_gloss_for_display's markup stripping; silently no-ops if
+    # CC-CEDICT's wording ever shifts enough to break the match, rather
+    # than crashing or reintroducing the raw markup.
+    for simplified, wanted_substring in preferred_sense.items():
+        entry = out.get(simplified)
+        if entry is None:
+            continue
+        match = next((s for s in entry["meanings"] if wanted_substring in s), None)
+        if match is not None:
+            entry["meaning"] = match
     _resolve_variant_references(out)
     return out
 
