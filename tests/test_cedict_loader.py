@@ -324,3 +324,118 @@ def test_merge_overlays_meanings_on_existing_hsk_entries():
         hsk_vocab.update(original_hsk)
         cedict_vocab.clear()
         cedict_vocab.update(original_cedict)
+
+
+def test_pick_learner_primary_skips_bare_pronunciation_note():
+    """迹's only real sense is tagged "(bound form)"; CC-CEDICT's trailing
+    "Taiwan pr. [ji1]" carries no register tag, so it used to slip past
+    the filter and get displayed as if it were the definition. It should
+    still lose to the tagged sense now that pronunciation notes are
+    recognized as non-content."""
+    meanings = ["(bound form) trace; mark; vestige; clue", "Taiwan pr. [ji1]"]
+    assert cedict_loader._pick_learner_primary(meanings) == meanings[0]
+
+
+def test_pick_learner_primary_skips_also_pr_note():
+    meanings = ["(bound form) a liquid", "also pr. [yi4]"]
+    assert cedict_loader._pick_learner_primary(meanings) == meanings[0]
+
+
+def test_pick_learner_primary_recognizes_compound_leading_tags():
+    """父's third sense is "(computing) (bound form) parent-" -- the
+    register tag isn't the very first token, so a strict startswith()
+    check on _DEPRIORITISE_TAGS alone misses it and this domain-jargon
+    sense wins as the primary for an HSK-1 character meaning "father"."""
+    meanings = [
+        "(bound form) father",
+        "(bound form) male relative of father's generation (as in 伯父[bo2 fu4])",
+        "(computing) (bound form) parent-",
+    ]
+    assert cedict_loader._pick_learner_primary(meanings) == meanings[0]
+
+
+def test_pick_learner_primary_falls_back_to_first_sense_when_everything_disqualified():
+    meanings = ["(bound form) father", "Taiwan pr. [fu3]"]
+    assert cedict_loader._pick_learner_primary(meanings) == meanings[0]
+
+
+def test_preferred_sense_override_fixes_nan_baron_misfire(monkeypatch):
+    """男's only two senses are "(bound form) male" and an obscure
+    Kangxi-nobility-rank gloss; skipping the tagged sense left "baron,
+    the lowest of the five ranks of nobility" as the displayed meaning
+    for an HSK-1 character meaning "male"."""
+    monkeypatch.setattr(
+        cedict_loader,
+        "_load_primary_overrides",
+        lambda: {"preferred_reading": {}, "preferred_sense": {"男": "male"}},
+    )
+    sample = (
+        "男 男 [nan2] /(bound form) male/baron, the lowest of the five ranks "
+        "of nobility 五等爵位[wu3 deng3 jue2 wei4]/\n"
+    )
+    parsed = cedict_loader._parse_text(sample)
+    assert parsed["男"]["meaning"] == "(bound form) male"
+
+
+def test_preferred_sense_override_fixes_yuan2_military_generals_misfire(monkeypatch):
+    """员 is the everyday suffix in 服务员/演员/队员 ("person engaged in a
+    field" / "member"); both its real senses are tagged bound-form, so
+    the heuristic fell through to the one remaining untagged sense,
+    "classifier for military generals" -- correct CC-CEDICT content, but
+    a badly misleading primary for this extremely common character."""
+    monkeypatch.setattr(
+        cedict_loader,
+        "_load_primary_overrides",
+        lambda: {
+            "preferred_reading": {},
+            "preferred_sense": {"员": "person engaged in a certain field of activity"},
+        },
+    )
+    sample = (
+        "員 员 [yuan2] /(bound form) person engaged in a certain field of activity/"
+        "(bound form) member/classifier for military generals/\n"
+    )
+    parsed = cedict_loader._parse_text(sample)
+    assert parsed["员"]["meaning"] == "(bound form) person engaged in a certain field of activity"
+
+
+def test_preferred_sense_override_fixes_hao4_misfire(monkeypatch):
+    """号 is the code's own motivating example for _pick_learner_primary
+    (see its docstring) but the heuristic actually lands on a verb sense
+    ("to mark; to label; to assign a number") rather than the everyday
+    "day of the month" noun sense the docstring describes, since that
+    verb sense is untagged and comes first in CC-CEDICT's ordering."""
+    monkeypatch.setattr(
+        cedict_loader,
+        "_load_primary_overrides",
+        lambda: {"preferred_reading": {}, "preferred_sense": {"号": "day of the month"}},
+    )
+    sample = (
+        "號 号 [hao4] /(literary) to call out; to command/(bound form) bugle; trumpet/"
+        "to mark; to label; to assign a number/"
+        'day of the month (e.g. 七號|七号[qi1 hao4] "the 7th")/\n'
+    )
+    parsed = cedict_loader._parse_text(sample)
+    assert parsed["号"]["meaning"].startswith("day of the month")
+
+
+def test_preferred_sense_override_fixes_shang4_bound_form_misfire(monkeypatch):
+    """上's core "on/above" sense is tagged bound-form, so the heuristic
+    fell through to verb fragments ("first (of multiple parts)") for
+    this HSK-1 character. The override substring must match against the
+    already-cleaned, sense-capped gloss -- "up; upper; above" not the
+    raw "up; upper; above; previous" -- since clean_gloss_for_display
+    caps display to 3 senses and truncates the rest with an ellipsis."""
+    monkeypatch.setattr(
+        cedict_loader,
+        "_load_primary_overrides",
+        lambda: {"preferred_reading": {}, "preferred_sense": {"上": "up; upper; above"}},
+    )
+    sample = (
+        "上 上 [shang4] /(bound form) up; upper; above; previous/"
+        "first (of multiple parts)/to climb; to get onto; to go up/"
+        "to attend (class or university)/(directional complement) up/"
+        "(noun suffix) on; above/\n"
+    )
+    parsed = cedict_loader._parse_text(sample)
+    assert parsed["上"]["meaning"].startswith("(bound form) up; upper; above")

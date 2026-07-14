@@ -282,15 +282,50 @@ _DEPRIORITISE_TAGS = (
     "(erhua-only)",
 )
 
+_LEADING_PARENS_RE = re.compile(r"^(?:\([^)]*\)\s*)+")
+
+# A bare alternate-pronunciation cross-reference CC-CEDICT sometimes
+# appends as its own sense — "Taiwan pr. [ji1]" or "also pr. [yi4]" —
+# with no register tag and no semantic content of its own.
+_PRONUNCIATION_NOTE_RE = re.compile(r"^(?:also|taiwan)\s+pr\.\s*[\[(]", re.IGNORECASE)
+
+
+def _has_deprioritised_tag(sense: str) -> bool:
+    """True when the sense's leading parenthetical annotation cluster
+    contains a register/usage tag from _DEPRIORITISE_TAGS. CC-CEDICT
+    sometimes stacks a domain tag ahead of the register tag —
+    "(computing) (bound form) parent-" for 父 — so a strict startswith()
+    on just the first tag misses the (bound form) marker entirely and
+    lets the domain-jargon sense win as primary (父, "father", was
+    displaying a computing term). Collects every leading "(...)" group,
+    not just the first, and checks the tag list against all of them."""
+    low = sense.lower().lstrip()
+    m = _LEADING_PARENS_RE.match(low)
+    if not m:
+        return False
+    leading = m.group(0)
+    return any(tag in leading for tag in _DEPRIORITISE_TAGS)
+
+
+def _looks_pronunciation_note(sense: str) -> bool:
+    """True for a bare "Taiwan pr. [x]" / "also pr. [x]" cross-reference.
+    These carry no meaning of their own; because they don't open with a
+    register tag they used to slip past _pick_learner_primary untouched,
+    so a character whose every real sense WAS tagged fell through to this
+    footnote and displayed it as the primary meaning (迹 showed
+    "Taiwan pr. (jī)" instead of "trace; mark")."""
+    return bool(_PRONUNCIATION_NOTE_RE.match(sense.strip()))
+
 
 def _pick_learner_primary(meanings: list[str]) -> str:
     """CC-CEDICT often orders senses etymology-first, so `meanings[0]` for
     多义-heavy characters like 号 can be a literary reading buried under
     the everyday one ("(literary) to call out; to command" ahead of "day
-    of the month"). Pick the first sense that DOESN'T open with a
-    register tag from _DEPRIORITISE_TAGS. Falls back to `meanings[0]`
-    when every sense is tagged (e.g. purely-classical characters — no
-    winning move).
+    of the month"). Pick the first sense that doesn't carry a register
+    tag from _DEPRIORITISE_TAGS (see _has_deprioritised_tag for the
+    compound-tag case) and isn't a bare pronunciation cross-reference.
+    Falls back to `meanings[0]` when every sense is disqualified (e.g.
+    purely-classical characters — no winning move).
 
     Idempotent + no lookahead — only sees the meanings we're passed.
     Runs before clean_gloss_for_display, so the input still has raw
@@ -298,9 +333,9 @@ def _pick_learner_primary(meanings: list[str]) -> str:
     if not meanings:
         return ""
     for sense in meanings:
-        low = sense.lower().lstrip()
-        if not any(low.startswith(tag) for tag in _DEPRIORITISE_TAGS):
-            return sense
+        if _has_deprioritised_tag(sense) or _looks_pronunciation_note(sense):
+            continue
+        return sense
     return meanings[0]
 
 
