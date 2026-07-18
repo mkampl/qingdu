@@ -6,6 +6,58 @@
   "topic": "complexity-theory-applications",
   "grammar_pattern": null,
   "char_count": 620,
+  "questions": [
+    {
+      "prompt": "According to the text, what would happen to existing digital signature mechanisms if P were proven to equal NP?",
+      "options": [
+        "They would collapse",
+        "They would become permanently unbreakable",
+        "They would require no changes at all",
+        "They would only affect logistics, not cryptography"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the traveling salesman problem illustrate, according to the text?",
+      "options": [
+        "The exponential growth of combinatorial-optimization difficulty as problem scale increases",
+        "That all optimization problems can be solved instantly regardless of size",
+        "That logistics problems have no relation to computational complexity",
+        "That salesmen always choose the shortest possible route in practice"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What is the CAP theorem, as described in the text, related to?",
+      "options": [
+        "The tradeoff distributed systems make between consistency and availability",
+        "The relationship between price and computing power",
+        "The three laws of robotics",
+        "The comparison between analog and digital computing"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What might the rise of quantum computing do to existing hard problems, according to the text?",
+      "options": [
+        "Potentially break them in an extremely short time, due to qubit superposition",
+        "Make them permanently unsolvable by any method",
+        "Have no impact on cryptography or complexity theory",
+        "Only apply to problems in bioinformatics"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text's conclusion, what is complexity theory beyond pure mathematical deduction?",
+      "options": [
+        "The underlying logic driving industrial progress",
+        "A purely theoretical field with no practical applications",
+        "A branch of biology rather than mathematics",
+        "A field made obsolete by the advent of quantum computing"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

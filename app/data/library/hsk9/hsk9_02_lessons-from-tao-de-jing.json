@@ -6,6 +6,58 @@
   "topic": "lessons-from-tao-de-jing",
   "grammar_pattern": null,
   "char_count": 378,
+  "questions": [
+    {
+      "prompt": "According to the text, what does water's softness illustrate?",
+      "options": [
+        "Softness cannot affect anything hard",
+        "Softness can pierce stone, showing that the soft overcomes the hard",
+        "Water evaporates too quickly to matter",
+        "Water has no real power"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what happens when a person stops clinging to outcomes?",
+      "options": [
+        "They lose all motivation",
+        "The process itself becomes a form of spiritual practice",
+        "They become careless",
+        "They give up on their goals entirely"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "The passage compares effortless, quiet influence to which natural phenomenon?",
+      "options": [
+        "A thunderstorm",
+        "Spring rain nourishing things silently",
+        "A drought",
+        "An earthquake"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the final part of the passage, what does this ancient wisdom teach us?",
+      "options": [
+        "To pursue perfection at all costs",
+        "To accept imperfection and embrace the unknown",
+        "To avoid all risk",
+        "To always control our surroundings"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What advice attributed to Laozi does the author mention?",
+      "options": [
+        "Compete fiercely in order to succeed",
+        "Follow the natural order of things instead of forcing outcomes",
+        "Accumulate as much wealth as possible",
+        "Always seek a position of high status"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

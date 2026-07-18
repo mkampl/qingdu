@@ -6,6 +6,58 @@
   "topic": "cooking-disaster",
   "grammar_pattern": "yibian-yibian",
   "char_count": 185,
+  "questions": [
+    {
+      "prompt": "What dish did the narrator plan to cook?",
+      "options": [
+        "Chicken",
+        "Fish",
+        "Noodles",
+        "Dumplings"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What distracted the narrator while cooking?",
+      "options": [
+        "A knock at the door",
+        "A phone call",
+        "The television",
+        "A text message"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What went wrong with the fish?",
+      "options": [
+        "It was too salty",
+        "It burned black",
+        "It wasn't fully cooked",
+        "It fell on the floor"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did the narrator do after the cooking disaster?",
+      "options": [
+        "Ordered delivery food",
+        "Went out to buy bread",
+        "Cooked the fish again",
+        "Called the friend to cancel"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What lesson did the narrator learn from this experience?",
+      "options": [
+        "Never cook fish",
+        "Cooking can't be rushed",
+        "Always answer the phone",
+        "Friends don't care about food"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

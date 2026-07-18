@@ -6,6 +6,58 @@
   "topic": "library",
   "grammar_pattern": "yinwei-suoyi",
   "char_count": 136,
+  "questions": [
+    {
+      "prompt": "When did they go to the library?",
+      "options": [
+        "This morning",
+        "Yesterday afternoon",
+        "Last weekend",
+        "Tonight"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What book did the narrator find?",
+      "options": [
+        "A novel",
+        "A book about Chinese history",
+        "A science book",
+        "A cookbook"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Why did the friend want to read Chinese books?",
+      "options": [
+        "For a school assignment",
+        "To learn Chinese well",
+        "Because they were free",
+        "To practice pronunciation"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Where did they sit?",
+      "options": [
+        "Near the door",
+        "By the window",
+        "On the second floor",
+        "Outside"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How long did they read?",
+      "options": [
+        "One hour",
+        "Two hours",
+        "Three hours",
+        "30 minutes"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

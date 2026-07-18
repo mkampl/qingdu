@@ -6,6 +6,48 @@
   "topic": "after-school",
   "grammar_pattern": "le-aspect",
   "char_count": 48,
+  "questions": [
+    {
+      "prompt": "Who is the main character in this story?",
+      "options": [
+        "The narrator's brother",
+        "David",
+        "Wang",
+        "A teacher"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Where did David go after class?",
+      "options": [
+        "The library",
+        "The park",
+        "A restaurant",
+        "The mall"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "What does David like doing?",
+      "options": [
+        "Drawing",
+        "Reading books",
+        "Playing ball",
+        "Listening to songs"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "What did David do at the mall?",
+      "options": [
+        "Bought clothes",
+        "Ate a meal",
+        "Met a friend",
+        "Listened to songs"
+      ],
+      "answer_index": 3
+    }
+  ],
   "analyzed": {
     "words": [
       {

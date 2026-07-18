@@ -6,6 +6,58 @@
   "topic": "intergenerational-misunderstanding",
   "grammar_pattern": null,
   "char_count": 419,
+  "questions": [
+    {
+      "prompt": "According to the text, what do elders tend to rely on, compared to what the younger generation prizes?",
+      "options": [
+        "Elders rely on experience and tradition; youth prize efficiency and innovation",
+        "Elders prize new technology; youth rely on old traditions",
+        "Both generations value exactly the same things",
+        "Neither generation places value on tradition"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, is the generational divergence caused simply by age difference?",
+      "options": [
+        "Yes, it results purely from biological age differences",
+        "No — it stems mainly from the excessively fast pace of social transformation",
+        "It is caused entirely by government policy",
+        "It results only from differences in geography"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, how do elders and the younger generation each interpret certain behaviors in this conflict?",
+      "options": [
+        "Elders see silence as disrespect; youth see nagging/reminders as control",
+        "Elders see silence as wisdom; youth see nagging as affection",
+        "Both interpret silence and reminders identically",
+        "Neither silence nor reminders cause any friction"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what can experience and youthful vitality become, if both generations let go of their biases?",
+      "options": [
+        "An unavoidable source of permanent conflict",
+        "A complementary strength that nourishes growth",
+        "Something relevant only to elders",
+        "Irrelevant to family relationships overall"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what does it propose as necessary for achieving true understanding between generations?",
+      "options": [
+        "Strict separation between generations",
+        "Avoiding all discussion of the past",
+        "Patient and continuous listening, alongside cross-generational dialogue",
+        "Mandatory technology classes for elders"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

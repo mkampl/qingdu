@@ -6,6 +6,58 @@
   "topic": "education-pressure",
   "grammar_pattern": "jiran-jiu",
   "char_count": 341,
+  "questions": [
+    {
+      "prompt": "Why do parents hope their children enter prestigious schools, according to the text?",
+      "options": [
+        "To obtain better job opportunities",
+        "To make friends easily",
+        "To travel abroad",
+        "To avoid military service"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What two activities does the author suggest for relieving stress?",
+      "options": [
+        "Sports or art",
+        "Sleeping more",
+        "Eating more",
+        "Watching television"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the author say true education should not be limited to?",
+      "options": [
+        "Doing endless practice questions",
+        "Learning foreign languages",
+        "Attending lectures",
+        "Reading textbooks"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the author warn happens to someone who only knows how to take tests?",
+      "options": [
+        "They will struggle to face the complex real world",
+        "They will become wealthy quickly",
+        "They will become teachers",
+        "They will lose interest in school"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does society need instead of \"uniform machines\"?",
+      "options": [
+        "Diverse talents",
+        "More textbooks",
+        "Stricter rules",
+        "Longer school days"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

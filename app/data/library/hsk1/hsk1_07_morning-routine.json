@@ -6,6 +6,48 @@
   "topic": "morning-routine",
   "grammar_pattern": "le-aspect",
   "char_count": 54,
+  "questions": [
+    {
+      "prompt": "What did the narrator see first in the morning?",
+      "options": [
+        "A card",
+        "A cake",
+        "A gift",
+        "Flowers"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did the friend do to celebrate?",
+      "options": [
+        "Brought a gift",
+        "Took a photo",
+        "Sang a birthday song",
+        "Baked a cake"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "Where did they go after class?",
+      "options": [
+        "The cinema",
+        "The park",
+        "Home",
+        "A restaurant"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "Who paid for the meal?",
+      "options": [
+        "The friend",
+        "Their teacher",
+        "The narrator",
+        "They split it"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

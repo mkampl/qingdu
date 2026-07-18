@@ -6,6 +6,48 @@
   "topic": "drawing",
   "grammar_pattern": "le-aspect",
   "char_count": 41,
+  "questions": [
+    {
+      "prompt": "Who did the narrator see at home?",
+      "options": [
+        "Sister",
+        "Boyfriend",
+        "Teacher",
+        "Neighbor"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did the boyfriend buy?",
+      "options": [
+        "Flowers",
+        "A painting",
+        "Snacks",
+        "Some e-books"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "What did the narrator drink?",
+      "options": [
+        "Tea",
+        "Milk",
+        "A cup of water",
+        "Juice"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What did the boyfriend say about the narrator's book(s)?",
+      "options": [
+        "That they were too hard",
+        "That they were too short",
+        "That they were good",
+        "That they were boring"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

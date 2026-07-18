@@ -6,6 +6,58 @@
   "topic": "nostalgia-and-progress",
   "grammar_pattern": null,
   "char_count": 459,
+  "questions": [
+    {
+      "prompt": "According to the text, why do many people begin to miss the \"old days\"?",
+      "options": [
+        "Because the past was objectively better in every way",
+        "Because they yearn for the purity of that time, not because the past was actually more perfect",
+        "It is purely random nostalgia with no real explanation",
+        "Because the past had superior technology"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What examples does the text give of real benefits brought by progress and modernization?",
+      "options": [
+        "Higher taxes and stricter regulations",
+        "Medical breakthroughs saving lives and transportation shortening distances",
+        "Reduced average life expectancy",
+        "Increased isolation between people"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what should nostalgia transform into, rather than becoming a shackle hindering progress?",
+      "options": [
+        "A legal restriction on new technology",
+        "A reason to reject all forms of change",
+        "A spiritual motivation for moving forward",
+        "A purely commercial marketing tool"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What practical suggestion does the text give for balancing technology with humanistic spirit?",
+      "options": [
+        "Completely abandoning all modern technology",
+        "Giving family high-quality companionship time even amid efficient work",
+        "Working longer hours to afford more devices",
+        "Avoiding contact with family to focus on career"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text's conclusion, are respecting tradition and pursuing innovation contradictory?",
+      "options": [
+        "Yes, one must always be sacrificed for the other",
+        "The text avoids taking a position on this question",
+        "No — combining historical depth with modern speed builds a more complete civilization",
+        "They are contradictory only in developing countries"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

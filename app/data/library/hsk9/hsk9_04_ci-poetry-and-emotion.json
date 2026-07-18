@@ -6,6 +6,58 @@
   "topic": "ci-poetry-and-emotion",
   "grammar_pattern": null,
   "char_count": 430,
+  "questions": [
+    {
+      "prompt": "According to the passage, how does ci poetry differ from shi (regular verse)?",
+      "options": [
+        "Ci is more an expression of mood, while shi is more dignified",
+        "Ci is always much longer than shi",
+        "Shi follows no rules at all",
+        "Ci is only ever about nature"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does reading Liu Yong's poetry reveal, according to the text?",
+      "options": [
+        "Political ambition",
+        "Loneliness amid a bustling city",
+        "Joy of travel",
+        "Anger at injustice"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the author say about modern people compared to the ancients?",
+      "options": [
+        "Modern people are generally happier",
+        "Modern people, despite having ci poetry, lack the ancients' pure dedication",
+        "Modern people write far better poetry",
+        "Modern people no longer read poetry at all"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the author compare written words (文字) to in the passage?",
+      "options": [
+        "Fire",
+        "Water, slowly moistening a parched soul",
+        "Stone",
+        "Wind"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Where is the author when the passage begins?",
+      "options": [
+        "In a garden",
+        "In a study room, while it drizzles outside",
+        "On a mountain",
+        "On a boat"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

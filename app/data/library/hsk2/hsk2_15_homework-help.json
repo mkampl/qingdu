@@ -6,6 +6,58 @@
   "topic": "homework-help",
   "grammar_pattern": "ruguo-jiu",
   "char_count": 130,
+  "questions": [
+    {
+      "prompt": "Who came to the narrator's house?",
+      "options": [
+        "The teacher",
+        "A cousin",
+        "David",
+        "A classmate named Wang"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "Why did David need help?",
+      "options": [
+        "He was sick",
+        "He lost his book",
+        "He finds Chinese class difficult",
+        "He was late"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What does the narrator say about David's writing?",
+      "options": [
+        "Writes very fast",
+        "Writes slowly but works hard",
+        "Doesn't try hard",
+        "Writes perfectly"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Why is David happy at the end?",
+      "options": [
+        "He got a good grade",
+        "He made a new friend",
+        "He finished his homework",
+        "He passed a test"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What does the narrator think about helping others?",
+      "options": [
+        "It's tiring",
+        "It's a waste of time",
+        "It's boring",
+        "It's a joyful thing"
+      ],
+      "answer_index": 3
+    }
+  ],
   "analyzed": {
     "words": [
       {

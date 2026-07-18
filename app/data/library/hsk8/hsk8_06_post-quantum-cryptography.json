@@ -6,6 +6,58 @@
   "topic": "post-quantum-cryptography",
   "grammar_pattern": null,
   "char_count": 498,
+  "questions": [
+    {
+      "prompt": "What do current (pre-quantum) asymmetric encryption algorithms mainly rely on for security, according to the text?",
+      "options": [
+        "The computational difficulty of large-integer factorization or the discrete logarithm problem",
+        "The physical impossibility of copying quantum states",
+        "The unpredictability of random number generators alone",
+        "The scarcity of computing hardware"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Why can quantum computers threaten traditional encryption, according to the text?",
+      "options": [
+        "They exploit superposition and entanglement to solve certain hard math problems very quickly",
+        "They simply run classical algorithms faster due to better hardware",
+        "They can physically intercept encrypted data transmissions",
+        "They eliminate the need for encryption keys entirely"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What mathematical problem does lattice-based encryption rely on, according to the text?",
+      "options": [
+        "The shortest vector problem in high-dimensional space",
+        "The traveling salesman problem",
+        "The discrete logarithm problem",
+        "Prime number factorization"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What risk does the text describe regarding historically stored encrypted data?",
+      "options": [
+        "Future quantum devices may decrypt data that was encrypted and stored in the past",
+        "Old data automatically becomes unreadable over time",
+        "Only classical computers can decrypt historical data",
+        "Historical data poses no security risk once quantum computing arrives"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text's conclusion, what does security ultimately depend on?",
+      "options": [
+        "The insurmountable difficulty of certain mathematical problems",
+        "The physical location of data servers",
+        "The number of employees monitoring a network",
+        "The speed of internet connections"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

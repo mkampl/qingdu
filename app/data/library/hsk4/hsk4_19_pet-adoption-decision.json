@@ -6,6 +6,58 @@
   "topic": "pet-adoption-decision",
   "grammar_pattern": "buguan-dou",
   "char_count": 268,
+  "questions": [
+    {
+      "prompt": "According to the text, which does the narrator believe is more meaningful: buying a pet or adopting a stray animal?",
+      "options": [
+        "Adopting a stray animal",
+        "Buying a pet from a store",
+        "Buying a pedigree pet",
+        "The text says both are equally meaningful"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What personality trait does the text say many stray dogs have?",
+      "options": [
+        "A gentle temperament",
+        "An aggressive temperament",
+        "A lazy temperament",
+        "A stubborn temperament"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does adopting give to a weak/vulnerable life?",
+      "options": [
+        "A second chance",
+        "A permanent cage",
+        "Free medical care for life",
+        "A famous owner"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what should someone consider before adopting a pet?",
+      "options": [
+        "Whether their own lifestyle habits are suitable",
+        "Whether the pet is a popular breed",
+        "Whether the pet is expensive",
+        "Whether their neighbors like animals"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text warn against when it comes to deciding to adopt?",
+      "options": [
+        "Deciding because of a momentary impulse",
+        "Adopting too many animals at once",
+        "Adopting animals that are too old",
+        "Adopting without government approval"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

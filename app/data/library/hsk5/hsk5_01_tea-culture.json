@@ -6,6 +6,58 @@
   "topic": "tea-culture",
   "grammar_pattern": "jiran-jiu",
   "char_count": 255,
+  "questions": [
+    {
+      "prompt": "Where did the narrator travel to last week?",
+      "options": [
+        "Suzhou",
+        "Beijing",
+        "Hangzhou",
+        "Shanghai"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does drinking tea represent beyond just taste?",
+      "options": [
+        "An attitude toward life",
+        "A way to save money",
+        "A competitive sport",
+        "A religious ritual"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What is the first step in the tea-making process described in the text?",
+      "options": [
+        "Selecting suitable tea leaves",
+        "Boiling the water first",
+        "Washing the cup",
+        "Reading about tea history"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What is the purpose of washing the tea (洗茶) according to the text?",
+      "options": [
+        "To awaken the leaves",
+        "To remove dust",
+        "To cool the water",
+        "To test the tea's quality"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What do many scholars believe about drinking tea while thinking?",
+      "options": [
+        "It improves efficiency",
+        "It causes distraction",
+        "It wastes time",
+        "It has no real effect"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

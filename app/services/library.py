@@ -56,6 +56,7 @@ def manifest() -> list[dict[str, Any]]:
             "grammar_pattern": e.get("grammar_pattern"),
             "char_count": e["char_count"],
             "total_unique_words": len(_unique_cjk_words(e.get("analyzed"))),
+            "has_quiz": bool(e.get("questions")),
         }
         for e in _all_entries()
     ]
@@ -66,6 +67,24 @@ def get(slug: str) -> dict[str, Any] | None:
         if e["slug"] == slug:
             return e
     return None
+
+
+def questions(slug: str) -> list[dict[str, Any]] | None:
+    """Raw questions (including `answer_index`) — server-side grading only."""
+    entry = get(slug)
+    if entry is None:
+        return None
+    qs = entry.get("questions")
+    return qs if qs else None
+
+
+def quiz_questions(slug: str) -> list[dict[str, Any]] | None:
+    """Client-safe questions — `answer_index` stripped so it never ships to
+    the browser before the quiz is graded."""
+    qs = questions(slug)
+    if qs is None:
+        return None
+    return [{"prompt": q["prompt"], "options": q["options"]} for q in qs]
 
 
 def for_user(

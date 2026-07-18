@@ -6,6 +6,58 @@
   "topic": "diet-change",
   "grammar_pattern": "bei",
   "char_count": 194,
+  "questions": [
+    {
+      "prompt": "Who supported the narrator's health plan?",
+      "options": [
+        "Their doctor",
+        "A friend",
+        "Their parents",
+        "A coworker"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What happened to the cake the narrator bought?",
+      "options": [
+        "They ate it all themselves",
+        "Their younger sister ate it",
+        "It went bad",
+        "They gave it away"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How did the narrator feel about the cake being eaten?",
+      "options": [
+        "Angry",
+        "Happy, since they no longer wanted sweets",
+        "Sad",
+        "Indifferent"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the narrator drink after exercising in the morning?",
+      "options": [
+        "Coffee",
+        "Milk",
+        "Juice",
+        "Tea"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What physical change did the narrator notice?",
+      "options": [
+        "They gained weight",
+        "Their clothes became looser",
+        "They grew taller",
+        "They got sick more often"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

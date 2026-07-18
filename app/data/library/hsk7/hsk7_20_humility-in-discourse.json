@@ -6,6 +6,58 @@
   "topic": "humility-in-discourse",
   "grammar_pattern": null,
   "char_count": 519,
+  "questions": [
+    {
+      "prompt": "According to the text, what does true humility actually represent, rather than a lack of confidence?",
+      "options": [
+        "A sign of weakness in an argument",
+        "A deep cognitive ability, involving acknowledging the limits of one's own knowledge",
+        "A strategy purely for avoiding all conflict",
+        "A trait useful only for public speakers"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what happens when people try to suppress others in discussion to prove their own correctness?",
+      "options": [
+        "The discussion always reaches a fair, balanced conclusion",
+        "Both sides naturally become closer friends afterward",
+        "The exchange, meant to build consensus, becomes a power struggle instead",
+        "The problem is solved more efficiently as a result"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "According to the text, what does a humble posture in dialogue create for the other person?",
+      "options": [
+        "A sense of intimidation",
+        "A safe space to express their real thoughts",
+        "A feeling of being judged",
+        "A highly competitive environment"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What two techniques does the text suggest for humble expression that can defuse potential conflict?",
+      "options": [
+        "Raising one's voice and repeating the same point",
+        "Ignoring the other person's arguments completely",
+        "Using a tactful tone or posing inspiring, thought-provoking questions",
+        "Ending the conversation immediately"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "According to the text's conclusion, what does true wisdom lie in, according to someone who understands humility?",
+      "options": [
+        "Having the loudest voice in the room",
+        "Winning every argument decisively",
+        "Avoiding all conversations with people who disagree",
+        "Being able to embrace diverse perspectives, not controlling the conversation"
+      ],
+      "answer_index": 3
+    }
+  ],
   "analyzed": {
     "words": [
       {

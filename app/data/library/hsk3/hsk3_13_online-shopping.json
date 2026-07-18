@@ -6,6 +6,58 @@
   "topic": "online-shopping",
   "grammar_pattern": "yibian-yibian",
   "char_count": 213,
+  "questions": [
+    {
+      "prompt": "Why does the narrator often shop for clothes on their phone?",
+      "options": [
+        "The selection is bigger",
+        "The prices are cheaper",
+        "It's the only option",
+        "Friends recommended it"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What problem did the narrator have with the shirt they bought online?",
+      "options": [
+        "It was the wrong color",
+        "It was too small",
+        "It never arrived",
+        "It was damaged"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How did the store handle the narrator's problem?",
+      "options": [
+        "They refused to help",
+        "The clerk had a good attitude and helped solve it",
+        "They ignored the phone call",
+        "They charged an extra fee"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How fast is the delivery, according to the text?",
+      "options": [
+        "Same day",
+        "Next day",
+        "A week",
+        "A month"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Why does the narrator still occasionally go to the mall?",
+      "options": [
+        "To meet friends",
+        "To personally check the quality of items",
+        "To save money",
+        "To avoid paying for delivery"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

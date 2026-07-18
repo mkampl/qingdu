@@ -6,6 +6,58 @@
   "topic": "mountain-tourism",
   "grammar_pattern": "buran-jiu",
   "char_count": 192,
+  "questions": [
+    {
+      "prompt": "When do the visitors eat lunch, according to the text?",
+      "options": [
+        "At noon, on the mountain",
+        "In the morning, before departing",
+        "In the evening, after descending",
+        "Only at the small house"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Who walks faster on the mountain path, according to the text?",
+      "options": [
+        "Young people",
+        "Old people",
+        "Everyone walks at the same pace",
+        "The guides"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What is located on the mountain where people rest and drink water?",
+      "options": [
+        "A small house",
+        "A large hotel",
+        "A restaurant",
+        "A cave"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say about the mountain's water?",
+      "options": [
+        "It is very clean",
+        "It is very cold",
+        "It is undrinkable",
+        "It is frozen"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the sequence in the text, when do the visitors continue climbing?",
+      "options": [
+        "In the afternoon",
+        "Early in the morning",
+        "At midnight",
+        "The following day"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

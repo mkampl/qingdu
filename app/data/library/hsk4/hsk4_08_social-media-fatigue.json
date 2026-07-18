@@ -6,6 +6,58 @@
   "topic": "social-media-fatigue",
   "grammar_pattern": "jishi-ye",
   "char_count": 220,
+  "questions": [
+    {
+      "prompt": "According to the text, how do people often feel after seeing others' seemingly good lives online?",
+      "options": [
+        "Unhappy",
+        "Inspired",
+        "Relaxed",
+        "Bored"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say about the content shown in photos posted online?",
+      "options": [
+        "It is not necessarily real",
+        "It is always accurate",
+        "It is professionally edited",
+        "It should be trusted completely"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Even after turning off their phone, how do many people still feel, according to the text?",
+      "options": [
+        "Uneasy",
+        "Relieved",
+        "Sleepy",
+        "Energetic"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text suggest doing instead of spending time on the phone?",
+      "options": [
+        "Chatting with family or going to the park",
+        "Watching more videos",
+        "Reading the news more often",
+        "Taking more photos"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does constantly checking the phone prevent people from doing?",
+      "options": [
+        "Concentrating",
+        "Sleeping at night",
+        "Eating properly",
+        "Making friends"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

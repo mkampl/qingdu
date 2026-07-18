@@ -6,6 +6,58 @@
   "topic": "exam-stress",
   "grammar_pattern": "budan-erqie",
   "char_count": 195,
+  "questions": [
+    {
+      "prompt": "What is Xiao Wang worried about besides bad grades?",
+      "options": [
+        "Losing friends",
+        "His parents being unhappy",
+        "Missing the exam",
+        "Being late to school"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What advice did Xiao Wang's friend give him?",
+      "options": [
+        "Study needs both effort and method",
+        "Studying alone is best",
+        "Skip exercise to save time",
+        "Sleep less to study more"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What new habit did Xiao Wang start?",
+      "options": [
+        "Studying with a tutor",
+        "Waking up early to walk in the park",
+        "Drinking coffee at night",
+        "Taking practice exams daily"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did Xiao Wang notice after exercising?",
+      "options": [
+        "His mind became clearer",
+        "He became more tired",
+        "He lost interest in studying",
+        "He slept less"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What is Xiao Wang's conclusion at the end of the text?",
+      "options": [
+        "Exams don't matter at all",
+        "As long as he prepares seriously, the result will be good",
+        "He should quit school",
+        "His parents are too demanding"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

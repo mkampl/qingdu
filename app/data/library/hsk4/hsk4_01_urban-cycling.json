@@ -6,6 +6,58 @@
   "topic": "urban-cycling",
   "grammar_pattern": "buguan-dou",
   "char_count": 244,
+  "questions": [
+    {
+      "prompt": "What event did the narrator take part in last week?",
+      "options": [
+        "A discussion about green transportation",
+        "A bicycle race",
+        "A city planning meeting",
+        "A health seminar"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what problem do some narrow roads cause?",
+      "options": [
+        "They give cyclists difficulty",
+        "They have too many traffic lights",
+        "They are full of potholes",
+        "They have no street lights"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, cycling helps people avoid spending too much money on what?",
+      "options": [
+        "Fuel/gas costs",
+        "Parking fees",
+        "Bus tickets",
+        "Gym memberships"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what happens to people's mood after exercising (cycling)?",
+      "options": [
+        "It becomes happier",
+        "It becomes more anxious",
+        "It stays the same",
+        "It becomes tired"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what advantage does cycling have over driving?",
+      "options": [
+        "It doesn't require finding a parking space",
+        "It is always faster over long distances",
+        "It works in any weather without discomfort",
+        "It requires no physical effort"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

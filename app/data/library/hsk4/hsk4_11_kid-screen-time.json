@@ -6,6 +6,58 @@
   "topic": "kid-screen-time",
   "grammar_pattern": "jishi-ye",
   "char_count": 241,
+  "questions": [
+    {
+      "prompt": "According to the text, what are two health effects of children looking at screens for a long time?",
+      "options": [
+        "Tired eyes and declining vision",
+        "Weight gain and headaches",
+        "Hearing loss and back pain",
+        "Improved reflexes but poor sleep"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How many hours per day does the text suggest giving children for phone use?",
+      "options": [
+        "One hour",
+        "Two hours",
+        "Three hours",
+        "Thirty minutes"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what social skill may worsen if children only live in the virtual world?",
+      "options": [
+        "Face-to-face communication ability",
+        "Reading comprehension",
+        "Memory",
+        "Handwriting"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text suggest children do with their remaining time instead of using phones?",
+      "options": [
+        "Read or exercise",
+        "Watch TV",
+        "Play video games",
+        "Do homework only"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what should technology become, with reasonable management?",
+      "options": [
+        "A tool rather than a burden",
+        "A replacement for parents",
+        "A required part of school",
+        "A source of income"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

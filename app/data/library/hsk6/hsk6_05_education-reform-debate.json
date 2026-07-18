@@ -6,6 +6,58 @@
   "topic": "education-reform-debate",
   "grammar_pattern": "zhisuoyi",
   "char_count": 335,
+  "questions": [
+    {
+      "prompt": "Why do reform advocates believe rote memorization is inefficient?",
+      "options": [
+        "Because modern society requires comprehensive abilities beyond high test scores",
+        "Because it takes too much classroom time",
+        "Because students find it boring",
+        "Because it is more expensive than other methods"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to reform advocates, how should the teacher's role change?",
+      "options": [
+        "From a transmitter of knowledge to a guide",
+        "From a guide to a strict disciplinarian",
+        "Teachers should be replaced by textbooks",
+        "Teachers should focus solely on test preparation"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What do those who emphasize foundational knowledge argue?",
+      "options": [
+        "Lacking a solid foundation leads to shallow understanding, since it determines the academic ceiling",
+        "Foundational knowledge is no longer necessary",
+        "Only creative thinking matters, not facts",
+        "Testing should be abolished entirely"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text identify as the biggest obstacle to reform?",
+      "options": [
+        "The lagging, outdated evaluation (exam) system",
+        "Lack of school funding",
+        "Teacher shortages",
+        "Parental opposition"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text suggest is needed to resolve the debate?",
+      "options": [
+        "A more scientific, diversified assessment method that balances both views",
+        "Complete abolition of all exams",
+        "A full return to traditional rote learning",
+        "Letting only test scores decide everything"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "ghost-stories-as-cultural-mirror",
   "grammar_pattern": null,
   "char_count": 443,
+  "questions": [
+    {
+      "prompt": "According to the text, what do \"wandering lonely souls\" in ghost stories often carry?",
+      "options": [
+        "Nothing meaningful",
+        "Unfulfilled aspirations from their lifetime",
+        "Hidden treasure",
+        "Curses on future generations"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the wailing of \"wronged spirits\" at night actually represent, according to the text?",
+      "options": [
+        "Random background noise",
+        "A silent cry for social justice",
+        "A warning of bad weather",
+        "Nothing of significance"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what is the true root of the fear evoked by these stories?",
+      "options": [
+        "Illusory shadows and ghosts themselves",
+        "A deep-seated anxiety about death",
+        "Poor lighting conditions",
+        "Loud, sudden noises"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What role did ghost stories serve in eras with strict social codes, according to the text?",
+      "options": [
+        "Pure entertainment with no deeper role",
+        "An outlet for releasing repressed emotions",
+        "A way to teach farming techniques",
+        "A tool for political propaganda"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what are ghosts ultimately, in the cultural sense described?",
+      "options": [
+        "Real supernatural beings",
+        "Projections of human nature",
+        "Accurate historical records",
+        "Inventions with no cultural meaning"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

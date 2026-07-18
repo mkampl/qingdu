@@ -6,6 +6,58 @@
   "topic": "neuroplasticity-and-learning",
   "grammar_pattern": null,
   "char_count": 532,
+  "questions": [
+    {
+      "prompt": "According to the text, what happens to synaptic pruning during childhood?",
+      "options": [
+        "It is extremely active, providing a golden window for language acquisition",
+        "It does not occur until adulthood",
+        "It permanently damages cognitive function",
+        "It only affects motor skills"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say about learning tasks that are overly simple?",
+      "options": [
+        "They fail to drive synaptic reconstruction",
+        "They are the most effective method for adult learning",
+        "They increase cognitive load excessively",
+        "They must be completed before challenging tasks"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What did the environmental-enrichment experiments mentioned in the text demonstrate?",
+      "options": [
+        "Complex stimuli significantly increase expression of a protein that promotes neuron growth and survival",
+        "Sleep is unnecessary for memory consolidation",
+        "Cortical thickness decreases under complex stimulation",
+        "Enrichment only affects the childhood brain, not adults"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, how can damaged brain regions regain function?",
+      "options": [
+        "Through compensation from surrounding healthy tissue",
+        "Only through complete regeneration of the damaged cells",
+        "Function cannot be restored once lost",
+        "Only through medication, never through training"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What is the text's overall conclusion about adult neuroplasticity?",
+      "options": [
+        "Though reduced compared to childhood, it persists and can be triggered by deliberate practice, forming the basis for lifelong learning",
+        "Adults completely lose neuroplasticity after childhood",
+        "Neuroplasticity is identical in children and adults",
+        "Neuroplasticity only matters for rehabilitation medicine, not everyday learning"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

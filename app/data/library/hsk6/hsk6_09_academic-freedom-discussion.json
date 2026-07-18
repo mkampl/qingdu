@@ -6,6 +6,58 @@
   "topic": "academic-freedom-discussion",
   "grammar_pattern": "zhisuoyi",
   "char_count": 357,
+  "questions": [
+    {
+      "prompt": "According to the text, what often influences the direction of academic research inappropriately?",
+      "options": [
+        "Funding sources",
+        "Weather conditions",
+        "Student enrollment numbers",
+        "Library size"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Why, according to the text, do some scholars feel pressured?",
+      "options": [
+        "Because resources are controlled by a small minority",
+        "Because too many scholars compete for readers",
+        "Because the government bans all research",
+        "Because students refuse to attend lectures"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say happens to real data under short-term interest pressure?",
+      "options": [
+        "It gets concealed",
+        "It gets published immediately without review",
+        "It becomes more accurate",
+        "It is shared openly with the public"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Why should management devolve power, according to the text?",
+      "options": [
+        "Because innovation needs a relaxed, open atmosphere",
+        "Because managers are incompetent",
+        "Because it saves money",
+        "Because it is legally required"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text's conclusion, what must freedom be built upon?",
+      "options": [
+        "Professional integrity and a rigorous attitude",
+        "Complete absence of any rules",
+        "Financial wealth",
+        "Popularity among peers"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

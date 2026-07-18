@@ -6,6 +6,58 @@
   "topic": "responsibility-of-affluence",
   "grammar_pattern": null,
   "char_count": 536,
+  "questions": [
+    {
+      "prompt": "According to the text, what did material abundance fail to automatically eliminate?",
+      "options": [
+        "The gap between rich and poor",
+        "Traffic congestion",
+        "Environmental pollution",
+        "Unemployment"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does individual business success ultimately depend on?",
+      "options": [
+        "Pure luck alone",
+        "Public infrastructure and the labor of workers",
+        "Family inheritance exclusively",
+        "Government subsidies exclusively"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, how should returning profit to the community be properly understood?",
+      "options": [
+        "As a simple act of charity",
+        "As fulfilling a form of social contract, not mere charity",
+        "As a tax-avoidance loophole",
+        "As a marketing gimmick with no substance"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what happens to economic vitality if wealth circulates only among a small number of people?",
+      "options": [
+        "It ultimately becomes limited/constrained",
+        "It grows without any limit",
+        "It has no measurable effect on the economy",
+        "It becomes significantly more efficient"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, how should a civilized era be measured?",
+      "options": [
+        "By its military strength",
+        "By the number of skyscrapers it has built",
+        "By how it treats vulnerable/disadvantaged groups",
+        "By its total GDP"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

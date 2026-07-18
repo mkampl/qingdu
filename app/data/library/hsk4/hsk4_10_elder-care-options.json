@@ -6,6 +6,58 @@
   "topic": "elder-care-options",
   "grammar_pattern": "buguan-dou",
   "char_count": 271,
+  "questions": [
+    {
+      "prompt": "According to the text, what did some people choose to do for their elderly parents because they were too busy?",
+      "options": [
+        "Send them to a specialized care institution",
+        "Hire a full-time nanny",
+        "Move them to another country",
+        "Ask siblings to take turns caring for them"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What problem can arise for elderly people even in a convenient care institution, according to the text?",
+      "options": [
+        "They may feel lonely",
+        "They may not receive medical care",
+        "They may lose contact with doctors",
+        "They may become unhealthy"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what is said to be more important than money when caring for the elderly?",
+      "options": [
+        "A warm home",
+        "A large inheritance",
+        "Modern medical equipment",
+        "A famous care institution"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text suggest society should build in communities to help the elderly?",
+      "options": [
+        "Activity centers",
+        "More hospitals",
+        "Larger parks",
+        "Shopping malls"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Regardless of which care option is chosen, what does the text say should always be respected?",
+      "options": [
+        "The elderly person's own wishes",
+        "The government's regulations",
+        "The doctor's recommendation",
+        "The family's budget"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

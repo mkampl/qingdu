@@ -6,6 +6,58 @@
   "topic": "school-trip",
   "grammar_pattern": "yue-yue",
   "char_count": 199,
+  "questions": [
+    {
+      "prompt": "How did the class travel to Beijing?",
+      "options": [
+        "By plane",
+        "By train",
+        "By bus",
+        "By car"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What was the first place they visited in Beijing?",
+      "options": [
+        "A museum",
+        "The Great Wall",
+        "A park",
+        "A university"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Who told the students historical stories at the site?",
+      "options": [
+        "A tour guide",
+        "The teacher",
+        "A classmate",
+        "A stranger"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Why does the narrator think this trip was valuable?",
+      "options": [
+        "It was cheap",
+        "It showed that the world is bigger than books",
+        "It let them skip class",
+        "It was very relaxing"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Why was the class especially excited about this trip?",
+      "options": [
+        "It was their first collective trip",
+        "It was a very short trip",
+        "They won a prize",
+        "It was a graduation gift"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

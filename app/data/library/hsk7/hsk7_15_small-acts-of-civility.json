@@ -6,6 +6,58 @@
   "topic": "small-acts-of-civility",
   "grammar_pattern": null,
   "char_count": 474,
+  "questions": [
+    {
+      "prompt": "What small act of civility did the narrator witness at the subway station?",
+      "options": [
+        "A stranger gave up their seat for a child",
+        "A young person held the door open for an elder carrying a heavy load",
+        "Someone returned a lost wallet to its owner",
+        "A commuter helped an elderly person cross the street"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what is identified as the true \"lubricant\" of social relations, rather than grand slogans?",
+      "options": [
+        "Government policy",
+        "Advanced technology",
+        "Subtle, everyday kindness",
+        "Strict laws and regulations"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "According to the text, what will a city become if everyone habitually ignores others' needs?",
+      "options": [
+        "A cold forest of reinforced concrete",
+        "A more efficient economic hub",
+        "A more popular tourist destination",
+        "A city with a lower crime rate"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, how should politeness/civility be properly understood?",
+      "options": [
+        "As a legal obligation imposed by the state",
+        "As a business marketing strategy",
+        "As a form of respect for others",
+        "As an outdated tradition with no real value"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What two simple examples does the text give for how ordinary people can let kindness flow among the crowd?",
+      "options": [
+        "Donating money and volunteering weekly",
+        "A smile or saying \"thank you\"",
+        "Writing letters and making phone calls",
+        "Organizing large public events"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

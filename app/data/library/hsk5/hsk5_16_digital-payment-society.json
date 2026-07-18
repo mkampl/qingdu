@@ -6,6 +6,58 @@
   "topic": "digital-payment-society",
   "grammar_pattern": "jiran-jiu",
   "char_count": 253,
+  "questions": [
+    {
+      "prompt": "What have many young people forgotten, according to the text?",
+      "options": [
+        "The feel of cash/coins",
+        "How to read a map",
+        "How to write by hand",
+        "How to cook"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Who does the text say struggles with complex payment software?",
+      "options": [
+        "Some elderly people",
+        "Tourists",
+        "Government officials",
+        "Bank employees"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What do the government and banks try to do, according to the text?",
+      "options": [
+        "Promote simple payment methods and optimize service",
+        "Ban cash entirely",
+        "Raise transaction fees",
+        "Close physical bank branches"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the author, what is more critical than efficiency?",
+      "options": [
+        "Human-centered care",
+        "Government regulation",
+        "Bank profit",
+        "International competitiveness"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What single tool has become central to most daily transactions, according to the text?",
+      "options": [
+        "The mobile phone",
+        "A bank card",
+        "A wallet",
+        "A smartwatch"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

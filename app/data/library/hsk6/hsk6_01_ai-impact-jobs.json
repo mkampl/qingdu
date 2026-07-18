@@ -6,6 +6,58 @@
   "topic": "ai-impact-jobs",
   "grammar_pattern": "zhisuoyi",
   "char_count": 333,
+  "questions": [
+    {
+      "prompt": "Why are algorithms replacing many basic jobs, according to the text?",
+      "options": [
+        "Because algorithms have extremely high efficiency",
+        "Because human workers demand higher wages",
+        "Because governments mandate automation",
+        "Because companies want to reduce office space"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What examples does the text give of new jobs that did not exist ten years ago?",
+      "options": [
+        "Data annotators and model trainers",
+        "Doctors and lawyers",
+        "Teachers and farmers",
+        "Journalists and photographers"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, why do people feel confused or lost (迷茫)?",
+      "options": [
+        "Because knowledge updates too fast and education has not kept up",
+        "Because they lack access to computers",
+        "Because wages are too low",
+        "Because their bosses give unclear instructions"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What unique human abilities does the text say people must cultivate?",
+      "options": [
+        "Emotional communication and complex decision-making",
+        "Physical strength and endurance",
+        "Memorization and calculation speed",
+        "Following instructions precisely"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say about machines and empathy?",
+      "options": [
+        "Machines lack true empathy and can only simulate logic, not feelings",
+        "Machines have recently developed genuine empathy",
+        "Machines are better at empathy than humans",
+        "Empathy is irrelevant to job competition"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

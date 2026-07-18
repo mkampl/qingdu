@@ -6,6 +6,58 @@
   "topic": "labor-shortage-strategies",
   "grammar_pattern": "wanyi",
   "char_count": 352,
+  "questions": [
+    {
+      "prompt": "According to the business owner's complaint at the start of the text, what won't young people do?",
+      "options": [
+        "Enter factories to work",
+        "Attend university",
+        "Start their own companies",
+        "Move to rural areas"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What risk does the text associate with investing in automation equipment?",
+      "options": [
+        "Small enterprises may face bankruptcy if the investment fails",
+        "Robots will demand higher wages",
+        "Automation always increases hiring needs",
+        "Automation is banned by law in most countries"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say about raising employee compensation alone?",
+      "options": [
+        "Money alone cannot solve the fundamental contradiction",
+        "It completely solves the labor shortage problem",
+        "It has no effect on attracting talent",
+        "It is illegal in developed countries"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What risk does hiring foreign workers carry, according to the text?",
+      "options": [
+        "Cultural conflict, which may cause management chaos if communication is poor",
+        "Foreign workers are always more expensive",
+        "It is banned by international law",
+        "It eliminates the need for training entirely"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What overall solution does the text propose for the labor shortage crisis?",
+      "options": [
+        "Combining technology, compensation reform, and talent cultivation",
+        "Relying solely on automation",
+        "Relying solely on raising wages",
+        "Waiting passively for population growth to resolve it"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

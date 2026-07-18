@@ -6,6 +6,58 @@
   "topic": "qing-novel-social-commentary",
   "grammar_pattern": null,
   "char_count": 383,
+  "questions": [
+    {
+      "prompt": "According to the passage, what does the old novel the protagonist is reading describe?",
+      "options": [
+        "A war between kingdoms",
+        "The rise and fall of a prestigious Qing-dynasty family, full of extravagance and emptiness",
+        "A love story with a happy ending",
+        "A travel journal"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How does the text characterize the nobles' pursuit of exquisite luxury?",
+      "options": [
+        "A harmless sign of good taste",
+        "Actually a kind of pathological self-indulgence",
+        "A wise financial investment",
+        "A religious ritual"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What ancient saying about prosperity does the text invoke?",
+      "options": [
+        "Prosperity brings eternal peace",
+        "Prosperity at its peak inevitably leads to decline",
+        "Prosperity has no real consequences",
+        "Prosperity is entirely meaningless"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, where does true wealth or abundance actually lie?",
+      "options": [
+        "In external decoration and luxury",
+        "In spiritual richness and fullness",
+        "In the size of one's house",
+        "In political power"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the text compare modern people's blind pursuit of material things to?",
+      "options": [
+        "Building a castle",
+        "A moth throwing itself at a flame, heedless of consequences",
+        "Planting a garden",
+        "Sailing a ship"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

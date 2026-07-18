@@ -6,6 +6,58 @@
   "topic": "exile-in-classical-literature",
   "grammar_pattern": null,
   "char_count": 388,
+  "questions": [
+    {
+      "prompt": "According to the text, what did Qu Yuan do by the Miluo River?",
+      "options": [
+        "He built a temple there",
+        "He wandered and expressed his resentment through the Lisao, turning loyalty into an unmatched work",
+        "He founded a school",
+        "He met with the emperor"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what is exile in classical literature usually NOT?",
+      "options": [
+        "Merely a simple geographic displacement",
+        "A subject explored through poetry",
+        "Something ancient poets experienced",
+        "Connected to a sense of loss"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, besides geographic isolation, what else does exile represent?",
+      "options": [
+        "A political statement",
+        "A psychological rupture",
+        "A financial burden",
+        "A temporary inconvenience"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what did ancient people facing banishment often rely on for solace?",
+      "options": [
+        "Their accumulated wealth",
+        "Mountains and rivers as a spiritual refuge",
+        "Their political allies",
+        "Religious conversion"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what did Du Fu write about while staying in guest houses?",
+      "options": [
+        "Political strategy",
+        "The pain of his homeland and his own fate",
+        "Romantic love",
+        "Farming techniques"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

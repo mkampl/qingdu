@@ -6,6 +6,58 @@
   "topic": "philanthropy-modern",
   "grammar_pattern": "fanshi",
   "char_count": 341,
+  "questions": [
+    {
+      "prompt": "According to the text, what has lowered the threshold for participating in charitable giving?",
+      "options": [
+        "Smartphones, which let anyone participate via digital donation",
+        "Government mandates requiring donations",
+        "The elimination of all charitable organizations",
+        "Higher minimum donation amounts"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What do donors increasingly care about, according to the text?",
+      "options": [
+        "Transparency — clearly knowing where their money goes",
+        "Receiving tax deductions only",
+        "Anonymity above all else",
+        "The size of the charity organization"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the idiom “授人以鱼不如授人以渔” mean in the context of the text?",
+      "options": [
+        "Teaching someone a skill is better than simply giving them resources",
+        "Fishing is a better hobby than farming",
+        "Charity should always be given anonymously",
+        "Rich people should give more than poor people"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How does the text describe modern charity's transformation at the end of the passage?",
+      "options": [
+        "It has become a two-way interaction and growth process rather than one-way donation",
+        "It has been fully replaced by government welfare programs",
+        "It has completely disappeared due to distrust",
+        "It has returned entirely to traditional institution-only models"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say precision poverty alleviation requires?",
+      "options": [
+        "Data support",
+        "Larger donation amounts only",
+        "Elimination of all local teachers",
+        "Reduced transparency"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "limits-of-meritocracy",
   "grammar_pattern": null,
   "char_count": 427,
+  "questions": [
+    {
+      "prompt": "According to the text, what mindset does the logic of meritocracy tend to produce in successful people?",
+      "options": [
+        "Deep sympathy for those less fortunate",
+        "Arrogance, believing failure is simply due to insufficient effort",
+        "A strong desire to redistribute wealth equally",
+        "Complete indifference to social status"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what largely determines a person's starting point in life, according to critics of meritocracy?",
+      "options": [
+        "Pure personal willpower alone",
+        "Random chance with no discernible pattern",
+        "Family background and opportunity/circumstance",
+        "Government lottery systems"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "According to the text, what happens to creativity under extreme competitive pressure (\"involution\")?",
+      "options": [
+        "It flourishes more than ever before",
+        "It is replaced by rigid, standardized assessment metrics",
+        "It becomes irrelevant to society",
+        "It is generously rewarded by employers"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what risk arises if society is led only by a small group of technical elites?",
+      "options": [
+        "Guaranteed economic prosperity for everyone",
+        "A cognitive rift, with decision-makers detached from the masses and their emotional needs",
+        "The complete elimination of competition",
+        "Total consensus on every policy decision"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what should true fairness focus on, rather than just equality of outcome?",
+      "options": [
+        "Eliminating all forms of competition",
+        "Guaranteeing identical educational credentials for everyone",
+        "The substantive openness of opportunity",
+        "Equal salaries regardless of role"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

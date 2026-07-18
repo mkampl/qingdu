@@ -6,6 +6,58 @@
   "topic": "public-library-renewal",
   "grammar_pattern": "chu-yiwai",
   "char_count": 276,
+  "questions": [
+    {
+      "prompt": "According to the text, what has the public library become, besides providing books?",
+      "options": [
+        "A community cultural center",
+        "A government office",
+        "A shopping center",
+        "A daycare facility"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the narrator think about the idea that e-books will replace paper books?",
+      "options": [
+        "The narrator disagrees",
+        "The narrator strongly agrees",
+        "The narrator has no opinion",
+        "The narrator thinks it already happened"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what problem did the library renewal solve?",
+      "options": [
+        "The problem of insufficient space",
+        "The problem of high membership fees",
+        "The problem of noise complaints",
+        "The problem of book theft"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What can people do with the library's new digital equipment, according to the text?",
+      "options": [
+        "Quickly search for materials",
+        "Print books for free",
+        "Watch movies",
+        "Buy books online"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does a physical library provide that the internet cannot replace?",
+      "options": [
+        "Social opportunities",
+        "Free books",
+        "Air conditioning",
+        "Silence"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

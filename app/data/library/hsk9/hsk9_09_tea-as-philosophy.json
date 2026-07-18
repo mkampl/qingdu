@@ -6,6 +6,58 @@
   "topic": "tea-as-philosophy",
   "grammar_pattern": null,
   "char_count": 382,
+  "questions": [
+    {
+      "prompt": "According to the text, what does the bitterness of tea represent?",
+      "options": [
+        "A flaw to be avoided",
+        "The base color/foundation of human life",
+        "A sign of poor-quality tea",
+        "Something unrelated to philosophy"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Why does the text say bitterness in tea matters?",
+      "options": [
+        "It ruins the overall taste",
+        "Without it, one cannot appreciate the sweetness that follows",
+        "It has no real purpose",
+        "It is purely medicinal"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the passage's conclusion, where can peace and simplicity be found?",
+      "options": [
+        "Only by traveling to deep mountains",
+        "Even within a bustling city, without needing to travel far",
+        "Only inside temples",
+        "Only when completely alone at night"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the author conclude philosophy actually is, at the end of the passage?",
+      "options": [
+        "Profound and difficult classic texts",
+        "The simplicity found within an ordinary, small space",
+        "A university subject",
+        "Something only monks can understand"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what happens to past gains and losses while drinking tea?",
+      "options": [
+        "They intensify and become overwhelming",
+        "They dissolve into light smoke and drift away",
+        "They become permanent memories",
+        "They turn into anger"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

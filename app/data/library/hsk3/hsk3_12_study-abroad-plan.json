@@ -6,6 +6,58 @@
   "topic": "study-abroad-plan",
   "grammar_pattern": "yue-yue",
   "char_count": 224,
+  "questions": [
+    {
+      "prompt": "Which city does the narrator want to study in?",
+      "options": [
+        "Shanghai",
+        "Beijing",
+        "Guangzhou",
+        "Xi'an"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What subject does the narrator want to study at university?",
+      "options": [
+        "Chinese literature",
+        "Economics",
+        "History",
+        "Medicine"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the narrator plan to do first?",
+      "options": [
+        "Book a flight",
+        "Prepare application materials",
+        "Learn to cook",
+        "Find a job"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Where does the narrator need to go to get a visa?",
+      "options": [
+        "The embassy",
+        "A travel agency",
+        "The airport",
+        "A bank"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the narrator look forward to doing on the Great Wall?",
+      "options": [
+        "Selling souvenirs",
+        "Taking photos",
+        "Meeting the ambassador",
+        "Studying history books"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

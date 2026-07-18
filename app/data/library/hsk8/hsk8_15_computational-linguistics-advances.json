@@ -6,6 +6,58 @@
   "topic": "computational-linguistics-advances",
   "grammar_pattern": null,
   "char_count": 579,
+  "questions": [
+    {
+      "prompt": "According to the text, what does relying purely on statistical correlation fail to achieve?",
+      "options": [
+        "True semantic understanding",
+        "Fast processing of long-distance dependencies",
+        "Fitting of probability distributions",
+        "The ability to train on large corpora"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What is the purpose of neuro-symbolic systems, according to the text?",
+      "options": [
+        "To inject formalized rules into black-box models, improving interpretability and logical rigor",
+        "To completely replace neural networks with rule-based systems",
+        "To eliminate the need for any training data",
+        "To make models operate exclusively in a single language"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What benefit does cross-lingual transfer learning provide, according to the text?",
+      "options": [
+        "It greatly lowers the barrier to developing tools for low-resource languages",
+        "It eliminates the need for any language-specific data whatsoever",
+        "It only benefits high-resource languages",
+        "It prevents models from ever being used across multiple languages"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what problem does the dynamic knowledge retrieval mechanism address?",
+      "options": [
+        "A reliability crisis caused by the 'hallucination' phenomenon",
+        "A hardware issue solved only by adding more GPUs",
+        "A translation error unrelated to reliability",
+        "A problem that current technology cannot address at all"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does multimodal fusion technology combine, according to the text?",
+      "options": [
+        "Visual signals and text representations",
+        "Only audio and text, with no visual component",
+        "Two different natural languages only",
+        "Historical and contemporary text corpora"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

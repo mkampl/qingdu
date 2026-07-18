@@ -6,6 +6,58 @@
   "topic": "mid-autumn-symbolism",
   "grammar_pattern": null,
   "char_count": 453,
+  "questions": [
+    {
+      "prompt": "According to the text, what natural principle do the moon's phases parallel in human life?",
+      "options": [
+        "The changing of the seasons only",
+        "Human joys and sorrows, reunions and separations",
+        "Economic cycles",
+        "Nothing; they are described as unrelated"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the round shape of the mooncake symbolize, according to the text?",
+      "options": [
+        "The shape of the moon itself, nothing more",
+        "The cohesion and unity of the family",
+        "Personal wealth",
+        "Good luck for the coming year"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what allows people separated by great distance to still feel connected during Mid-Autumn?",
+      "options": [
+        "Phone calls between them",
+        "Sharing the same moon, which transcends physical separation",
+        "Exchanging written letters",
+        "Traveling to meet in person"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the passage's conclusion, what does true fulfillment actually consist of?",
+      "options": [
+        "Accumulating material possessions",
+        "Peace of mind and inner tranquility",
+        "Owning many mooncakes",
+        "A large family gathering, regardless of feeling"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, moonlight is described as a carrier of what?",
+      "options": [
+        "Light alone",
+        "Emotion",
+        "Heat",
+        "Sound"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

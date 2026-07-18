@@ -6,6 +6,58 @@
   "topic": "language-and-identity",
   "grammar_pattern": "buran-jiu",
   "char_count": 345,
+  "questions": [
+    {
+      "prompt": "What does the opening quote warn will happen without enough practice?",
+      "options": [
+        "Forgetting how to speak",
+        "Losing friends",
+        "Failing exams",
+        "Losing a job"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the author compare losing one's own language to?",
+      "options": [
+        "Being lost in a forest",
+        "Falling into the ocean",
+        "Losing a key",
+        "Being trapped in a cave"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What happens when two languages collide in someone's mind, according to the text?",
+      "options": [
+        "A new perspective emerges",
+        "All memory is erased",
+        "Communication becomes impossible",
+        "One language disappears"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the author, must a person choose between two cultures?",
+      "options": [
+        "No, the two can be combined",
+        "Yes, one must be abandoned",
+        "Yes, but only temporarily",
+        "It depends on one's age"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Where does true confidence come from, according to the text?",
+      "options": [
+        "Recognizing one's own background",
+        "Speaking many languages fluently",
+        "Traveling to many countries",
+        "Financial success"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

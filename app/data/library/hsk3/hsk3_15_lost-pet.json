@@ -6,6 +6,58 @@
   "topic": "lost-pet",
   "grammar_pattern": "budan-erqie",
   "char_count": 170,
+  "questions": [
+    {
+      "prompt": "What color was the cat that the stranger found?",
+      "options": [
+        "Black",
+        "White",
+        "Orange",
+        "Gray"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How did the narrator try to find the missing cat?",
+      "options": [
+        "Called the police",
+        "Posted photos in the park",
+        "Hired a search team",
+        "Put an ad in the newspaper"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Who contacted the narrator about the cat?",
+      "options": [
+        "A neighbor",
+        "A stranger",
+        "A friend",
+        "An animal shelter worker"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What condition was the cat in when found?",
+      "options": [
+        "Injured and bleeding",
+        "Scared and thin",
+        "Perfectly fine and playful",
+        "Sick with a fever"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did this experience teach the narrator?",
+      "options": [
+        "To never own pets again",
+        "To cherish what they have",
+        "To be more careful with money",
+        "To trust strangers less"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

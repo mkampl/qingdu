@@ -6,6 +6,58 @@
   "topic": "elderly-care-tech",
   "grammar_pattern": "fanshi",
   "char_count": 277,
+  "questions": [
+    {
+      "prompt": "According to the text, what can smart robots do for lonely elderly residents?",
+      "options": [
+        "Accompany them and chat with them",
+        "Perform surgery on them",
+        "Fully replace all nursing home staff",
+        "Cook their meals"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does remote health monitoring via cloud data allow doctors to do?",
+      "options": [
+        "Reduce the need for elderly patients to travel to the hospital",
+        "Diagnose diseases with perfect accuracy",
+        "Eliminate the need for medication entirely",
+        "Replace nursing home staff completely"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What core problem does the text say technology alone cannot solve?",
+      "options": [
+        "Loneliness and lack of emotional warmth",
+        "The high cost of equipment",
+        "Slow internet connections",
+        "Government regulation"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text suggest should be increased to address elderly emotional needs?",
+      "options": [
+        "Volunteer visits",
+        "The number of robots per resident",
+        "Medication dosages",
+        "Hospital bed counts"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what role should smart systems play in the future?",
+      "options": [
+        "An aid or supplement, not the dominant factor",
+        "The sole provider of elderly care with no human involvement",
+        "A replacement for family relationships",
+        "An entertainment-only function"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

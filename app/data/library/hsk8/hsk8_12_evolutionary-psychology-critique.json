@@ -6,6 +6,58 @@
   "topic": "evolutionary-psychology-critique",
   "grammar_pattern": null,
   "char_count": 438,
+  "questions": [
+    {
+      "prompt": "According to critics mentioned in the text, what is a major problem with evolutionary psychology's reasoning?",
+      "options": [
+        "It relies too heavily on assumptions that cannot be verified",
+        "It relies too heavily on large-scale controlled experiments",
+        "It completely ignores the theory of natural selection",
+        "It has been unanimously accepted without any criticism"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say genes provide, in contrast to what evolutionary psychology sometimes implies?",
+      "options": [
+        "Only a basic framework, not absolute instructions for behavior",
+        "Complete and unchangeable instructions for every behavior",
+        "No influence at all on human behavior",
+        "Instructions that only apply to physical, not psychological, traits"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What risk does the text warn that genetic/biological determinism can lead to?",
+      "options": [
+        "It can be misused to justify gender bias",
+        "It always leads to greater gender equality",
+        "It has no relation to social attitudes",
+        "It is only used in medical research, never in social debates"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text suggest is needed to properly understand human psychology, instead of a single-dimension explanation?",
+      "options": [
+        "An integration of biological and sociocultural perspectives",
+        "A complete rejection of biology in favor of culture alone",
+        "A complete rejection of culture in favor of biology alone",
+        "Reliance on a single definitive experiment to settle the debate"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what problem can result from sample selection bias in evolutionary psychology studies?",
+      "options": [
+        "It leads to misleading conclusions",
+        "It has no effect on research validity",
+        "It only affects studies conducted before modern times",
+        "It always favors the null hypothesis"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

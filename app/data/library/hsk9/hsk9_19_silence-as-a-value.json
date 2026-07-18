@@ -6,6 +6,58 @@
   "topic": "silence-as-a-value",
   "grammar_pattern": null,
   "char_count": 512,
+  "questions": [
+    {
+      "prompt": "What does the ancient saying quoted in the text, \"the greatest sound is faint,\" mean?",
+      "options": [
+        "Loud sounds are always the best",
+        "The most profound sound is actually faint or silent",
+        "Silence has no real value",
+        "Music should always be avoided"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what is this kind of stillness explicitly said NOT to be?",
+      "options": [
+        "A form of mental clarity",
+        "Deathly emptiness",
+        "Related to the mind at all",
+        "Something achievable"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what happens to the senses when speech and words stop?",
+      "options": [
+        "They become duller",
+        "They become sharper, able to catch subtle rhythms",
+        "Nothing changes at all",
+        "They shut down entirely"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, where can the soul truly return to its authentic self?",
+      "options": [
+        "In busy social gatherings",
+        "In solitude and silence",
+        "In competition with others",
+        "In constant noise and bustle"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the text ultimately claim silence itself represents?",
+      "options": [
+        "A weakness to be overcome",
+        "The highest form of communication",
+        "A form of punishment",
+        "An outdated, irrelevant concept"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

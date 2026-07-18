@@ -6,6 +6,48 @@
   "topic": "brother-sister",
   "grammar_pattern": "le-aspect",
   "char_count": 55,
+  "questions": [
+    {
+      "prompt": "When did the sister buy the backpack?",
+      "options": [
+        "Last month",
+        "This year",
+        "Last year",
+        "Yesterday"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What did the sister put in the backpack?",
+      "options": [
+        "Food",
+        "Clothes",
+        "Books",
+        "Toys"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "Who did the sister help?",
+      "options": [
+        "A stranger her own age",
+        "A child",
+        "A teacher",
+        "An old person"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "How did the old person feel after being helped?",
+      "options": [
+        "Annoyed",
+        "Happy",
+        "Embarrassed",
+        "Confused"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

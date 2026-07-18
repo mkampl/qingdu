@@ -6,6 +6,58 @@
   "topic": "media-trust-erosion",
   "grammar_pattern": "wanyi",
   "char_count": 253,
+  "questions": [
+    {
+      "prompt": "According to the text, what has changed about media's public trust?",
+      "options": [
+        "Media used to be trustworthy, but now many people have begun to doubt it",
+        "Media has always been completely trusted with no change",
+        "Media is now more trusted than ever before",
+        "Media trust is described as irrelevant"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What problem does the text say makes it hard for people to make good decisions?",
+      "options": [
+        "Real news and fake news are mixed together and hard to distinguish",
+        "There is too little news available online",
+        "Newspapers have stopped publishing entirely",
+        "People no longer own smartphones"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Why does the text say a journalist's job is becoming more important?",
+      "options": [
+        "Because they should tell the truth amid the spread of false information",
+        "Because journalists now earn the highest salaries",
+        "Because journalism has become fully automated",
+        "Because there are fewer journalists than before"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What question does the text suggest people should ask when checking information?",
+      "options": [
+        "Whether the source is reliable",
+        "How many people have shared the article",
+        "How long the article is",
+        "Who wrote the headline"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say could happen if everyone distrusts everyone?",
+      "options": [
+        "Society will have problems",
+        "People will become more cooperative",
+        "Media companies will become more profitable",
+        "Nothing significant will change"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

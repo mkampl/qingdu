@@ -6,6 +6,58 @@
   "topic": "music-lesson",
   "grammar_pattern": "yinwei-suoyi",
   "char_count": 120,
+  "questions": [
+    {
+      "prompt": "What color is the music textbook?",
+      "options": [
+        "Blue",
+        "Red",
+        "Green",
+        "Yellow"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What instrument is the narrator learning?",
+      "options": [
+        "Guitar",
+        "Violin",
+        "Piano",
+        "Flute"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What time did the narrator go to the teacher's house?",
+      "options": [
+        "10am",
+        "Noon",
+        "3pm",
+        "5pm"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What did the narrator bring to the lesson?",
+      "options": [
+        "Snacks and juice",
+        "Water and fruit",
+        "Flowers",
+        "Music sheets"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did the teacher say about the narrator's progress?",
+      "options": [
+        "Needs more practice",
+        "Not paying attention",
+        "Progressing quickly",
+        "Doing well but slowly"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

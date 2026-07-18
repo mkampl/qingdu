@@ -6,6 +6,58 @@
   "topic": "comparative-political-systems",
   "grammar_pattern": null,
   "char_count": 555,
+  "questions": [
+    {
+      "prompt": "According to the text, what does the presidential system emphasize?",
+      "options": [
+        "Power balance between the executive head and the legislature, to prevent excessive concentration of power",
+        "Complete merger of the executive and legislative branches into one body",
+        "Elimination of all legislative oversight of the executive",
+        "Direct rule by a single unelected leader"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How does the parliamentary system ensure unity between executive and legislative will, according to the text?",
+      "options": [
+        "Through the cabinet's accountability (responsibility system) to parliament",
+        "By abolishing the legislature entirely",
+        "By having the executive appointed for life",
+        "By requiring unanimous public votes on every law"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What is a stated drawback of the multi-party system, according to the text?",
+      "options": [
+        "It often makes forming a coalition government difficult",
+        "It always leads to civil war",
+        "It eliminates all political competition",
+        "It prevents any form of social consensus"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say determines whether a political system is effective?",
+      "options": [
+        "Its compatibility with local culture and historical tradition, rather than its form",
+        "Whether it is a presidential or parliamentary system",
+        "The size of the country's population",
+        "How recently the system was established"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What warning does the text give about borrowing foreign institutional models?",
+      "options": [
+        "Forced reform without a social foundation often leads to serious political turmoil",
+        "Borrowing foreign models always improves governance immediately",
+        "Only wealthy nations are capable of institutional borrowing",
+        "Institutional transplantation carries no risk if done quickly"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

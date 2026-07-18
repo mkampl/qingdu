@@ -6,6 +6,58 @@
   "topic": "garden-aesthetics-suzhou",
   "grammar_pattern": null,
   "char_count": 532,
+  "questions": [
+    {
+      "prompt": "According to the text, wherein does the beauty of Suzhou gardens lie?",
+      "options": [
+        "Their large scale",
+        "The ingenuity and subtlety of their craftsmanship, not their size",
+        "Their expensive materials",
+        "Their modern design"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does \"changing scenery with each step\" refer to in the text?",
+      "options": [
+        "Walking as quickly as possible through the garden",
+        "The garden's essential feature of offering new views with every step",
+        "A type of garden maintenance",
+        "A seasonal festival tradition"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What is the purpose of the artificial rock hills mentioned in the text?",
+      "options": [
+        "To block the wind",
+        "To simulate the grandeur of famous mountains within a small space",
+        "To store rainwater",
+        "To provide seating for visitors"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How does the text describe the garden's overall aesthetic approach?",
+      "options": [
+        "Bold and flashy",
+        "Restrained and subtle rather than showy",
+        "Chaotic and random",
+        "Strictly symmetrical"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the later part of the passage, what does the garden's essence lie in?",
+      "options": [
+        "Pure realism",
+        "The interplay between substance and emptiness",
+        "Modern technology",
+        "Religious symbolism"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

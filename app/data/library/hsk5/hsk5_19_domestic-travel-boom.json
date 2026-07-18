@@ -6,6 +6,58 @@
   "topic": "domestic-travel-boom",
   "grammar_pattern": "jiran-jiu",
   "char_count": 210,
+  "questions": [
+    {
+      "prompt": "What has made small cities famous, according to the text?",
+      "options": [
+        "Tourists visiting to taste food and see scenery",
+        "New factories opening",
+        "University campuses",
+        "Sports competitions"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What has shortened travel distances, according to the text?",
+      "options": [
+        "High-speed rail",
+        "Airplanes",
+        "Highways",
+        "Ferries"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say this domestic travel trend reflects?",
+      "options": [
+        "Rising living standards",
+        "A declining economy",
+        "Government mandates",
+        "A shortage of foreign visas"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What two examples of different travel hobbies does the text give?",
+      "options": [
+        "Climbing mountains and visiting museums",
+        "Swimming and shopping",
+        "Camping and fishing",
+        "Cycling and painting"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What has improved for merchants and the environment because of this tourism trend?",
+      "options": [
+        "Service quality and the environment",
+        "Tax rates",
+        "Housing prices",
+        "Population size"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

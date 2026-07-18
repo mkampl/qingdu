@@ -6,6 +6,58 @@
   "topic": "new-bicycle",
   "grammar_pattern": "shi-de",
   "char_count": 127,
+  "questions": [
+    {
+      "prompt": "Why did the narrator need a new bike?",
+      "options": [
+        "The old one was broken",
+        "The old one was too small",
+        "The old one was stolen",
+        "Wanted a different color"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What color bike did the narrator like most?",
+      "options": [
+        "Blue",
+        "Black",
+        "Red",
+        "White"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "How does the narrator now get to work?",
+      "options": [
+        "Takes the bus",
+        "Walks",
+        "Rides the new bike",
+        "Drives a car"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "How long does the commute take?",
+      "options": [
+        "30 minutes",
+        "One hour",
+        "Ten minutes",
+        "20 minutes"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "Who commented that the bike is pretty?",
+      "options": [
+        "A family member",
+        "A coworker",
+        "A stranger",
+        "The shop owner"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

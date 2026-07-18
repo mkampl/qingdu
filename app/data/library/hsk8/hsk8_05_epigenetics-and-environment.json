@@ -6,6 +6,58 @@
   "topic": "epigenetics-and-environment",
   "grammar_pattern": null,
   "char_count": 614,
+  "questions": [
+    {
+      "prompt": "According to the text, what two mechanisms mainly realize epigenetic change?",
+      "options": [
+        "DNA methylation and histone modification",
+        "Gene deletion and chromosome duplication",
+        "Mitochondrial mutation and RNA splicing",
+        "Protein folding and enzyme degradation"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What effect does the addition of a methyl group have, according to the text?",
+      "options": [
+        "It inhibits transcription-factor binding and leads to gene silencing",
+        "It permanently deletes the affected gene from the genome",
+        "It always activates gene expression",
+        "It has no measurable effect on gene expression"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What example does the text give of a transgenerational epigenetic effect?",
+      "options": [
+        "A malnourished mother's epigenetic marks may affect her offspring's metabolic development",
+        "Only fathers can pass epigenetic marks to offspring",
+        "Epigenetic marks are always erased completely at conception",
+        "Epigenetic effects only appear after three generations"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what is found regarding social isolation and the brain?",
+      "options": [
+        "It raises methylation levels of prefrontal-cortex genes, correlating with cognitive decline",
+        "It has no measurable effect on brain gene expression",
+        "It only affects genes related to physical, not cognitive, function",
+        "It permanently and irreversibly damages the genome sequence"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How does the text describe the genome, in contrast to a static blueprint?",
+      "options": [
+        "As an editable, dynamic script",
+        "As an unchangeable fixed program",
+        "As a random and meaningless sequence",
+        "As a perfect predictor of an individual's future"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

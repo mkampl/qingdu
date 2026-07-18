@@ -27,6 +27,14 @@ export const useAnalysisStore = defineStore("analysis", () => {
    */
   const initialProgress = ref<number>(0);
   /**
+   * Slug of the bundled library text currently loaded, or null when the
+   * user is reading a saved/fresh analysis. Set by LibraryView.open() so
+   * ReaderView can show the mark-as-read / take-quiz control.
+   */
+  const librarySlug = ref<string | null>(null);
+  /** Whether the loaded library text has a comprehension quiz authored. */
+  const libraryHasQuiz = ref(false);
+  /**
    * Phase #99 — per-text glossary picker selection.
    * null  = use all glossary-flagged lists (the default for fresh analyses)
    * []    = explicitly use no glossary
@@ -89,6 +97,8 @@ export const useAnalysisStore = defineStore("analysis", () => {
     savedTextOriginalContent.value = null;
     initialProgress.value = 0;
     glossaryListIds.value = null;
+    librarySlug.value = null;
+    libraryHasQuiz.value = false;
   }
 
   /**
@@ -106,6 +116,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
       tags?: string[];
       glossaryListIds?: number[] | null;
     } | null = null,
+    libraryEntry: { slug: string; hasQuiz: boolean } | null = null,
   ) {
     if (activeRequest) activeRequest.abort();
     inputText.value = text;
@@ -119,6 +130,8 @@ export const useAnalysisStore = defineStore("analysis", () => {
     initialProgress.value = Math.max(0, Math.min(1, options?.progress ?? 0));
     glossaryListIds.value =
       options?.glossaryListIds === undefined ? null : options.glossaryListIds;
+    librarySlug.value = libraryEntry?.slug ?? null;
+    libraryHasQuiz.value = libraryEntry?.hasQuiz ?? false;
   }
 
   /**
@@ -155,6 +168,8 @@ export const useAnalysisStore = defineStore("analysis", () => {
     savedTextOriginalContent,
     initialProgress,
     glossaryListIds,
+    librarySlug,
+    libraryHasQuiz,
     hasResult,
     isEdited,
     analyze,

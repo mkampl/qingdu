@@ -6,6 +6,58 @@
   "topic": "concert-visit",
   "grammar_pattern": "suiran-danshi",
   "char_count": 207,
+  "questions": [
+    {
+      "prompt": "Why didn't the narrator and friend need to queue?",
+      "options": [
+        "They arrived very early",
+        "They bought tickets in advance",
+        "They knew the staff",
+        "There was no line that day"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What instrument's sound especially impressed the narrator?",
+      "options": [
+        "The violin",
+        "The piano",
+        "The drums",
+        "The guitar"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did they do after the concert?",
+      "options": [
+        "Went straight home",
+        "Went to eat dinner nearby",
+        "Bought more tickets",
+        "Went to a movie"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How did the narrator feel physically and emotionally at the end?",
+      "options": [
+        "Tired but satisfied",
+        "Energetic and bored",
+        "Sick and disappointed",
+        "Relaxed but unhappy"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What did the narrator conclude about art?",
+      "options": [
+        "It's a waste of time",
+        "It can change life",
+        "It's only for professionals",
+        "It's too expensive to enjoy"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

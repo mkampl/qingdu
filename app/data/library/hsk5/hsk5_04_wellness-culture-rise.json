@@ -6,6 +6,58 @@
   "topic": "wellness-culture-rise",
   "grammar_pattern": "jiran-jiu",
   "char_count": 319,
+  "questions": [
+    {
+      "prompt": "What activity does the text mention that relieves stress through breathing?",
+      "options": [
+        "Practicing yoga",
+        "Running marathons",
+        "Meditating in temples",
+        "Swimming in cold water"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What have many companies set up in their office areas?",
+      "options": [
+        "Rest rooms for employees to relax",
+        "Gyms",
+        "Cafeterias serving organic food",
+        "Meditation instructors"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What do people now believe is more important than treating illness?",
+      "options": [
+        "Preventing disease",
+        "Speed of recovery",
+        "Cost of medicine",
+        "A doctor's reputation"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What kind of products does the text say have become popular in the market?",
+      "options": [
+        "Organic vegetables and sugar-free drinks",
+        "Imported luxury goods",
+        "Fast food combos",
+        "Alcohol-free beer"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say this health-conscious mindset has made mainstream in society?",
+      "options": [
+        "Wellness / health-conscious living",
+        "Extreme dieting",
+        "Competitive sports",
+        "Luxury consumption"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

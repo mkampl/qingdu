@@ -6,6 +6,58 @@
   "topic": "behavioral-economics-policy",
   "grammar_pattern": null,
   "char_count": 501,
+  "questions": [
+    {
+      "prompt": "According to the professor quoted at the start of the text, what is wrong with the traditional 'rational person' assumption?",
+      "options": [
+        "It cannot explain the decision biases seen in real individuals",
+        "It is too complicated to apply in policy",
+        "It works well for economic markets but not psychology",
+        "It has been mathematically proven false"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How does a 'nudge' approach differ from forbidding options outright, according to the text?",
+      "options": [
+        "It guides people by optimizing the choice architecture rather than banning specific options",
+        "It legally bans harmful options while allowing beneficial ones",
+        "It relies purely on financial penalties",
+        "It requires a public referendum before implementation"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What example does the text give of a nudge that raises organ-donation registration rates?",
+      "options": [
+        "Setting a default enrollment option",
+        "Offering large cash rewards to donors",
+        "Making donation legally mandatory",
+        "Publicizing celebrity donor testimonials"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to loss aversion theory as described in the text, how does losing something compare to gaining something of equal value?",
+      "options": [
+        "Losing causes far more pain than gaining the same value brings pleasure",
+        "Losing and gaining produce roughly equal emotional impact",
+        "Gaining brings more pleasure than losing brings pain",
+        "Loss aversion applies only to financial decisions"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What tension does the text say nudge policy must balance?",
+      "options": [
+        "Transparency and paternalism",
+        "Profit and sustainability",
+        "Speed and accuracy",
+        "National security and free trade"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "summer-vacation",
   "grammar_pattern": "ruguo-jiu",
   "char_count": 125,
+  "questions": [
+    {
+      "prompt": "Why does the narrator plan to take the train instead of flying?",
+      "options": [
+        "Afraid of flying",
+        "Not enough money",
+        "No flights available",
+        "Train is faster"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How long does the narrator plan to stay in Beijing?",
+      "options": [
+        "One week",
+        "Two weeks",
+        "One month",
+        "Three days"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the narrator want to see in Beijing?",
+      "options": [
+        "A museum",
+        "The Great Wall",
+        "A famous park",
+        "A temple"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What is the narrator doing now to prepare?",
+      "options": [
+        "Buying a ticket",
+        "Calling the friend",
+        "Packing clothes",
+        "Learning Chinese"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "Why does the narrator want to go to Beijing?",
+      "options": [
+        "For work",
+        "To see a friend",
+        "For a wedding",
+        "To study"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

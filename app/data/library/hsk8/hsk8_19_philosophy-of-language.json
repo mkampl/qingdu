@@ -6,6 +6,58 @@
   "topic": "philosophy-of-language",
   "grammar_pattern": null,
   "char_count": 500,
+  "questions": [
+    {
+      "prompt": "What distinction did Frege introduce, according to the text?",
+      "options": [
+        "The distinction between sense and reference (meaning)",
+        "The distinction between syntax and semantics",
+        "The distinction between spoken and written language",
+        "The distinction between logic and metaphysics"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to Wittgenstein's later view as described in the text, where does word meaning lie?",
+      "options": [
+        "In the specific context of its actual use",
+        "In a fixed, unchanging dictionary definition",
+        "In the sound of the word alone",
+        "In a word's etymological origin exclusively"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What did logical positivists try to eliminate through the verifiability principle, according to the text?",
+      "options": [
+        "Metaphysics",
+        "Mathematics",
+        "Empirical science",
+        "Grammar rules"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to structuralists, as described in the text, how are symbols understood?",
+      "options": [
+        "As existing within an overall relational network, not in isolation",
+        "As entirely independent and unrelated to other symbols",
+        "As having only one universally fixed meaning",
+        "As irrelevant to power structures or discourse"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does translation reveal, according to the text?",
+      "options": [
+        "The unavoidable semantic loss between different language systems",
+        "That all languages are perfectly interchangeable without loss",
+        "That translation always improves the clarity of the original meaning",
+        "That only ancient languages suffer semantic loss in translation"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

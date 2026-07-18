@@ -6,6 +6,58 @@
   "topic": "doctor-visit",
   "grammar_pattern": "bei",
   "char_count": 150,
+  "questions": [
+    {
+      "prompt": "Why couldn't the narrator take medicine at home?",
+      "options": [
+        "Their sister took it away",
+        "They lost it themselves",
+        "The medicine had expired",
+        "They didn't buy any medicine"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What happened to the narrator's umbrella on the way to the hospital?",
+      "options": [
+        "They forgot to bring it",
+        "It was blown away by the wind",
+        "They lent it to a friend",
+        "It broke in the rain"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How long did the narrator wait at the hospital?",
+      "options": [
+        "Ten minutes",
+        "One hour",
+        "Half an hour",
+        "Two hours"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What did the doctor tell the narrator to do?",
+      "options": [
+        "Take strong medicine and sleep all day",
+        "Drink more water and rest more",
+        "Exercise more",
+        "Eat only cold food"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Why does the narrator find being sick troublesome?",
+      "options": [
+        "It costs a lot of money",
+        "It makes their sister upset",
+        "They cannot go to school",
+        "They cannot see their doctor"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "neighbor",
   "grammar_pattern": "suiran-danshi",
   "char_count": 189,
+  "questions": [
+    {
+      "prompt": "What does the new neighbor like to do in his garden?",
+      "options": [
+        "Grow vegetables",
+        "Grow flowers",
+        "Build furniture",
+        "Read newspapers"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What was the neighbor's former profession?",
+      "options": [
+        "A doctor",
+        "A teacher",
+        "A chef",
+        "A farmer"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How did the narrator and the neighbor first start talking?",
+      "options": [
+        "The narrator helped him carry his luggage",
+        "They met at a party",
+        "The neighbor knocked on the narrator's door",
+        "They were introduced by a mutual friend"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How often does the narrator now visit the neighbor?",
+      "options": [
+        "Once a week",
+        "Every day after work",
+        "Only on weekends",
+        "Once a month"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How does the narrator feel now compared to before meeting the neighbor?",
+      "options": [
+        "More lonely",
+        "No longer lonely",
+        "More tired",
+        "More worried"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

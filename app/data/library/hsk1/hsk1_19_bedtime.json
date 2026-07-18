@@ -6,6 +6,48 @@
   "topic": "bedtime",
   "grammar_pattern": "le-aspect",
   "char_count": 46,
+  "questions": [
+    {
+      "prompt": "When did the narrator see the child?",
+      "options": [
+        "In the evening",
+        "At noon",
+        "At night",
+        "In the morning"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What was the child doing?",
+      "options": [
+        "Eating lunch",
+        "Playing with a ball",
+        "Reading a book",
+        "Riding a bike"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Where did the ball land?",
+      "options": [
+        "In the water",
+        "On the road",
+        "In a tree",
+        "On top of the narrator's wallet"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "What did the narrator do at the end of the day?",
+      "options": [
+        "Went to the park",
+        "Bought a new wallet",
+        "Called a friend",
+        "Went home to sleep"
+      ],
+      "answer_index": 3
+    }
+  ],
   "analyzed": {
     "words": [
       {

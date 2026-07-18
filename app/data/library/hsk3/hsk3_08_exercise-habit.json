@@ -6,6 +6,58 @@
   "topic": "exercise-habit",
   "grammar_pattern": "yibian-yibian",
   "char_count": 187,
+  "questions": [
+    {
+      "prompt": "What time does the narrator now wake up every morning?",
+      "options": [
+        "5am",
+        "6am",
+        "7am",
+        "8am"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the narrator drink first thing in the morning?",
+      "options": [
+        "Coffee",
+        "Warm water",
+        "Tea",
+        "Juice"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the narrator do while running?",
+      "options": [
+        "Listens to music",
+        "Thinks about future plans",
+        "Talks on the phone",
+        "Reads a book"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Who joined the narrator's exercise routine?",
+      "options": [
+        "A sibling",
+        "A friend",
+        "A coworker",
+        "A neighbor"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What improved after the narrator started exercising?",
+      "options": [
+        "Their eyesight",
+        "Their sleep quality",
+        "Their cooking skills",
+        "Their singing"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

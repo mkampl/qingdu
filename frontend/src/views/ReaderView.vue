@@ -7,7 +7,15 @@ import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReaderStore } from "@/stores/reader";
 import { useToastStore } from "@/stores/toast";
 import { useVocabStatsStore } from "@/stores/vocab-stats";
-import { ApiError, saveText, updateText } from "@/api/client";
+import {
+  ApiError,
+  getLibraryProgress,
+  markLibraryRead,
+  saveText,
+  unmarkLibraryRead,
+  updateText,
+} from "@/api/client";
+import type { LibraryProgressEntry } from "@/api/client";
 import { submitShortcutLabel } from "@/utils/platform";
 
 import AnalysingCard from "@/components/reader/AnalysingCard.vue";
@@ -15,6 +23,7 @@ import ChopMark from "@/components/reader/ChopMark.vue";
 import GrammarPanel from "@/components/reader/GrammarPanel.vue";
 import ImportUrlModal from "@/components/reader/ImportUrlModal.vue";
 import InputPanel from "@/components/reader/InputPanel.vue";
+import LibraryQuizModal from "@/components/reader/LibraryQuizModal.vue";
 import PlayerBar from "@/components/reader/PlayerBar.vue";
 import ReaderTodayPanel from "@/components/reader/ReaderTodayPanel.vue";
 import ReadingProgress from "@/components/reader/ReadingProgress.vue";
@@ -80,6 +89,70 @@ watch(
   },
   { immediate: true },
 );
+
+// Library reading progress — fetched fresh whenever a library text loads,
+// since the badge shown here has to reflect any earlier quiz pass / mark.
+const libraryProgress = ref<LibraryProgressEntry | null>(null);
+const libraryProgressBusy = ref(false);
+const quizModalOpen = ref(false);
+
+watch(
+  () => analysis.librarySlug,
+  async (slug) => {
+    libraryProgress.value = null;
+    if (!slug || !auth.isAuthed) return;
+    try {
+      const r = await getLibraryProgress();
+      libraryProgress.value = r.items[slug] ?? null;
+    } catch {
+      // Non-critical — the control just falls back to "not marked yet".
+    }
+  },
+  { immediate: true },
+);
+
+async function markCurrentAsRead() {
+  if (!analysis.librarySlug || libraryProgressBusy.value) return;
+  if (!auth.isAuthed) {
+    authModals.openLogin();
+    toasts.info("Sign in to track library progress.");
+    return;
+  }
+  libraryProgressBusy.value = true;
+  try {
+    libraryProgress.value = await markLibraryRead(analysis.librarySlug);
+  } catch (e) {
+    toasts.error(e instanceof ApiError ? e.message : "Couldn't mark this as read.");
+  } finally {
+    libraryProgressBusy.value = false;
+  }
+}
+
+async function unmarkCurrentRead() {
+  if (!analysis.librarySlug || libraryProgressBusy.value) return;
+  libraryProgressBusy.value = true;
+  try {
+    await unmarkLibraryRead(analysis.librarySlug);
+    libraryProgress.value = null;
+  } catch (e) {
+    toasts.error(e instanceof ApiError ? e.message : "Couldn't reset progress.");
+  } finally {
+    libraryProgressBusy.value = false;
+  }
+}
+
+function openQuiz() {
+  if (!auth.isAuthed) {
+    authModals.openLogin();
+    toasts.info("Sign in to take the quiz.");
+    return;
+  }
+  quizModalOpen.value = true;
+}
+
+function onQuizPassed(progress: LibraryProgressEntry) {
+  libraryProgress.value = progress;
+}
 
 async function onAnalyze() {
   reader.reset();
@@ -481,6 +554,56 @@ onBeforeUnmount(() => {
           </Transition>
         </header>
 
+        <!-- Library completion control — only when the loaded text came
+             from the bundled library. -->
+        <div
+          v-if="analysis.hasResult && analysis.librarySlug !== null"
+          class="mb-5 flex flex-wrap items-center gap-2"
+        >
+          <template v-if="libraryProgress">
+            <span
+              class="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400"
+            >
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                <path
+                  d="M2 6.5l2.5 2.5L10 3"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              {{ libraryProgress.status === "quiz" ? "Quiz passed" : "Marked as read" }}
+            </span>
+            <button
+              type="button"
+              class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle hover:text-fg"
+              :disabled="libraryProgressBusy"
+              @click="unmarkCurrentRead"
+            >
+              reset
+            </button>
+          </template>
+          <template v-else>
+            <button
+              v-if="analysis.libraryHasQuiz"
+              type="button"
+              class="rounded-full border border-accent px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-accent transition-colors hover:bg-accent/10"
+              @click="openQuiz"
+            >
+              Take quiz
+            </button>
+            <button
+              type="button"
+              class="rounded-full border border-border px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+              :disabled="libraryProgressBusy"
+              @click="markCurrentAsRead"
+            >
+              Mark as read
+            </button>
+          </template>
+        </div>
+
         <!-- Tag row — only when viewing a saved text. -->
         <div
           v-if="analysis.hasResult && analysis.savedTextId !== null"
@@ -664,6 +787,13 @@ onBeforeUnmount(() => {
       :open="shareOpen"
       :text-id="analysis.savedTextId"
       @close="shareOpen = false"
+    />
+    <LibraryQuizModal
+      :open="quizModalOpen"
+      :slug="analysis.librarySlug"
+      :title="displayTitle"
+      @close="quizModalOpen = false"
+      @passed="onQuizPassed"
     />
   </div>
 </template>

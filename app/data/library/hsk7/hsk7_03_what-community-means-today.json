@@ -6,6 +6,58 @@
   "topic": "what-community-means-today",
   "grammar_pattern": null,
   "char_count": 540,
+  "questions": [
+    {
+      "prompt": "What does the retired teacher observe about interactions with neighbors nowadays?",
+      "options": [
+        "Neighbors organize regular community events together",
+        "Interaction is reduced to little more than nodding, with almost no real communication",
+        "Neighbors know intimate details of each other's lives",
+        "Neighbors have formed a tight support network"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what is a key limitation of interest-based virtual connections?",
+      "options": [
+        "They cost too much money to maintain",
+        "They require advanced technical skills",
+        "They often lack depth and struggle to provide real support during a crisis",
+        "They are illegal in most cities"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What examples does the text give of cities' efforts to activate community vitality?",
+      "options": [
+        "Shared bookstores and community gardens",
+        "New luxury shopping malls",
+        "Increased surveillance cameras",
+        "Higher property taxes"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, redefining community means shifting focus from what, to what?",
+      "options": [
+        "From resource sharing to individual wealth",
+        "From housing attributes to human relationships",
+        "From local ties to global business",
+        "From public resources to private profit"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what is the true essence of community, as opposed to a simple geographic gathering?",
+      "options": [
+        "A legal administrative boundary",
+        "A marketplace for economic exchange",
+        "An organism built on emotional support and shared resources",
+        "A collection of buildings sharing a postal code"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

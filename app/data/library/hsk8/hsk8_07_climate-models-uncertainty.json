@@ -6,6 +6,58 @@
   "topic": "climate-models-uncertainty",
   "grammar_pattern": null,
   "char_count": 473,
+  "questions": [
+    {
+      "prompt": "According to the text, what does a numeric climate prediction actually represent?",
+      "options": [
+        "An inference within a probability interval, not an absolute truth",
+        "A guaranteed, precise forecast of future temperatures",
+        "A purely political construct with no scientific basis",
+        "An exact calculation with zero margin of error"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text describe as the hardest element to quantify in climate models?",
+      "options": [
+        "The cloud feedback mechanism",
+        "Ocean heat content absorption rate",
+        "Ice-sheet melting timing",
+        "Surface temperature measurement"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Why do different research institutions' climate models produce different predictions, according to the text?",
+      "options": [
+        "Because they use significantly different parameterization schemes",
+        "Because they are intentionally testing opposite hypotheses",
+        "Because only one institution has access to real data",
+        "Because older institutions use outdated equipment exclusively"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What method do scientists use to reduce bias in climate predictions, according to the text?",
+      "options": [
+        "A multi-model ensemble approach using weighted averaging",
+        "Relying exclusively on a single, most powerful supercomputer",
+        "Ignoring older data in favor of only the newest observations",
+        "Eliminating all models except the one closest to observed data"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text conclude that uncertainty in climate science actually means?",
+      "options": [
+        "It defines the boundary of human cognition rather than indicating scientific failure",
+        "It proves that climate science is fundamentally unreliable",
+        "It means policy decisions should be delayed indefinitely",
+        "It shows that scientists disagree about whether climate change is occurring"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

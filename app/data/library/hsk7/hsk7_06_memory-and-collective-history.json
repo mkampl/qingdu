@@ -6,6 +6,58 @@
   "topic": "memory-and-collective-history",
   "grammar_pattern": null,
   "char_count": 552,
+  "questions": [
+    {
+      "prompt": "According to the text, what do individual memory fragments become once they converge together?",
+      "options": [
+        "Useless noise with no lasting value",
+        "The collective history supporting a nation's sense of identity",
+        "Private property belonging only to historians",
+        "A form of pure entertainment"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what risk does relying solely on algorithm-pushed information carry?",
+      "options": [
+        "It guarantees complete objectivity",
+        "It has no real drawbacks at all",
+        "It may cause cognitive bias, leading people to overlook hidden truths",
+        "It is always more accurate than human memory"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "According to the text, what tools does society use to fix specific events as shared cognition, and what risk accompanies this?",
+      "options": [
+        "Court trials; risk of legal disputes",
+        "Monuments/museums/textbooks; risk of a single dominant perspective prevailing",
+        "Scientific experiments; risk of data loss",
+        "Social media polls; risk of misinformation"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what distinguishes natural forgetting from deliberate/active forgetting?",
+      "options": [
+        "They are functionally identical and equally harmless",
+        "Active forgetting is always beneficial for society's progress",
+        "Natural forgetting is a cruel but natural law, while active forgetting may cause society to lose direction",
+        "Natural forgetting is illegal while active forgetting is officially encouraged"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "According to the text's conclusion, why is re-examining history important?",
+      "options": [
+        "Solely to assign blame for past mistakes",
+        "Only to preserve entertainment value",
+        "Not merely for nostalgia, but to move forward and guide the future",
+        "Because it is a legal requirement"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

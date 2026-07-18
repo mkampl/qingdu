@@ -6,6 +6,58 @@
   "topic": "wealth-inequality-debate",
   "grammar_pattern": "zhisuoyi",
   "char_count": 377,
+  "questions": [
+    {
+      "prompt": "According to the text, why does capital accumulation have a “self-reinforcing” characteristic?",
+      "options": [
+        "Because the more wealth one has, the more opportunities one gets to obtain new gains",
+        "Because governments guarantee wealth growth by law",
+        "Because poor people automatically receive subsidies that eliminate inequality",
+        "Because wealth has no effect on future opportunity"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What do proponents of a high inheritance tax argue?",
+      "options": [
+        "It can effectively prevent excessive concentration of wealth",
+        "It will eliminate poverty within a year",
+        "It has no effect on wealth distribution",
+        "It should replace all other forms of taxation"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What concern do opponents of higher taxation raise?",
+      "options": [
+        "It might hurt investment enthusiasm and reduce economic vitality",
+        "It would have zero economic impact",
+        "It would only affect government employees",
+        "It would increase educational inequality"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does “social justice” mean in this context?",
+      "options": [
+        "A reasonable distribution mechanism, not absolute equality",
+        "Everyone receiving exactly the same income",
+        "Complete elimination of all taxation",
+        "Only the wealthy having a say in policy"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say happens if the wealth gap becomes too large?",
+      "options": [
+        "Consumption ability shrinks, ultimately harming overall societal interest",
+        "The economy grows faster indefinitely",
+        "Education becomes universally accessible",
+        "Social stability automatically improves"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

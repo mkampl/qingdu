@@ -6,6 +6,58 @@
   "topic": "ethics-of-genetic-engineering",
   "grammar_pattern": null,
   "char_count": 518,
+  "questions": [
+    {
+      "prompt": "According to the text, when does the ethical dilemma of gene editing become especially pronounced?",
+      "options": [
+        "When intervention extends from somatic cells to germline (reproductive) cells",
+        "When intervention is limited strictly to somatic cells",
+        "When the technology is used only in animals",
+        "When the editing targets are entirely non-human organisms"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What social equity concern does the text raise about gene enhancement?",
+      "options": [
+        "If it becomes a purchasable commodity, social class could become fixed at a biological level",
+        "It would make all humans genetically identical",
+        "It would eliminate all forms of social inequality",
+        "It has no relation to economic class at all"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, why is defining 'health' or 'perfection' in the context of gene editing problematic?",
+      "options": [
+        "Because the definitions are highly subjective philosophical questions",
+        "Because there is already complete scientific consensus on the definitions",
+        "Because health and perfection are legally defined terms with no ambiguity",
+        "Because these concepts have never changed throughout human history"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text suggest is necessary to prevent unethical secret experiments?",
+      "options": [
+        "A transparent review mechanism",
+        "A complete ban on all genetic research",
+        "Increased secrecy to protect researchers",
+        "Removing all legal oversight of laboratories"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say permanent genome changes in germline cells mean for future generations?",
+      "options": [
+        "The mutations will be passed to descendants, affecting the future evolution of the human gene pool",
+        "The changes will have no effect beyond the treated individual",
+        "The changes automatically reverse after one generation",
+        "Only somatic mutations can ever affect offspring"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

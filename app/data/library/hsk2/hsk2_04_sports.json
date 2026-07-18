@@ -6,6 +6,58 @@
   "topic": "sports",
   "grammar_pattern": "shi-de",
   "char_count": 128,
+  "questions": [
+    {
+      "prompt": "How long did they run?",
+      "options": [
+        "Half an hour",
+        "One hour",
+        "Two hours",
+        "20 minutes"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What sport does the friend like?",
+      "options": [
+        "Basketball",
+        "Swimming",
+        "Soccer",
+        "Running"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "When did the narrator start learning to run?",
+      "options": [
+        "This year",
+        "Last month",
+        "Last year",
+        "Two years ago"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "Where did the narrator and friend meet?",
+      "options": [
+        "At the park",
+        "At school",
+        "At the gym",
+        "Online"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did they do after exercising?",
+      "options": [
+        "Ate lunch",
+        "Watched a movie",
+        "Drank water and went home",
+        "Took a nap"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "innovation-policy",
   "grammar_pattern": "fanshi",
   "char_count": 326,
+  "questions": [
+    {
+      "prompt": "According to the text, what problem do enterprises overly dependent on subsidies face?",
+      "options": [
+        "They often lack core competitiveness, causing resource waste",
+        "They become the most innovative companies",
+        "They no longer need government support at all",
+        "They automatically succeed in the market"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What role should the government play, according to the text?",
+      "options": [
+        "A guiding role, such as simplifying approval processes and lowering entrepreneurship barriers",
+        "A role of strict control over all research direction",
+        "No role at all in innovation",
+        "Sole funder and owner of all inventions"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Why is intellectual property protection important, according to the text?",
+      "options": [
+        "Because R&D lacking legal support lacks motivation",
+        "Because it increases government tax revenue",
+        "Because it prevents all competition",
+        "Because it is required for international trade only"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say is a prerequisite for innovation?",
+      "options": [
+        "Encouraging and tolerating failure",
+        "Guaranteeing success on the first attempt",
+        "Eliminating all financial risk",
+        "Avoiding any experimentation"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say should determine R&D direction?",
+      "options": [
+        "Market demand",
+        "Government mandate exclusively",
+        "Random selection",
+        "Historical precedent only"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

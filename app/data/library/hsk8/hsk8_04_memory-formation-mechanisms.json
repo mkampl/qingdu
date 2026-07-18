@@ -6,6 +6,58 @@
   "topic": "memory-formation-mechanisms",
   "grammar_pattern": null,
   "char_count": 583,
+  "questions": [
+    {
+      "prompt": "According to the text, what role does the hippocampus play in memory formation?",
+      "options": [
+        "It acts as a relay, converting brief signals into relatively stable memory traces",
+        "It permanently stores all long-term memories",
+        "It has no role in memory and only regulates emotion",
+        "It only processes procedural (motor-skill) memory"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What happens during sleep, according to the text?",
+      "options": [
+        "The brain consolidates memories, transferring unstable information to the cortex",
+        "The brain stops all activity related to memory",
+        "Sleep erases short-term memories entirely",
+        "Sleep has no effect on memory processes"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How do semantic memory and procedural memory differ, according to the text?",
+      "options": [
+        "They rely on different neural circuits — one focuses on factual statements, the other on automated motor skills",
+        "They are stored in exactly the same brain circuit",
+        "Semantic memory is only for languages, procedural memory only for sports",
+        "The text states procedural memory always fades faster than semantic memory"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say happens to information without effective repetition (复述)?",
+      "options": [
+        "Most of it dissipates within a very short time",
+        "It is automatically transferred to permanent long-term storage",
+        "It becomes stronger through emotional reinforcement",
+        "It is only lost during sleep"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What technique does the text say researchers use to precisely manipulate specific neurons and verify causal relationships?",
+      "options": [
+        "Optogenetics",
+        "Functional MRI",
+        "CRISPR gene editing",
+        "Electroconvulsive therapy"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

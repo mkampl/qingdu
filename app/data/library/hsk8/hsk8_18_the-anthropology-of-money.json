@@ -6,6 +6,58 @@
   "topic": "the-anthropology-of-money",
   "grammar_pattern": null,
   "char_count": 508,
+  "questions": [
+    {
+      "prompt": "According to the anthropologists cited in the text, where does the definition of value originate?",
+      "options": [
+        "Cultural consensus, rather than material properties",
+        "Purely the physical properties of the material used",
+        "Government regulation alone",
+        "Global market supply and demand exclusively"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What was the purpose of gift-giving in early gift-exchange systems, according to the text?",
+      "options": [
+        "To build social bonds",
+        "To maximize individual material wealth",
+        "To establish a formal monetary currency",
+        "To weaken relationships between tribe members"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What did the introduction of a credit system do to the concept of wealth, according to the text?",
+      "options": [
+        "It further abstracted the concept of wealth",
+        "It made wealth entirely concrete and physical",
+        "It eliminated the concept of wealth altogether",
+        "It had no effect on how people perceived wealth"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, how do different societies view the role of money?",
+      "options": [
+        "Some view it as a tool of power distribution, others as a sacred sacrificial medium",
+        "All societies view money in exactly the same way",
+        "Money is viewed only as a religious object in every society studied",
+        "Money has never been associated with power in any society"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say is an inevitable consequence of quantifying relationships through money?",
+      "options": [
+        "Alienation of emotion",
+        "An increase in tribal reciprocity",
+        "The disappearance of social stratification",
+        "Universal agreement on monetary value across cultures"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

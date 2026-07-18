@@ -6,6 +6,58 @@
   "topic": "holidays",
   "grammar_pattern": "yibian-yibian",
   "char_count": 177,
+  "questions": [
+    {
+      "prompt": "Where did the narrator decide to travel for the holiday?",
+      "options": [
+        "Shanghai",
+        "Beijing",
+        "Xi'an",
+        "Guangzhou"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did the narrator do while riding the train?",
+      "options": [
+        "Slept the whole way",
+        "Read a book",
+        "Talked to a stranger",
+        "Watched a movie"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What place did the narrator visit every morning during the trip?",
+      "options": [
+        "A museum",
+        "The Great Wall",
+        "A park",
+        "A market"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Who did the narrator buy gifts for?",
+      "options": [
+        "Family members",
+        "Colleagues",
+        "Classmates",
+        "Neighbors"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How did the narrator feel at heart despite being physically tired from walking?",
+      "options": [
+        "Regretful",
+        "Content and relaxed",
+        "Angry",
+        "Bored"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

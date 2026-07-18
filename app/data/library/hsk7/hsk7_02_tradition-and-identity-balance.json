@@ -6,6 +6,58 @@
   "topic": "tradition-and-identity-balance",
   "grammar_pattern": null,
   "char_count": 526,
+  "questions": [
+    {
+      "prompt": "According to the sociologists mentioned in the text, what is cultural confidence rooted in?",
+      "options": [
+        "A deep understanding of one's own historical roots",
+        "Rapid adoption of foreign customs",
+        "The size of a country's economy",
+        "Winning international competitions"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what happens to a person's spiritual world if they sever ties with the past?",
+      "options": [
+        "It becomes more focused and productive",
+        "It becomes empty/hollow",
+        "It becomes indistinguishable from others'",
+        "It strengthens through independence"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what does blindly imitating Western models lead to?",
+      "options": [
+        "Widespread group anxiety",
+        "Immediate economic growth",
+        "Greater cultural confidence",
+        "A stronger sense of tradition"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what should cultural inheritance be, rather than mere copying?",
+      "options": [
+        "Creative transformation, not simple copying",
+        "Simple copying, not creative transformation",
+        "Avoidance of both approaches entirely",
+        "The text treats the two as identical"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text's conclusion, how do tradition and modernity relate to one another?",
+      "options": [
+        "Modernity must always replace tradition entirely",
+        "They are fundamentally irreconcilable opposites",
+        "They complement each other and jointly shape who we are today",
+        "Tradition is irrelevant to modern identity"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

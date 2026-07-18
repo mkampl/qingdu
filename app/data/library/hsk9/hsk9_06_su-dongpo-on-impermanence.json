@@ -6,6 +6,58 @@
   "topic": "su-dongpo-on-impermanence",
   "grammar_pattern": null,
   "char_count": 463,
+  "questions": [
+    {
+      "prompt": "According to the text, how did Su Dongpo react to being demoted and exiled?",
+      "options": [
+        "He became bitter and gave up entirely",
+        "He neither clung to past glory nor sank into despair",
+        "He sought revenge against his rivals",
+        "He stopped writing altogether"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what is the source of Su Dongpo's open-mindedness?",
+      "options": [
+        "His wealth",
+        "A deep understanding of life's impermanence",
+        "His political power",
+        "Support from his family"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did Su Dongpo do while living in a remote place after his exile, according to the text?",
+      "options": [
+        "He ignored his surroundings entirely",
+        "He farmed the land and enjoyed simple food",
+        "He built a grand palace",
+        "He returned to the capital secretly"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Which principle does the text highlight as key to Su Dongpo's wisdom?",
+      "options": [
+        "Never showing any emotion",
+        "Not being made joyful by external things nor sorrowful by personal matters",
+        "Avoiding all hardship",
+        "Seeking fame above all"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what do people usually mistake fulfillment (圆满) for?",
+      "options": [
+        "An illusory mirage that people chase",
+        "A real, permanent achievement",
+        "A family gathering",
+        "Something the text says cannot be mistaken"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

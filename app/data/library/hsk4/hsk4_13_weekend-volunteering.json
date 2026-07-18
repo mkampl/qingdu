@@ -6,6 +6,58 @@
   "topic": "weekend-volunteering",
   "grammar_pattern": "buguan-dou",
   "char_count": 298,
+  "questions": [
+    {
+      "prompt": "According to the text, what can participating in volunteer activities reduce, regardless of work pressure?",
+      "options": [
+        "Anxiety",
+        "Income",
+        "Free time",
+        "Physical fitness"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What two example volunteer activities does the text mention?",
+      "options": [
+        "Caring for elderly in nursing homes and cleaning trash in parks",
+        "Teaching classes and organizing sports events",
+        "Donating money and building houses",
+        "Planting trees and painting murals"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what do volunteers learn through the service process?",
+      "options": [
+        "Patience and communication",
+        "Cooking and cleaning",
+        "Accounting and management",
+        "Foreign languages"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say the government should provide to support volunteering?",
+      "options": [
+        "More convenient registration channels",
+        "More funding for volunteers' salaries",
+        "Mandatory volunteer requirements",
+        "Fewer volunteer organizations"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, how does the value of volunteering compare to pure entertainment?",
+      "options": [
+        "It is more valuable than pure entertainment",
+        "It is less valuable than entertainment",
+        "It has the same value as entertainment",
+        "The text does not compare them"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

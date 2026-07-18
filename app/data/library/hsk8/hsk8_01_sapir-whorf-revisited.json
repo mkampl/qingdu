@@ -6,6 +6,58 @@
   "topic": "sapir-whorf-revisited",
   "grammar_pattern": null,
   "char_count": 499,
+  "questions": [
+    {
+      "prompt": "What does modern empirical research tend to support regarding the Sapir-Whorf hypothesis?",
+      "options": [
+        "The weak version, in which language guides attention only at specific levels",
+        "The strong version, in which native language strictly limits thought",
+        "That language has no effect on cognition at all",
+        "That only color vocabulary affects thought"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what happens to color perception when color vocabulary is lacking?",
+      "options": [
+        "The speed of recognizing subtle color differences may slow down",
+        "The physiological vision mechanism itself is damaged",
+        "People become effectively colorblind",
+        "They lose the ability to perceive color differences entirely"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What metaphor does the text use to describe language's role in thought?",
+      "options": [
+        "A guide (beacon) for exploring the world",
+        "A cage that imprisons thought",
+        "A mirror that merely reflects thought",
+        "A barrier that can never be overcome"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What cognitive advantage do multilingual speakers show, according to the text?",
+      "options": [
+        "More flexible executive function and more efficient filtering of irrelevant information",
+        "Faster reading speed in any language",
+        "Better memory for vocabulary lists",
+        "Stronger visual color discrimination"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How does the text describe the effect of spatial-direction words on cognition?",
+      "options": [
+        "Differences in spatial words influence how people build mental maps, e.g. some groups use absolute rather than relative directions",
+        "All languages use identical spatial reference systems",
+        "Spatial vocabulary has no effect on navigation ability",
+        "Only relative directional terms exist across human languages"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

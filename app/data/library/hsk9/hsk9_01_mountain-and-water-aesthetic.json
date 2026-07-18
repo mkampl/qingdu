@@ -6,6 +6,58 @@
   "topic": "mountain-and-water-aesthetic",
   "grammar_pattern": null,
   "char_count": 350,
+  "questions": [
+    {
+      "prompt": "According to the text, what characterizes water's strength as described in the passage?",
+      "options": [
+        "It follows the shape of its container and wins without contending",
+        "It is louder than the mountains",
+        "It always flows downward with great force",
+        "It never changes shape"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the passage, what does the author say true luxury actually is?",
+      "options": [
+        "Having a hall filled with gold and jade",
+        "A moment of ease amid forests and springs",
+        "Owning a mountain estate",
+        "Traveling to famous scenic spots"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the passage say this mountain-and-water aesthetic experience actually is?",
+      "options": [
+        "Purely a visual enjoyment",
+        "A spiritual purification that teaches letting go of excess",
+        "A religious ritual",
+        "A painting technique"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "When did the author take the walk described at the start of the passage?",
+      "options": [
+        "Last week",
+        "Yesterday",
+        "This morning",
+        "Last year"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does the mountain's steadiness consist of?",
+      "options": [
+        "Its great height",
+        "Being still and quiet while embracing all things",
+        "Being made of hard stone",
+        "Being climbed by many travelers"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

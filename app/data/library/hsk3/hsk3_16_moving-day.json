@@ -6,6 +6,58 @@
   "topic": "moving-day",
   "grammar_pattern": "bei",
   "char_count": 172,
+  "questions": [
+    {
+      "prompt": "What did the narrator accidentally break?",
+      "options": [
+        "A window",
+        "A cup",
+        "A chair",
+        "A mirror"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Why was the narrator sad about the broken item?",
+      "options": [
+        "It was expensive",
+        "It was a gift from a friend",
+        "It was an antique",
+        "It belonged to their brother"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Who helped move the heaviest piece of furniture?",
+      "options": [
+        "A neighbor",
+        "The narrator's older brother",
+        "A moving company",
+        "A friend"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Where did the narrator put the bed in the new house?",
+      "options": [
+        "In the middle of the room",
+        "Next to the window",
+        "In the closet",
+        "Facing the door"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How did the narrator feel looking at the empty room at the end?",
+      "options": [
+        "Sad",
+        "Happy",
+        "Angry",
+        "Bored"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

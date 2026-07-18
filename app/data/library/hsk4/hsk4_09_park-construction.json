@@ -6,6 +6,58 @@
   "topic": "park-construction",
   "grammar_pattern": "chu-yiwai",
   "char_count": 225,
+  "questions": [
+    {
+      "prompt": "According to the text, what do some people mistakenly believe about building parks?",
+      "options": [
+        "That it wastes money",
+        "That it takes too long",
+        "That it harms the environment",
+        "That nobody will use them"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Besides providing fresh air, what else does the text say a park does?",
+      "options": [
+        "Reduces stress",
+        "Increases property values",
+        "Provides free WiFi",
+        "Attracts tourists"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How many minutes of daily walking does the text mention as improving mood?",
+      "options": [
+        "Ten minutes",
+        "Thirty minutes",
+        "One hour",
+        "Five minutes"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what effect does increasing vegetation have on summer temperatures?",
+      "options": [
+        "It lowers them, making summer cooler",
+        "It has no effect on temperature",
+        "It raises them",
+        "It only affects air quality, not temperature"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Besides the elderly and children, who else does the text say needs rest space in parks?",
+      "options": [
+        "Young people",
+        "Tourists",
+        "Business owners",
+        "Students only during exams"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

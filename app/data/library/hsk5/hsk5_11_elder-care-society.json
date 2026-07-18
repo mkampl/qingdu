@@ -6,6 +6,58 @@
   "topic": "elder-care-society",
   "grammar_pattern": "yuqi-buru",
   "char_count": 256,
+  "questions": [
+    {
+      "prompt": "Where does the text open, describing white-haired elders chatting?",
+      "options": [
+        "In a park",
+        "In a hospital",
+        "In a nursing home",
+        "At a family dinner"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Why do many parents lack companionship at home, according to the text?",
+      "options": [
+        "Their children moved to big cities for work",
+        "They refuse to see visitors",
+        "They live too far from any park",
+        "They prefer solitude"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What example of modern technology helping the elderly does the text give?",
+      "options": [
+        "Smart devices that monitor health",
+        "Robot caregivers",
+        "Video game consoles",
+        "Self-driving cars"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the author say is still essential even when families use professional care institutions?",
+      "options": [
+        "Emotional support from family",
+        "Financial payments only",
+        "Legal contracts",
+        "Government inspections"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text call respecting the elderly?",
+      "options": [
+        "A mark of civilization",
+        "A legal obligation",
+        "An outdated custom",
+        "A religious duty"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "second-language-motivation",
   "grammar_pattern": "jishi-ye",
   "char_count": 267,
+  "questions": [
+    {
+      "prompt": "According to the text, what does the narrator believe is the key to successfully learning a language?",
+      "options": [
+        "Motivation",
+        "Natural talent",
+        "Expensive courses",
+        "Living abroad"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What two example activities does the text suggest for applying language to daily life?",
+      "options": [
+        "Watching movies in the original language or making foreign friends",
+        "Taking exams and doing homework",
+        "Reading textbooks and taking notes",
+        "Listening to music and singing"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what happens to memorizing words when there is no goal?",
+      "options": [
+        "It becomes very boring",
+        "It becomes easier",
+        "It becomes faster",
+        "It becomes unnecessary"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does the narrator say is more important than perfect pronunciation?",
+      "options": [
+        "Communication",
+        "Grammar",
+        "Vocabulary size",
+        "Test scores"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What metaphor does the narrator use to describe motivation?",
+      "options": [
+        "An engine",
+        "A key",
+        "A map",
+        "A ladder"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

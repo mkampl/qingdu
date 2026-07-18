@@ -6,6 +6,58 @@
   "topic": "vegetarian-shift",
   "grammar_pattern": "chu-yiwai",
   "char_count": 246,
+  "questions": [
+    {
+      "prompt": "According to the text, who told the narrator about the decision to stop eating meat?",
+      "options": [
+        "A friend",
+        "A doctor",
+        "A teacher",
+        "A family member"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does producing meat require a lot of?",
+      "options": [
+        "Water and land",
+        "Electricity and fuel",
+        "Money and time",
+        "Chemicals and machinery"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What worry do some people have about eating less meat?",
+      "options": [
+        "That their nutrition will be insufficient",
+        "That food will taste bad",
+        "That it will cost more money",
+        "That it will take too much time to cook"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Besides vegetables, what other food does the text mention as a good source of nutrition?",
+      "options": [
+        "Beans (legumes)",
+        "Fish",
+        "Eggs",
+        "Nuts"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, where can people now easily buy various plant-based foods?",
+      "options": [
+        "At supermarkets",
+        "At farmers' markets only",
+        "Only online",
+        "At specialty health stores"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

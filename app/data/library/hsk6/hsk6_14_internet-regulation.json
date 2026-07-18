@@ -6,6 +6,58 @@
   "topic": "internet-regulation",
   "grammar_pattern": "wanyi",
   "char_count": 296,
+  "questions": [
+    {
+      "prompt": "What triggers the scenario described at the start of the text?",
+      "options": [
+        "A user's account gets temporarily banned by an automated content-filtering algorithm",
+        "A user reports another user for spam",
+        "A government agency shuts down the entire platform",
+        "A user voluntarily deletes their account"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What is a stated drawback of algorithm-based automatic content filtering?",
+      "options": [
+        "It lacks flexibility and often mistakenly flags normal discussions as violations",
+        "It is too slow to be useful",
+        "It never makes mistakes",
+        "It requires no computing resources"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What effect does the text say becomes increasingly obvious due to over-regulation?",
+      "options": [
+        "The “information cocoon” effect, where individuals only see partial truth",
+        "Universal access to unlimited information",
+        "Complete elimination of misinformation",
+        "Increased independent thinking ability"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what happens if people lose their ability to analyze information?",
+      "options": [
+        "Society becomes blindly obedient",
+        "Society becomes more innovative",
+        "Information spreads more accurately",
+        "People become more skeptical of everything"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say is key to building trust in this context?",
+      "options": [
+        "Transparency",
+        "Stricter censorship with no oversight",
+        "Higher fines for violations",
+        "Complete removal of all regulation"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

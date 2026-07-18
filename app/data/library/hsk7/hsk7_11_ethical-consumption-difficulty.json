@@ -6,6 +6,58 @@
   "topic": "ethical-consumption-difficulty",
   "grammar_pattern": null,
   "char_count": 489,
+  "questions": [
+    {
+      "prompt": "According to the text, what is \"greenwashing\" (洗绿), and what effect does it have on consumers?",
+      "options": [
+        "A government certification program that reassures consumers",
+        "Brands using misleading green marketing to hide pollution, causing consumer choice anxiety",
+        "A technique factories use to recycle water efficiently",
+        "A method that makes products cheaper for everyone"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what effect does the higher price of ethical products have on middle- and low-income groups?",
+      "options": [
+        "It has no real effect on their purchasing decisions",
+        "It encourages them to buy even more of these products",
+        "It creates a threshold that makes sustainable living a privilege rather than a universal standard",
+        "It qualifies them for automatic tax refunds"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "According to the text, why can't individuals fully escape consumerism even by minimizing their needs?",
+      "options": [
+        "Because minimizing consumption is physically impossible",
+        "Because laws forbid reducing personal consumption",
+        "Because modern industrial supply chains are complex, involving many global links beyond individual control",
+        "Because all products come from a single factory"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "According to the text's conclusion, what should replace reliance on individual moral choice to solve the problem?",
+      "options": [
+        "Mandatory vegetarianism for all consumers",
+        "A more transparent regulatory mechanism forcing companies to disclose supply chain details",
+        "Complete elimination of the free market",
+        "Higher taxes on all consumer goods equally"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what underlying public concern drives the rise of ethical consumption?",
+      "options": [
+        "A general decrease in product prices",
+        "Government mandates requiring ethical purchases",
+        "Deep public concern over environmental degradation and labor rights",
+        "A shortage of ordinary consumer goods"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

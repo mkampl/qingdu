@@ -6,6 +6,58 @@
   "topic": "saving-money",
   "grammar_pattern": "yue-yue",
   "char_count": 212,
+  "questions": [
+    {
+      "prompt": "Why did the narrator decide to start saving money?",
+      "options": [
+        "To buy a new phone",
+        "To travel to China",
+        "To pay off debt",
+        "To buy a car"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What habit did the narrator give up to save money?",
+      "options": [
+        "Watching movies",
+        "Buying coffee every day",
+        "Buying clothes",
+        "Taking taxis"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How does the narrator keep track of their spending?",
+      "options": [
+        "Using a banking app",
+        "Recording where the money goes each day",
+        "Asking a friend to track it",
+        "Checking bank statements monthly"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the narrator now do instead of eating at restaurants?",
+      "options": [
+        "Skip lunch",
+        "Prepare their own lunch",
+        "Order cheaper takeout",
+        "Eat only at home for dinner"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Where does the narrator plan to travel next summer?",
+      "options": [
+        "Shanghai",
+        "Beijing, to see the Great Wall",
+        "Xi'an",
+        "Guangzhou"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

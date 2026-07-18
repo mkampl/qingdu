@@ -6,6 +6,58 @@
   "topic": "calligraphy-as-meditation",
   "grammar_pattern": null,
   "char_count": 437,
+  "questions": [
+    {
+      "prompt": "What happens to one's brushstrokes if the mind is agitated, according to the text?",
+      "options": [
+        "They become more beautiful",
+        "They become chaotic and lack character",
+        "Nothing changes",
+        "They become faster"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What mental state does the text say is needed to write vivid, dynamic calligraphy?",
+      "options": [
+        "Excitement",
+        "A mind as still as water",
+        "Anger",
+        "Distraction"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what is the process of calligraphy actually compared to?",
+      "options": [
+        "A sport",
+        "A silent form of spiritual practice",
+        "A business transaction",
+        "A game"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does copying ancient calligraphic masterworks feel like, according to the text?",
+      "options": [
+        "A waste of time",
+        "A dialogue with wise ancients from a thousand years ago",
+        "A purely mechanical exercise",
+        "A competition to win"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How does the author describe their mental state after finishing writing?",
+      "options": [
+        "Exhausted and regretful",
+        "Their mind became clear and open",
+        "Bored and restless",
+        "Confused about what they wrote"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

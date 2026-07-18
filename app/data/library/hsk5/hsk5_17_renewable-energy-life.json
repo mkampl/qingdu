@@ -6,6 +6,58 @@
   "topic": "renewable-energy-life",
   "grammar_pattern": "yuqi-buru",
   "char_count": 262,
+  "questions": [
+    {
+      "prompt": "Where does the narrator's grandfather live?",
+      "options": [
+        "In the countryside",
+        "In a big city",
+        "By the coast",
+        "Abroad"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What did the grandfather install on his roof?",
+      "options": [
+        "Solar panels",
+        "A water tank",
+        "A wind turbine",
+        "A garden"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What wasteful habits do city people have, according to the text?",
+      "options": [
+        "Leaving the air conditioner and lights on",
+        "Driving too fast",
+        "Buying too much food",
+        "Using too much water for showers"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What two activities does the author suggest instead of driving?",
+      "options": [
+        "Biking and walking",
+        "Carpooling and biking",
+        "Public transit and walking",
+        "Running and swimming"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What two natural resources does the text mention as gifts humans can utilize?",
+      "options": [
+        "Wind and water",
+        "Sunlight and soil",
+        "Trees and rivers",
+        "Coal and oil"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -700,6 +700,7 @@ export interface LibraryManifestItem {
   grammar_pattern: string | null;
   char_count: number;
   total_unique_words: number;
+  has_quiz: boolean;
 }
 
 export interface LibraryForYouItem extends LibraryManifestItem {
@@ -732,6 +733,39 @@ export const getLibraryEntry = (slug: string) =>
   request<LibraryEntry>(`/api/library/${encodeURIComponent(slug)}`, {
     anonymous: true,
   });
+
+export interface LibraryProgressEntry {
+  status: "read" | "quiz";
+  score: number | null;
+  completed_at: string | null;
+}
+
+export const getLibraryProgress = () =>
+  request<{ items: Record<string, LibraryProgressEntry> }>("/api/library/progress");
+
+export const markLibraryRead = (slug: string) =>
+  request<LibraryProgressEntry>(`/api/library/${encodeURIComponent(slug)}/read`, {
+    method: "POST",
+  });
+
+export const unmarkLibraryRead = (slug: string) =>
+  request<{ status: null }>(`/api/library/${encodeURIComponent(slug)}/read`, {
+    method: "DELETE",
+  });
+
+export interface LibraryQuizQuestion {
+  prompt: string;
+  options: string[];
+}
+
+export const getLibraryQuiz = (slug: string) =>
+  request<{ questions: LibraryQuizQuestion[] }>(`/api/library/${encodeURIComponent(slug)}/quiz`);
+
+export const submitLibraryQuiz = (slug: string, answers: number[]) =>
+  request<{ results: boolean[]; all_correct: boolean; progress: LibraryProgressEntry | null }>(
+    `/api/library/${encodeURIComponent(slug)}/quiz`,
+    { method: "POST", body: { answers } },
+  );
 
 // ----- Words queue ----------------------------------------------------------
 

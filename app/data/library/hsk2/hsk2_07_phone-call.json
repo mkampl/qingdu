@@ -6,6 +6,58 @@
   "topic": "phone-call",
   "grammar_pattern": "shi-de",
   "char_count": 125,
+  "questions": [
+    {
+      "prompt": "Who called the narrator?",
+      "options": [
+        "The teacher",
+        "David",
+        "Mom",
+        "A doctor"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Why is David in the hospital?",
+      "options": [
+        "He broke his leg",
+        "He caught a cold",
+        "He had a fever",
+        "He had surgery"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "When did David go to the hospital?",
+      "options": [
+        "Today",
+        "Yesterday",
+        "Last week",
+        "This morning"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What time did the narrator visit David?",
+      "options": [
+        "10am",
+        "Noon",
+        "3pm",
+        "5pm"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What did the narrator bring David?",
+      "options": [
+        "Flowers",
+        "Books",
+        "Medicine",
+        "Fruit"
+      ],
+      "answer_index": 3
+    }
+  ],
   "analyzed": {
     "words": [
       {

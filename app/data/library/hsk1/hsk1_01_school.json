@@ -6,6 +6,38 @@
   "topic": "school",
   "grammar_pattern": "le-aspect",
   "char_count": 44,
+  "questions": [
+    {
+      "prompt": "What did the narrator forget to bring?",
+      "options": [
+        "Water",
+        "A book",
+        "An umbrella",
+        "Bread"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "Who gave the narrator something to eat?",
+      "options": [
+        "A classmate he didn't know",
+        "His mother",
+        "A teacher",
+        "His friend"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "How did the narrator feel after eating the bread?",
+      "options": [
+        "Still hungry",
+        "Tired",
+        "Angry",
+        "Happy"
+      ],
+      "answer_index": 3
+    }
+  ],
   "analyzed": {
     "words": [
       {

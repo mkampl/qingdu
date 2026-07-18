@@ -6,6 +6,58 @@
   "topic": "data-privacy-vs-convenience",
   "grammar_pattern": "ji-you",
   "char_count": 342,
+  "questions": [
+    {
+      "prompt": "What does the opening quoted statement reflect, according to the text?",
+      "options": [
+        "A common contemporary attitude that convenience matters more than privacy concerns",
+        "A minority view rejected by most people",
+        "An official government policy statement",
+        "A warning issued by regulators"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say happens to personal privacy in the digital age?",
+      "options": [
+        "It becomes quantified and turned into a commercial bargaining chip",
+        "It is completely protected by law",
+        "It disappears with no consequence",
+        "It only affects wealthy individuals"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what do enterprises do when pursuing profit?",
+      "options": [
+        "Exploit information asymmetry to manipulate consumers' psychological expectations",
+        "Always prioritize user privacy over profit",
+        "Refuse to collect any data",
+        "Voluntarily share data with competitors"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text warn happens if humans fully rely on technology?",
+      "options": [
+        "Humans will lose the space for independent thinking",
+        "Humans will become physically stronger",
+        "Society will become perfectly trustworthy",
+        "Technology will stop advancing"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text's conclusion say users should do?",
+      "options": [
+        "Be vigilant and cautiously authorize apps before granting access",
+        "Give up using smartphones entirely",
+        "Trust all companies unconditionally",
+        "Rely solely on the government for protection"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

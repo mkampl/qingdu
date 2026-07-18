@@ -6,6 +6,58 @@
   "topic": "value-of-slow-living",
   "grammar_pattern": null,
   "char_count": 432,
+  "questions": [
+    {
+      "prompt": "According to the text, what has become the sole standard for measuring success in fast-paced urban life?",
+      "options": [
+        "Personal happiness",
+        "Efficiency",
+        "Family reputation",
+        "Physical health"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what does slow living explicitly NOT mean?",
+      "options": [
+        "Reconsidering the rhythm of life",
+        "Feeling genuine emotions more deeply",
+        "Doing nothing at all (idleness)",
+        "Relieving psychological stress"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "According to the text, what happens to society's overall mental health when everyone tries to move faster?",
+      "options": [
+        "It steadily declines",
+        "It improves due to higher productivity",
+        "It remains completely unaffected",
+        "It only affects the very wealthy"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what balance defines a truly high-quality life?",
+      "options": [
+        "Balance between wealth and fame",
+        "Balance between speed and depth",
+        "Balance between tradition and technology",
+        "Balance between work and vacation time"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text's closing argument, what is the ultimate purpose of learning to slow down?",
+      "options": [
+        "To completely stop working",
+        "To avoid using any technology",
+        "To set off (move forward) with a clearer sense of direction",
+        "To become wealthier more quickly"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

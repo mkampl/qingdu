@@ -6,6 +6,58 @@
   "topic": "online-course-experience",
   "grammar_pattern": "jishi-ye",
   "char_count": 244,
+  "questions": [
+    {
+      "prompt": "Who told the narrator that online courses are very convenient?",
+      "options": [
+        "The narrator's friend",
+        "The narrator's teacher",
+        "The narrator's parent",
+        "A stranger online"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what problem can arise from a lack of face-to-face communication in online learning?",
+      "options": [
+        "Students may feel lonely",
+        "Students learn faster",
+        "Students save more money",
+        "Students get better grades"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say about the cost of many high-quality online resources?",
+      "options": [
+        "They are free",
+        "They are very expensive",
+        "They require a subscription",
+        "They cost the same as offline courses"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What problem does the text mention about students who encounter complex content online?",
+      "options": [
+        "They cannot immediately ask questions",
+        "They automatically fail the course",
+        "They must pay extra fees",
+        "They are removed from the class"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What solution does the text propose at the end for achieving the best learning outcome?",
+      "options": [
+        "Combining online resources with offline discussion",
+        "Only using online courses",
+        "Only using offline classes",
+        "Hiring a private tutor"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

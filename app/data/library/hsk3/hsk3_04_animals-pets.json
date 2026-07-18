@@ -6,6 +6,58 @@
   "topic": "animals-pets",
   "grammar_pattern": "suiran-danshi",
   "char_count": 222,
+  "questions": [
+    {
+      "prompt": "Who gave the narrator the dog Diandian?",
+      "options": [
+        "Their mother",
+        "Their best friend",
+        "A neighbor",
+        "They bought it themselves"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does Diandian do every morning?",
+      "options": [
+        "Sleeps in",
+        "Wakes the narrator up to go running",
+        "Barks at strangers",
+        "Waits by the door"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What must the narrator do to take care of Diandian?",
+      "options": [
+        "Feed it three times a day",
+        "Bathe it every day",
+        "Take it to the vet weekly",
+        "Buy it new toys daily"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does Diandian do when the narrator is in a bad mood?",
+      "options": [
+        "It barks loudly",
+        "It quietly stays by their side",
+        "It hides under the bed",
+        "It runs away"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What sometimes happens when they play ball in the park?",
+      "options": [
+        "Diandian never catches the ball",
+        "Diandian carries the ball under a tree",
+        "Diandian refuses to play",
+        "They only play indoors"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

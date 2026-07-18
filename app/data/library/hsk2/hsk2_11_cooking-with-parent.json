@@ -6,6 +6,58 @@
   "topic": "cooking-with-parent",
   "grammar_pattern": "yinwei-suoyi",
   "char_count": 124,
+  "questions": [
+    {
+      "prompt": "What did they buy at the store?",
+      "options": [
+        "Vegetables and eggs",
+        "Fish and rice",
+        "Meat and noodles",
+        "Bread and milk"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did the narrator do to help cook?",
+      "options": [
+        "Cut the fish",
+        "Washed the vegetables",
+        "Cooked the rice",
+        "Set the table"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did mom say about the narrator?",
+      "options": [
+        "Very smart",
+        "Hands were fast",
+        "Very tall",
+        "Very careful"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How long did it take to cook the meal?",
+      "options": [
+        "One hour",
+        "Fifteen minutes",
+        "Half an hour",
+        "Two hours"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What does the narrator think of mom's cooking?",
+      "options": [
+        "Too salty",
+        "Just okay",
+        "Too spicy",
+        "The most delicious"
+      ],
+      "answer_index": 3
+    }
+  ],
   "analyzed": {
     "words": [
       {

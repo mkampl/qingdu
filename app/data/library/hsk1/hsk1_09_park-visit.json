@@ -6,6 +6,48 @@
   "topic": "park-visit",
   "grammar_pattern": "le-aspect",
   "char_count": 50,
+  "questions": [
+    {
+      "prompt": "Where did the narrator go?",
+      "options": [
+        "The park",
+        "School",
+        "A store",
+        "The library"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Who did the narrator see there?",
+      "options": [
+        "A teacher",
+        "A sibling",
+        "A classmate",
+        "A stranger"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What had changed about the classmate this year?",
+      "options": [
+        "He got a haircut",
+        "He got glasses",
+        "He had grown taller",
+        "He got a dog"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "Why didn't they end up playing ball?",
+      "options": [
+        "It started raining",
+        "The park was closed",
+        "They were tired",
+        "The classmate had no ball"
+      ],
+      "answer_index": 3
+    }
+  ],
   "analyzed": {
     "words": [
       {

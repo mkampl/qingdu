@@ -6,6 +6,58 @@
   "topic": "youth-mental-health",
   "grammar_pattern": "ji-you",
   "char_count": 308,
+  "questions": [
+    {
+      "prompt": "According to the text, what is true about young people who “look energetic” on the street?",
+      "options": [
+        "Reality may not match appearances — many are actually struggling internally",
+        "They are all genuinely happy and stress-free",
+        "They have no academic pressure at all",
+        "They spend most of their time outdoors"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text identify as a key factor in the family environment contributing to student stress?",
+      "options": [
+        "Parents often focus only on grades and neglect their child's inner world",
+        "Parents give too much freedom to their children",
+        "Families spend too much time together",
+        "Parents encourage too much exercise"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text list as ways to relieve stress and regulate emotion?",
+      "options": [
+        "Exercise, reading, and communicating with others",
+        "Working longer hours",
+        "Avoiding all social contact",
+        "Focusing exclusively on grades"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say happens if psychological problems are not addressed in time?",
+      "options": [
+        "They will worsen",
+        "They resolve on their own without intervention",
+        "They only affect physical health, not mental health",
+        "They disappear once the student graduates"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what is currently scarce or insufficient?",
+      "options": [
+        "Professional counseling services",
+        "School buildings",
+        "Sunny days",
+        "Textbooks"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "tang-dynasty-poetic-imagery",
   "grammar_pattern": null,
   "char_count": 379,
+  "questions": [
+    {
+      "prompt": "According to the text, what characterizes Wang Wei's poetic image \"empty mountain after fresh rain\"?",
+      "options": [
+        "Violent storm imagery",
+        "A zen-like tranquility that washes away worldly noise",
+        "Political commentary",
+        "War imagery"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the text say Li Bai does with the bright moon in his poetry?",
+      "options": [
+        "He ignores it completely",
+        "He pours it into his cup and dances with his loneliness",
+        "He fears its light",
+        "He paints its image"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How is Du Fu's poetry described in the text?",
+      "options": [
+        "Carefree and joyful",
+        "Deep and melancholic, filled with concern for his country",
+        "Simple and childish",
+        "Purely about nature with no deeper meaning"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What is the author doing at the start of the passage?",
+      "options": [
+        "Traveling to Tang dynasty ruins",
+        "Drinking tea and reading old poetry while it drizzles outside",
+        "Writing a brand new poem",
+        "Watching a theatrical play"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what do these poets achieve by expressing feeling through natural scenery?",
+      "options": [
+        "They make nature seem less important",
+        "They give natural imagery a deep, profound vitality",
+        "They confuse their readers",
+        "They avoid emotional topics entirely"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

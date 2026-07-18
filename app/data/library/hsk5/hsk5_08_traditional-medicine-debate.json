@@ -6,6 +6,58 @@
   "topic": "traditional-medicine-debate",
   "grammar_pattern": "yuqi-buru",
   "char_count": 266,
+  "questions": [
+    {
+      "prompt": "What is modern medicine's key strength, according to the text?",
+      "options": [
+        "Quickly resolving acute symptoms",
+        "Curing all chronic diseases",
+        "Being completely painless",
+        "Being the cheapest option"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does traditional Chinese medicine emphasize, according to the text?",
+      "options": [
+        "A holistic view where body parts are interconnected",
+        "Treating only the affected organ",
+        "Using only herbal teas",
+        "Avoiding all modern equipment"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the author recommend relying on during emergencies?",
+      "options": [
+        "Modern technology",
+        "Traditional herbal remedies",
+        "Resting alone",
+        "Family advice"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the author recommend for long-term health maintenance (养生)?",
+      "options": [
+        "Traditional experience",
+        "Modern surgery",
+        "Strict dieting alone",
+        "Avoiding all medicine"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what should people do instead of blindly following trends when choosing treatment?",
+      "options": [
+        "Choose according to their specific situation",
+        "Always pick the cheaper option",
+        "Ask a stranger for advice",
+        "Alternate randomly between methods"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

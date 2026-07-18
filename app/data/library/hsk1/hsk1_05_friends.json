@@ -6,6 +6,58 @@
   "topic": "friends",
   "grammar_pattern": "le-aspect",
   "char_count": 67,
+  "questions": [
+    {
+      "prompt": "Where did the narrator wait for the friend?",
+      "options": [
+        "At a store",
+        "At a bus station",
+        "At home",
+        "At school"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "At what time did the narrator start waiting?",
+      "options": [
+        "7 o'clock",
+        "6 o'clock",
+        "9 o'clock",
+        "8 o'clock"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "Why didn't the friend call to say he was late?",
+      "options": [
+        "He had no money",
+        "He was too busy",
+        "His phone was broken",
+        "He forgot the number"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "Why was the friend late in the first place?",
+      "options": [
+        "He got lost",
+        "He overslept",
+        "There was traffic",
+        "He forgot the time"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "What did the two friends do after he arrived and apologized?",
+      "options": [
+        "Went to a store together",
+        "Went home",
+        "Went to school",
+        "Waited longer"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "small-town-decline",
   "grammar_pattern": "buran-jiu",
   "char_count": 285,
+  "questions": [
+    {
+      "prompt": "Why do young people leave their hometowns, according to the text?",
+      "options": [
+        "To seek better jobs and a better quality of life",
+        "To escape family conflicts",
+        "To attend universities abroad",
+        "To avoid natural disasters"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What is happening to the traditional local skills mentioned in the text?",
+      "options": [
+        "They have no one to inherit them",
+        "They are being digitized",
+        "They are taught in new schools",
+        "They are being exported abroad"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Why do the teachers in the village feel great pressure, according to the text?",
+      "options": [
+        "Student numbers are falling and support is lacking",
+        "Their pay is lower than in cities",
+        "They are being replaced by online education",
+        "They have conflicts with parents"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say is needed to bring hope to the declining village?",
+      "options": [
+        "Innovation",
+        "More police presence",
+        "Foreign investment alone",
+        "Higher local taxes"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the passage say happened to the once-prosperous trade in the village?",
+      "options": [
+        "It gradually stopped",
+        "It doubled in size",
+        "It shifted entirely online",
+        "It merged with tourism"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

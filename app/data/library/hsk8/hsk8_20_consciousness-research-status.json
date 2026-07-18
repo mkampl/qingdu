@@ -6,6 +6,58 @@
   "topic": "consciousness-research-status",
   "grammar_pattern": null,
   "char_count": 501,
+  "questions": [
+    {
+      "prompt": "What is the 'hard problem' of consciousness, as described in the text?",
+      "options": [
+        "How the physical brain produces subjective feeling",
+        "How to measure brainwave frequency accurately",
+        "How to treat patients in a vegetative state",
+        "How AI algorithms are trained"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to global workspace theory as described in the text, when does consciousness arise?",
+      "options": [
+        "When information is broadcast widely throughout the brain",
+        "Only during deep sleep",
+        "Only when a person is verbally communicating",
+        "When a single, isolated brain region is activated alone"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does integrated information theory emphasize, according to the text?",
+      "options": [
+        "That the system's internal degree of integration determines the level of consciousness",
+        "That consciousness depends solely on brain size",
+        "That consciousness cannot be measured or theorized about",
+        "That only human brains can have any degree of integration"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the quantum consciousness hypothesis propose, and what is its current status, according to the text?",
+      "options": [
+        "That microtubule structures may process information, but the idea still lacks sufficient experimental evidence",
+        "That microtubules have been definitively proven to generate consciousness",
+        "That it has been rejected entirely by all scientists",
+        "That it applies only to artificial intelligence, not biological brains"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What stance do most scientists currently endorse, according to the text?",
+      "options": [
+        "Physicalism — that mental activity emerges from bioelectric signals",
+        "Dualism — that mind and body are entirely separate substances",
+        "That consciousness is purely spiritual and has no physical basis",
+        "That machines already possess full human-level consciousness"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

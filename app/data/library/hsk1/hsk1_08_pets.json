@@ -6,6 +6,48 @@
   "topic": "pets",
   "grammar_pattern": "le-aspect",
   "char_count": 61,
+  "questions": [
+    {
+      "prompt": "Who is the \"old friend\" the narrator saw at home?",
+      "options": [
+        "A cousin",
+        "A classmate",
+        "The narrator's dog",
+        "A neighbor"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "Where did the dog sit?",
+      "options": [
+        "At the narrator's feet",
+        "On the bed",
+        "Outside the door",
+        "In the kitchen"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What happened when the narrator spoke Chinese to the dog?",
+      "options": [
+        "The dog ran away",
+        "The dog didn't understand",
+        "The dog sat down",
+        "The dog barked back"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did the narrator give the dog?",
+      "options": [
+        "A piece of meat",
+        "Water",
+        "Some bread",
+        "A bone"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

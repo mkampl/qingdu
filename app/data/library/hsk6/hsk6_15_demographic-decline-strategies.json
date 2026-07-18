@@ -6,6 +6,58 @@
   "topic": "demographic-decline-strategies",
   "grammar_pattern": "ji-you",
   "char_count": 299,
+  "questions": [
+    {
+      "prompt": "According to the text, what is one measure to encourage people to form families?",
+      "options": [
+        "Improving the childcare environment and providing more education resources",
+        "Banning all forms of contraception",
+        "Increasing working hours for young people",
+        "Reducing education spending"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does letting the elderly continue working after retirement age achieve, according to the text?",
+      "options": [
+        "Fills job vacancies and increases social vitality",
+        "Eliminates the need for young workers entirely",
+        "Reduces overall economic output",
+        "Increases housing prices"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How does the text suggest attracting overseas talent?",
+      "options": [
+        "By simplifying visa procedures",
+        "By banning foreign workers from leaving",
+        "By raising taxes on foreign workers",
+        "By requiring years of local residency first"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say about housing prices?",
+      "options": [
+        "Lowering housing prices can ease people's living burden",
+        "Housing prices should be raised to boost the economy",
+        "Housing prices have no connection to population decline",
+        "Housing should be abolished as a concept"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text's conclusion, what is needed to solve the demographic crisis?",
+      "options": [
+        "Comprehensive governance involving cooperation across all departments",
+        "A single, simple policy change",
+        "Waiting passively without intervention",
+        "Reliance solely on foreign immigration"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

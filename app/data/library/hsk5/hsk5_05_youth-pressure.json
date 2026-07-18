@@ -6,6 +6,58 @@
   "topic": "youth-pressure",
   "grammar_pattern": "yuqi-buru",
   "char_count": 268,
+  "questions": [
+    {
+      "prompt": "What do many young people habitually link with their personal value, according to the text?",
+      "options": [
+        "Money",
+        "Education level",
+        "Physical appearance",
+        "Social status"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What do some people lose because of excessive overtime work?",
+      "options": [
+        "Time with family",
+        "Their health insurance",
+        "Their hobbies",
+        "Their savings"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what can appropriate rest do?",
+      "options": [
+        "Improve efficiency",
+        "Increase salary",
+        "Reduce competition",
+        "Extend lifespan"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the author suggest people should learn to accept about themselves?",
+      "options": [
+        "Their own ordinariness",
+        "Their mistakes only",
+        "Their family's expectations",
+        "Their financial limits"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the passage, where does true happiness come from?",
+      "options": [
+        "A love of life",
+        "Winning competitions",
+        "Earning more money",
+        "Avoiding all challenges"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

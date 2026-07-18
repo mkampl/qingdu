@@ -6,6 +6,48 @@
   "topic": "weekend",
   "grammar_pattern": "le-aspect",
   "char_count": 57,
+  "questions": [
+    {
+      "prompt": "Where did the narrator go first?",
+      "options": [
+        "The hospital, to see the teacher",
+        "The cinema",
+        "A store",
+        "School"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Who did the teacher introduce to the narrator?",
+      "options": [
+        "A good friend",
+        "Another teacher",
+        "A nurse",
+        "A doctor"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Where did the narrator and the new friend go together?",
+      "options": [
+        "The park",
+        "The library",
+        "A restaurant",
+        "The cinema"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "What did the narrator buy before going home?",
+      "options": [
+        "Snacks",
+        "Drinks",
+        "Fruit",
+        "Movie tickets"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

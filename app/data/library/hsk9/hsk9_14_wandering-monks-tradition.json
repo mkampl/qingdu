@@ -6,6 +6,58 @@
   "topic": "wandering-monks-tradition",
   "grammar_pattern": null,
   "char_count": 407,
+  "questions": [
+    {
+      "prompt": "According to the text, what does the wandering monk NOT seek?",
+      "options": [
+        "Water for drinking",
+        "The shelter and protection of famous temples",
+        "Companionship",
+        "Food along the way"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the text say the wandering monk treats as his place of practice?",
+      "options": [
+        "Only temples",
+        "The entire universe/world",
+        "His hometown alone",
+        "One specific mountain"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what is the true purpose of this wandering, rather than being aimless?",
+      "options": [
+        "To find hidden treasure",
+        "To strip away excess desires and attachments",
+        "To gain personal fame",
+        "To meet other monks"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, how does the monk relate the journey to its destination?",
+      "options": [
+        "The destination matters far more than the journey",
+        "The process/journey itself is the destination",
+        "There is neither a destination nor a journey",
+        "The journey is entirely meaningless"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what is the core spiritual principle of the wandering monk's practice?",
+      "options": [
+        "Accumulating wealth along the way",
+        "Not being attached to any single place",
+        "Following a strict daily schedule",
+        "Avoiding all human contact"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

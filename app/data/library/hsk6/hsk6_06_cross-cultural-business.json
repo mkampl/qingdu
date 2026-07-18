@@ -6,6 +6,58 @@
   "topic": "cross-cultural-business",
   "grammar_pattern": "wanyi",
   "char_count": 319,
+  "questions": [
+    {
+      "prompt": "According to the text, what mainly causes misunderstandings in cross-cultural business communication?",
+      "options": [
+        "Differences in communication style, such as directness versus euphemism",
+        "Differences in currency exchange rates",
+        "Differences in company size",
+        "Differences in product pricing"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say is more important than language ability?",
+      "options": [
+        "Cultural sensitivity",
+        "Physical appearance",
+        "Educational credentials",
+        "Salary level"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How do different cultures view the concept of time, according to the text?",
+      "options": [
+        "Some pursue extreme efficiency while others emphasize maintaining relationships",
+        "All cultures view time identically",
+        "Only Western cultures value punctuality",
+        "Time concepts have no impact on business"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What should a company do if a partner rejects a proposal, according to the text?",
+      "options": [
+        "Quickly adjust its attitude and approach",
+        "Immediately terminate the partnership",
+        "Ignore the rejection and repeat the same proposal",
+        "File a legal complaint"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text identify as the cornerstone of cross-cultural business success?",
+      "options": [
+        "Respecting diverse values",
+        "Offering the lowest prices",
+        "Hiring only local staff",
+        "Avoiding negotiation altogether"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "cognitive-bias-decision-making",
   "grammar_pattern": null,
   "char_count": 495,
+  "questions": [
+    {
+      "prompt": "According to the text, what is confirmation bias?",
+      "options": [
+        "The tendency to seek evidence supporting existing views while ignoring contradicting facts",
+        "The tendency to always doubt one's own opinions",
+        "A preference for random, unbiased sampling",
+        "The inability to remember any past decisions"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What is the anchoring effect, as described in the text?",
+      "options": [
+        "Later judgments revolve around an initial number received, even if it lacks a rational basis",
+        "The tendency to always average multiple estimates together",
+        "A bias that only affects professional statisticians",
+        "The complete rejection of any numerical reference point"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How does loss aversion affect decision-makers' strategies, according to the text?",
+      "options": [
+        "It often leads them to adopt overly conservative strategies",
+        "It makes them take on excessive risk to avoid losses",
+        "It has no measurable effect on strategy",
+        "It only applies to gambling, not business or policy decisions"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does overconfidence lead investors to do, according to the text?",
+      "options": [
+        "Underestimate potential risk, which can trigger irrational exuberance",
+        "Always sell their assets too early",
+        "Avoid the stock market entirely",
+        "Accurately predict market crashes in advance"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what is the first step toward overcoming cognitive bias in decision-making?",
+      "options": [
+        "Becoming aware that the biases exist",
+        "Hiring more financial analysts",
+        "Avoiding all quick decisions permanently",
+        "Relying solely on computer algorithms for every decision"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

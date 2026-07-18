@@ -6,6 +6,58 @@
   "topic": "rural-revitalization",
   "grammar_pattern": "ji-you",
   "char_count": 337,
+  "questions": [
+    {
+      "prompt": "According to the text, what do young people returning from cities bring to rural areas?",
+      "options": [
+        "Advanced management ideas, capital, and vitality",
+        "Only cheap labor",
+        "Foreign investment exclusively from overseas",
+        "Nothing of practical value"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How have digital platforms changed the way farm products reach the market?",
+      "options": [
+        "They let products go directly to market, reducing middlemen and raising farmer income",
+        "They eliminated the need for farming altogether",
+        "They only benefit large corporations, not individual farmers",
+        "They decreased farmer income due to platform fees"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What has happened to medical services in rural areas, according to the text?",
+      "options": [
+        "The system has become more complete, letting residents see doctors near home",
+        "Medical services have been eliminated entirely",
+        "Residents must travel to cities for any medical care",
+        "Medical services remain unchanged"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What role does tourism play in the rural transformation described?",
+      "options": [
+        "It integrates deeply with agriculture, attracting tourists seeking tranquility",
+        "It has replaced agriculture entirely",
+        "It has caused pollution and been discouraged",
+        "It has no connection to local culture"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How does the text characterize rural areas at the end of the passage?",
+      "options": [
+        "No longer a symbol of backwardness, but a field for innovative experimentation",
+        "Still hopelessly behind urban areas",
+        "Declining in population with no future",
+        "Exclusively agricultural with no other industries"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "career-change-debate",
   "grammar_pattern": "jishi-ye",
   "char_count": 237,
+  "questions": [
+    {
+      "prompt": "According to the text, what do people who value stability worry will happen if they change jobs?",
+      "options": [
+        "They might face pressure and lose opportunities",
+        "They will definitely get a raise",
+        "They will become famous",
+        "They will retire early"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What happened to some people who left their job for a higher salary, according to the text?",
+      "options": [
+        "They found the new place more tiring",
+        "They became instantly happier",
+        "They got promoted quickly",
+        "They returned to their old job immediately"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what is the key to success?",
+      "options": [
+        "Understanding what you yourself want",
+        "Earning the highest salary possible",
+        "Following others' advice",
+        "Staying at one company forever"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say about the definition of happiness?",
+      "options": [
+        "Everyone's definition of happiness is different",
+        "Happiness only comes from money",
+        "Happiness is the same for everyone",
+        "Happiness cannot be defined"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what should be respected when it comes to career choices?",
+      "options": [
+        "Different people's choices",
+        "Only the choice to stay stable",
+        "Only the choice to change jobs",
+        "Company policies"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

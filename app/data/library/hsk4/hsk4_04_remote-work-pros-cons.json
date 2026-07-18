@@ -6,6 +6,58 @@
   "topic": "remote-work-pros-cons",
   "grammar_pattern": "buguan-dou",
   "char_count": 230,
+  "questions": [
+    {
+      "prompt": "According to the text, what is one drawback of long-term remote work?",
+      "options": [
+        "It can lead to reduced social contact and loneliness",
+        "It increases commuting costs",
+        "It requires more expensive equipment",
+        "It causes more workplace conflicts"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what is more efficient than email?",
+      "options": [
+        "Face-to-face communication",
+        "Phone calls",
+        "Video conferencing",
+        "Text messages"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What solution does the narrator suggest at the end of the text?",
+      "options": [
+        "Combining office days and remote work days each week",
+        "Quitting remote work entirely",
+        "Working only late at night",
+        "Hiring an assistant"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what can happen if someone doesn't manage their time well while working from home?",
+      "options": [
+        "Rest time gets taken over by work",
+        "They will get fired",
+        "They will need to hire a colleague",
+        "Their salary will be reduced"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Besides increasing personal freedom, what else does the text say remote work reduces?",
+      "options": [
+        "Life stress",
+        "Family time",
+        "Work hours",
+        "Health problems"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

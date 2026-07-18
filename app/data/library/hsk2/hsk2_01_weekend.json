@@ -6,6 +6,58 @@
   "topic": "weekend",
   "grammar_pattern": "shi-de",
   "char_count": 131,
+  "questions": [
+    {
+      "prompt": "What time did the narrator and friend meet?",
+      "options": [
+        "9am",
+        "10am",
+        "8am",
+        "Noon"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did the narrator order at the restaurant?",
+      "options": [
+        "Rice",
+        "Noodles",
+        "Fish",
+        "Dumplings"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What did the friend order?",
+      "options": [
+        "Fish",
+        "Rice",
+        "Soup",
+        "Tea"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did they buy at the store after eating?",
+      "options": [
+        "Clothes",
+        "Fruit",
+        "Books",
+        "Movie tickets"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Why did they decide to go home?",
+      "options": [
+        "It started raining",
+        "They ran out of money",
+        "It was getting late",
+        "The restaurant closed"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

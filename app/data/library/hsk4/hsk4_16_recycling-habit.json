@@ -6,6 +6,58 @@
   "topic": "recycling-habit",
   "grammar_pattern": "buguan-dou",
   "char_count": 214,
+  "questions": [
+    {
+      "prompt": "According to the text, what do many people mistakenly think is more convenient?",
+      "options": [
+        "Putting all trash together instead of sorting it",
+        "Recycling everything separately",
+        "Throwing trash away immediately",
+        "Buying less packaged goods"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what two items should not be mixed together?",
+      "options": [
+        "Plastic bottles and paper",
+        "Food waste and metal",
+        "Glass and paper",
+        "Batteries and plastic"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How should glass products be handled, according to the text?",
+      "options": [
+        "Stored separately",
+        "Mixed with plastic",
+        "Thrown away immediately",
+        "Burned"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say is everyone's responsibility?",
+      "options": [
+        "Protecting nature",
+        "Making money",
+        "Buying new products",
+        "Building recycling centers"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say a small habit, like sorting trash, can bring?",
+      "options": [
+        "A huge change",
+        "No real difference",
+        "Extra costs",
+        "Government rewards"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

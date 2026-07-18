@@ -6,6 +6,58 @@
   "topic": "philosophy-of-science-paradigms",
   "grammar_pattern": null,
   "char_count": 481,
+  "questions": [
+    {
+      "prompt": "Who proposed the concept of 'paradigm' discussed in the text?",
+      "options": [
+        "Thomas Kuhn",
+        "Karl Popper",
+        "Albert Einstein",
+        "Isaac Newton"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what typically happens to anomalies during the 'normal science' stage?",
+      "options": [
+        "They are usually dismissed as measurement error or individual deviation",
+        "They immediately trigger a scientific revolution",
+        "They are always found to disprove the entire paradigm",
+        "They are ignored because scientists refuse to record them"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does 'incommensurability' between paradigms mean, according to the text?",
+      "options": [
+        "Old and new paradigms represent worldviews that cannot be objectively compared using a single standard",
+        "Old and new paradigms are always numerically measurable against each other",
+        "New paradigms are always mathematically superior to old ones",
+        "It means two paradigms are identical in content"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How does the text characterize a scientific revolution, as opposed to gradual logical deduction?",
+      "options": [
+        "As an overall transformation occurring at the psychological level",
+        "As a purely mathematical proof process",
+        "As an event with no relation to scientists' mindset",
+        "As something that never actually involves changing beliefs"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what determines what counts as a legitimate scientific research topic?",
+      "options": [
+        "The prevailing paradigm",
+        "Government funding priorities alone",
+        "Public opinion polls",
+        "The age of the researcher"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

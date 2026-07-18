@@ -6,6 +6,58 @@
   "topic": "screen-and-real-presence",
   "grammar_pattern": null,
   "char_count": 426,
+  "questions": [
+    {
+      "prompt": "According to the text, what does technology dependence lead to regarding people's social skills?",
+      "options": [
+        "A dramatic improvement in social skills",
+        "A degradation of social skills",
+        "No noticeable change in social skills",
+        "The complete elimination of any need for social skills"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what key difference distinguishes face-to-face conversation from online communication?",
+      "options": [
+        "Face-to-face requires handling real-time feedback, while online allows repeated editing of text",
+        "Face-to-face is always faster to complete than online communication",
+        "Online communication requires more physical presence",
+        "There is no meaningful difference between the two, according to the text"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what do screens filter out, even as digital devices connect the globe together?",
+      "options": [
+        "Internet connection speed",
+        "Real body warmth and eye contact",
+        "Financial transaction costs",
+        "Time zone differences"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what does \"returning to real life\" explicitly NOT mean?",
+      "options": [
+        "It does not mean abandoning technology altogether, only finding balance",
+        "It means deleting every social media account",
+        "It means moving somewhere without internet access",
+        "It means avoiding screens permanently"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what concrete suggestion is given for practicing this balance during meals or gatherings?",
+      "options": [
+        "Recording every meal for social media",
+        "Consciously putting the phone aside and focusing on the person present",
+        "Always keeping the phone in hand for safety reasons",
+        "Making technology the main topic of conversation"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

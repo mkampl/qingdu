@@ -6,6 +6,58 @@
   "topic": "sustainable-consumption",
   "grammar_pattern": "ji-you",
   "char_count": 317,
+  "questions": [
+    {
+      "prompt": "According to the text, what is a simple first step toward sustainable consumption?",
+      "options": [
+        "Reducing plastic bag use",
+        "Buying only imported goods",
+        "Increasing overall spending",
+        "Avoiding all shopping entirely"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Why does the text recommend buying locally produced food?",
+      "options": [
+        "To reduce carbon emissions from transportation",
+        "Because it is always cheaper",
+        "Because imported food is illegal",
+        "Because local food never spoils"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say about choosing durable, high-quality products?",
+      "options": [
+        "They are both practical and environmentally friendly, reducing waste",
+        "They are always more expensive with no benefit",
+        "They contribute just as much waste as cheap products",
+        "They are only relevant for luxury goods"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What should enterprises do, according to the text, to support sustainable consumption?",
+      "options": [
+        "Adopt recyclable materials in production",
+        "Increase plastic packaging",
+        "Stop producing goods entirely",
+        "Lower product quality to reduce costs"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what benefit does reducing unnecessary spending bring?",
+      "options": [
+        "It raises happiness",
+        "It has no effect on wellbeing",
+        "It always leads to social isolation",
+        "It decreases product quality"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "language-decline-and-preservation",
   "grammar_pattern": null,
   "char_count": 389,
+  "questions": [
+    {
+      "prompt": "According to the text, losing a language means losing more than a communication tool — what else collapses?",
+      "options": [
+        "Only the regional economy",
+        "An entire cognitive/knowledge system",
+        "Nothing of real significance",
+        "Only tourism revenue"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, why can certain unique vocabulary not be precisely translated into other languages?",
+      "options": [
+        "Because translators deliberately refuse to translate it",
+        "Because it is rooted in a specific natural environment",
+        "Because it is kept secret by native speakers",
+        "Because it has no real meaning at all"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, why is simple archiving (recordings, databases) not considered true protection of a language?",
+      "options": [
+        "Because databases are prohibitively expensive to maintain",
+        "Because true inheritance requires the language to keep flowing in actual daily life",
+        "Because archiving is technically impossible today",
+        "Because it violates international copyright law"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what does it suggest communities should encourage elders to do?",
+      "options": [
+        "Stop speaking their native language in public",
+        "Pass down traditional dialects to children",
+        "Focus exclusively on written records",
+        "Avoid teaching children the language entirely"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what is identified as humanity's most precious wealth?",
+      "options": [
+        "Financial capital",
+        "Advanced technology",
+        "Military strength",
+        "Diversity"
+      ],
+      "answer_index": 3
+    }
+  ],
   "analyzed": {
     "words": [
       {

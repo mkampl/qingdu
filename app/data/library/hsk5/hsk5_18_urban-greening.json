@@ -6,6 +6,58 @@
   "topic": "urban-greening",
   "grammar_pattern": "buran-jiu",
   "char_count": 215,
+  "questions": [
+    {
+      "prompt": "Who is mentioned as being active in the city park, according to the text?",
+      "options": [
+        "Children",
+        "Only elderly people",
+        "Tourists",
+        "Government workers"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What did the government decide to do throughout the city, according to the text?",
+      "options": [
+        "Plant vegetation everywhere",
+        "Build more roads",
+        "Construct new housing",
+        "Install more streetlights"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what would exist if this greening effort wasn't carried out?",
+      "options": [
+        "Only houses and streets",
+        "Only parks",
+        "Only factories",
+        "Only rivers"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say plants can do for the air?",
+      "options": [
+        "Protect it",
+        "Pollute it",
+        "Heat it",
+        "Have no effect on it"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Besides homes, where else has greenery appeared, according to the text?",
+      "options": [
+        "Workplaces",
+        "Hospitals only",
+        "Schools only",
+        "Train stations only"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,48 @@
   "topic": "new-classmate",
   "grammar_pattern": "le-aspect",
   "char_count": 55,
+  "questions": [
+    {
+      "prompt": "What was the new classmate holding when he entered?",
+      "options": [
+        "A book",
+        "A backpack",
+        "An umbrella",
+        "A steamed bun (baozi)"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "What happened to the baozi while he was talking?",
+      "options": [
+        "It fell",
+        "He shared it",
+        "He finished eating it",
+        "He threw it away"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What did the narrator say to the new classmate?",
+      "options": [
+        "Let's tell the teacher",
+        "It's okay, I'll help you",
+        "Go buy a new one",
+        "You should be more careful"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What was the result of this interaction?",
+      "options": [
+        "They ignored each other",
+        "They became good friends",
+        "They argued",
+        "They got in trouble"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

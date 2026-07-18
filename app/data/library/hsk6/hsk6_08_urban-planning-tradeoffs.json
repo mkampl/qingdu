@@ -6,6 +6,58 @@
   "topic": "urban-planning-tradeoffs",
   "grammar_pattern": "fanshi",
   "char_count": 311,
+  "questions": [
+    {
+      "prompt": "According to the text, what is a downside of increasing roads to ease traffic?",
+      "options": [
+        "Over-development destroys the area's original tranquility",
+        "It has no effect on traffic at all",
+        "It always improves air quality",
+        "It eliminates the need for public transportation"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What problem does the text associate with high-rise housing?",
+      "options": [
+        "Insufficient natural light",
+        "Excessive noise from wildlife",
+        "Higher risk of fire",
+        "Reduced housing supply"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What example does the text give of a difficult planning trade-off?",
+      "options": [
+        "Demolishing an old district to build a park, which improves the environment but forces residents to move",
+        "Building new roads with no other consequences",
+        "Increasing taxes on all citizens equally",
+        "Closing all public parks to build housing"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say happens if public resources are too concentrated?",
+      "options": [
+        "Edge or peripheral areas get forgotten and neglected",
+        "All residents become equally wealthy",
+        "The city becomes perfectly balanced",
+        "Traffic congestion disappears entirely"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what is needed for a good city plan to avoid future regret?",
+      "options": [
+        "Comprehensive consideration through multi-party discussion",
+        "A single planner making all decisions alone",
+        "Prioritizing efficiency above all else",
+        "Avoiding any changes to existing structures"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

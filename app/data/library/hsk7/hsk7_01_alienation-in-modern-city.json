@@ -6,6 +6,58 @@
   "topic": "alienation-in-modern-city",
   "grammar_pattern": null,
   "char_count": 458,
+  "questions": [
+    {
+      "prompt": "According to the text, despite people being physically close on the crowded street, what exists between them?",
+      "options": [
+        "A shared sense of purpose",
+        "An unfathomably deep psychological gulf",
+        "Growing physical distance",
+        "A newfound spirit of cooperation"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what effect did high-density housing have on emotional connection between neighbors?",
+      "options": [
+        "It strengthened community bonds significantly",
+        "It had no measurable effect either way",
+        "It failed to bring emotional warmth, and reinforced-concrete walls isolated individuals instead",
+        "It only affected wealthy neighborhoods"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What metaphor does the text use to describe how people function in the workplace?",
+      "options": [
+        "Independent artists expressing creativity",
+        "Loyal soldiers defending a cause",
+        "Efficient machine parts, losing real personal interaction",
+        "Wise mentors guiding younger colleagues"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "According to the text, what is the main shortcoming of social apps, despite expanding people's range of contacts?",
+      "options": [
+        "They are too expensive for most users",
+        "They lack deep emotional resonance, leaving shallow interactions",
+        "They only work well in rural areas",
+        "They require too much technical skill to use"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What solution does the text propose for overcoming urban alienation?",
+      "options": [
+        "Building taller apartment complexes",
+        "Increasing state surveillance of public spaces",
+        "Stepping outside the digital comfort zone to have real face-to-face dialogue",
+        "Reducing the number of city residents"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

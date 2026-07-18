@@ -6,6 +6,58 @@
   "topic": "fitness-app-habit",
   "grammar_pattern": "chu-yiwai",
   "char_count": 288,
+  "questions": [
+    {
+      "prompt": "Besides recording steps, what else can the fitness apps remind users to do, according to the text?",
+      "options": [
+        "Drink more water",
+        "Eat healthier food",
+        "Sleep earlier",
+        "Take vitamins"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What problem does the text mention about people who only care about the numbers on the app?",
+      "options": [
+        "They ignore their body's real feelings",
+        "They spend too much money",
+        "They stop exercising completely",
+        "They get injured more often"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text suggest people occasionally do during exercise?",
+      "options": [
+        "Put down their phone",
+        "Increase the intensity",
+        "Exercise with a friend",
+        "Change their exercise plan"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does real/lasting health come from?",
+      "options": [
+        "Long-term persistence and reasonable rest",
+        "Expensive gym equipment",
+        "Following the app's plan exactly",
+        "Competing with friends"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, why might someone using a fitness app feel fatigued?",
+      "options": [
+        "Because their goal is set too high",
+        "Because the app doesn't work correctly",
+        "Because they don't have a gym membership",
+        "Because they exercise too little"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

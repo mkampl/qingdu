@@ -6,6 +6,58 @@
   "topic": "the-paradox-of-choice",
   "grammar_pattern": null,
   "char_count": 431,
+  "questions": [
+    {
+      "prompt": "According to the text, what unexpected effect does having many options often bring, despite seeming like more freedom?",
+      "options": [
+        "Guaranteed higher satisfaction with every choice",
+        "An unexpected psychological burden",
+        "Consistently faster decision-making",
+        "Lower prices for consumers overall"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what often accompanies people even after they make a final decision among many options?",
+      "options": [
+        "Complete satisfaction with no lingering doubts",
+        "Regret over the options they did not choose",
+        "Immediate forgetting of all the alternatives",
+        "A strong desire to buy even more products"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, how do merchants' diversified product lines actually affect consumers, despite creating a \"sense of control\"?",
+      "options": [
+        "They consistently lower prices for consumers",
+        "They eliminate the need for consumer decision-making entirely",
+        "They consume/drain the consumer's cognitive resources",
+        "They have no real effect on consumers at all"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "According to the text, what does an excess of possibilities (too many choices) ultimately lead to?",
+      "options": [
+        "Faster, more confident decisions overall",
+        "A paralysis of action, making decisive choice difficult",
+        "Complete indifference toward choosing anything",
+        "An increase in physical exercise habits"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text's conclusion, what does true freedom actually consist of?",
+      "options": [
+        "Having access to literally every possible option",
+        "Never having to make any decisions at all",
+        "The ability to calmly accept one's own decision",
+        "Always choosing the most expensive option available"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

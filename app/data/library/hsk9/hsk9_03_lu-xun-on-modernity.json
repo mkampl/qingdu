@@ -6,6 +6,58 @@
   "topic": "lu-xun-on-modernity",
   "grammar_pattern": null,
   "char_count": 476,
+  "questions": [
+    {
+      "prompt": "According to the text, what does Lu Xun believe is wrong with how people pursue modernization?",
+      "options": [
+        "They ignore science entirely",
+        "They often only change superficial appearances without a real spiritual awakening",
+        "They modernize too quickly",
+        "They reject all foreign influence"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the \"iron house\" (铁屋子) in Lu Xun's writing symbolize, according to the text?",
+      "options": [
+        "Traditional architecture",
+        "A suffocating, airtight despair",
+        "A safe haven from danger",
+        "A political prison"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what alone can break the deathly silence Lu Xun describes?",
+      "options": [
+        "Remaining silent",
+        "Crying out / shouting (呐喊)",
+        "Waiting patiently for change",
+        "Following tradition more closely"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the passage, what kind of modernization does Lu Xun actually pursue?",
+      "options": [
+        "Simple Westernization",
+        "A deep, self-reflective awakening",
+        "A return to ancient traditions",
+        "Economic development alone"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How is Lu Xun's writing style described in the text?",
+      "options": [
+        "Vague and ornamental",
+        "Precise like a scalpel, cutting into society's afflictions",
+        "Simple and childlike",
+        "Overly emotional and sentimental"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

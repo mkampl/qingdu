@@ -6,6 +6,58 @@
   "topic": "garden-visit",
   "grammar_pattern": "ruguo-jiu",
   "char_count": 136,
+  "questions": [
+    {
+      "prompt": "What colors are the flowers and trees in the garden?",
+      "options": [
+        "Yellow flowers, brown trees",
+        "Red flowers, green trees",
+        "White flowers, green trees",
+        "Pink flowers, green trees"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did the narrator prepare because the friend likes it?",
+      "options": [
+        "Coffee",
+        "Juice",
+        "Tea",
+        "Snacks"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What will the narrator do if the weather turns cold?",
+      "options": [
+        "Cover the flowers",
+        "Buy new flowers",
+        "Move the flowers indoors",
+        "Do nothing"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "How long did they sit in the garden?",
+      "options": [
+        "One hour",
+        "Two hours",
+        "30 minutes",
+        "Three hours"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What was singing in the garden?",
+      "options": [
+        "Crickets",
+        "Wind chimes",
+        "Small birds",
+        "Frogs"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

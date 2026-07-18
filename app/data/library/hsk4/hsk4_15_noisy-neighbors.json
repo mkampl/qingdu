@@ -6,6 +6,58 @@
   "topic": "noisy-neighbors",
   "grammar_pattern": "chu-yiwai",
   "char_count": 233,
+  "questions": [
+    {
+      "prompt": "What two noisy behaviors does the upstairs neighbor engage in at night?",
+      "options": [
+        "Singing loudly and moving furniture",
+        "Playing music and vacuuming",
+        "Arguing and slamming doors",
+        "Watching TV loudly and cooking"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Why did the narrator decide not to go directly to confront the neighbor?",
+      "options": [
+        "Because it felt too rude",
+        "Because the narrator was too busy",
+        "Because the neighbor was never home",
+        "Because the narrator was afraid"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What method did the narrator ultimately choose to address the noise problem?",
+      "options": [
+        "Writing a small note",
+        "Calling the police",
+        "Complaining to the landlord",
+        "Playing loud music back"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what did the narrator hope the neighbor would understand?",
+      "options": [
+        "The narrator's difficulty caused by the noise",
+        "The neighbor's own schedule",
+        "The building's rules",
+        "The cost of repairs"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How does the situation resolve at the end of the text?",
+      "options": [
+        "The neighbor became much quieter and the narrator can sleep well",
+        "The narrator moved out",
+        "The conflict got worse",
+        "The landlord evicted the neighbor"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

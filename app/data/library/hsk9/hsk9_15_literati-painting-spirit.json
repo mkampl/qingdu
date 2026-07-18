@@ -6,6 +6,58 @@
   "topic": "literati-painting-spirit",
   "grammar_pattern": null,
   "char_count": 430,
+  "questions": [
+    {
+      "prompt": "According to the text, wherein does the essence of literati painting lie?",
+      "options": [
+        "In photographic likeness to its subject",
+        "In its spirit and charm rather than literal resemblance",
+        "In its market value",
+        "In the size of the canvas"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Why did ancient masters paint, according to the text?",
+      "options": [
+        "To achieve realistic portrayal",
+        "To express and convey their inner feelings",
+        "To sell their work for profit",
+        "To document historical events"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the \"blank space\" in a literati painting represent, according to the text?",
+      "options": [
+        "An unfinished work",
+        "Room left for the viewer's imagination, not emptiness",
+        "A mistake made by the painter",
+        "A lack of skill"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the concept \"the intention precedes the brush\" mean, according to the text's explanation?",
+      "options": [
+        "The brush moves before any thought occurs",
+        "The idea already exists in the mind before the brush moves",
+        "Painting requires no planning at all",
+        "The brush chooses its own path"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what realm does literati painting ultimately pursue?",
+      "options": [
+        "Commercial success",
+        "A state of forgetting both self and object, a unity of heaven and humanity",
+        "Technical perfection alone",
+        "Public recognition"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

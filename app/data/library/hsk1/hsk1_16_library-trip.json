@@ -6,6 +6,48 @@
   "topic": "library-trip",
   "grammar_pattern": "le-aspect",
   "char_count": 51,
+  "questions": [
+    {
+      "prompt": "Where is the library the narrator wants to visit?",
+      "options": [
+        "On the west side",
+        "On the east side",
+        "On the south side",
+        "On the north side"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What did the narrator do in the room?",
+      "options": [
+        "Read a newspaper",
+        "Studied for a test",
+        "Looked for good books",
+        "Met a friend"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What did the narrator do with the book in the end?",
+      "options": [
+        "Bought it",
+        "Borrowed it",
+        "Gave it away",
+        "Read it there and left it"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Where did the narrator go after leaving the library?",
+      "options": [
+        "The park",
+        "Home",
+        "A friend's house",
+        "School"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,48 @@
   "topic": "food",
   "grammar_pattern": "le-aspect",
   "char_count": 56,
+  "questions": [
+    {
+      "prompt": "What does the friend like to eat?",
+      "options": [
+        "Noodles",
+        "Candy",
+        "Bread",
+        "Fruit"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "What did the narrator do when the friend arrived?",
+      "options": [
+        "Cooked him a meal",
+        "Went out with him",
+        "Invited him inside",
+        "Closed the door"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What was the friend planning to do before the narrator stepped in?",
+      "options": [
+        "Buy fruit himself",
+        "Ask a neighbor for help",
+        "Go home",
+        "Call his mother"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "How did the narrator resolve the phone number problem?",
+      "options": [
+        "Told the friend the number directly",
+        "Let the friend call his mother",
+        "Walked the friend home instead",
+        "Wrote it on a piece of paper"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

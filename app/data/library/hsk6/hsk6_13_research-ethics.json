@@ -6,6 +6,58 @@
   "topic": "research-ethics",
   "grammar_pattern": "zhisuoyi",
   "char_count": 388,
+  "questions": [
+    {
+      "prompt": "According to the text, why are some scholars hasty or impatient about publishing papers?",
+      "options": [
+        "Because competition pressure is too great",
+        "Because journals pay by word count",
+        "Because governments impose deadlines",
+        "Because readers demand faster content"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text identify as the foundation of all experiments?",
+      "options": [
+        "Data authenticity",
+        "Funding amount",
+        "Number of researchers involved",
+        "Speed of publication"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What can publishing raw or original materials help reduce, according to the text?",
+      "options": [
+        "Deceptive behavior",
+        "Research funding costs",
+        "The number of researchers needed",
+        "Publication speed"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What is the role of the ethics committee described in the text?",
+      "options": [
+        "Reviewing research plans and ensuring the process is legally compliant",
+        "Funding all research projects",
+        "Writing papers on behalf of researchers",
+        "Promoting researchers' work to the media"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text's conclusion, what should not be valued higher than truth?",
+      "options": [
+        "Fame and reputation",
+        "Money spent on equipment",
+        "The number of publications",
+        "International collaboration"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

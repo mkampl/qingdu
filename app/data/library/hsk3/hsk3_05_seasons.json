@@ -6,6 +6,58 @@
   "topic": "seasons",
   "grammar_pattern": "budan-erqie",
   "char_count": 190,
+  "questions": [
+    {
+      "prompt": "Which season does the narrator say is their favorite?",
+      "options": [
+        "Spring",
+        "Summer",
+        "Autumn",
+        "Winter"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "Why does the narrator like swimming in summer?",
+      "options": [
+        "The pool is free",
+        "The water is cool",
+        "Friends are there",
+        "It's not too crowded"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What color do the leaves turn in autumn, according to the text?",
+      "options": [
+        "Red",
+        "Yellow, like gold",
+        "Brown",
+        "They stay green"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What can the narrator do with friends in winter?",
+      "options": [
+        "Go swimming",
+        "Play in the snow",
+        "Go to the beach",
+        "Plant flowers"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the narrator drink in winter to stay warm?",
+      "options": [
+        "Cold water",
+        "Hot tea",
+        "Juice",
+        "Milk"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

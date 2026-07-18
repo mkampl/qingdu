@@ -6,6 +6,58 @@
   "topic": "elderly-grandparent",
   "grammar_pattern": "suiran-danshi",
   "char_count": 179,
+  "questions": [
+    {
+      "prompt": "How old is the grandfather in the story?",
+      "options": [
+        "60",
+        "70",
+        "80",
+        "90"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the grandfather do every morning?",
+      "options": [
+        "Cooks breakfast",
+        "Walks in the park",
+        "Watches TV",
+        "Goes shopping"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did the narrator enjoy most as a child?",
+      "options": [
+        "Playing games with grandpa",
+        "Listening to grandpa's stories",
+        "Cooking with grandpa",
+        "Traveling with grandpa"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does grandpa often tell the narrator is important?",
+      "options": [
+        "Making money",
+        "Learning",
+        "Traveling",
+        "Exercising"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What has grandpa taught the narrator?",
+      "options": [
+        "How to cook",
+        "How to face difficulties",
+        "How to write poetry",
+        "How to swim"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

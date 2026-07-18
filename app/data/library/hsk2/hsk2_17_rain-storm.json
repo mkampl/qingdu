@@ -6,6 +6,58 @@
   "topic": "rain-storm",
   "grammar_pattern": "yinwei-suoyi",
   "char_count": 123,
+  "questions": [
+    {
+      "prompt": "Who called out to the narrator to come inside?",
+      "options": [
+        "Dad",
+        "A teacher",
+        "Mom",
+        "A friend"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "Why were there few cars on the road?",
+      "options": [
+        "Road construction",
+        "Heavy rain",
+        "An accident",
+        "It was late at night"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did the narrator decide to do instead of going to the store?",
+      "options": [
+        "Call a friend",
+        "Take a nap",
+        "Stay home and read",
+        "Watch TV"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What did the narrator drink?",
+      "options": [
+        "Cold water",
+        "Milk",
+        "Coffee",
+        "Hot tea"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "Why is the narrator happy at the end?",
+      "options": [
+        "The rain stopped completely",
+        "Can see friends at school tomorrow",
+        "Got a new book",
+        "Mom made dinner"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

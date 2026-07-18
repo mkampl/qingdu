@@ -6,6 +6,58 @@
   "topic": "urban-loneliness",
   "grammar_pattern": "jiran-jiu",
   "char_count": 325,
+  "questions": [
+    {
+      "prompt": "What does the neighbor ask the narrator at the start of the text?",
+      "options": [
+        "How long they've lived there",
+        "What their job is",
+        "Where they came from",
+        "Why they moved"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what do most people do instead of looking up at each other?",
+      "options": [
+        "Stare at their phones",
+        "Read newspapers",
+        "Talk to strangers",
+        "Listen to music"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How does the author define true loneliness in the text?",
+      "options": [
+        "Being unable to find someone to communicate with, even in a crowd",
+        "Having no neighbors at all",
+        "Living far away from family",
+        "Working night shifts alone"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the author suggest doing to counter loneliness?",
+      "options": [
+        "Walk in the park or read in a bookstore",
+        "Buy a new phone",
+        "Move to a smaller town",
+        "Work even harder"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What do people use as a substitute for real human contact, according to the text?",
+      "options": [
+        "The internet",
+        "Pets",
+        "Television",
+        "Exercise"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

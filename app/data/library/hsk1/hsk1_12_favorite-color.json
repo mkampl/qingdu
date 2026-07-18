@@ -6,6 +6,48 @@
   "topic": "favorite-color",
   "grammar_pattern": "le-aspect",
   "char_count": 50,
+  "questions": [
+    {
+      "prompt": "What color is the book the narrator read?",
+      "options": [
+        "Blue",
+        "Red",
+        "Yellow",
+        "Green"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What is the narrator's favorite color?",
+      "options": [
+        "Green",
+        "Red",
+        "Yellow",
+        "Blue"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the friend, when will it rain?",
+      "options": [
+        "Next week",
+        "Tomorrow",
+        "Today",
+        "The day after tomorrow"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "What did they do after the friend arrived?",
+      "options": [
+        "Went to the park",
+        "Ate lunch",
+        "Read the book together, then went home",
+        "Watched television"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

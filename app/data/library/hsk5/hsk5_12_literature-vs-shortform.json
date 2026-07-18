@@ -6,6 +6,58 @@
   "topic": "literature-vs-shortform",
   "grammar_pattern": "buran-jiu",
   "char_count": 256,
+  "questions": [
+    {
+      "prompt": "What are the people around the narrator doing at the start of the text?",
+      "options": [
+        "Watching short videos on their phones",
+        "Reading newspapers",
+        "Talking on the phone",
+        "Playing outdoor sports"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What do young people pursue through fragmented reading, according to the text?",
+      "options": [
+        "Efficiency",
+        "Emotional depth",
+        "Historical knowledge",
+        "Artistic skill"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say disappears with fast, fragmented content consumption?",
+      "options": [
+        "Deep thinking",
+        "Internet access",
+        "Free time",
+        "Physical health"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What ability does the author say people must protect, according to the text?",
+      "options": [
+        "The ability to concentrate",
+        "The ability to type fast",
+        "The ability to memorize facts",
+        "The ability to multitask"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the author say books teach us to do?",
+      "options": [
+        "Sympathize with others",
+        "Compete with others",
+        "Ignore others' problems",
+        "Judge others quickly"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

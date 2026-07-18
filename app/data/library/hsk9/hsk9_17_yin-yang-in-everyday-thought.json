@@ -6,6 +6,58 @@
   "topic": "yin-yang-in-everyday-thought",
   "grammar_pattern": null,
   "char_count": 386,
+  "questions": [
+    {
+      "prompt": "According to the text, what hides within extreme joy?",
+      "options": [
+        "Nothing; joy is described as pure",
+        "The seeds of worry",
+        "Even greater joy",
+        "Anger"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what is the relationship between rigidity and softness?",
+      "options": [
+        "Rigid things always win in the end",
+        "Rigid things break easily, while softness overcomes rigidity",
+        "They are described as unrelated to each other",
+        "Soft things are said to be useless"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, how should one respond when facing sudden change or adversity, based on this way of thinking?",
+      "options": [
+        "Panic immediately",
+        "Remain calm and composed",
+        "Give up entirely",
+        "Blame others for the situation"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the passage, how are human gains and losses described?",
+      "options": [
+        "As completely separate, unrelated matters",
+        "As mutually reflective, two sides of the same thing",
+        "As random and meaningless",
+        "As always fundamentally negative"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What philosophical principle does the text say is key to adjusting one's mental balance?",
+      "options": [
+        "Extreme optimism in all situations",
+        "The doctrine of the mean, not leaning to either extreme",
+        "Total detachment from society",
+        "Constant competition with others"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "urbanization-and-health",
   "grammar_pattern": null,
   "char_count": 509,
+  "questions": [
+    {
+      "prompt": "According to the text, what directly increases the prevalence of metabolic disease among modern office workers?",
+      "options": [
+        "Sedentary behavior becoming the norm",
+        "An increase in green space",
+        "A decrease in air pollution",
+        "A reduction in working hours"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How does fine particulate matter affect the body, according to the text?",
+      "options": [
+        "It penetrates the lung barrier into the bloodstream and can trigger cardiovascular dysfunction",
+        "It is completely filtered out by the lungs and never enters the bloodstream",
+        "It only affects the skin, not internal organs",
+        "It strengthens the respiratory system over time"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What is 'urban stress syndrome' defined by, according to the text?",
+      "options": [
+        "An individual's lack of a sense of control over their environment",
+        "A physical disease caused exclusively by air pollution",
+        "A condition that only affects rural populations",
+        "A syndrome with no relation to psychological factors"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What effect does contact with vegetation have, according to the research mentioned in the text?",
+      "options": [
+        "It can effectively lower cortisol levels",
+        "It has no measurable effect on stress hormones",
+        "It increases anxiety in urban populations",
+        "It only benefits physical, not psychological, health"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what is one benefit that urbanization brings, despite its challenges?",
+      "options": [
+        "A high concentration of medical resources that raises the survival rate for critical illness",
+        "Complete elimination of all urban health risks",
+        "A total absence of air pollution in cities",
+        "A guaranteed reduction in anxiety and depression rates"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "smartphone-overuse",
   "grammar_pattern": "jishi-ye",
   "char_count": 211,
+  "questions": [
+    {
+      "prompt": "According to the text, what does heavy phone use affect at night?",
+      "options": [
+        "Sleep quality",
+        "Appetite",
+        "Eyesight only",
+        "Body temperature"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, how do many young people feel when they aren't holding their phone?",
+      "options": [
+        "Uneasy/anxious",
+        "Bored",
+        "Sleepy",
+        "Angry"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text suggest doing to control phone use?",
+      "options": [
+        "Set a daily time limit for yourself",
+        "Delete all social media apps",
+        "Give your phone to a friend",
+        "Only use the phone at work"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Besides going to the park more, what other activity does the text suggest?",
+      "options": [
+        "Eating meals with family more often",
+        "Watching more videos",
+        "Reading books before bed",
+        "Exercising at the gym"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what ability do heavy phone users lose?",
+      "options": [
+        "The ability to think/reflect",
+        "The ability to read",
+        "The ability to speak clearly",
+        "The ability to remember phone numbers"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

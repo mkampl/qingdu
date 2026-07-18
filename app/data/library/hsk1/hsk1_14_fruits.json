@@ -6,6 +6,58 @@
   "topic": "fruits",
   "grammar_pattern": "le-aspect",
   "char_count": 72,
+  "questions": [
+    {
+      "prompt": "Who is the main character in this story?",
+      "options": [
+        "Mr. Wang",
+        "A shopkeeper",
+        "The narrator",
+        "David"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How many apples did he find at the store?",
+      "options": [
+        "Three",
+        "Two",
+        "Five",
+        "Four"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How many bananas did he buy?",
+      "options": [
+        "Five",
+        "Four",
+        "Two",
+        "Three"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did he think about the price of the apples?",
+      "options": [
+        "Too expensive",
+        "Free",
+        "Very cheap",
+        "Just right"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What did he do after getting home?",
+      "options": [
+        "Ate an apple",
+        "Ate a banana",
+        "Cooked dinner",
+        "Went to sleep"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

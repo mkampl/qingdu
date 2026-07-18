@@ -6,6 +6,58 @@
   "topic": "first-job-interview",
   "grammar_pattern": "yinwei-suoyi",
   "char_count": 112,
+  "questions": [
+    {
+      "prompt": "Who is the main character in the story?",
+      "options": [
+        "Xiao Li",
+        "David",
+        "Xiao Wang",
+        "The narrator"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "Why did Xiao Wang get up early?",
+      "options": [
+        "Had a long commute",
+        "Really wanted the job",
+        "Needed to buy clothes",
+        "Was too nervous to sleep"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What time did Xiao Wang arrive at the company?",
+      "options": [
+        "8am",
+        "9am",
+        "10am",
+        "Noon"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Why wasn't Xiao Wang afraid during the interview?",
+      "options": [
+        "Had done interviews before",
+        "The manager was friendly",
+        "He had prepared a lot",
+        "Didn't care about the outcome"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What was the outcome of the interview?",
+      "options": [
+        "He was rejected",
+        "He needs to wait for a call",
+        "He got the job",
+        "Asked to come back next week"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "public-transport",
   "grammar_pattern": "yue-yue",
   "char_count": 190,
+  "questions": [
+    {
+      "prompt": "How does the narrator get to work every morning?",
+      "options": [
+        "By car",
+        "By subway",
+        "By bicycle",
+        "By taxi"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Why does the narrator like the subway?",
+      "options": [
+        "It's cheaper than the bus",
+        "It's fast and avoids traffic jams",
+        "It has more seats",
+        "It's less crowded than buses"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the narrator say about taking the bus?",
+      "options": [
+        "It's faster than the subway",
+        "It's slower but lets you see the scenery",
+        "It's more expensive",
+        "It's usually empty"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the narrator notice about other passengers on the subway?",
+      "options": [
+        "They are all sleeping",
+        "Some look tired and some look happy",
+        "They are all talking loudly",
+        "Nobody uses the subway"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the narrator decide at the end?",
+      "options": [
+        "To buy a car",
+        "To use public transportation more",
+        "To stop taking the subway",
+        "To walk to work instead"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

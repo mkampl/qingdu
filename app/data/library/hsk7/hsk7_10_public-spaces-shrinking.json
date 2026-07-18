@@ -6,6 +6,58 @@
   "topic": "public-spaces-shrinking",
   "grammar_pattern": null,
   "char_count": 482,
+  "questions": [
+    {
+      "prompt": "According to the elderly citizen's complaint at the start of the text, what is hard to find in the city today?",
+      "options": [
+        "A quiet library to study in",
+        "A parking space near downtown",
+        "A place to sit and chat without needing to spend money",
+        "A hospital with short wait times"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "According to the text, what is replacing originally open squares and green spaces in cities?",
+      "options": [
+        "Public schools",
+        "Shopping centers",
+        "Government office buildings",
+        "Hospitals"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what happens to low-income groups in expensive commercial districts?",
+      "options": [
+        "They receive special shopping discounts",
+        "They gain more political influence",
+        "They feel excluded and lose the ability to participate in public life",
+        "They are given free housing nearby"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "According to the text, what will a city lose if it becomes merely a pile of reinforced concrete?",
+      "options": [
+        "Its humanistic care/warmth",
+        "Its overall efficiency",
+        "Its appeal to tourists",
+        "Its low crime rate"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text's conclusion, restoring public space vitality is ultimately a matter of what, beyond urban planning?",
+      "options": [
+        "Architectural aesthetics",
+        "Tourism revenue",
+        "Social fairness",
+        "Traffic engineering"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

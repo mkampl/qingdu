@@ -6,6 +6,58 @@
   "topic": "birthday",
   "grammar_pattern": "ruguo-jiu",
   "char_count": 139,
+  "questions": [
+    {
+      "prompt": "When is the narrator's birthday?",
+      "options": [
+        "Today",
+        "Tomorrow",
+        "Next week",
+        "Next month"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the narrator plan to buy for the party?",
+      "options": [
+        "Balloons",
+        "A big cake",
+        "A new phone",
+        "Gifts for others"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Who will help prepare fruit and drinks?",
+      "options": [
+        "Dad",
+        "A friend",
+        "Mom",
+        "A caterer"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What will they do at the park if the weather is good?",
+      "options": [
+        "Play sports",
+        "Have a picnic",
+        "Take photos and sing",
+        "Ride bikes"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "What does the narrator hope for tomorrow?",
+      "options": [
+        "That friends bring gifts",
+        "That it will be hot",
+        "That it won't rain",
+        "That everyone arrives on time"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "the-recluse-archetype",
   "grammar_pattern": null,
   "char_count": 485,
+  "questions": [
+    {
+      "prompt": "According to the text, what did ancient hermits regard fame and official position as?",
+      "options": [
+        "The ultimate goal of life",
+        "Fleeting clouds, of little lasting value",
+        "A birthright to be defended",
+        "A curse to be avoided at all costs"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what did ancient hermits deliberately reject?",
+      "options": [
+        "Nature itself",
+        "Excessive, redundant social entanglements",
+        "All forms of work",
+        "Their families entirely"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the text compare the hermit's simple lifestyle to?",
+      "options": [
+        "A blank space inserted into a noisy musical movement, giving the tired soul room to breathe",
+        "A prison sentence to be endured",
+        "A form of punishment",
+        "An economic strategy"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does true reclusiveness actually depend on?",
+      "options": [
+        "Physically relocating to the mountains",
+        "A change in one's mindset, not a change in geographic location",
+        "Accumulated wealth",
+        "Total isolation from all other people"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the text call the state of remaining centered while living amid a bustling city, unaffected by material desire?",
+      "options": [
+        "\"The great hermit hidden within the city\"",
+        "An impossible contradiction",
+        "A form of escapism",
+        "A kind of failure"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

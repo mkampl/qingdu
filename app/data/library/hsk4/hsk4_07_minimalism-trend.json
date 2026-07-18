@@ -6,6 +6,58 @@
   "topic": "minimalism-trend",
   "grammar_pattern": "buguan-dou",
   "char_count": 252,
+  "questions": [
+    {
+      "prompt": "According to the text, what does owning too many things actually do to people?",
+      "options": [
+        "Increases their stress",
+        "Makes them happier",
+        "Saves them money",
+        "Improves their health"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does true happiness come from?",
+      "options": [
+        "Inner satisfaction",
+        "Buying more products",
+        "Having many friends",
+        "A big house"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what should you consider before buying something?",
+      "options": [
+        "Whether you truly need it",
+        "Whether it's on sale",
+        "Whether your friends have it",
+        "Whether it matches your room's decor"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What two activities does the text suggest doing with the time and energy saved by reducing consumption?",
+      "options": [
+        "Spending time with family or learning new knowledge",
+        "Watching more TV or shopping online",
+        "Sleeping more or working overtime",
+        "Traveling abroad or buying new clothes"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what should people learn to distinguish between?",
+      "options": [
+        "Desire and need",
+        "Work and rest",
+        "Past and future",
+        "Rich and poor"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

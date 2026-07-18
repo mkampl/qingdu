@@ -6,6 +6,58 @@
   "topic": "neighborhood-revitalization",
   "grammar_pattern": "chu-yiwai",
   "char_count": 216,
+  "questions": [
+    {
+      "prompt": "According to the text, what does the narrator believe about old houses versus buying new ones?",
+      "options": [
+        "Protecting old houses is more meaningful",
+        "Buying new houses is always better",
+        "Old houses should be demolished",
+        "Both options are equally good"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Besides fixing roads, what does the text suggest adding to the street?",
+      "options": [
+        "Benches",
+        "Streetlights",
+        "Parking spaces",
+        "Trash cans"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What activity can children now do on the improved street, according to the text?",
+      "options": [
+        "Play games",
+        "Ride bicycles to school",
+        "Attend outdoor classes",
+        "Sell snacks"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what collective action did people take to improve the street?",
+      "options": [
+        "Cleaning trash together",
+        "Painting the houses",
+        "Building a park",
+        "Installing security cameras"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does the narrator believe affects people's mood?",
+      "options": [
+        "The environment",
+        "The weather only",
+        "Their income",
+        "Their neighbors' opinions"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

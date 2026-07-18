@@ -6,6 +6,58 @@
   "topic": "small-business-opening",
   "grammar_pattern": "jishi-ye",
   "char_count": 195,
+  "questions": [
+    {
+      "prompt": "According to the text, what is the first thing one must consider when opening a business?",
+      "options": [
+        "Location",
+        "Advertising budget",
+        "Staff hiring",
+        "Menu design"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the text say can happen even if you have money?",
+      "options": [
+        "The business may still fail",
+        "The business will definitely succeed",
+        "Rent will be free",
+        "Competition will disappear"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what two costs must be paid every month?",
+      "options": [
+        "Rent and utilities",
+        "Advertising and insurance",
+        "Staff wages and taxes",
+        "Ingredients and equipment"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what do successful business owners know how to do?",
+      "options": [
+        "Adjust their plans based on customer needs",
+        "Avoid all risks",
+        "Copy their competitors exactly",
+        "Lower prices below cost"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does the narrator say is more important than hard work alone?",
+      "options": [
+        "Smart/wise choices",
+        "Having a big budget",
+        "Having many employees",
+        "Working longer hours"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

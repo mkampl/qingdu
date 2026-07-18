@@ -6,6 +6,58 @@
   "topic": "chinese-festivals-modern",
   "grammar_pattern": "yuqi-buru",
   "char_count": 262,
+  "questions": [
+    {
+      "prompt": "What do people now use to replace visiting family in person during festivals?",
+      "options": [
+        "Sending blessings by phone",
+        "Writing letters",
+        "Sending gifts by mail",
+        "Calling on the telephone"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What do people discuss around the table at the reunion dinner?",
+      "options": [
+        "The past year's experiences",
+        "Plans for next year's travel",
+        "Television programs",
+        "Money and gifts"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the author prefer to do instead of traveling abroad during festivals?",
+      "options": [
+        "Enjoy tranquility at home",
+        "Visit relatives abroad",
+        "Work overtime",
+        "Move to a big city"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What do the red lanterns hung in the windows symbolize, according to the text?",
+      "options": [
+        "Good fortune",
+        "Wealth",
+        "Long life",
+        "Protection from evil spirits"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What do children experience when listening to elders tell old stories?",
+      "options": [
+        "The charm of history",
+        "Fear of the past",
+        "Boredom",
+        "Confusion about traditions"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

@@ -6,6 +6,58 @@
   "topic": "regional-cuisine-pride",
   "grammar_pattern": "buran-jiu",
   "char_count": 294,
+  "questions": [
+    {
+      "prompt": "What do people at dinner in the narrator's hometown often argue about?",
+      "options": [
+        "Which dish is the most authentic",
+        "Who should cook",
+        "Who pays the bill",
+        "Which restaurant is best"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what do local people believe food represents?",
+      "options": [
+        "The soul of their hometown",
+        "Their financial status",
+        "Their education level",
+        "Their religious beliefs"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What flavor difference between regions does the text mention?",
+      "options": [
+        "Some prefer sweet, some prefer spicy",
+        "Some prefer salty, some prefer sour",
+        "Some prefer raw food, some prefer cooked",
+        "Some prefer meat, some prefer vegetables"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Who tells the stories behind each dish at the dinner table?",
+      "options": [
+        "The elders",
+        "The chefs",
+        "The children",
+        "The narrator"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the narrator conclude food is really about, beyond filling the stomach?",
+      "options": [
+        "An emotional bond",
+        "A business opportunity",
+        "A health requirement",
+        "A cultural export"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

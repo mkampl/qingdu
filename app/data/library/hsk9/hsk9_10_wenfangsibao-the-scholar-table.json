@@ -6,6 +6,58 @@
   "topic": "wenfangsibao-the-scholar-table",
   "grammar_pattern": null,
   "char_count": 413,
+  "questions": [
+    {
+      "prompt": "According to the text, what does the paper's quality of \"tolerance\" allow it to do?",
+      "options": [
+        "Absorb only small amounts of ink",
+        "Carry and bear ancient thoughts across time",
+        "Change color over time",
+        "Resist water damage"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the text say the brush's flexibility is used for?",
+      "options": [
+        "Writing as fast as possible",
+        "Sketching and capturing countless scenes and forms",
+        "Drawing only straight lines",
+        "Erasing mistakes"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the passage, what do the four treasures of the study together form?",
+      "options": [
+        "A commercial product",
+        "The soul of the scholar's study",
+        "A museum exhibit",
+        "A decorative set with no deeper meaning"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what does this artistic pursuit represent, beyond mere material objects?",
+      "options": [
+        "A display of wealth",
+        "A spiritual sublimation transcending material things",
+        "A hobby with no deeper meaning",
+        "A form of physical exercise"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, how do literati regard the four treasures of the study?",
+      "options": [
+        "As mere tools with no deeper meaning",
+        "As a spiritual anchor, not simple objects",
+        "As investment items",
+        "As gifts meant only for others"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

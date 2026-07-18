@@ -6,6 +6,48 @@
   "topic": "shopping",
   "grammar_pattern": "le-aspect",
   "char_count": 69,
+  "questions": [
+    {
+      "prompt": "What color clothing did the narrator buy?",
+      "options": [
+        "Blue",
+        "Red",
+        "Yellow",
+        "White"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did the friend buy?",
+      "options": [
+        "A cup",
+        "Shoes",
+        "Clothes",
+        "A bag"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Where did they go after shopping?",
+      "options": [
+        "A restaurant",
+        "The back of the store",
+        "The park",
+        "Home"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did they drink together?",
+      "options": [
+        "Juice",
+        "Coffee",
+        "Water",
+        "Tea"
+      ],
+      "answer_index": 3
+    }
+  ],
   "analyzed": {
     "words": [
       {

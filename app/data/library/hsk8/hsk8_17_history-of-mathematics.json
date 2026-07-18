@@ -6,6 +6,58 @@
   "topic": "history-of-mathematics",
   "grammar_pattern": null,
   "char_count": 461,
+  "questions": [
+    {
+      "prompt": "What system did the Mesopotamians create, according to the text, and what did it lay the foundation for?",
+      "options": [
+        "The sexagesimal (base-60) number system, foundational to modern time measurement",
+        "The decimal system, foundational to modern currency",
+        "The concept of zero, foundational to algebra",
+        "A calendar system based purely on lunar cycles"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What did the Greek period mark in the history of mathematics, according to the text?",
+      "options": [
+        "A qualitative shift from empiricism to deductive reasoning",
+        "The invention of the concept of zero",
+        "The birth of calculus",
+        "The development of non-Euclidean geometry"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Who is credited in the text with inventing the concept of zero?",
+      "options": [
+        "Indian mathematicians",
+        "Ancient Egyptian surveyors",
+        "Greek geometers",
+        "Arab scholars"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what did Newton and Leibniz independently propose?",
+      "options": [
+        "A method for quantifying the rate of change",
+        "The axiomatic system used in geometry",
+        "The sexagesimal counting system",
+        "The concept of non-Euclidean space"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What did Riemann's study of curved space provide a mathematical foundation for, according to the text?",
+      "options": [
+        "General relativity",
+        "The invention of calculus",
+        "The sexagesimal system",
+        "Euclidean geometry's axioms"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

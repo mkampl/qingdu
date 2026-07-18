@@ -6,6 +6,48 @@
   "topic": "bus-ride",
   "grammar_pattern": "le-aspect",
   "char_count": 62,
+  "questions": [
+    {
+      "prompt": "How did the narrator travel to Beijing?",
+      "options": [
+        "By train",
+        "By car",
+        "On foot",
+        "By bus"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "What did the narrator look at while on the bus?",
+      "options": [
+        "His phone",
+        "The scenery",
+        "A map",
+        "Other passengers' clothes"
+      ],
+      "answer_index": 3
+    },
+    {
+      "prompt": "What did the driver say about tomorrow?",
+      "options": [
+        "The ticket price will rise tomorrow",
+        "He won't go to Beijing tomorrow",
+        "The bus is full tomorrow",
+        "He'll leave earlier tomorrow"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What did the narrator do at the end of the story?",
+      "options": [
+        "Fell asleep",
+        "Bought a ticket",
+        "Called a friend",
+        "Got off the bus"
+      ],
+      "answer_index": 3
+    }
+  ],
   "analyzed": {
     "words": [
       {

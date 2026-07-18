@@ -6,6 +6,58 @@
   "topic": "youth-emigration-trend",
   "grammar_pattern": "yuqi-buru",
   "char_count": 374,
+  "questions": [
+    {
+      "prompt": "What are two reasons young people leave their hometowns, according to the text?",
+      "options": [
+        "Pursuing better education or wanting to change their life",
+        "Escaping political persecution",
+        "Following their parents' orders",
+        "Avoiding taxes"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What are parents worried will happen to their children who leave?",
+      "options": [
+        "They will forget their roots",
+        "They will run out of money",
+        "They will get sick",
+        "They will never marry"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text, what does true maturity require?",
+      "options": [
+        "Independent thinking",
+        "Following parental advice",
+        "Financial wealth",
+        "A stable job"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What question does this emigration trend raise for the young people's original society, according to the text?",
+      "options": [
+        "How to attract talent to return",
+        "How to ban emigration",
+        "How to raise taxes",
+        "How to build more schools"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text's conclusion, what should everyone's goal be, regardless of staying or leaving?",
+      "options": [
+        "Pursuing excellence",
+        "Accumulating wealth",
+        "Avoiding risk",
+        "Staying near family"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

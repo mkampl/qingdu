@@ -140,6 +140,28 @@ class VocabularyList(Base):
     user = relationship("User", back_populates="vocabulary_lists")
 
 
+class UserLibraryProgress(Base):
+    """Per-user completion state for a bundled library text (app/data/library).
+
+    Absence of a row means "not started". `status` is 'read' (self-reported
+    via the Mark as read button) or 'quiz' (all questions answered correctly
+    in one sitting). A quiz pass is never downgraded back to 'read' by a
+    later manual mark — quiz is the stronger signal.
+    """
+
+    __tablename__ = "user_library_progress"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    slug = Column(String(128), nullable=False)
+    status = Column(String(16), nullable=False)  # 'read' | 'quiz'
+    score = Column(Integer, nullable=True)  # correct-answer count, quiz only
+    completed_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("user_id", "slug", name="uq_user_library_progress"),)
+
+
 class UserWord(Base):
     """
     Per-user state for a Chinese word. Absence of a row means 'new' (the user

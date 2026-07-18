@@ -10,18 +10,21 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import * as api from "@/api/client";
-import type { LibraryManifestItem } from "@/api/client";
+import type { LibraryManifestItem, LibraryProgressEntry } from "@/api/client";
 import type { AnalysisResponse } from "@/api/types";
 import { useAnalysisStore } from "@/stores/analysis";
+import { useAuthStore } from "@/stores/auth";
 import { useToastStore } from "@/stores/toast";
 
 const analysis = useAnalysisStore();
+const auth = useAuthStore();
 const toast = useToastStore();
 const router = useRouter();
 
 const items = ref<LibraryManifestItem[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
+const progress = ref<Record<string, LibraryProgressEntry>>({});
 
 const selectedLevels = ref<Set<number>>(new Set());
 const search = ref("");
@@ -36,6 +39,15 @@ onMounted(async () => {
     error.value = e instanceof Error ? e.message : "Couldn't load library";
   } finally {
     loading.value = false;
+  }
+
+  if (auth.isAuthed) {
+    try {
+      const r = await api.getLibraryProgress();
+      progress.value = r.items;
+    } catch {
+      // Non-critical — cards just render without a done badge.
+    }
   }
 });
 
@@ -81,10 +93,13 @@ const countByLevel = computed(() => {
   return c;
 });
 
-async function open(slug: string) {
+async function open(item: LibraryManifestItem) {
   try {
-    const entry = await api.getLibraryEntry(slug);
-    analysis.loadSaved(entry.text, entry.analyzed as AnalysisResponse, null);
+    const entry = await api.getLibraryEntry(item.slug);
+    analysis.loadSaved(entry.text, entry.analyzed as AnalysisResponse, null, {
+      slug: item.slug,
+      hasQuiz: item.has_quiz,
+    });
     router.push("/");
   } catch (e) {
     toast.error(e instanceof Error ? e.message : "Couldn't open that text");
@@ -113,8 +128,9 @@ async function open(slug: string) {
     <p class="mb-5 max-w-prose text-sm leading-relaxed text-fg-muted sm:mb-8">
       180 short texts, 20 per HSK level, written to demonstrate the
       vocabulary and grammar of each level. Click one to open it in the
-      reader. No login required to browse — sign in to track progress and
-      get personalised recommendations on
+      reader — mark it as read or pass its quiz there to check it off. No
+      login required to browse — sign in to track completion here and get
+      personalised recommendations on
       <RouterLink to="/discover" class="font-medium text-accent hover:underline">
         Discover
       </RouterLink>.
@@ -194,7 +210,7 @@ async function open(slug: string) {
         <button
           type="button"
           class="group flex h-full w-full flex-col gap-2 rounded-lg border border-border bg-bg-elevated p-4 text-left transition-shadow hover:shadow-md"
-          @click="open(item.slug)"
+          @click="open(item)"
         >
           <div class="flex items-start justify-between gap-2">
             <p
@@ -202,11 +218,33 @@ async function open(slug: string) {
             >
               {{ item.title }}
             </p>
-            <span
-              class="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent"
-            >
-              HSK {{ item.hsk_level }}
-            </span>
+            <div class="flex shrink-0 items-center gap-1.5">
+              <span
+                v-if="progress[item.slug]"
+                class="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400"
+                :title="
+                  progress[item.slug].status === 'quiz'
+                    ? 'Quiz passed'
+                    : 'Marked as read'
+                "
+              >
+                <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path
+                    d="M2 6.5l2.5 2.5L10 3"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                {{ progress[item.slug].status === "quiz" ? "quiz" : "read" }}
+              </span>
+              <span
+                class="rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent"
+              >
+                HSK {{ item.hsk_level }}
+              </span>
+            </div>
           </div>
           <p class="font-display text-[11px] italic text-fg-subtle">
             {{ item.topic.replace(/-/g, " ") }}
@@ -228,6 +266,13 @@ async function open(slug: string) {
               :title="`Demonstrates grammar pattern: ${item.grammar_pattern}`"
             >
               {{ item.grammar_pattern }}
+            </span>
+            <span
+              v-if="item.has_quiz && !progress[item.slug]"
+              class="rounded-full bg-bg-sunken px-2 py-0.5 font-mono text-[10px] tracking-wider text-fg-muted"
+              title="This text has a comprehension quiz"
+            >
+              quiz
             </span>
           </div>
         </button>

@@ -6,6 +6,58 @@
   "topic": "calligraphy-revival",
   "grammar_pattern": "jiran-jiu",
   "char_count": 223,
+  "questions": [
+    {
+      "prompt": "Who else in the young man's family had practiced calligraphy?",
+      "options": [
+        "His father",
+        "His mother",
+        "His grandfather",
+        "His teacher"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What have many modern people lost by relying on computers to write, according to the text?",
+      "options": [
+        "A part of their culture",
+        "Their eyesight",
+        "The ability to type",
+        "Interest in reading"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What effect does writing calligraphy slowly have on a person, per the text?",
+      "options": [
+        "It makes the heart calm",
+        "It makes the heart excited",
+        "It causes fatigue",
+        "It causes confusion"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the strength or weakness of a brush stroke reflect, according to the text?",
+      "options": [
+        "A person's character",
+        "The quality of the ink",
+        "The price of the paper",
+        "The artist's age"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "Who is attending the calligraphy classes that have opened in many cities?",
+      "options": [
+        "Both young people and old people",
+        "Only children",
+        "Only professional artists",
+        "Only retirees"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

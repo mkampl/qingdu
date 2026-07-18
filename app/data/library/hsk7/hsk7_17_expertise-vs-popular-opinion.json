@@ -6,6 +6,58 @@
   "topic": "expertise-vs-popular-opinion",
   "grammar_pattern": null,
   "char_count": 414,
+  "questions": [
+    {
+      "prompt": "According to the text, what illusion does getting fragmented knowledge from social platforms tend to create?",
+      "options": [
+        "The illusion that experts are always wrong",
+        "The illusion that personal experience is equivalent to professional research",
+        "The illusion that knowledge is unnecessary altogether",
+        "The illusion that social platforms are inherently unreliable"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what does true professional knowledge accumulation require, beyond simply piling up materials?",
+      "options": [
+        "A large personal following on social media",
+        "Long-term systematic training and rigorous logical deduction",
+        "Natural talent alone, without any training",
+        "Popularity among the general public"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, in which fields is the bias of treating popular opinion as truth especially evident?",
+      "options": [
+        "Sports and entertainment",
+        "Fashion and cooking",
+        "Public health and economic forecasting",
+        "Music and art history"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "According to the text, does respecting expertise mean blind obedience?",
+      "options": [
+        "Yes, it means accepting everything experts say without question",
+        "No — it means awe/respect for objective laws, not blind obedience",
+        "It means ignoring all expert opinions entirely",
+        "It means only trusting government officials"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what is proposed as the best way to handle uncertainty amid noisy public discourse?",
+      "options": [
+        "Following whichever opinion is currently most popular online",
+        "Maintaining independent thinking while trusting science",
+        "Avoiding all forms of public discussion entirely",
+        "Relying exclusively on personal intuition"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

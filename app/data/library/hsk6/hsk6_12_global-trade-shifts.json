@@ -6,6 +6,58 @@
   "topic": "global-trade-shifts",
   "grammar_pattern": "fanshi",
   "char_count": 412,
+  "questions": [
+    {
+      "prompt": "According to the text, why is supply chain diversification important to enterprises seeking long-term stability?",
+      "options": [
+        "Relying on a single region can cause severe production disruption",
+        "It guarantees the lowest possible prices",
+        "It is legally required by all governments",
+        "It eliminates the need for digital transformation"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "How has e-commerce changed cross-border trade, according to the text?",
+      "options": [
+        "It broke geographic limits, letting small enterprises reach overseas consumers directly and weakening middlemen",
+        "It has made trade slower and more expensive",
+        "It has eliminated all need for shipping and logistics",
+        "It only benefits large multinational corporations"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What have green or environmental trade standards become, according to the text?",
+      "options": [
+        "A threshold for entering high-end markets",
+        "Irrelevant to export competitiveness",
+        "A barrier only affecting developed countries",
+        "A temporary trend that is fading"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What trend does the text describe regarding trade agreements?",
+      "options": [
+        "Regional agreements are gradually replacing a globally unified framework",
+        "All countries are merging into one single trade bloc",
+        "Trade agreements have been abolished entirely",
+        "Only developed countries now sign trade agreements"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "According to the text's conclusion, what is described as the only path to survival?",
+      "options": [
+        "Adapting to change",
+        "Isolating from global trade entirely",
+        "Relying solely on government subsidies",
+        "Maintaining exactly the same strategy as the past"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

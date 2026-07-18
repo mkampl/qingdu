@@ -6,6 +6,58 @@
   "topic": "weather-extremes",
   "grammar_pattern": "budan-erqie",
   "char_count": 197,
+  "questions": [
+    {
+      "prompt": "What month is it when it unexpectedly snows in the story?",
+      "options": [
+        "January",
+        "April",
+        "July",
+        "December"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "How long did the flood last, according to the text?",
+      "options": [
+        "One day",
+        "Three days",
+        "A week",
+        "A month"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What couldn't people do because of the flood?",
+      "options": [
+        "Go to school",
+        "Drive",
+        "Sleep",
+        "Buy food"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the narrator hope to do once spring arrives on time?",
+      "options": [
+        "Go swimming",
+        "Climb a mountain",
+        "Go fishing",
+        "Plant flowers"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "In what season did the severe flood happen?",
+      "options": [
+        "Spring",
+        "Summer",
+        "Autumn",
+        "Winter"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {

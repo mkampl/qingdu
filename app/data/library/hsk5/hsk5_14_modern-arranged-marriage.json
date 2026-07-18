@@ -6,6 +6,58 @@
   "topic": "modern-arranged-marriage",
   "grammar_pattern": "yuqi-buru",
   "char_count": 324,
+  "questions": [
+    {
+      "prompt": "How did the two young people in the text meet?",
+      "options": [
+        "Through their parents' introduction",
+        "At a university",
+        "Through an online app",
+        "At work"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the man ask about during their meeting?",
+      "options": [
+        "The woman's job",
+        "The woman's hobbies",
+        "The woman's family",
+        "The woman's income"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the author say true love needs, according to the text?",
+      "options": [
+        "Time to cultivate through shared interests and understanding",
+        "Parental approval",
+        "A large financial budget",
+        "A short courtship"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What do the two people ultimately decide to do at the end of the text?",
+      "options": [
+        "Stand up and leave",
+        "Agree to marry",
+        "Exchange phone numbers",
+        "Order more coffee"
+      ],
+      "answer_index": 0
+    },
+    {
+      "prompt": "What does the author say marriage should be, rather than \"completing a task\"?",
+      "options": [
+        "The beginning of happiness",
+        "A business arrangement",
+        "A family obligation",
+        "A social status symbol"
+      ],
+      "answer_index": 0
+    }
+  ],
   "analyzed": {
     "words": [
       {

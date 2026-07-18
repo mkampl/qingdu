@@ -6,6 +6,58 @@
   "topic": "the-meaning-of-craftsmanship",
   "grammar_pattern": null,
   "char_count": 487,
+  "questions": [
+    {
+      "prompt": "According to the text, what is the true source of the lacquerware box's exquisite refinement?",
+      "options": [
+        "Advanced factory machinery",
+        "Countless rounds of patient polishing, not fast mass production",
+        "Rare imported materials",
+        "A famous brand name"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what does craftsmanship (匠心) essentially represent, beyond mere technical skill?",
+      "options": [
+        "A marketing strategy for luxury goods",
+        "A reverent, dedicated attitude toward one's work",
+        "A legal requirement for manufacturers",
+        "A hobby with no real social value"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text, what is a consequence of the market being flooded with fast-consumption goods?",
+      "options": [
+        "Prices drop equally for everyone",
+        "Craftsmanship automatically improves",
+        "Product life cycles shorten and resource waste increases",
+        "Products become more durable overall"
+      ],
+      "answer_index": 2
+    },
+    {
+      "prompt": "According to the text, what does true innovation ultimately depend on?",
+      "options": [
+        "Random trial and error alone",
+        "Deep, accumulated professional expertise in a field",
+        "Copying competitors as quickly as possible",
+        "Avoiding all traditional methods entirely"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "According to the text's conclusion, guarding craftsmanship ultimately means guarding what?",
+      "options": [
+        "A country's export economy",
+        "Antique collecting traditions",
+        "Humanity's yearning for perfection",
+        "Factory efficiency records"
+      ],
+      "answer_index": 2
+    }
+  ],
   "analyzed": {
     "words": [
       {

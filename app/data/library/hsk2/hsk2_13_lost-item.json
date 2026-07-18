@@ -6,6 +6,58 @@
   "topic": "lost-item",
   "grammar_pattern": "shi-de",
   "char_count": 116,
+  "questions": [
+    {
+      "prompt": "When did the narrator realize the phone was missing?",
+      "options": [
+        "Before entering the store",
+        "After finishing shopping",
+        "At home that night",
+        "The next morning"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Where did the narrator finally find the phone?",
+      "options": [
+        "In a store bag",
+        "Under the seat in the car",
+        "In a coat pocket",
+        "At a friend's house"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Who gave the narrator the phone?",
+      "options": [
+        "A parent",
+        "A friend",
+        "Bought it themselves",
+        "A coworker"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "Why was the narrator anxious about the phone?",
+      "options": [
+        "It had important photos",
+        "It was expensive",
+        "Was late for a meeting",
+        "The store was closing"
+      ],
+      "answer_index": 1
+    },
+    {
+      "prompt": "What does the narrator decide at the end?",
+      "options": [
+        "To buy a cheaper phone",
+        "To be more careful in the future",
+        "To always carry a bag",
+        "To stop using taxis"
+      ],
+      "answer_index": 1
+    }
+  ],
   "analyzed": {
     "words": [
       {
