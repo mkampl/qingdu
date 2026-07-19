@@ -560,6 +560,21 @@ onBeforeUnmount(() => {
           v-if="analysis.hasResult && analysis.librarySlug !== null"
           class="mb-5 flex flex-wrap items-center gap-2"
         >
+          <RouterLink
+            to="/library"
+            class="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted transition-colors hover:border-accent hover:text-accent"
+          >
+            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path
+                d="M7.5 2.5L3.5 6l4 3.5"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            Library
+          </RouterLink>
           <template v-if="libraryProgress">
             <span
               class="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400"
