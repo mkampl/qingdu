@@ -1,9 +1,9 @@
 """GET /api/legal — operator-configured Impressum/privacy availability."""
 
+# The required trio — street/zip/country/phone/extra are all optional,
+# see test_street_and_zip_are_optional.
 IMPRESSUM_VARS = {
     "IMPRESSUM_NAME": "Jane Doe",
-    "IMPRESSUM_STREET": "Musterstraße 1",
-    "IMPRESSUM_ZIP": "1010",
     "IMPRESSUM_CITY": "Vienna",
     "IMPRESSUM_EMAIL": "jane@example.com",
 }
@@ -43,8 +43,25 @@ def test_partial_config_stays_unconfigured(client, monkeypatch):
         if key != "IMPRESSUM_EMAIL":
             monkeypatch.setenv(key, value)
     monkeypatch.delenv("IMPRESSUM_EMAIL", raising=False)
+    monkeypatch.delenv("IMPRESSUM_STREET", raising=False)
+    monkeypatch.delenv("IMPRESSUM_ZIP", raising=False)
 
     assert client.get("/api/legal").json()["impressum"] is None
+
+
+def test_street_and_zip_are_optional(client, monkeypatch):
+    """An operator can publish just name + city + email (place of
+    residence) without a full street address — only the trio is required."""
+    for key, value in IMPRESSUM_VARS.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.delenv("IMPRESSUM_STREET", raising=False)
+    monkeypatch.delenv("IMPRESSUM_ZIP", raising=False)
+
+    body = client.get("/api/legal").json()["impressum"]
+    assert body is not None
+    assert body["street"] is None
+    assert body["zip"] is None
+    assert body["city"] == "Vienna"
 
 
 def test_full_config_returns_impressum(client, monkeypatch):

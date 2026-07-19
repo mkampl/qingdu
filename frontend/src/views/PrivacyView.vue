@@ -65,8 +65,12 @@ const serverShown =
           </p>
           <p class="mt-2 text-fg-muted">
             {{ legal.config.impressum.name }}<br />
-            {{ legal.config.impressum.street }}<br />
-            {{ legal.config.impressum.zip }} {{ legal.config.impressum.city
+            <template v-if="legal.config.impressum.street"
+              >{{ legal.config.impressum.street }}<br
+            /></template>
+            <template v-if="legal.config.impressum.zip"
+              >{{ legal.config.impressum.zip }}
+            </template>{{ legal.config.impressum.city
             }}<span v-if="legal.config.impressum.country"
               >, {{ legal.config.impressum.country }}</span
             ><br />

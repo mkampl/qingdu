@@ -27,10 +27,14 @@ onMounted(() => legal.load());
       class="space-y-1 text-sm leading-relaxed text-fg"
     >
       <p class="font-medium">{{ legal.config.impressum.name }}</p>
-      <p class="text-fg-muted">{{ legal.config.impressum.street }}</p>
+      <p v-if="legal.config.impressum.street" class="text-fg-muted">
+        {{ legal.config.impressum.street }}
+      </p>
       <p class="text-fg-muted">
-        {{ legal.config.impressum.zip }} {{ legal.config.impressum.city }}
-        <template v-if="legal.config.impressum.country">
+        <template v-if="legal.config.impressum.zip"
+          >{{ legal.config.impressum.zip }}
+        </template>{{ legal.config.impressum.city
+        }}<template v-if="legal.config.impressum.country">
           , {{ legal.config.impressum.country }}
         </template>
       </p>
