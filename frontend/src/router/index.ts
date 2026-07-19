@@ -66,5 +66,10 @@ export const router = createRouter({
       name: "privacy",
       component: () => import("@/views/PrivacyView.vue"),
     },
+    {
+      path: "/impressum",
+      name: "impressum",
+      component: () => import("@/views/ImpressumView.vue"),
+    },
   ],
 });

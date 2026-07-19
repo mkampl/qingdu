@@ -30,6 +30,7 @@ from app.routers import (
     extract,
     health,
     invitations,
+    legal,
     library,
     package,
     pronounce,
@@ -141,6 +142,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 # Routers — order matters: specific API routes first, SPA fallback last.
 app.include_router(health.router)
+app.include_router(legal.router)
 app.include_router(analyze.router)
 app.include_router(translate.router)
 app.include_router(tts.router)

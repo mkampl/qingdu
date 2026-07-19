@@ -22,6 +22,17 @@ services:
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
       - WORKERS=2
       - RELOAD=false
+      # Legal pages — all optional, unset = no Impressum page. See
+      # .env.example for what each var means.
+      - IMPRESSUM_NAME=${IMPRESSUM_NAME:-}
+      - IMPRESSUM_STREET=${IMPRESSUM_STREET:-}
+      - IMPRESSUM_ZIP=${IMPRESSUM_ZIP:-}
+      - IMPRESSUM_CITY=${IMPRESSUM_CITY:-}
+      - IMPRESSUM_COUNTRY=${IMPRESSUM_COUNTRY:-}
+      - IMPRESSUM_EMAIL=${IMPRESSUM_EMAIL:-}
+      - IMPRESSUM_PHONE=${IMPRESSUM_PHONE:-}
+      - IMPRESSUM_EXTRA=${IMPRESSUM_EXTRA:-}
+      - PRIVACY_PAGE_ENABLED=${PRIVACY_PAGE_ENABLED:-}
     env_file:
       - .env
     restart: unless-stopped

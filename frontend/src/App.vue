@@ -4,6 +4,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 
 import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
+import { useLegalStore } from "@/stores/legal";
 import { useReviewStore } from "@/stores/review";
 import { useSettingsStore } from "@/stores/settings";
 import { useShortcutsStore } from "@/stores/shortcuts";
@@ -35,6 +36,7 @@ const shortcuts = useShortcutsStore();
 const userWords = useUserWordsStore();
 const review = useReviewStore();
 const toasts = useToastStore();
+const legal = useLegalStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -81,6 +83,7 @@ watch(mobileNavOpen, (open) => {
 
 onMounted(async () => {
   settings.hydrate();
+  legal.load();
   await auth.hydrate();
   // Native hooks — all are no-ops on web.
   await syncStatusBar(settings.theme);
@@ -445,13 +448,24 @@ if (isNative()) {
           </svg>
           APK
         </a>
-        <span aria-hidden="true">·</span>
-        <RouterLink
-          to="/privacy"
-          class="inline-flex items-center gap-1 transition-colors hover:text-accent"
-        >
-          Privacy
-        </RouterLink>
+        <template v-if="legal.config?.privacy_enabled !== false">
+          <span aria-hidden="true">·</span>
+          <RouterLink
+            to="/privacy"
+            class="inline-flex items-center gap-1 transition-colors hover:text-accent"
+          >
+            Privacy
+          </RouterLink>
+        </template>
+        <template v-if="legal.config?.impressum">
+          <span aria-hidden="true">·</span>
+          <RouterLink
+            to="/impressum"
+            class="inline-flex items-center gap-1 transition-colors hover:text-accent"
+          >
+            Impressum
+          </RouterLink>
+        </template>
         <span aria-hidden="true">·</span>
         <button
           type="button"

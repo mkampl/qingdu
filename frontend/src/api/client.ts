@@ -228,6 +228,27 @@ export const translate = (text: string, signal?: AbortSignal) =>
 export const vocabularyStats = () =>
   request<VocabStatsResponse>("/api/vocabulary-stats", { anonymous: true });
 
+export interface ImpressumInfo {
+  name: string;
+  street: string;
+  zip: string;
+  city: string;
+  country: string | null;
+  email: string;
+  phone: string | null;
+  extra: string | null;
+}
+
+export interface LegalConfig {
+  // null when the server operator hasn't filled in the required
+  // IMPRESSUM_* env vars — the frontend must not show the page/link then.
+  impressum: ImpressumInfo | null;
+  privacy_enabled: boolean;
+}
+
+export const getLegalConfig = () =>
+  request<LegalConfig>("/api/legal", { anonymous: true });
+
 export interface HskBrowseItem {
   hanzi: string;
   pinyin: string | null;
