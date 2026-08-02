@@ -14,10 +14,12 @@ import type { LibraryManifestItem, LibraryProgressEntry } from "@/api/client";
 import type { AnalysisResponse } from "@/api/types";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useAuthStore } from "@/stores/auth";
+import { useReaderStore } from "@/stores/reader";
 import { useToastStore } from "@/stores/toast";
 
 const analysis = useAnalysisStore();
 const auth = useAuthStore();
+const reader = useReaderStore();
 const toast = useToastStore();
 const router = useRouter();
 
@@ -100,6 +102,7 @@ async function open(item: LibraryManifestItem) {
       slug: item.slug,
       hasQuiz: item.has_quiz,
     });
+    reader.reset();
     router.push("/");
   } catch (e) {
     toast.error(e instanceof Error ? e.message : "Couldn't open that text");

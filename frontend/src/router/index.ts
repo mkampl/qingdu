@@ -2,6 +2,13 @@ import { createRouter, createWebHistory } from "vue-router";
 
 export const router = createRouter({
   history: createWebHistory("/"),
+  // Without this, navigating to a new page inherits whatever scrollY the
+  // previous page was left at (e.g. opening a text from partway down the
+  // Library list lands the reader scrolled down too). Saved-progress
+  // restoration in ReaderView.restoreScroll runs after this, on nextTick.
+  scrollBehavior(_to, _from, savedPosition) {
+    return savedPosition ?? { top: 0 };
+  },
   routes: [
     {
       path: "/",
