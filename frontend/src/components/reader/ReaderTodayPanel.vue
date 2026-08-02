@@ -84,6 +84,7 @@ watch(
 
 const reviewDue = computed(() => review.dueNow);
 const streak = computed(() => userWords.stats.streak);
+const streakFreezes = computed(() => userWords.stats.streak_freezes);
 
 const anyHook = computed(
   () =>
@@ -224,6 +225,9 @@ async function openLibraryPick(slug: string) {
       class="pt-2 font-display text-xs italic text-fg-muted"
     >
       {{ streak }}-day streak — come back tomorrow to keep it going.
+      <span v-if="streakFreezes > 0">
+        {{ streakFreezes }} freeze{{ streakFreezes > 1 ? "s" : "" }} banked, just in case.
+      </span>
     </p>
   </div>
 </template>

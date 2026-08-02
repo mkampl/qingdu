@@ -38,6 +38,10 @@ class User(Base):
     # the contiguous run leading up to that date.
     streak_count = Column(Integer, default=0)
     streak_last_active = Column(Date, nullable=True)
+    # Phase F3 — streak freezes. Earned automatically (see streak.py), not
+    # purchasable — this app has no payment rails. Banked count; consumed
+    # one-per-missed-day to bridge a gap instead of resetting the streak.
+    streak_freeze_count = Column(Integer, default=0)
     # Phase #96 — systematic learning. Daily target of new HSK words to
     # auto-enroll into the 'learning' pool; pulled from `hsk_focus_version`'s
     # list in (level, random-within-level) order. 0 disables the auto-enroll
@@ -460,6 +464,11 @@ def init_db():
                 if "streak_last_active" not in user_cols:
                     logger.info("Adding streak_last_active column to users")
                     conn.execute(text("ALTER TABLE users ADD COLUMN streak_last_active DATE"))
+                if "streak_freeze_count" not in user_cols:
+                    logger.info("Adding streak_freeze_count column to users")
+                    conn.execute(
+                        text("ALTER TABLE users ADD COLUMN streak_freeze_count INTEGER DEFAULT 0")
+                    )
                 if "daily_new_words" not in user_cols:
                     logger.info("Adding daily_new_words column to users")
                     conn.execute(

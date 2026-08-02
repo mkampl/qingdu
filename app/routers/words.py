@@ -365,6 +365,7 @@ async def word_stats(
         if state in counts:
             counts[state] += 1
     counts["streak"] = current_streak(user)
+    counts["streak_freezes"] = user.streak_freeze_count or 0
     return counts
 
 

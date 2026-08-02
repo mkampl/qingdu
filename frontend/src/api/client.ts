@@ -883,6 +883,8 @@ export interface WordStatsResponse {
   ignored: number;
   /** Phase F2 — current daily streak (consecutive days with activity). */
   streak: number;
+  /** Phase F3 — banked streak freezes (earned every 7-day milestone, cap 2). */
+  streak_freezes: number;
 }
 
 export const listUserWordStates = () =>

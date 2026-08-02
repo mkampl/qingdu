@@ -270,7 +270,11 @@ if (isNative()) {
             v-if="auth.isAuthed && userWords.hydrated && userWords.stats.streak > 0"
             to="/review"
             class="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 font-mono text-[10px] tracking-wider text-amber-800 transition-colors hover:bg-amber-100 sm:px-2.5 sm:py-1 sm:uppercase dark:border-amber-700 dark:bg-amber-500/15 dark:text-amber-200 dark:hover:bg-amber-500/25"
-            :title="`${userWords.stats.streak.toLocaleString()}-day streak — review now to keep it alive`"
+            :title="
+              userWords.stats.streak_freezes > 0
+                ? `${userWords.stats.streak.toLocaleString()}-day streak — ${userWords.stats.streak_freezes} freeze${userWords.stats.streak_freezes > 1 ? 's' : ''} banked to cover a missed day`
+                : `${userWords.stats.streak.toLocaleString()}-day streak — review now to keep it alive`
+            "
           >
             <svg width="10" height="11" viewBox="0 0 10 11" fill="currentColor" aria-hidden="true">
               <path
@@ -278,6 +282,19 @@ if (isNative()) {
               />
             </svg>
             <span class="tabular-nums">{{ userWords.stats.streak }}</span>
+            <!-- Streak freeze indicator — earned every 7-day milestone
+                 (see app/services/streak.py), capped at 2 banked. A quiet
+                 aside on the same chip, not a separate badge, since it's
+                 only meaningful in relation to the streak count. -->
+            <span
+              v-if="userWords.stats.streak_freezes > 0"
+              class="ml-0.5 inline-flex items-center gap-0.5 border-l border-amber-300/60 pl-1 text-sky-600 dark:border-amber-700/60 dark:text-sky-300"
+            >
+              <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+                <path d="M5 0v10M0.7 2.5l8.6 5M9.3 2.5l-8.6 5" />
+              </svg>
+              <span class="tabular-nums">{{ userWords.stats.streak_freezes }}</span>
+            </span>
           </RouterLink>
 
           <!-- Known-words badge — at-a-glance progress + entry point into

@@ -24,6 +24,7 @@ export const useUserWordsStore = defineStore("userWords", () => {
     known: 0,
     ignored: 0,
     streak: 0,
+    streak_freezes: 0,
   });
   const hydrated = ref(false);
   const loading = ref(false);
@@ -41,9 +42,11 @@ export const useUserWordsStore = defineStore("userWords", () => {
       learning: 0,
       known: 0,
       ignored: 0,
-      // Preserve streak across optimistic updates — it's a server-derived
-      // value, not something we can recompute from the local states.
+      // Preserve streak/freezes across optimistic updates — they're
+      // server-derived values, not something we can recompute from the
+      // local states.
       streak: stats.value.streak,
+      streak_freezes: stats.value.streak_freezes,
     };
     for (const s of Object.values(states.value)) {
       next[s] += 1;
@@ -142,7 +145,7 @@ export const useUserWordsStore = defineStore("userWords", () => {
 
   function reset() {
     states.value = {};
-    stats.value = { learning: 0, known: 0, ignored: 0, streak: 0 };
+    stats.value = { learning: 0, known: 0, ignored: 0, streak: 0, streak_freezes: 0 };
     hydrated.value = false;
   }
 

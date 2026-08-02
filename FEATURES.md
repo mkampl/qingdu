@@ -52,7 +52,7 @@ Optional **daily auto-enrolment** seeds new HSK words into the learning pool at 
 
 - **Invitation-only signup** — each user can mint a limited number of invites (admin-configurable quota).
 - **Admin panel** — at `/admin` for users with the flag set.
-- **Daily streak** — counted from any of: word-state change, bulk mark, review grade. Visible as a flame badge in the nav.
+- **Daily streak** — counted from any of: word-state change, bulk mark, review grade. Visible as a flame badge in the nav. Earns a streak freeze every 7 days (capped at 2 banked) that automatically covers a missed day instead of resetting the count.
 - **Weekly sparkline** — at the top of `/review`, stacked bars show reviews + words-marked over the last 7 days.
 
 ## Stack
