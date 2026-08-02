@@ -28,6 +28,7 @@ import {
   scheduleLifecycleWarnings,
   syncFromSettings as syncReminder,
 } from "@/services/notifications";
+import { appScrollEl } from "@/utils/scroll";
 
 const settings = useSettingsStore();
 const auth = useAuthStore();
@@ -64,6 +65,10 @@ watch(
     // Close on any navigation so a tap on a drawer link doesn't leave the
     // drawer open over the new view.
     mobileNavOpen.value = false;
+    // <main> is the app's actual scroll container, not window (see
+    // utils/scroll.ts) — reset it on every navigation so opening a new
+    // page/text doesn't inherit wherever the previous page was scrolled to.
+    appScrollEl().scrollTop = 0;
   },
 );
 
@@ -388,7 +393,7 @@ if (isNative()) {
          out of the header itself so the reader content keeps its
          breathing room. -->
     <LifecycleBanner v-show="!review.inFocus" />
-    <main class="flex-1 overflow-y-auto">
+    <main id="app-scroll" class="flex-1 overflow-y-auto">
       <RouterView />
     </main>
     <!-- Colophon footer — small, restrained, always discoverable. The

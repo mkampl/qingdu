@@ -1,14 +1,12 @@
 import { createRouter, createWebHistory } from "vue-router";
 
+// No scrollBehavior here: this app's html/body/#app are pinned to the
+// viewport height and <main id="app-scroll"> scrolls internally instead
+// (see src/utils/scroll.ts) — window itself never scrolls, so Vue
+// Router's window-scroll-based scrollBehavior would be a silent no-op.
+// The actual reset-on-navigate lives in App.vue's route watcher.
 export const router = createRouter({
   history: createWebHistory("/"),
-  // Without this, navigating to a new page inherits whatever scrollY the
-  // previous page was left at (e.g. opening a text from partway down the
-  // Library list lands the reader scrolled down too). Saved-progress
-  // restoration in ReaderView.restoreScroll runs after this, on nextTick.
-  scrollBehavior(_to, _from, savedPosition) {
-    return savedPosition ?? { top: 0 };
-  },
   routes: [
     {
       path: "/",

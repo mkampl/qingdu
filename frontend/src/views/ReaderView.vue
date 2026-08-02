@@ -17,6 +17,7 @@ import {
 } from "@/api/client";
 import type { LibraryProgressEntry } from "@/api/client";
 import { submitShortcutLabel } from "@/utils/platform";
+import { appScrollEl } from "@/utils/scroll";
 
 import AnalysingCard from "@/components/reader/AnalysingCard.vue";
 import ChopMark from "@/components/reader/ChopMark.vue";
@@ -179,7 +180,7 @@ function onExpand() {
   showEditor.value = true;
   localInput.value = analysis.inputText;
   nextTick(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    appScrollEl().scrollTo({ top: 0, behavior: "smooth" });
   });
 }
 
@@ -423,9 +424,9 @@ function onProgress(value: number) {
 
 // Restore scroll position after the article renders. We can't jump to a
 // pixel offset deterministically (the article height isn't known until
-// after layout), so we restore by setting window.scrollTo to a multiple
-// of the article's bounding height, matching what ReadingProgress.compute
-// would compute.
+// after layout), so we restore by scrolling <main> (see utils/scroll.ts —
+// window itself never scrolls) to a multiple of the article's bounding
+// height, matching what ReadingProgress.compute would compute.
 function restoreScroll() {
   const target = analysis.initialProgress;
   if (target <= 0 || !articleRef.value) return;
@@ -433,12 +434,15 @@ function restoreScroll() {
   requestAnimationFrame(() => {
     const el = articleRef.value;
     if (!el) return;
-    const viewportH = window.innerHeight;
+    const scrollEl = appScrollEl();
+    const viewportH = scrollEl.clientHeight;
     const total = el.getBoundingClientRect().height;
     if (total <= viewportH) return;
     const maxScroll = total - viewportH;
-    const top = el.offsetTop + Math.round(target * maxScroll);
-    window.scrollTo({ top, behavior: "instant" as ScrollBehavior });
+    const elTop =
+      el.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top + scrollEl.scrollTop;
+    const top = elTop + Math.round(target * maxScroll);
+    scrollEl.scrollTo({ top, behavior: "instant" as ScrollBehavior });
   });
 }
 

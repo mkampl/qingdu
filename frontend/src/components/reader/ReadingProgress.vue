@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, toRef, watch } from "vue";
 
+import { appScrollEl } from "@/utils/scroll";
+
 import ChopMark from "./ChopMark.vue";
 
 const props = defineProps<{
@@ -25,9 +27,13 @@ function compute() {
     }
     return;
   }
+  const scrollEl = appScrollEl();
   const rect = el.getBoundingClientRect();
-  const viewportH = window.innerHeight;
-  const start = rect.top;
+  const viewportH = scrollEl.clientHeight;
+  // Position of the article's top edge relative to the scroll container's
+  // own top (not the browser viewport's — the fixed header above <main>
+  // would otherwise throw this off by its height).
+  const start = rect.top - scrollEl.getBoundingClientRect().top;
   const total = rect.height;
   let next: number;
   if (total <= viewportH) {
@@ -50,11 +56,14 @@ function compute() {
 
 onMounted(() => {
   compute();
-  window.addEventListener("scroll", compute, { passive: true });
+  // The scroll fires on <main>, not window — see utils/scroll.ts. Resize
+  // stays on window; that's a real window-level event either way, and it
+  // also covers main's clientHeight changing as a side effect.
+  appScrollEl().addEventListener("scroll", compute, { passive: true });
   window.addEventListener("resize", compute);
 });
 onBeforeUnmount(() => {
-  window.removeEventListener("scroll", compute);
+  appScrollEl().removeEventListener("scroll", compute);
   window.removeEventListener("resize", compute);
 });
 
