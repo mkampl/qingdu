@@ -1018,6 +1018,34 @@ export const deleteAccount = (password: string) =>
 export const getWordStats = () =>
   request<WordStatsResponse>("/api/words/stats");
 
+// --- API tokens (Phase #121 — external integrations) ------------------------
+
+export const API_TOKEN_SCOPES = ["read:words", "write:words"] as const;
+export type ApiTokenScope = (typeof API_TOKEN_SCOPES)[number];
+
+export interface ApiTokenSummary {
+  id: number;
+  name: string;
+  token_prefix: string;
+  scopes: ApiTokenScope[];
+  created_at: string;
+  last_used_at: string | null;
+}
+
+export interface CreatedApiToken extends Omit<ApiTokenSummary, "last_used_at"> {
+  // Only present in the create response — shown once, never retrievable again.
+  token: string;
+}
+
+export const listApiTokens = () =>
+  request<{ tokens: ApiTokenSummary[] }>("/api/tokens");
+
+export const createApiToken = (name: string, scopes: ApiTokenScope[]) =>
+  request<CreatedApiToken>("/api/tokens", { body: { name, scopes } });
+
+export const revokeApiToken = (id: number) =>
+  request<{ revoked: boolean }>(`/api/tokens/${id}`, { method: "DELETE" });
+
 // --- Review (Phase B) ------------------------------------------------------
 
 export type ReviewMode = "recognition" | "dictation" | "writing" | "cloze";

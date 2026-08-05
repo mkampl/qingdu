@@ -54,6 +54,7 @@ Optional **daily auto-enrolment** seeds new HSK words into the learning pool at 
 - **Admin panel** — at `/admin` for users with the flag set.
 - **Daily streak** — counted from any of: word-state change, bulk mark, review grade. Visible as a flame badge in the nav. Earns a streak freeze every 7 days (capped at 2 banked) that automatically covers a missed day instead of resetting the count.
 - **Weekly sparkline** — at the top of `/review`, stacked bars show reviews + words-marked over the last 7 days.
+- **API tokens** — Settings → API tokens lets you mint a scoped, revocable personal access token (`read:words` / `write:words`) so another app of yours (e.g. a speaking-companion with its own whisper/LLM/TTS) can read your known/learning words and report newly-encountered ones back, without sharing your password.
 
 ## Stack
 

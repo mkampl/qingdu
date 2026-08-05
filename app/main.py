@@ -27,6 +27,7 @@ from app.routers import (
     auth,
     convert,
     export,
+    external,
     extract,
     health,
     invitations,
@@ -38,6 +39,7 @@ from app.routers import (
     spa,
     stats,
     texts,
+    tokens,
     translate,
     tts,
     vocab,
@@ -162,6 +164,8 @@ app.include_router(export.router)
 app.include_router(package.router)
 app.include_router(pronounce.router)
 app.include_router(library.router)
+app.include_router(tokens.router)
+app.include_router(external.router)
 
 # Vue 3 SPA at /. Includes a catch-all /{rest:path} route, so this MUST be
 # the last router registered or it will swallow API paths. Also registers

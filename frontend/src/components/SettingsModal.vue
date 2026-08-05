@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 
 import * as api from "@/api/client";
 import { ApiError, getApiBase, getDefaultApiBase, setApiBase, setToken } from "@/api/client";
@@ -146,6 +146,77 @@ async function confirmDeleteAccount() {
     );
   } finally {
     deleteBusy.value = false;
+  }
+}
+
+// --- Phase #121 — API tokens for external integrations ---
+// Read/write access to word state for outside apps (e.g. a speaking
+// companion's own whisper/LLM/TTS stack), scoped and revocable. Loaded
+// lazily on first modal open rather than at import time, since most
+// sessions never open Settings.
+const apiTokens = ref<api.ApiTokenSummary[]>([]);
+const apiTokensLoaded = ref(false);
+const newTokenName = ref("");
+const newTokenScopes = ref<api.ApiTokenScope[]>(["read:words"]);
+const creatingToken = ref(false);
+const revealedToken = ref<api.CreatedApiToken | null>(null);
+const revokingTokenId = ref<number | null>(null);
+
+async function loadApiTokens() {
+  try {
+    const { tokens } = await api.listApiTokens();
+    apiTokens.value = tokens;
+    apiTokensLoaded.value = true;
+  } catch (e) {
+    toasts.error(e instanceof ApiError ? e.message : "Couldn't load API tokens.");
+  }
+}
+
+watch(
+  () => modals.settingsOpen,
+  (open) => {
+    if (open && auth.isAuthed && !apiTokensLoaded.value) void loadApiTokens();
+  },
+);
+
+async function createToken() {
+  const name = newTokenName.value.trim();
+  if (!name || newTokenScopes.value.length === 0) return;
+  creatingToken.value = true;
+  try {
+    const created = await api.createApiToken(name, [...newTokenScopes.value]);
+    revealedToken.value = created;
+    newTokenName.value = "";
+    await loadApiTokens();
+  } catch (e) {
+    toasts.error(e instanceof ApiError ? e.message : "Couldn't create the token.");
+  } finally {
+    creatingToken.value = false;
+  }
+}
+
+async function revokeToken(id: number) {
+  revokingTokenId.value = id;
+  try {
+    await api.revokeApiToken(id);
+    apiTokens.value = apiTokens.value.filter((t) => t.id !== id);
+    toasts.success("Token revoked.");
+  } catch (e) {
+    toasts.error(e instanceof ApiError ? e.message : "Couldn't revoke the token.");
+  } finally {
+    revokingTokenId.value = null;
+  }
+}
+
+async function copyRevealedToken() {
+  if (!revealedToken.value) return;
+  try {
+    await navigator.clipboard.writeText(revealedToken.value.token);
+    toasts.success("Copied.");
+  } catch {
+    // Clipboard API can be unavailable (no HTTPS, no permission) — the
+    // token stays selectable in the field either way, so this is a
+    // soft failure.
   }
 }
 
@@ -1002,6 +1073,116 @@ function resetApiBase() {
             </svg>
             words.apkg
           </a>
+        </div>
+      </fieldset>
+
+      <!-- Phase #121 — personal API tokens for external integrations,
+           e.g. a speaking-companion app that wants to read which words
+           you already know and report newly-encountered ones back. -->
+      <fieldset v-if="auth.isAuthed">
+        <legend
+          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          API tokens
+        </legend>
+        <p class="mb-3 text-xs text-fg-muted leading-relaxed">
+          Let another app of yours read your known/learning words or report
+          new ones it taught you — without sharing your password. Create a
+          token scoped to just what it needs; revoke it any time.
+        </p>
+
+        <ul v-if="apiTokens.length" class="mb-3 space-y-1.5">
+          <li
+            v-for="t in apiTokens"
+            :key="t.id"
+            class="flex items-center justify-between gap-2 rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 text-xs"
+          >
+            <span class="min-w-0">
+              <span class="block truncate font-medium text-fg">{{ t.name }}</span>
+              <span class="block font-mono text-[10px] text-fg-subtle">
+                {{ t.token_prefix }}… · {{ t.scopes.join(", ") }}
+                <template v-if="t.last_used_at"> · last used {{ new Date(t.last_used_at).toLocaleDateString() }}</template>
+                <template v-else> · never used</template>
+              </span>
+            </span>
+            <button
+              type="button"
+              class="shrink-0 rounded-md border border-red-300 px-2 py-1 text-[11px] font-medium text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/40"
+              :disabled="revokingTokenId === t.id"
+              @click="revokeToken(t.id)"
+            >
+              {{ revokingTokenId === t.id ? "Revoking…" : "Revoke" }}
+            </button>
+          </li>
+        </ul>
+        <p v-else-if="apiTokensLoaded" class="mb-3 text-xs text-fg-subtle">
+          No tokens yet.
+        </p>
+
+        <div
+          v-if="revealedToken"
+          class="mb-3 rounded-md border border-accent/40 bg-bg-sunken p-3"
+        >
+          <p class="mb-2 text-xs text-fg-muted">
+            Copy this now — it won't be shown again.
+          </p>
+          <div class="flex items-center gap-2">
+            <code
+              class="min-w-0 flex-1 truncate rounded bg-bg px-2 py-1.5 font-mono text-[11px] text-fg"
+              >{{ revealedToken.token }}</code
+            >
+            <button
+              type="button"
+              class="shrink-0 rounded-md border border-border bg-bg-elevated px-2 py-1.5 text-[11px] font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
+              @click="copyRevealedToken"
+            >
+              Copy
+            </button>
+          </div>
+          <button
+            type="button"
+            class="mt-2 text-[11px] text-fg-muted underline-offset-2 hover:text-fg hover:underline"
+            @click="revealedToken = null"
+          >
+            Done
+          </button>
+        </div>
+
+        <div class="space-y-2">
+          <label class="block">
+            <span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+              Name
+            </span>
+            <input
+              v-model="newTokenName"
+              type="text"
+              placeholder="e.g. speaking companion"
+              class="w-full max-w-xs rounded-md border border-border-subtle bg-bg px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none"
+            />
+          </label>
+          <div class="flex flex-wrap gap-3">
+            <label
+              v-for="scope in api.API_TOKEN_SCOPES"
+              :key="scope"
+              class="flex items-center gap-1.5 text-xs text-fg-muted"
+            >
+              <input
+                v-model="newTokenScopes"
+                type="checkbox"
+                :value="scope"
+                class="accent-accent"
+              />
+              {{ scope }}
+            </label>
+          </div>
+          <button
+            type="button"
+            class="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!newTokenName.trim() || newTokenScopes.length === 0 || creatingToken"
+            @click="createToken"
+          >
+            {{ creatingToken ? "Creating…" : "Create token" }}
+          </button>
         </div>
       </fieldset>
 

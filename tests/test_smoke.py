@@ -17,8 +17,11 @@ def test_route_count(app_module):
     +5 = 101 when the Vite frontend is built into `frontend/dist/`:
     /v2 redirect, /v2/{rest} redirect, / SPA shell, /{rest:path} SPA shell,
     /assets mount.
+    +5 = 101/106 for Phase #121's external-integration API: GET + POST +
+    DELETE /api/tokens[/{id}] and GET /api/external/words, POST
+    /api/external/words/encountered.
     """
-    assert len(app_module.routes) in (96, 101)
+    assert len(app_module.routes) in (101, 106)
 
 
 def test_router_tags_present(app_module):
@@ -47,6 +50,8 @@ def test_router_tags_present(app_module):
         "Package Import",
         "Pronounce",
         "Library",
+        "API Tokens",
+        "External API",
     }
     assert expected.issubset(tags), f"Missing tags: {expected - tags}"
 

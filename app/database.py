@@ -166,6 +166,41 @@ class UserLibraryProgress(Base):
     __table_args__ = (UniqueConstraint("user_id", "slug", name="uq_user_library_progress"),)
 
 
+class ApiToken(Base):
+    """Personal access token for external integrations — Phase #121, e.g. a
+    speech/LLM companion app that wants to read a user's known words and
+    report newly-encountered vocabulary back (see app/routers/external.py).
+
+    Separate from the JWT session auth in app/auth.py: these are
+    long-lived, user-issued, scope-limited, and revocable without touching
+    the user's password or logging out their browser session. Token
+    management itself (create/list/revoke) is JWT-session-only — a leaked
+    PAT must never be able to mint more tokens or revoke the others.
+
+    Only the hash is stored; the raw token is shown once at creation and
+    never persisted or logged. `token_prefix` (first chars of the raw
+    token) lets the owner recognise a token in the list UI without it
+    being reconstructable. `scopes` is a space-separated string drawn from
+    the fixed set in app/auth.py:API_TOKEN_SCOPES.
+    """
+
+    __tablename__ = "api_tokens"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String(64), nullable=False)
+    token_hash = Column(String(128), nullable=False, unique=True)
+    token_prefix = Column(String(16), nullable=False)
+    scopes = Column(String(64), nullable=False, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_used_at = Column(DateTime, nullable=True)
+    revoked_at = Column(DateTime, nullable=True)
+
+    user = relationship("User")
+
+    __table_args__ = (Index("ix_api_tokens_user", "user_id"),)
+
+
 class UserWord(Base):
     """
     Per-user state for a Chinese word. Absence of a row means 'new' (the user
