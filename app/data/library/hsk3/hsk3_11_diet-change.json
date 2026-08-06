@@ -2099,14 +2099,14 @@
         "hsk_level": "new-2",
         "level_new": "new-2",
         "level_old": "old-2",
-        "pinyin": "biàn dé",
-        "meaning": "to change + to obtain",
+        "pinyin": "biàn de",
+        "meaning": "to become",
         "meanings": [
-          "to change + to obtain"
+          "to become"
         ],
         "frequency": 0,
         "is_hsk": true,
-        "translation_source": "hsk-chars",
+        "translation_source": "cedict",
         "radical": "又 + 彳",
         "radical_pinyin": "yòu + chì",
         "user_state": null,

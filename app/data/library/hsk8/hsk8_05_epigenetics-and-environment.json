@@ -1960,14 +1960,14 @@
         "hsk_level": "new-2",
         "level_new": "new-2",
         "level_old": "old-2",
-        "pinyin": "biàn dé",
-        "meaning": "to change + to obtain",
+        "pinyin": "biàn de",
+        "meaning": "to become",
         "meanings": [
-          "to change + to obtain"
+          "to become"
         ],
         "frequency": 0,
         "is_hsk": true,
-        "translation_source": "hsk-chars",
+        "translation_source": "cedict",
         "radical": "又 + 彳",
         "radical_pinyin": "yòu + chì",
         "user_state": null,
@@ -7734,13 +7734,15 @@
         "level_new": "new-7",
         "level_old": "old-4",
         "pinyin": "bó yì",
-        "meaning": "(bound form) abundant; plentiful; extensive; wide + ancient name for go (Chinese board game)",
+        "meaning": "games (such as chess, dice etc)",
         "meanings": [
-          "(bound form) abundant; plentiful; extensive; wide + ancient name for go (Chinese board game)"
+          "games (such as chess, dice etc)",
+          "gambling",
+          "contest"
         ],
         "frequency": 0,
         "is_hsk": true,
-        "translation_source": "hsk-chars",
+        "translation_source": "cedict",
         "radical": "",
         "radical_pinyin": "",
         "user_state": null,

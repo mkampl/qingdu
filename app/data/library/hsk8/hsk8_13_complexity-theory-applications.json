@@ -4240,13 +4240,13 @@
         "level_new": "new-5",
         "level_old": "old-5",
         "pinyin": "háo miǎo",
-        "meaning": "hair + second (unit of time)",
+        "meaning": "millisecond, ms",
         "meanings": [
-          "hair + second (unit of time)"
+          "millisecond, ms"
         ],
         "frequency": 0,
         "is_hsk": true,
-        "translation_source": "hsk-chars",
+        "translation_source": "cedict",
         "radical": "禾",
         "radical_pinyin": "hé",
         "user_state": null,

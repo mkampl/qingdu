@@ -518,14 +518,15 @@
         "hsk_level": "new-1",
         "level_new": "new-1",
         "level_old": "old-1",
-        "pinyin": "yī gě",
-        "meaning": "one + used in 自個兒|自个儿[zi4 ge3 r5]",
+        "pinyin": "yī ge",
+        "meaning": "a; an; one",
         "meanings": [
-          "one + used in 自個兒|自个儿[zi4 ge3 r5]"
+          "a; an; one",
+          "the whole (afternoon, summer vacation etc)"
         ],
         "frequency": 0,
         "is_hsk": true,
-        "translation_source": "hsk-chars",
+        "translation_source": "cedict",
         "radical": "一 + 丨",
         "radical_pinyin": "yī + gǔn",
         "user_state": null,

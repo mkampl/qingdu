@@ -3012,13 +3012,13 @@
         "level_new": "new-7",
         "level_old": "old-1",
         "pinyin": "nǎi shì",
-        "meaning": "to be + to be (followed by substantives only)",
+        "meaning": "equivalent to either 是 (shì) or 就是 (jiù shì)",
         "meanings": [
-          "to be + to be (followed by substantives only)"
+          "equivalent to either 是 (shì) or 就是 (jiù shì)"
         ],
         "frequency": 0,
         "is_hsk": true,
-        "translation_source": "hsk-chars",
+        "translation_source": "cedict",
         "radical": "丿 + 日",
         "radical_pinyin": "piě + rì",
         "user_state": null,

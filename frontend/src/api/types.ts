@@ -29,6 +29,7 @@ export type TranslationSource =
   | "package"
   | "hsk"
   | "hsk-chars"
+  | "cedict"
   | "cache"
   | "linebreak";
 

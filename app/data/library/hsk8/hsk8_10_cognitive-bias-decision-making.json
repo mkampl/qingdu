@@ -5580,14 +5580,14 @@
         "level_new": "new-7",
         "level_old": null,
         "pinyin": "shěn jì",
-        "meaning": "to examine + to calculate",
+        "meaning": "to audit",
         "meanings": [
-          "to examine",
-          "to calculate"
+          "to audit",
+          "to examine finances"
         ],
         "frequency": 0,
         "is_hsk": true,
-        "translation_source": "hsk-chars",
+        "translation_source": "cedict",
         "radical": "宀 + 讠",
         "radical_pinyin": "mián + ",
         "user_state": null,

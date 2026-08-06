@@ -15,8 +15,12 @@ from app.core.constants import TRANSLATION_SOURCE_HSK
 from app.schemas import WordInfo
 from app.services import grammar
 from app.services.levels import estimate_text_level
-from app.services.word_lookup import create_compound_from_hsk, lookup_unknown_word
-from app.state import hsk_vocab
+from app.services.word_lookup import (
+    create_compound_from_hsk,
+    lookup_unknown_word,
+    resolve_from_cedict,
+)
+from app.state import cedict_vocab, hsk_vocab
 
 _SENTENCE_END_CHARS = "。！？!?…"
 
@@ -56,7 +60,12 @@ def _needs_lookup(segment: str) -> str | None:
     """
     Return the *kind* of lookup this segment needs, or None if it doesn't.
 
-    'compound' -> create_compound_from_hsk (every char is in HSK)
+    'cedict'   -> resolve_from_cedict (direct CC-CEDICT hit for the whole
+                  segment — e.g. "一个", "变得" — checked before 'compound'
+                  since a curated dictionary gloss beats gluing per-character
+                  meanings together)
+    'compound' -> create_compound_from_hsk (every char is in HSK, no CEDICT
+                  entry for the whole word)
     'unknown'  -> lookup_unknown_word
     None       -> in HSK directly, single char, or whitespace/linebreak
     """
@@ -66,6 +75,8 @@ def _needs_lookup(segment: str) -> str | None:
         return None
     if len(segment) <= 1:
         return None
+    if segment in cedict_vocab:
+        return "cedict"
     if all(char in hsk_vocab for char in segment):
         return "compound"
     return "unknown"
@@ -94,7 +105,9 @@ async def _resolve_unknowns(
 
     async def _resolve(seg: str, kind: str) -> tuple[str, dict | None]:
         async with sem:
-            if kind == "compound":
+            if kind == "cedict":
+                info = resolve_from_cedict(seg)
+            elif kind == "compound":
                 info = await create_compound_from_hsk(seg)
             else:
                 info = await lookup_unknown_word(seg)
