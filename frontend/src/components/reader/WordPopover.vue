@@ -13,7 +13,6 @@ import { useUserWordsStore } from "@/stores/userWords";
 import { useVocabListsStore } from "@/stores/vocab-lists";
 
 import HskChip from "./HskChip.vue";
-import PronunciationCheck from "./PronunciationCheck.vue";
 import StrokeOrder from "./StrokeOrder.vue";
 import { levelForVersion } from "./utils";
 
@@ -368,12 +367,6 @@ async function setWordState(state: UserWordState) {
                     />
                   </svg>
                 </button>
-                <PronunciationCheck
-                  :target="word.text"
-                  :pinyin="
-                    word.pinyin ? word.pinyin.split(/\s+/).filter(Boolean) : []
-                  "
-                />
               </div>
               <HskChip v-if="wordLevel" :level="wordLevel" />
             </div>

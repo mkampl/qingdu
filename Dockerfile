@@ -11,15 +11,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies. ffmpeg is here so faster-whisper can
-# decode browser-recorded WebM/Opus and librosa's audioread backend
-# can resample. libsndfile1 is the C library soundfile binds to.
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    ffmpeg \
-    libsndfile1 \
-    && rm -rf /var/lib/apt/lists/*
+# No system-level build deps needed — every requirement installs from a
+# prebuilt wheel on this platform (verified directly, not assumed). Used to
+# install gcc/g++/ffmpeg/libsndfile1 here for the pronunciation-check
+# feature (faster-whisper + librosa); removed with that feature 2026-08-06.
 
 # Copy requirements first for better caching
 COPY requirements.txt .
@@ -68,10 +63,9 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 
 # Single worker: this is a personal-scale deployment, not high-concurrency
 # traffic, and every worker independently loads its own copy of jieba's
-# dictionary + HSK vocab + CC-CEDICT (~250-350MB) since uvicorn's workers
-# are spawned, not forked (no copy-on-write sharing) — 2 workers meant
-# paying that cost twice for no real benefit. The one CPU-heavy endpoint
-# (/api/pronounce, Whisper + librosa) already runs via run_in_threadpool
-# (see app/routers/pronounce.py), so a single worker's event loop doesn't
-# block on it.
+# dictionary + HSK vocab + CC-CEDICT since uvicorn's workers are spawned,
+# not forked (no copy-on-write sharing) — 2 workers meant paying that cost
+# twice for no real benefit. (The one CPU-heavy endpoint that used to
+# justify hedging on this, /api/pronounce, was removed 2026-08-06 along
+# with the rest of the Whisper/librosa pronunciation-check feature.)
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

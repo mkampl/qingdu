@@ -34,7 +34,6 @@ from app.routers import (
     legal,
     library,
     package,
-    pronounce,
     review,
     spa,
     stats,
@@ -162,7 +161,6 @@ app.include_router(convert.router)
 app.include_router(stats.router)
 app.include_router(export.router)
 app.include_router(package.router)
-app.include_router(pronounce.router)
 app.include_router(library.router)
 app.include_router(tokens.router)
 app.include_router(external.router)

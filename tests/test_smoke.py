@@ -20,8 +20,12 @@ def test_route_count(app_module):
     +5 = 101/106 for Phase #121's external-integration API: GET + POST +
     DELETE /api/tokens[/{id}] and GET /api/external/words, POST
     /api/external/words/encountered.
+    -1 = 100/105 for the 2026-08-06 removal of POST /api/pronounce (the
+    Whisper + librosa pronunciation-check feature — retired for its
+    dependency weight; see the qingdu-pronunciation-check.md writeup in
+    the companion project for the retrospective).
     """
-    assert len(app_module.routes) in (101, 106)
+    assert len(app_module.routes) in (100, 105)
 
 
 def test_router_tags_present(app_module):
@@ -48,7 +52,6 @@ def test_router_tags_present(app_module):
         "Stats",
         "Export",
         "Package Import",
-        "Pronounce",
         "Library",
         "API Tokens",
         "External API",

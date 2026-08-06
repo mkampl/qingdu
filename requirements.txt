@@ -46,15 +46,6 @@ fsrs==6.3.1
 # Traditional ⇄ Simplified Chinese conversion (Phase E1)
 opencc-python-reimplemented==0.1.7
 
-# Server-side pronunciation assessment (Phase #95 follow-up):
-# - faster-whisper bundles a CTranslate2-quantised Whisper ASR. We
-#   load the "small" model on first request (~250 MB int8 after CT2
-#   conversion). Replaces Web Speech for browsers without it (Firefox)
-#   and lets us score tone-contour quality, not just text identity.
-# - librosa is for librosa.pyin (F0 extraction) and audio I/O. ffmpeg
-#   needs to be present at runtime — installed in the Dockerfile.
-faster-whisper==1.0.3
-librosa==0.10.2.post1
 
 # EPUB / PDF import (Phase E2)
 EbookLib==0.20

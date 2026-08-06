@@ -19,7 +19,6 @@ import { useRouter } from "vue-router";
 import * as api from "@/api/client";
 import type { QueueMode, ReviewGrade, ReviewMode } from "@/api/client";
 import WeeklySparkline from "@/components/reader/WeeklySparkline.vue";
-import PronunciationCheck from "@/components/reader/PronunciationCheck.vue";
 import StrokeOrder from "@/components/reader/StrokeOrder.vue";
 import WritingQuiz from "@/components/reader/WritingQuiz.vue";
 import { useAuthStore } from "@/stores/auth";
@@ -1176,33 +1175,6 @@ watch(
             </p>
           </div>
         </template>
-      </div>
-
-      <!-- Pronunciation practice — shown alongside the answer in every
-           mode. Optional / doesn't affect grading; the user can tap the
-           mic to speak the target word and get per-syllable tone
-           feedback from /api/pronounce. -->
-      <div
-        v-if="
-          card &&
-          ((activeSurface === 'recognition' && revealed) ||
-            (activeSurface === 'dictation' && dictationFeedback !== '') ||
-            (activeSurface === 'writing' && writingDone) ||
-            (activeSurface === 'trace' && writingDone) ||
-            (activeSurface === 'produce' && writingDone) ||
-            (activeSurface === 'cloze' && clozeFeedback !== ''))
-        "
-        class="mb-4 flex items-start justify-center gap-3 border-t border-border-subtle pt-4"
-      >
-        <p
-          class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
-        >
-          Say it
-        </p>
-        <PronunciationCheck
-          :target="card.word"
-          :pinyin="card.pinyin ? card.pinyin.split(/\s+/).filter(Boolean) : []"
-        />
       </div>
 
       <!-- Grade row — visible after reveal in recognition, after answer in
