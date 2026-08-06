@@ -179,6 +179,29 @@ spa.mount(app)
 _BURNED_SECRET_KEYS = {"9ndRcryRqp0DbvQBThQmjTybD6nIyHbAHiYOyj44DsE"}
 
 
+def _release_startup_memory() -> None:
+    """
+    Hand fragmented heap memory back to the OS after the one-time HSK
+    vocab download/merge + CC-CEDICT load + jieba dictionary build.
+
+    That startup sequence briefly holds several full copies of the
+    vocabulary in memory at once (raw source, processed dict, radical
+    enrichment, backup writes) — a peak far above what the resulting
+    module-level dicts actually need long-term. CPython's allocator
+    doesn't return freed arenas to the OS on its own, so without this the
+    process's RSS stays pinned near that transient peak for its entire
+    lifetime (measured ~40-100MB of pure fragmentation on this workload).
+    glibc's malloc_trim does the release; harmless no-op if unavailable
+    (e.g. a non-glibc base image).
+    """
+    try:
+        import ctypes
+
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except (OSError, AttributeError):
+        pass
+
+
 def _validate_environment() -> None:
     """Fail fast at startup if required env vars are missing."""
     required_vars = ["SECRET_KEY"]
@@ -270,6 +293,8 @@ async def startup_event() -> None:
             jieba.add_word(word, freq=base_freq)
             added_to_jieba += 1
     logger.info(f"Added {added_to_jieba} multi-character HSK words with priority to jieba")
+
+    _release_startup_memory()
 
     logger.info("Initializing database...")
     init_db()

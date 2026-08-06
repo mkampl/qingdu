@@ -66,4 +66,12 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=2).status == 200 else 1)" || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+# Single worker: this is a personal-scale deployment, not high-concurrency
+# traffic, and every worker independently loads its own copy of jieba's
+# dictionary + HSK vocab + CC-CEDICT (~250-350MB) since uvicorn's workers
+# are spawned, not forked (no copy-on-write sharing) — 2 workers meant
+# paying that cost twice for no real benefit. The one CPU-heavy endpoint
+# (/api/pronounce, Whisper + librosa) already runs via run_in_threadpool
+# (see app/routers/pronounce.py), so a single worker's event loop doesn't
+# block on it.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
