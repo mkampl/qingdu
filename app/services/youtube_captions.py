@@ -40,8 +40,23 @@ logger = logging.getLogger(__name__)
 # we ever fall back to auto-generated ASR captions for any of them.
 _PREFERRED_LANGS = ["zh-Hans", "zh-CN", "zh", "zh-Hant", "zh-TW", "zh-HK"]
 
-_SENTENCE_END = "。！？!?…"
-_MAX_SENTENCE_CHARS = 60  # ASR cues rarely carry punctuation; caps run-on merges
+# Real terminal punctuation always closes a sentence. Commas/enumeration
+# commas are a *soft* close — added after real-world captions turned out
+# to rarely carry a full stop mid-narration, which let unrelated clauses
+# glue into one multi-second highlighted block (a 73-char, 14s block was
+# observed on a real TED zh-Hans track). A cue containing a comma still
+# closes cleanly on a complete clause, since we only ever cut at cue
+# boundaries, never mid-cue.
+_SENTENCE_END = "。！？!?…，、"
+_MAX_SENTENCE_CHARS = 25
+# A caption track can carry zero punctuation of any kind (observed: a
+# fansubbed episode, "manually created" track, no full stops and no
+# commas anywhere) and can have long silent/no-dialogue gaps between
+# cues. The char cap alone doesn't catch that second case — a
+# 168-second block was observed spanning a scene change, since only
+# ~68 characters were spoken across that whole span. This time cap
+# forces a cut regardless of character count once a block runs long.
+_MAX_SENTENCE_SECONDS = 8.0
 _MAX_CUES = 400  # guards against multi-hour videos blowing up the analysis pass
 
 _VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
@@ -123,6 +138,10 @@ def _merge_into_sentences(cues: list[dict]) -> list[CaptionSentence]:
     buf_text: list[str] = []
     buf_start: float | None = None
     buf_end = 0.0
+    # Tracks the furthest cue-end seen so far, independent of buf_end
+    # (which resets on every flush) — needed to detect a cue jumping
+    # backward in time even right after a fresh buffer started.
+    last_cue_end = 0.0
 
     def flush() -> None:
         if buf_text and buf_start is not None:
@@ -132,12 +151,32 @@ def _merge_into_sentences(cues: list[dict]) -> list[CaptionSentence]:
         text = cue["text"].strip().replace("\n", " ")
         if not text:
             continue
+        # Real caption tracks are supposed to be chronological, but a
+        # fansubbed episode was observed with a chunk of duplicate/corrupt
+        # cues jumping backward by hundreds of seconds partway through —
+        # trusting that blindly produced a sentence with end < start.
+        # Silently drop anything that isn't roughly forward-moving rather
+        # than trying to guess how to reorder genuinely broken data.
+        if cue["start"] < last_cue_end - 0.5:
+            continue
+        last_cue_end = max(last_cue_end, cue["start"] + cue["duration"])
+        # Check both caps *before* appending — checking after let a block
+        # overshoot by up to one whole cue's length (a 31-char result was
+        # observed with a 25-char cap), since by then it's too late to
+        # avoid adding this cue to the block that's about to close anyway.
+        prospective_len = sum(len(t) for t in buf_text) + len(text)
+        prospective_end = cue["start"] + cue["duration"]
+        too_long = buf_text and prospective_len > _MAX_SENTENCE_CHARS
+        too_slow = buf_start is not None and (prospective_end - buf_start) > _MAX_SENTENCE_SECONDS
+        if buf_text and (too_long or too_slow):
+            flush()
+            buf_text = []
+            buf_start = None
         if buf_start is None:
             buf_start = cue["start"]
         buf_text.append(text)
         buf_end = cue["start"] + cue["duration"]
-        joined_len = sum(len(t) for t in buf_text)
-        if any(p in text for p in _SENTENCE_END) or joined_len >= _MAX_SENTENCE_CHARS:
+        if any(p in text for p in _SENTENCE_END):
             flush()
             buf_text = []
             buf_start = None

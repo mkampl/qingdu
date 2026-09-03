@@ -46,21 +46,27 @@ class TestExtractVideoId:
 
 
 class TestMergeIntoSentences:
-    def test_manual_captions_merge_until_the_sentence_actually_ends(self):
+    def test_manual_captions_merge_until_a_cap_or_the_sentence_ends(self):
         """
         Real manually-authored cues (this is an actual TED zh-Hans track) —
         cue boundaries follow line-length/timing, not sentence boundaries,
-        so a cue with no closing punctuation correctly merges into the next.
+        so a cue with no closing punctuation correctly merges into the
+        next. Here the second cue alone (17 chars) would push the combined
+        block to 26 chars, over the 25-char cap, so the cap closes the
+        first cue out on its own rather than gluing them together.
         """
         cues = [
             {"text": "我第一次看到园区时", "start": 0.2, "duration": 1.1},
             {"text": "觉得简直不可思议，这里有排球场地。", "start": 1.3, "duration": 2.6},
         ]
         sentences = _merge_into_sentences(cues)
-        assert len(sentences) == 1
-        assert sentences[0].text == "我第一次看到园区时觉得简直不可思议，这里有排球场地。"
+        assert len(sentences) == 2
+        assert sentences[0].text == "我第一次看到园区时"
         assert sentences[0].start == 0.2
-        assert sentences[0].end == pytest.approx(3.9)
+        assert sentences[0].end == pytest.approx(1.3)
+        assert sentences[1].text == "觉得简直不可思议，这里有排球场地。"
+        assert sentences[1].start == pytest.approx(1.3)
+        assert sentences[1].end == pytest.approx(3.9)
 
     def test_manual_captions_close_out_a_cue_that_ends_the_sentence(self):
         cues = [
@@ -105,3 +111,67 @@ class TestMergeIntoSentences:
 
     def test_empty_input_returns_empty_list(self):
         assert _merge_into_sentences([]) == []
+
+    def test_comma_forces_an_early_split_with_no_terminal_punctuation(self):
+        """
+        Real-world regression: a fansubbed episode's "manually created"
+        track had zero punctuation of any kind for long stretches, which
+        let unrelated clauses glue into one 60+-char, 14s+ highlighted
+        block. Treating a comma as a soft close (once the buffer already
+        has content) fixes the common case where clauses ARE comma-
+        separated even without a final full stop.
+        """
+        cues = [
+            {"text": "你好，世界", "start": 0.0, "duration": 1.0},
+            {"text": "这是下一句", "start": 1.0, "duration": 1.0},
+        ]
+        sentences = _merge_into_sentences(cues)
+        assert len(sentences) == 2
+        assert sentences[0].text == "你好，世界"
+        assert sentences[1].text == "这是下一句"
+
+    def test_char_cap_never_overshoots_across_multiple_cues(self):
+        """
+        The cap must be checked *before* appending, not after — checking
+        after let a block grow to 31 chars against a 25-char cap, since by
+        the time the overshoot was noticed the cue was already glued on.
+        """
+        cues = [{"text": "字" * 10, "start": float(i), "duration": 1.0} for i in range(5)]
+        sentences = _merge_into_sentences(cues)
+        assert all(len(s.text) <= 25 for s in sentences)
+
+    def test_time_cap_forces_a_cut_across_a_long_silent_gap(self):
+        """
+        Real-world regression: a scene-change gap of ~170s between two
+        cues with sparse text produced one sentence spanning 168 seconds,
+        because only character count was capped. A short span of dialogue
+        followed by a huge time jump must not be merged with what comes
+        after it, even though the combined text is well under the char cap.
+        """
+        cues = [
+            {"text": "你好", "start": 0.0, "duration": 1.0},
+            {"text": "再见", "start": 170.0, "duration": 1.0},
+        ]
+        sentences = _merge_into_sentences(cues)
+        assert len(sentences) == 2
+        assert sentences[0].text == "你好"
+        assert sentences[0].end == pytest.approx(1.0)
+        assert sentences[1].text == "再见"
+        assert sentences[1].start == pytest.approx(170.0)
+
+    def test_backward_jumping_cues_are_dropped_not_merged(self):
+        """
+        Real-world regression: a fansubbed episode's caption track had a
+        chunk of duplicate/corrupt cues jumping backward by hundreds of
+        seconds partway through, which produced a sentence with
+        end < start when trusted blindly.
+        """
+        cues = [
+            {"text": "正常的对话", "start": 1410.0, "duration": 4.7},
+            {"text": "损坏的重复数据", "start": 1053.259, "duration": 1.4},
+            {"text": "更多损坏数据", "start": 21.97, "duration": 1.0},
+        ]
+        sentences = _merge_into_sentences(cues)
+        assert len(sentences) == 1
+        assert sentences[0].text == "正常的对话"
+        assert sentences[0].end >= sentences[0].start
