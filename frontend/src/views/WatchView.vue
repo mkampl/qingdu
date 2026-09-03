@@ -145,7 +145,7 @@ async function loadVideo() {
   } catch (e) {
     const message =
       e instanceof ApiError
-        ? String(e.detail ?? e.message)
+        ? e.message
         : e instanceof Error
           ? e.message
           : "Couldn't load that video";
