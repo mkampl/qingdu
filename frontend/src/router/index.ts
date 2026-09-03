@@ -67,6 +67,13 @@ export const router = createRouter({
       props: true,
     },
     {
+      // Prototype spike, deliberately not linked from nav — see the
+      // 2026-09-03 Discover conversation for the feasibility analysis.
+      path: "/watch",
+      name: "watch",
+      component: () => import("@/views/WatchView.vue"),
+    },
+    {
       path: "/privacy",
       name: "privacy",
       component: () => import("@/views/PrivacyView.vue"),

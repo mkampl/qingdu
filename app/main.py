@@ -33,6 +33,7 @@ from app.routers import (
     invitations,
     legal,
     library,
+    media,
     package,
     review,
     spa,
@@ -164,6 +165,7 @@ app.include_router(package.router)
 app.include_router(library.router)
 app.include_router(tokens.router)
 app.include_router(external.router)
+app.include_router(media.router)
 
 # Vue 3 SPA at /. Includes a catch-all /{rest:path} route, so this MUST be
 # the last router registered or it will swallow API paths. Also registers

@@ -19,6 +19,7 @@ import type {
   TranslateResponse,
   VocabStatsResponse,
   VocabularyListSummary,
+  WordInfo,
 } from "./types";
 
 const TOKEN_KEY = "qingdu.token.v2";
@@ -636,6 +637,24 @@ export interface ExtractedArticle {
 
 export const extractArticle = (url: string) =>
   request<ExtractedArticle>("/api/extract", { body: { url } });
+
+// --- Watch & read prototype (spike, not a shipped feature yet) -------------
+
+export interface YoutubeSegment {
+  start: number;
+  end: number;
+  text: string;
+  words: WordInfo[];
+}
+
+export interface YoutubeReadResponse {
+  video_id: string;
+  is_generated: boolean;
+  segments: YoutubeSegment[];
+}
+
+export const readYoutube = (url: string) =>
+  request<YoutubeReadResponse>("/api/media/youtube", { body: { url } });
 
 // --- Pre-analyzed package import (Phase #100) ------------------------------
 

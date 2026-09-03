@@ -53,6 +53,11 @@ pypdf==6.12.1
 beautifulsoup4==4.12.3
 #pypinyin==0.49.0
 
+# YouTube caption fetch for the watch-and-read prototype. Pure Python,
+# hits the same public timedtext endpoint the YouTube player itself
+# uses — no API key, no browser binary.
+youtube-transcript-api==1.2.4
+
 # Retry logic
 tenacity==8.2.3
 

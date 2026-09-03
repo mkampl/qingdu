@@ -24,8 +24,10 @@ def test_route_count(app_module):
     Whisper + librosa pronunciation-check feature — retired for its
     dependency weight; see the qingdu-pronunciation-check.md writeup in
     the companion project for the retrospective).
+    +1 = 101/106 for the 2026-09-03 watch-and-read prototype's
+    POST /api/media/youtube (spike, not a shipped feature yet).
     """
-    assert len(app_module.routes) in (100, 105)
+    assert len(app_module.routes) in (101, 106)
 
 
 def test_router_tags_present(app_module):
