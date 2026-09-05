@@ -127,6 +127,39 @@ def _fetch_raw_cues(video_id: str) -> tuple[list[dict], bool]:
     return cues, transcript.is_generated
 
 
+_SENTENCE_BOUNDARY = re.compile(r"(?<=[。！？!?…])")
+
+
+def _split_cue_into_sentences(cue: dict) -> list[dict]:
+    """
+    Split one cue's own text at real sentence-ending punctuation into
+    sub-cues, distributing its [start, end] span proportionally by
+    character count. A cue with no internal sentence break comes back
+    unchanged.
+
+    Needed for Whisper/SRT-sourced cues specifically (see qingdu-watch,
+    the companion tool this module was ported to): ASR timestamps only
+    exist at the segment level, and a segment routinely bundles several
+    complete sentences into one multi-second block — the highlight then
+    lagged 4-5 real sentences behind the audio. There's no true
+    per-sentence timing to fall back on, so this is a proportional-by-
+    length approximation, not exact — but a large improvement over one
+    highlight per ASR segment. Harmless no-op for ordinary YouTube
+    caption cues, which are usually already single clauses.
+    """
+    parts = [p for p in _SENTENCE_BOUNDARY.split(cue["text"]) if p.strip()]
+    if len(parts) <= 1:
+        return [cue]
+    total_len = sum(len(p) for p in parts) or 1
+    out = []
+    offset = 0.0
+    for p in parts:
+        part_duration = cue["duration"] * (len(p) / total_len)
+        out.append({"text": p, "start": cue["start"] + offset, "duration": part_duration})
+        offset += part_duration
+    return out
+
+
 def _merge_into_sentences(cues: list[dict]) -> list[CaptionSentence]:
     """
     Merge consecutive cues into sentence-level chunks with start/end
@@ -134,6 +167,7 @@ def _merge_into_sentences(cues: list[dict]) -> list[CaptionSentence]:
     punctuation, so this is effectively a 1:1 pass-through for those —
     the merging logic only does real work on unpunctuated ASR streams.
     """
+    cues = [sub for cue in cues for sub in _split_cue_into_sentences(cue)]
     out: list[CaptionSentence] = []
     buf_text: list[str] = []
     buf_start: float | None = None

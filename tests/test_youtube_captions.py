@@ -175,3 +175,37 @@ class TestMergeIntoSentences:
         assert len(sentences) == 1
         assert sentences[0].text == "正常的对话"
         assert sentences[0].end >= sentences[0].start
+
+    def test_multi_sentence_cue_splits_with_proportional_timing(self):
+        """
+        Real-world regression: a Whisper/SRT segment (transcribe-
+        orchestrator's ASR output) bundled two complete sentences into
+        one ~21.6s block, since ASR timestamps only exist at the segment
+        level — the highlight then lagged a full sentence behind the
+        audio. A cue's own text must be split at real sentence-ending
+        punctuation before the merge/cap logic ever sees it.
+        """
+        cues = [
+            {
+                "text": "我是佩琪，这是我的弟弟乔治，这是我的妈妈，这是我的爸爸。小猪佩琪露营度假，佩琪和她的家人开着露营车度假去了。",
+                "start": 0.1,
+                "duration": 21.6,
+            },
+        ]
+        sentences = _merge_into_sentences(cues)
+        assert len(sentences) == 2
+        assert sentences[0].text == "我是佩琪，这是我的弟弟乔治，这是我的妈妈，这是我的爸爸。"
+        assert sentences[1].text == "小猪佩琪露营度假，佩琪和她的家人开着露营车度假去了。"
+        # Proportional split: sentence 1 is 28 of the 54 total characters,
+        # so it should get roughly (28/54) of the 21.6s span, not all of it.
+        assert sentences[0].start == pytest.approx(0.1)
+        assert sentences[0].end == pytest.approx(0.1 + 21.6 * 28 / 54, abs=0.05)
+        assert sentences[1].end == pytest.approx(21.7)
+
+    def test_single_sentence_cue_is_unaffected_by_the_split(self):
+        cues = [{"text": "你好，世界！", "start": 0.0, "duration": 2.0}]
+        sentences = _merge_into_sentences(cues)
+        assert len(sentences) == 1
+        assert sentences[0].text == "你好，世界！"
+        assert sentences[0].start == 0.0
+        assert sentences[0].end == pytest.approx(2.0)
