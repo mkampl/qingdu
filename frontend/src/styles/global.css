@@ -35,30 +35,39 @@
 }
 
 /* HSK wash tones — declared outside @theme so Tailwind doesn't tree-shake them
-   (they're referenced via inline style + .hsk-wash CSS rule, not utilities). */
-:root {
-  --color-hsk-1: oklch(0.78 0.10 145);
-  --color-hsk-2: oklch(0.78 0.08 230);
-  --color-hsk-3: oklch(0.80 0.11 75);
-  --color-hsk-4: oklch(0.80 0.10 330);
-  --color-hsk-5: oklch(0.78 0.10 285);
-  --color-hsk-6: oklch(0.78 0.10 25);
-  --color-hsk-7: oklch(0.70 0.04 50);
-  --color-hsk-8: oklch(0.80 0.10 110);
-  --color-hsk-9: oklch(0.82 0.08 95);
-  --color-hsk-unknown: oklch(0.85 0.005 80);
+   (they're referenced via inline style + .hsk-wash CSS rule, not utilities).
+   Wrapped in @layer base (2026-09-06 fix): an unlayered :root rule beats
+   *any* @layer rule regardless of specificity, so before this the
+   html.dark override below (also @layer base) never actually won — dark
+   mode was silently rendering these light-mode HSK hues the whole time
+   (confirmed via computed style: --color-hsk-1 read back as the light
+   value oklch(0.78 ...) with html.dark applied). Same layer as the
+   override restores normal specificity-based cascade. */
+@layer base {
+  :root {
+    --color-hsk-1: oklch(0.78 0.10 145);
+    --color-hsk-2: oklch(0.78 0.08 230);
+    --color-hsk-3: oklch(0.80 0.11 75);
+    --color-hsk-4: oklch(0.80 0.10 330);
+    --color-hsk-5: oklch(0.78 0.10 285);
+    --color-hsk-6: oklch(0.78 0.10 25);
+    --color-hsk-7: oklch(0.70 0.04 50);
+    --color-hsk-8: oklch(0.80 0.10 110);
+    --color-hsk-9: oklch(0.82 0.08 95);
+    --color-hsk-unknown: oklch(0.85 0.005 80);
 
-  /* Phase A — progress-mode wash for words you've never touched. Low-chroma
-     sky blue so it reads as "neutral / awaiting attention" against the
-     warm-paper background, and is unmistakably distinct from any of the
-     HSK rainbow hues above. */
-  --color-progress-new: oklch(0.78 0.06 245);
+    /* Phase A — progress-mode wash for words you've never touched. Low-chroma
+       sky blue so it reads as "neutral / awaiting attention" against the
+       warm-paper background, and is unmistakably distinct from any of the
+       HSK rainbow hues above. */
+    --color-progress-new: oklch(0.78 0.06 245);
 
-  /* Phase #99 — wash for words pulled from a user glossary. Deep magenta /
-     orchid sits outside the HSK rainbow's hue range (none of HSK 1–9 are
-     near 305°), so a glossary hit reads as obviously special even in HSK
-     coloring mode. */
-  --color-glossary: oklch(0.72 0.13 305);
+    /* Phase #99 — wash for words pulled from a user glossary. Deep magenta /
+       orchid sits outside the HSK rainbow's hue range (none of HSK 1–9 are
+       near 305°), so a glossary hit reads as obviously special even in HSK
+       coloring mode. */
+    --color-glossary: oklch(0.72 0.13 305);
+  }
 }
 
 @layer base {
