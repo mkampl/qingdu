@@ -128,14 +128,14 @@ def _fetch_raw_cues(video_id: str) -> tuple[list[dict], bool]:
 
 
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[。！？!?…])")
+_COMMA_BOUNDARY = re.compile(r"(?<=[，、,])")
 
 
 def _split_cue_into_sentences(cue: dict) -> list[dict]:
     """
-    Split one cue's own text at real sentence-ending punctuation into
-    sub-cues, distributing its [start, end] span proportionally by
-    character count. A cue with no internal sentence break comes back
-    unchanged.
+    Split one cue's own text into sub-cues, distributing its [start, end]
+    span proportionally by character count. A short cue with no internal
+    sentence break comes back unchanged.
 
     Needed for Whisper/SRT-sourced cues specifically (see qingdu-watch,
     the companion tool this module was ported to): ASR timestamps only
@@ -146,8 +146,36 @@ def _split_cue_into_sentences(cue: dict) -> list[dict]:
     length approximation, not exact — but a large improvement over one
     highlight per ASR segment. Harmless no-op for ordinary YouTube
     caption cues, which are usually already single clauses.
+
+    Three tiers, each only engaged if the previous one didn't produce a
+    split *and* the cue is actually over-length/over-duration (so a
+    short, legitimately single sentence like "你好，世界" that merely
+    contains an internal comma is never chopped up):
+      1. real terminal punctuation (。！？!?…) — always tried first.
+      2. commas/enumeration commas — real content was observed running
+         20+ seconds on commas alone with no full stop at all (a
+         run-on line of dialogue).
+      3. hard character-count/duration chunking — last resort for
+         content with no punctuation of any kind (observed: sung
+         dialogue, ~24s of continuous lyrics, zero commas or full
+         stops). Not a real sentence boundary, just a cap on how long
+         one highlight can run — chunk count must satisfy both the char
+         and time caps, since slow/drawn-out singing can badly exceed
+         the time cap on very few characters.
     """
-    parts = [p for p in _SENTENCE_BOUNDARY.split(cue["text"]) if p.strip()]
+    text = cue["text"]
+    too_big = len(text) > _MAX_SENTENCE_CHARS or cue["duration"] > _MAX_SENTENCE_SECONDS
+
+    parts = [p for p in _SENTENCE_BOUNDARY.split(text) if p.strip()]
+    if len(parts) <= 1 and too_big:
+        parts = [p for p in _COMMA_BOUNDARY.split(text) if p.strip()]
+    if len(parts) <= 1 and too_big:
+        n_chars = -(-len(text) // _MAX_SENTENCE_CHARS)  # ceil division
+        n_time = -(-int(cue["duration"]) // int(_MAX_SENTENCE_SECONDS))
+        n = max(1, n_chars, n_time)
+        chunk_size = -(-len(text) // n)
+        parts = [text[i : i + chunk_size] for i in range(0, len(text), chunk_size)]
+
     if len(parts) <= 1:
         return [cue]
     total_len = sum(len(p) for p in parts) or 1

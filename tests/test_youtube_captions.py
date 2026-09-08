@@ -8,6 +8,8 @@ synthetic cues rather than hitting YouTube.
 import pytest
 
 from app.services.youtube_captions import (
+    _MAX_SENTENCE_CHARS,
+    _MAX_SENTENCE_SECONDS,
     YoutubeCaptionError,
     _merge_into_sentences,
     extract_video_id,
@@ -93,12 +95,19 @@ class TestMergeIntoSentences:
         # Trailing unfinished cue still gets flushed at the end.
         assert sentences[1].text == "我们出去玩吧"
 
-    def test_long_unpunctuated_run_is_cut_by_the_length_cap(self):
+    def test_long_unpunctuated_single_cue_is_hard_chunked(self):
+        """
+        A single cue with no punctuation at all used to pass through
+        whole regardless of length (merging can't split *within* a cue,
+        only cap how many cues get glued together) — the hard-chunking
+        tier in _split_cue_into_sentences now closes that gap too.
+        """
         long_word = "字" * 70
         cues = [{"text": long_word, "start": 0.0, "duration": 1.0}]
         sentences = _merge_into_sentences(cues)
-        assert len(sentences) == 1
-        assert sentences[0].text == long_word
+        assert len(sentences) > 1
+        assert all(len(s.text) <= _MAX_SENTENCE_CHARS for s in sentences)
+        assert "".join(s.text for s in sentences) == long_word
 
     def test_empty_cues_are_skipped(self):
         cues = [
@@ -209,3 +218,54 @@ class TestMergeIntoSentences:
         assert sentences[0].text == "你好，世界！"
         assert sentences[0].start == 0.0
         assert sentences[0].end == pytest.approx(2.0)
+
+    def test_short_comma_only_cue_is_not_split(self):
+        """
+        A short cue with an internal comma but no final mark (a common,
+        legitimate shape — e.g. a trailing clause cut off mid-thought)
+        must not be chopped at the comma; only over-length/over-duration
+        cues fall through to the comma tier.
+        """
+        cues = [{"text": "既然我们来到了郊外，我觉得", "start": 0.0, "duration": 3.0}]
+        sentences = _merge_into_sentences(cues)
+        assert len(sentences) == 1
+        assert sentences[0].text == "既然我们来到了郊外，我觉得"
+
+    def test_long_comma_only_cue_falls_back_to_comma_split(self):
+        """
+        Real-world regression: a Peppa Pig dialogue line ran 21.5s/96
+        chars on commas alone with zero terminal punctuation anywhere —
+        the sentence-boundary tier alone left it as one giant block.
+        """
+        text = (
+            "好的，等一下，佩奇，蔬菜皮不能直接扔进普通的垃圾桶，"
+            "他们要扔进这个棕色的垃圾桶，香蕉，没错，乔治，那个就是香蕉皮，"
+            "除此之外还有洋葱、胡萝卜和其他蔬菜削下来的皮都在里面，猪爷爷，猪奶奶会很喜欢的"
+        )
+        cues = [{"text": text, "start": 34.2, "duration": 21.5}]
+        sentences = _merge_into_sentences(cues)
+        assert len(sentences) > 5
+        assert all(len(s.text) <= _MAX_SENTENCE_CHARS for s in sentences)
+        assert sentences[0].text == "好的，"
+        assert sentences[0].start == pytest.approx(34.2)
+        assert sentences[-1].end == pytest.approx(34.2 + 21.5)
+
+    def test_punctuation_free_cue_falls_back_to_hard_chunking(self):
+        """
+        Real-world regression: sung dialogue ran 23.7s/52 chars with
+        *zero* punctuation of any kind (no commas, no full stops) —
+        neither the sentence nor comma tier can split this at all, so
+        the last-resort character-count chunker has to engage. Chunk
+        count must satisfy both caps: this text is well under the char
+        cap in total but badly exceeds the time cap (slow singing), so
+        char-count alone (round(52/25)=2 chunks of ~12s each) wouldn't
+        have been enough on its own.
+        """
+        text = "一条蚯蚓虫子 虫子你是小虫子你是小虫子你好吗我爱你你是小虫子干得好你要做条好虫子哦把这些都变成堆肥哦好吗"
+        cues = [{"text": text, "start": 165.9, "duration": 23.7}]
+        sentences = _merge_into_sentences(cues)
+        assert len(sentences) >= 3
+        assert all((s.end - s.start) <= _MAX_SENTENCE_SECONDS + 0.5 for s in sentences)
+        assert "".join(s.text for s in sentences) == text
+        assert sentences[0].start == pytest.approx(165.9)
+        assert sentences[-1].end == pytest.approx(165.9 + 23.7)
