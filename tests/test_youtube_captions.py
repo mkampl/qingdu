@@ -189,27 +189,31 @@ class TestMergeIntoSentences:
         """
         Real-world regression: a Whisper/SRT segment (transcribe-
         orchestrator's ASR output) bundled two complete sentences into
-        one ~21.6s block, since ASR timestamps only exist at the segment
-        level — the highlight then lagged a full sentence behind the
-        audio. A cue's own text must be split at real sentence-ending
-        punctuation before the merge/cap logic ever sees it.
+        one multi-second block, since ASR timestamps only exist at the
+        segment level — the highlight then lagged a full sentence behind
+        the audio. A cue's own text must be split at real sentence-ending
+        punctuation before the merge/cap logic ever sees it. Both
+        sentences here are individually under the char cap, so this
+        isolates the sentence-boundary tier itself — a case where one
+        piece is still too long after this split is covered separately
+        (test_partial_punctuation_still_escalates_the_leftover_remainder).
         """
         cues = [
             {
-                "text": "我是佩琪，这是我的弟弟乔治，这是我的妈妈，这是我的爸爸。小猪佩琪露营度假，佩琪和她的家人开着露营车度假去了。",
+                "text": "我是佩琪，这是我弟弟乔治。这是我妈妈，这是我爸爸。",
                 "start": 0.1,
-                "duration": 21.6,
+                "duration": 10.0,
             },
         ]
         sentences = _merge_into_sentences(cues)
         assert len(sentences) == 2
-        assert sentences[0].text == "我是佩琪，这是我的弟弟乔治，这是我的妈妈，这是我的爸爸。"
-        assert sentences[1].text == "小猪佩琪露营度假，佩琪和她的家人开着露营车度假去了。"
-        # Proportional split: sentence 1 is 28 of the 54 total characters,
-        # so it should get roughly (28/54) of the 21.6s span, not all of it.
+        assert sentences[0].text == "我是佩琪，这是我弟弟乔治。"
+        assert sentences[1].text == "这是我妈妈，这是我爸爸。"
+        # Proportional split: sentence 1 is 13 of the 25 total characters,
+        # so it should get roughly (13/25) of the 10.0s span, not all of it.
         assert sentences[0].start == pytest.approx(0.1)
-        assert sentences[0].end == pytest.approx(0.1 + 21.6 * 28 / 54, abs=0.05)
-        assert sentences[1].end == pytest.approx(21.7)
+        assert sentences[0].end == pytest.approx(0.1 + 10.0 * 13 / 25, abs=0.05)
+        assert sentences[1].end == pytest.approx(10.1)
 
     def test_single_sentence_cue_is_unaffected_by_the_split(self):
         cues = [{"text": "你好，世界！", "start": 0.0, "duration": 2.0}]
@@ -249,6 +253,30 @@ class TestMergeIntoSentences:
         assert sentences[0].text == "好的，"
         assert sentences[0].start == pytest.approx(34.2)
         assert sentences[-1].end == pytest.approx(34.2 + 21.5)
+
+    def test_partial_punctuation_still_escalates_the_leftover_remainder(self):
+        """
+        Real-world regression: a single cue carried two short, properly
+        question-marked sentences followed by a 21.5s/96-char comma-only
+        run-on — splitting once at the sentence-boundary tier produced 3
+        pieces (>1), which short-circuited any further escalation before
+        this was recursive, leaving that trailing remainder as one giant
+        piece untouched.
+        """
+        text = (
+            "要我帮忙吗？谢谢佩奇，你能把这些削下来的皮清理掉吗？"
+            "好的，等一下，佩奇，蔬菜皮不能直接扔进普通的垃圾桶，"
+            "他们要扔进这个棕色的垃圾桶，香蕉，没错，乔治，那个就是香蕉皮，"
+            "除此之外还有洋葱、胡萝卜和其他蔬菜削下来的皮都在里面，猪爷爷，猪奶奶会很喜欢的"
+        )
+        cues = [{"text": text, "start": 28.33, "duration": 27.34}]
+        sentences = _merge_into_sentences(cues)
+        assert sentences[0].text == "要我帮忙吗？"
+        assert sentences[1].text == "谢谢佩奇，你能把这些削下来的皮清理掉吗？"
+        assert all(len(s.text) <= _MAX_SENTENCE_CHARS for s in sentences)
+        assert "".join(s.text for s in sentences) == text
+        assert sentences[0].start == pytest.approx(28.33)
+        assert sentences[-1].end == pytest.approx(28.33 + 27.34)
 
     def test_punctuation_free_cue_falls_back_to_hard_chunking(self):
         """

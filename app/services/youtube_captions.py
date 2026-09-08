@@ -131,11 +131,65 @@ _SENTENCE_BOUNDARY = re.compile(r"(?<=[。！？!?…])")
 _COMMA_BOUNDARY = re.compile(r"(?<=[，、,])")
 
 
+def _is_too_big(text: str, full_len: int, full_duration: float) -> bool:
+    """Is `text` (a piece of some larger original text) over either cap?
+    Its duration is estimated proportionally from the original cue's
+    total duration, since only the *original* cue carries a real
+    timestamp — a piece's own duration is never independently known."""
+    est_duration = full_duration * len(text) / full_len if full_len else 0.0
+    return len(text) > _MAX_SENTENCE_CHARS or est_duration > _MAX_SENTENCE_SECONDS
+
+
+def _split_text(text: str, full_len: int, full_duration: float) -> list[str]:
+    """
+    Recursively split `text` into pieces, escalating through three
+    tiers, each engaged only where the previous one didn't produce a
+    split *and* the text is still over-length/over-duration (so a short,
+    legitimately single sentence like "你好，世界" that merely contains
+    an internal comma is never chopped up):
+      1. real terminal punctuation (。！？!?…) — always tried first.
+      2. commas/enumeration commas — real content was observed running
+         20+ seconds on commas alone with no full stop at all (a
+         run-on line of dialogue).
+      3. hard character/duration-based chunking — last resort for
+         content with no punctuation of any kind (observed: sung
+         dialogue, ~24s of continuous lyrics, zero commas or full
+         stops). Not a real sentence boundary, just a cap on how long
+         one highlight can run. Chunk count satisfies both caps, since
+         slow/drawn-out singing can badly exceed the time cap on very
+         few characters.
+
+    Recursive rather than one flat pass: a cue can carry *some* real
+    terminal punctuation and still leave a too-long remainder (observed:
+    two short question-marked sentences followed by a 21.5s, 96-char,
+    comma-only run-on in the same cue) — splitting once at tier 1 alone
+    left that remainder as one giant piece, since a >1-part result there
+    short-circuited any further escalation.
+    """
+    if not _is_too_big(text, full_len, full_duration):
+        return [text]
+
+    parts = [p for p in _SENTENCE_BOUNDARY.split(text) if p.strip()]
+    if len(parts) <= 1:
+        parts = [p for p in _COMMA_BOUNDARY.split(text) if p.strip()]
+    if len(parts) <= 1:
+        est_duration = full_duration * len(text) / full_len if full_len else 0.0
+        n_chars = -(-len(text) // _MAX_SENTENCE_CHARS)  # ceil division
+        n_time = -(-int(est_duration) // int(_MAX_SENTENCE_SECONDS))
+        n = max(1, n_chars, n_time)
+        chunk_size = -(-len(text) // n)
+        parts = [text[i : i + chunk_size] for i in range(0, len(text), chunk_size)]
+
+    if len(parts) <= 1:
+        return [text]  # couldn't split further (e.g. a single character)
+    return [piece for p in parts for piece in _split_text(p, full_len, full_duration)]
+
+
 def _split_cue_into_sentences(cue: dict) -> list[dict]:
     """
     Split one cue's own text into sub-cues, distributing its [start, end]
-    span proportionally by character count. A short cue with no internal
-    sentence break comes back unchanged.
+    span proportionally by character count. A cue that's already within
+    both caps comes back unchanged.
 
     Needed for Whisper/SRT-sourced cues specifically (see qingdu-watch,
     the companion tool this module was ported to): ASR timestamps only
@@ -146,36 +200,8 @@ def _split_cue_into_sentences(cue: dict) -> list[dict]:
     length approximation, not exact — but a large improvement over one
     highlight per ASR segment. Harmless no-op for ordinary YouTube
     caption cues, which are usually already single clauses.
-
-    Three tiers, each only engaged if the previous one didn't produce a
-    split *and* the cue is actually over-length/over-duration (so a
-    short, legitimately single sentence like "你好，世界" that merely
-    contains an internal comma is never chopped up):
-      1. real terminal punctuation (。！？!?…) — always tried first.
-      2. commas/enumeration commas — real content was observed running
-         20+ seconds on commas alone with no full stop at all (a
-         run-on line of dialogue).
-      3. hard character-count/duration chunking — last resort for
-         content with no punctuation of any kind (observed: sung
-         dialogue, ~24s of continuous lyrics, zero commas or full
-         stops). Not a real sentence boundary, just a cap on how long
-         one highlight can run — chunk count must satisfy both the char
-         and time caps, since slow/drawn-out singing can badly exceed
-         the time cap on very few characters.
     """
-    text = cue["text"]
-    too_big = len(text) > _MAX_SENTENCE_CHARS or cue["duration"] > _MAX_SENTENCE_SECONDS
-
-    parts = [p for p in _SENTENCE_BOUNDARY.split(text) if p.strip()]
-    if len(parts) <= 1 and too_big:
-        parts = [p for p in _COMMA_BOUNDARY.split(text) if p.strip()]
-    if len(parts) <= 1 and too_big:
-        n_chars = -(-len(text) // _MAX_SENTENCE_CHARS)  # ceil division
-        n_time = -(-int(cue["duration"]) // int(_MAX_SENTENCE_SECONDS))
-        n = max(1, n_chars, n_time)
-        chunk_size = -(-len(text) // n)
-        parts = [text[i : i + chunk_size] for i in range(0, len(text), chunk_size)]
-
+    parts = _split_text(cue["text"], len(cue["text"]), cue["duration"])
     if len(parts) <= 1:
         return [cue]
     total_len = sum(len(p) for p in parts) or 1
