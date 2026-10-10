@@ -6,6 +6,7 @@ from sqlalchemy import (
     Column,
     Date,
     DateTime,
+    Engine,
     Float,
     ForeignKey,
     Index,
@@ -425,6 +426,21 @@ def _sqlite_pragmas(dbapi_connection, _connection_record):
 
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+@event.listens_for(Engine, "connect")
+def _sqlite_functions(dbapi_connection, _connection_record):
+    """SQL helpers implemented in Python, registered on every SQLite
+    connection (the app engine and the in-memory engines tests build).
+
+    pinyin_key() backs the /words pinyin search. Spelling it as nested
+    replace() calls in SQL hits "parser stack overflow" on some SQLite builds.
+    """
+    if not hasattr(dbapi_connection, "create_function"):
+        return
+    from app.services.word_search import pinyin_key
+
+    dbapi_connection.create_function("pinyin_key", 1, pinyin_key, deterministic=True)
 
 
 def init_db():

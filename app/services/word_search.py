@@ -55,13 +55,9 @@ def pinyin_key(text: str) -> str:
 
 
 def _pinyin_key_sql(col) -> ColumnElement:
-    """SQL twin of pinyin_key() for the stored pinyin column."""
-    expr = col
-    for src, dst in _TONE_MAP.items():
-        expr = func.replace(expr, src, dst)
-    for ch in _STRIP:
-        expr = func.replace(expr, ch, "")
-    return func.lower(expr)
+    """SQL twin of pinyin_key() for the stored pinyin column (the Python
+    function is registered on each SQLite connection in app.database)."""
+    return func.pinyin_key(col)
 
 
 def search_clause(term: str, user: User | None) -> ColumnElement[bool] | None:
