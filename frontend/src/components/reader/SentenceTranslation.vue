@@ -21,9 +21,9 @@ const sourceLabel = computed(() => {
   return source;
 });
 
-// Sentence playback uses the same /api/tts/{text} endpoint as the word
-// popover. We keep a per-instance Audio element so a click during playback
-// re-triggers from the start cleanly.
+// Sentence playback uses the body-based POST /api/tts/sentence (long
+// sentences don't fit a URL path). We keep a per-instance Audio element so
+// a click during playback re-triggers from the start cleanly.
 const ttsLoading = ref(false);
 let currentAudio: HTMLAudioElement | null = null;
 
@@ -35,7 +35,7 @@ async function playSentence() {
       currentAudio.pause();
       currentAudio.currentTime = 0;
     }
-    const response = await api.tts(props.text);
+    const response = await api.ttsSentence(props.text);
     if (!response.ok) throw new Error("TTS failed");
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);

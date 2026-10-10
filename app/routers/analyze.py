@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
-from app.core.constants import ANALYZE_RATE_LIMIT
+from app.core.constants import ANALYZE_RATE_LIMIT, MAX_ANALYZE_CHARS
 from app.core.rate_limit import limiter
 from app.database import User, UserWord, VocabularyList, get_db
 from app.schemas import TextAnalysisRequest
@@ -142,6 +142,7 @@ def _build_glossary(
         },
         503: {"description": "Vocabulary not loaded yet"},
         400: {"description": "Empty text provided"},
+        413: {"description": "Text longer than MAX_ANALYZE_CHARS"},
         429: {"description": "Rate limit exceeded (30 requests/minute)"},
     },
 )
@@ -152,6 +153,13 @@ async def analyze_text(
     user: User | None = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
+    if len(data.text) > MAX_ANALYZE_CHARS:
+        # Every unknown token fans out to upstream lookups, so an unbounded
+        # body is an amplification lever (and anonymous callers can send it).
+        raise HTTPException(
+            status_code=413,
+            detail=f"Text is too long — the limit is {MAX_ANALYZE_CHARS:,} characters.",
+        )
     if not hsk_vocab:
         raise HTTPException(status_code=503, detail="Vocabulary not loaded yet")
 

@@ -20,6 +20,7 @@ this graduates into a real feature.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections import OrderedDict
 
@@ -135,7 +136,8 @@ async def read_youtube(
         return cached
 
     try:
-        sentences, is_generated = fetch_captioned_sentences(video_id)
+        # Blocking HTTP to YouTube — keep it off the event loop.
+        sentences, is_generated = await asyncio.to_thread(fetch_captioned_sentences, video_id)
     except YoutubeCaptionError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 

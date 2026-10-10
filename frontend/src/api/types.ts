@@ -181,12 +181,14 @@ export interface HealthResponse {
   vocab_count: number;
 }
 
+/** One row of GET /api/texts. The list carries no analysis payload; open
+ *  a text with `getText(id)` to get its content + analysisData. */
 export interface SavedTextSummary {
   id: number;
   title: string;
-  content: string;
+  /** First ~200 characters of the content, for list previews. */
+  preview: string;
   date: string;
-  analysisData: AnalysisResponse;
   tags: string | null;
   reading_progress: number;
   /** Unique CJK words you've marked known/ignored (Phase F1). */
@@ -200,6 +202,12 @@ export interface SavedTextSummary {
   /** Phase #99 — per-text glossary picker selection. null = use all
    *  glossary-flagged lists, [] = none, [3,5] = only those. */
   glossary_list_ids: number[] | null;
+}
+
+/** GET /api/texts/{id} — the summary fields plus the full text. */
+export interface SavedText extends SavedTextSummary {
+  content: string;
+  analysisData: AnalysisResponse;
 }
 
 export interface VocabularyListSummary {

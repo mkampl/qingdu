@@ -15,6 +15,7 @@ import type {
   MeResponse,
   MyInvitationsResponse,
   NotAuthedResponse,
+  SavedText,
   SavedTextSummary,
   TranslateResponse,
   VocabStatsResponse,
@@ -292,8 +293,17 @@ export const browseHsk = (params: {
   return request<HskBrowseResponse>(`/api/vocab/hsk${suffix}`);
 };
 
+/** Word-level TTS (short text in the URL path). */
 export const tts = (text: string) =>
   fetch(apiUrl(`/api/tts/${encodeURIComponent(text)}`));
+
+/** Sentence TTS — body-based, so long sentences don't hit URL limits. */
+export const ttsSentence = (text: string) =>
+  fetch(apiUrl("/api/tts/sentence"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
 
 // --- Auth --------------------------------------------------------------------
 
@@ -455,6 +465,8 @@ export const adminUpdateInviteQuota = (id: number, quota: number) =>
 
 export const listTexts = () => request<SavedTextSummary[]>("/api/texts");
 
+export const getText = (id: number) => request<SavedText>(`/api/texts/${id}`);
+
 export const saveText = (input: {
   title: string;
   content: string;
@@ -515,7 +527,9 @@ export const addWordToList = (
   id: number,
   input: { section_name: string; hanzi: string; meaning: string },
 ) =>
-  request<{ message: string; pinyin?: string }>(
+  // A word already in the list (any section) is a 409 whose detail names
+  // the section.
+  request<{ message: string; added: boolean; pinyin?: string }>(
     `/api/vocabulary-lists/${id}/words`,
     { body: input },
   );

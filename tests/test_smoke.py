@@ -26,8 +26,10 @@ def test_route_count(app_module):
     the companion project for the retrospective).
     +1 = 101/106 for the 2026-09-03 watch-and-read prototype's
     POST /api/media/youtube (spike, not a shipped feature yet).
+    +1 = 102/107 for GET /api/texts/{id}: the list endpoint now returns
+    summaries and the full text is fetched when one is opened.
     """
-    assert len(app_module.routes) in (101, 106)
+    assert len(app_module.routes) in (102, 107)
 
 
 def test_router_tags_present(app_module):

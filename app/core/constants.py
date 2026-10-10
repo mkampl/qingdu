@@ -7,6 +7,13 @@ ANALYZE_RATE_LIMIT = "30/minute"
 TRANSLATE_RATE_LIMIT = "20/minute"
 AUTH_RATE_LIMIT = "5/minute"
 
+# Input caps. Analyze has to take whatever the importers produce (URL and
+# document extraction stop at 50k chars), translate and sentence TTS only
+# ever see one sentence or paragraph at a time.
+MAX_ANALYZE_CHARS = 60_000
+MAX_TRANSLATE_CHARS = 5_000
+MAX_TTS_CHARS = 2_000
+
 # Cache Configuration
 TRANSLATION_CACHE_SIZE = 5000
 TRANSLATION_CACHE_TTL = 3600  # 1 hour in seconds

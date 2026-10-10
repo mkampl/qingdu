@@ -44,3 +44,14 @@ def tmp_data_dir(monkeypatch, tmp_path):
     (tmp_path / "data").mkdir(parents=True, exist_ok=True)
     (tmp_path / "data" / "backups").mkdir(parents=True, exist_ok=True)
     return tmp_path / "data"
+
+
+@pytest.fixture(autouse=True)
+def _reset_cloze_miss_cache():
+    """The cloze service remembers sentence misses per user id in memory;
+    every test builds its own database, so start each one clean."""
+    from app.services import cloze
+
+    cloze.forget_misses()
+    yield
+    cloze.forget_misses()

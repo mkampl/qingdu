@@ -1,6 +1,10 @@
 from fastapi import APIRouter, HTTPException, Request
 
-from app.core.constants import TRANSLATE_RATE_LIMIT, TRANSLATION_SOURCE_CACHE
+from app.core.constants import (
+    MAX_TRANSLATE_CHARS,
+    TRANSLATE_RATE_LIMIT,
+    TRANSLATION_SOURCE_CACHE,
+)
 from app.core.rate_limit import limiter
 from app.schemas import TranslationRequest
 from app.services.translation import get_translation_with_source, translation_cache
@@ -15,6 +19,11 @@ async def translate_text(request: Request, data: TranslationRequest) -> dict:
     text = data.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="Text is empty")
+    if len(text) > MAX_TRANSLATE_CHARS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Text is too long — the limit is {MAX_TRANSLATE_CHARS:,} characters.",
+        )
 
     cache_key = f"{text}_{data.target_lang}"
     if cache_key in translation_cache:

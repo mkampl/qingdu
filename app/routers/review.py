@@ -131,7 +131,7 @@ def _enrich(row: UserWord) -> dict:
 
 
 @router.get("/api/review/queue")
-async def review_queue(
+def review_queue(
     mode: QueueMode = "recognition",
     limit: int = Query(20, ge=1, le=100),
     user: User = Depends(require_auth),
@@ -145,6 +145,9 @@ async def review_queue(
     Side effect (Phase #96): tops up the user's 'learning' pool with up
     to `daily_new_words` fresh HSK entries before reading the queue, so
     the queue never goes empty while there are HSK words left to learn.
+
+    Plain `def`: everything in here is sync DB work, so FastAPI runs it
+    in the threadpool instead of blocking the event loop.
     """
     enrolled = enroll_daily_words(user, db)
     if enrolled:
@@ -180,7 +183,9 @@ async def review_queue(
     # were inserted before Phase #96 introduced them. For cloze mode we
     # also fill sample_sentence on demand from the user's saved texts
     # and drop any row that has no containing sentence — cloze only
-    # makes sense if we can show the word in real context.
+    # makes sense if we can show the word in real context. Other modes
+    # (mixed included — it never renders a cloze step) only pass along a
+    # sentence that is already cached on the row.
     backfilled = False
     cards = []
     for r in rows:
@@ -190,16 +195,14 @@ async def review_queue(
             r.meaning = enriched["meaning"] or None
             backfilled = True
 
-        sentence: str | None = None
-        if mode in ("cloze", "mixed"):
-            sentence = r.sample_sentence or cloze.populate_sample_sentence(r, db)
-            if sentence:
-                backfilled = True
-            elif mode == "cloze":
+        sentence: str | None = r.sample_sentence
+        if mode == "cloze" and not sentence:
+            sentence = cloze.populate_sample_sentence(r, db)
+            if not sentence:
                 # Strict cloze mode skips rows that have no sample sentence —
-                # the modality requires one. Mixed mode keeps them and just
-                # rotates around the missing cloze step.
+                # the modality requires one.
                 continue
+            backfilled = True
 
         # Phase 1.3b — progressive prompt stage picked from FSRS stability.
         # intro for fresh / unreviewed cards (full info + auto-pass),
@@ -229,7 +232,7 @@ async def review_queue(
 
 
 @router.get("/api/review/practice/{word}")
-async def practice_card(
+def practice_card(
     word: str,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
@@ -292,10 +295,13 @@ async def grade_card(
     word_simp = to_canonical(payload.word, user)
 
     row = db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.word == word_simp).first()
+    # Only cards the queue could have handed out are gradeable. Grading
+    # used to create rows for arbitrary strings and to advance (and
+    # streak-bump) ignored words.
     if row is None:
-        # Auto-promote: grading a word we've never seen creates the row.
-        row = UserWord(user_id=user.id, word=word_simp, state="learning", seen_count=1)
-        db.add(row)
+        raise HTTPException(status_code=404, detail="Not a tracked word")
+    if row.state not in ACTIVE_REVIEW_STATES:
+        raise HTTPException(status_code=409, detail="This word is not in your review rotation")
 
     updated = srs.apply_grade(row.fsrs_state, payload.grade, retention=user.review_retention)
     row.fsrs_state = updated["fsrs_state"]

@@ -129,25 +129,81 @@ def test_grade_updates_due_at_and_removes_from_queue(review_client):
         db.close()
 
 
-def test_grade_creates_row_for_unknown_word(review_client):
-    """A grade for a word the user never marked still creates the row
-    and advances FSRS — auto-promotion path."""
+def test_grade_rejects_untracked_word(review_client):
+    """Grading never invents rows: a word the user isn't tracking is a 404,
+    an ignored one a 409, and neither touches FSRS or the streak."""
     client, Session = review_client
     r = client.post(
         "/api/review/grade",
         json={"word": "新词", "grade": 4, "mode": "recognition"},
     )
-    assert r.status_code == 200, r.text
-    body = r.json()
-    assert body["prompt_stage"] in ("intro", "trace", "produce")
+    assert r.status_code == 404
+    r = client.post("/api/review/grade", json={"word": "忽略", "grade": 4})
+    assert r.status_code == 409
     db = Session()
     try:
-        row = db.query(UserWord).filter(UserWord.word == "新词").one()
-        assert row.state == "learning"
-        assert row.due_at is not None
-        assert row.stability is not None and row.stability > 0
+        assert db.query(UserWord).filter(UserWord.word == "新词").count() == 0
+        ignored = db.query(UserWord).filter(UserWord.word == "忽略").one()
+        assert ignored.state == "ignored"
+        assert ignored.due_at is None
     finally:
         db.close()
+
+
+def test_mixed_queue_does_not_scan_saved_texts(review_client, monkeypatch):
+    """Mixed mode never shows a cloze step, so building its queue must not
+    go looking for sample sentences."""
+    from app.services import cloze
+
+    def _fail(row, db):
+        raise AssertionError("mixed queue scanned saved texts")
+
+    monkeypatch.setattr(cloze, "populate_sample_sentence", _fail)
+    client, _ = review_client
+    r = client.get("/api/review/queue?mode=mixed")
+    assert r.status_code == 200, r.text
+    assert r.json()["cards"]
+
+
+def test_mixed_queue_keeps_cached_sample_sentence(review_client):
+    client, Session = review_client
+    db = Session()
+    try:
+        row = db.query(UserWord).filter(UserWord.word == "一").one()
+        row.sample_sentence = "一个人。"
+        db.commit()
+    finally:
+        db.close()
+    cards = client.get("/api/review/queue?mode=mixed").json()["cards"]
+    card = next(c for c in cards if c["word"] == "一")
+    assert card["has_sample_sentence"] is True
+    assert card["cloze_template"] == "___个人。"
+
+
+def test_cloze_queue_populates_sentences(review_client):
+    from app.database import SavedText
+
+    client, Session = review_client
+    db = Session()
+    try:
+        db.add(SavedText(user_id=1, title="t", content="二月很冷。", analysis_data="{}"))
+        db.commit()
+    finally:
+        db.close()
+    cards = client.get("/api/review/queue?mode=cloze").json()["cards"]
+    assert [c["word"] for c in cards] == ["二"]
+    assert cards[0]["cloze_sentence"] == "二月很冷。"
+
+
+def test_queue_handler_runs_off_the_event_loop():
+    """The queue does sync DB work (enrolment, backfill, sentence lookup);
+    a plain `def` handler lets FastAPI run it in the threadpool."""
+    import inspect
+
+    from app.routers import review
+
+    assert not inspect.iscoroutinefunction(review.review_queue)
+    assert not inspect.iscoroutinefunction(review.practice_card)
 
 
 def test_prompt_stage_progression(review_client):

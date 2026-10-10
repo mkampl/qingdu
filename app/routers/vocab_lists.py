@@ -1,8 +1,10 @@
 import json
 import logging
 import random
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict, StringConstraints
 from pypinyin import Style, lazy_pinyin
 from sqlalchemy.orm import Session
 
@@ -13,6 +15,98 @@ from app.services.script import convert_vocab_sections, to_user_script
 
 router = APIRouter(tags=["Vocabulary Lists"])
 logger = logging.getLogger(__name__)
+
+
+# Request bodies. Words and sections allow extra keys because the SPA
+# round-trips whatever GET returned (migrated level fields, 'traditional').
+NonEmpty = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+
+
+class ListWord(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    hanzi: NonEmpty
+    pinyin: str | None = None
+    meaning: str | None = None
+    level: str | None = None
+
+
+class ListSection(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    name: NonEmpty
+    words: list[ListWord] = []
+
+
+class CreateListRequest(BaseModel):
+    name: NonEmpty
+    type: str = "custom"
+    sections: list[ListSection] = []
+
+
+class UpdateListRequest(BaseModel):
+    name: NonEmpty | None = None
+    sections: list[ListSection] | None = None
+    apply_as_glossary: bool | None = None
+
+
+class AddWordRequest(BaseModel):
+    section_name: NonEmpty
+    hanzi: NonEmpty
+    meaning: str = ""
+
+
+class AddSectionRequest(BaseModel):
+    name: NonEmpty
+
+
+class RenameSectionRequest(BaseModel):
+    old_name: NonEmpty
+    new_name: NonEmpty
+
+
+class WordPatch(BaseModel):
+    hanzi: NonEmpty | None = None
+    meaning: str | None = None
+
+
+class UpdateWordRequest(BaseModel):
+    section_name: NonEmpty
+    old_hanzi: NonEmpty
+    word: WordPatch
+
+
+class DeleteWordRequest(BaseModel):
+    section_name: NonEmpty
+    hanzi: NonEmpty
+
+
+def _dump_sections(sections: list[ListSection]) -> str:
+    return json.dumps([s.model_dump(exclude_none=True) for s in sections])
+
+
+def _load_sections(vocab_list: VocabularyList) -> list[dict]:
+    """Stored sections, defensively: lists saved before request validation
+    can hold sections without a name or words, which used to KeyError
+    every later mutation."""
+    try:
+        raw = json.loads(vocab_list.sections) if vocab_list.sections else []
+    except (TypeError, ValueError):
+        logger.warning("vocab list %s has unreadable sections; treating as empty", vocab_list.id)
+        return []
+    sections = []
+    for section in raw if isinstance(raw, list) else []:
+        if not isinstance(section, dict):
+            continue
+        section.setdefault("name", "")
+        words = section.get("words")
+        section["words"] = [
+            w for w in (words if isinstance(words, list) else []) if isinstance(w, dict)
+        ]
+        for w in section["words"]:
+            w.setdefault("hanzi", "")
+        sections.append(section)
+    return sections
 
 
 def _owned_list(db: Session, user: User, list_id: int) -> VocabularyList:
@@ -29,7 +123,7 @@ def _owned_list(db: Session, user: User, list_id: int) -> VocabularyList:
 
 @router.post("/api/vocabulary-lists")
 async def create_vocabulary_list(
-    list_data: dict,
+    list_data: CreateListRequest,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
@@ -37,9 +131,9 @@ async def create_vocabulary_list(
     anki_deck_id = 2000000 + random.randint(1, 999999)
     vocab_list = VocabularyList(
         user_id=user.id,
-        name=list_data.get("name"),
-        list_type=list_data.get("type", "custom"),
-        sections=json.dumps(list_data.get("sections", [])),
+        name=list_data.name,
+        list_type=list_data.type,
+        sections=_dump_sections(list_data.sections),
         anki_deck_id=anki_deck_id,
     )
     db.add(vocab_list)
@@ -77,7 +171,7 @@ async def get_vocabulary_lists(
 @router.put("/api/vocabulary-lists/{list_id}")
 async def update_vocabulary_list(
     list_id: int,
-    list_data: dict,
+    list_data: UpdateListRequest,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
@@ -85,12 +179,12 @@ async def update_vocabulary_list(
     # PATCH-style: only update fields the caller sent. Previously this
     # wiped `sections` to [] when a caller omitted the key — a footgun
     # that Phase #99's glossary toggle would have triggered on every flip.
-    if "name" in list_data:
-        vocab_list.name = list_data["name"]
-    if "sections" in list_data:
-        vocab_list.sections = json.dumps(list_data["sections"])
-    if "apply_as_glossary" in list_data:
-        vocab_list.apply_as_glossary = bool(list_data["apply_as_glossary"])
+    if list_data.name is not None:
+        vocab_list.name = list_data.name
+    if list_data.sections is not None:
+        vocab_list.sections = _dump_sections(list_data.sections)
+    if list_data.apply_as_glossary is not None:
+        vocab_list.apply_as_glossary = list_data.apply_as_glossary
     db.commit()
     return {"message": "List updated"}
 
@@ -110,61 +204,68 @@ async def delete_vocabulary_list(
 @router.post("/api/vocabulary-lists/{list_id}/words")
 async def add_word_to_list(
     list_id: int,
-    word_data: dict,
+    word_data: AddWordRequest,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    """Add a word to a section (creating the section if missing)."""
+    """Add a word to a section (creating the section if missing).
+
+    A word that is already anywhere in the list is a 409 naming the
+    section it sits in, so the client can say so instead of "Added".
+    """
     vocab_list = _owned_list(db, user, list_id)
-    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
-    section_name = word_data.get("section_name")
+    sections = _load_sections(vocab_list)
+    hanzi = word_data.hanzi
+    for existing in sections:
+        if any(w["hanzi"] == hanzi for w in existing["words"]):
+            raise HTTPException(
+                status_code=409,
+                detail=f"「{hanzi}」 is already in this list (section “{existing['name']}”).",
+            )
+
+    section_name = word_data.section_name
     section = next((s for s in sections if s["name"] == section_name), None)
     if not section:
         section = {"name": section_name, "words": []}
         sections.append(section)
 
-    hanzi = word_data.get("hanzi")
     pinyin = " ".join(lazy_pinyin(hanzi, style=Style.TONE))
-    word = {
-        "hanzi": hanzi,
-        "pinyin": pinyin,
-        "meaning": word_data.get("meaning"),
-        "level": "Custom",
-    }
-    if any(w["hanzi"] == word["hanzi"] for w in section["words"]):
-        return {"message": "Word already in list"}
-
-    section["words"].append(word)
+    section["words"].append(
+        {
+            "hanzi": hanzi,
+            "pinyin": pinyin,
+            "meaning": word_data.meaning,
+            "level": "Custom",
+        }
+    )
     vocab_list.sections = json.dumps(sections)
     db.commit()
-    return {"message": "Word added", "pinyin": pinyin}
+    return {"message": "Word added", "added": True, "pinyin": pinyin}
 
 
 @router.post("/api/vocabulary-lists/{list_id}/sections")
 async def add_section_to_list(
     list_id: int,
-    section_data: dict,
+    section_data: AddSectionRequest,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
     vocab_list = _owned_list(db, user, list_id)
-    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    sections = _load_sections(vocab_list)
     logger.info(
         f"Before adding: list {list_id} has {len(sections)} sections: "
         f"{[s['name'] for s in sections]}"
     )
-    section_name = section_data.get("name", "").strip()
-    if not section_name:
-        raise HTTPException(status_code=400, detail="Section name required")
+    section_name = section_data.name
     if any(s["name"] == section_name for s in sections):
-        raise HTTPException(status_code=400, detail="Section already exists")
+        raise HTTPException(status_code=409, detail="Section already exists")
 
     sections.append({"name": section_name, "words": []})
     vocab_list.sections = json.dumps(sections)
     db.commit()
     db.refresh(vocab_list)
 
-    updated_sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    updated_sections = _load_sections(vocab_list)
     logger.info(
         f"After commit: list {list_id} has {len(updated_sections)} sections: "
         f"{[s['name'] for s in updated_sections]}"
@@ -179,22 +280,20 @@ async def add_section_to_list(
 @router.put("/api/vocabulary-lists/{list_id}/sections")
 async def rename_section(
     list_id: int,
-    section_data: dict,
+    section_data: RenameSectionRequest,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
     vocab_list = _owned_list(db, user, list_id)
-    old_name = section_data.get("old_name")
-    new_name = section_data.get("new_name", "").strip()
-    if not old_name or not new_name:
-        raise HTTPException(status_code=400, detail="Both old_name and new_name required")
+    old_name = section_data.old_name
+    new_name = section_data.new_name
 
-    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    sections = _load_sections(vocab_list)
     section = next((s for s in sections if s["name"] == old_name), None)
     if not section:
         raise HTTPException(status_code=404, detail="Section not found")
     if any(s["name"] == new_name for s in sections if s["name"] != old_name):
-        raise HTTPException(status_code=400, detail="Section name already exists")
+        raise HTTPException(status_code=409, detail="Section name already exists")
 
     section["name"] = new_name
     vocab_list.sections = json.dumps(sections)
@@ -210,7 +309,7 @@ async def delete_section(
     db: Session = Depends(get_db),
 ):
     vocab_list = _owned_list(db, user, list_id)
-    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    sections = _load_sections(vocab_list)
     section = next((s for s in sections if s["name"] == section_name), None)
     if not section:
         raise HTTPException(status_code=404, detail="Section not found")
@@ -226,19 +325,17 @@ async def delete_section(
 @router.put("/api/vocabulary-lists/{list_id}/words")
 async def update_word_in_list(
     list_id: int,
-    word_data: dict,
+    word_data: UpdateWordRequest,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
     """Update one word in a section. Forces level back to 'Custom' on edit."""
     vocab_list = _owned_list(db, user, list_id)
-    section_name = word_data.get("section_name")
-    old_hanzi = word_data.get("old_hanzi")
-    new_word = word_data.get("word")
-    if not section_name or not old_hanzi or not new_word:
-        raise HTTPException(status_code=400, detail="section_name, old_hanzi, and word required")
+    section_name = word_data.section_name
+    old_hanzi = word_data.old_hanzi
+    new_word = word_data.word
 
-    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    sections = _load_sections(vocab_list)
     section = next((s for s in sections if s["name"] == section_name), None)
     if not section:
         raise HTTPException(status_code=404, detail="Section not found")
@@ -246,10 +343,18 @@ async def update_word_in_list(
     if not word:
         raise HTTPException(status_code=404, detail="Word not found")
 
-    new_hanzi = new_word.get("hanzi", word["hanzi"])
+    new_hanzi = new_word.hanzi or word["hanzi"]
+    if new_hanzi != old_hanzi and any(w["hanzi"] == new_hanzi for w in section["words"]):
+        # Two rows with the same hanzi break the list view (keyed by hanzi)
+        # and make every later edit/delete ambiguous.
+        raise HTTPException(
+            status_code=409,
+            detail=f"「{new_hanzi}」 is already in section “{section_name}”.",
+        )
     word["hanzi"] = new_hanzi
     word["pinyin"] = " ".join(lazy_pinyin(new_hanzi, style=Style.TONE))
-    word["meaning"] = new_word.get("meaning", word["meaning"])
+    if new_word.meaning is not None:
+        word["meaning"] = new_word.meaning
     word["level"] = "Custom"
 
     vocab_list.sections = json.dumps(sections)
@@ -260,17 +365,15 @@ async def update_word_in_list(
 @router.delete("/api/vocabulary-lists/{list_id}/words")
 async def delete_word_from_list(
     list_id: int,
-    word_data: dict,
+    word_data: DeleteWordRequest,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
     vocab_list = _owned_list(db, user, list_id)
-    section_name = word_data.get("section_name")
-    hanzi = word_data.get("hanzi")
-    if not section_name or not hanzi:
-        raise HTTPException(status_code=400, detail="section_name and hanzi required")
+    section_name = word_data.section_name
+    hanzi = word_data.hanzi
 
-    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    sections = _load_sections(vocab_list)
     section = next((s for s in sections if s["name"] == section_name), None)
     if not section:
         raise HTTPException(status_code=404, detail="Section not found")

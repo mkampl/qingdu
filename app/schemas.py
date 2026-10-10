@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class TextAnalysisRequest(BaseModel):
@@ -164,6 +164,13 @@ class BulkMarkKnownRequest(BaseModel):
     # SPA's complete-section action can build this from analysisData
     # before posting so curated meanings make it into the SRS pool.
     snapshots: dict[str, WordSnapshot] | None = None
+
+
+class SnoozeRequest(BaseModel):
+    """Push a word's due date back by `days` (default 3)."""
+
+    word: str = Field(min_length=1)
+    days: int = Field(3, ge=1, le=365)
 
 
 class ImportHskRequest(BaseModel):

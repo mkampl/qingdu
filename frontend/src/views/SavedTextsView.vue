@@ -44,6 +44,7 @@ const search = ref("");
 // double-firing the request.
 const pendingDeleteId = ref<number | null>(null);
 const deletingId = ref<number | null>(null);
+const openingId = ref<number | null>(null);
 
 async function load() {
   if (!auth.isAuthed) {
@@ -109,20 +110,32 @@ function comprehensionLabel(text: SavedTextSummary): string {
   return `${Math.round(text.comprehension_score * 100)}%`;
 }
 
-function open(text: SavedTextSummary) {
-  // Hydrate the analysis store with the saved data and jump to the reader so
-  // the user sees exactly what they saved — no re-analyse round-trip.
-  // Pass id + normalised progress + title + tags so the reader can persist
-  // updates, restore scroll position, and let the user rename/retag inline.
-  analysis.loadSaved(text.content, text.analysisData, {
-    id: text.id,
-    progress: normalizeProgress(text.reading_progress),
-    title: text.title ?? "",
-    tags: parseTags(text.tags),
-    glossaryListIds: text.glossary_list_ids,
-  });
-  reader.reset();
-  void router.push("/");
+async function open(text: SavedTextSummary) {
+  if (openingId.value !== null) return;
+  // The list only carries summaries; fetch the full text + saved analysis,
+  // hydrate the analysis store and jump to the reader so the user sees
+  // exactly what they saved — no re-analyse round-trip. Pass id +
+  // normalised progress + title + tags so the reader can persist updates,
+  // restore scroll position, and let the user rename/retag inline.
+  openingId.value = text.id;
+  try {
+    const full = await api.getText(text.id);
+    analysis.loadSaved(full.content, full.analysisData, {
+      id: full.id,
+      progress: normalizeProgress(full.reading_progress),
+      title: full.title ?? "",
+      tags: parseTags(full.tags),
+      glossaryListIds: full.glossary_list_ids,
+    });
+    reader.reset();
+    void router.push("/");
+  } catch (e) {
+    toasts.error(
+      e instanceof ApiError ? e.message : "Couldn't open that text.",
+    );
+  } finally {
+    openingId.value = null;
+  }
 }
 
 function askDelete(id: number) {
@@ -304,9 +317,9 @@ async function confirmDelete(text: SavedTextSummary) {
           <!-- Preview -->
           <p
             class="text-cn-serif mb-4 flex-1 text-sm leading-relaxed text-fg-muted line-clamp-3"
-            :title="text.content"
+            :title="text.preview"
           >
-            {{ previewSnippet(text.content, 120) }}
+            {{ previewSnippet(text.preview, 120) }}
           </p>
 
           <!-- Reading-progress hairline -->
@@ -363,7 +376,12 @@ async function confirmDelete(text: SavedTextSummary) {
                     />
                   </svg>
                 </button>
-                <Button variant="secondary" size="sm" @click="open(text)">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  :loading="openingId === text.id"
+                  @click="open(text)"
+                >
                   Open
                   <svg
                     width="11"

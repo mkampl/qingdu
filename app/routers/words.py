@@ -27,6 +27,7 @@ from app.schemas import (
     VALID_WORD_STATES,
     BulkMarkKnownRequest,
     ImportHskRequest,
+    SnoozeRequest,
     WordStateUpdate,
 )
 from app.services.due import due_clause, end_of_day, utcnow
@@ -614,24 +615,23 @@ async def list_queue(
 
 @router.post("/api/words/snooze")
 async def snooze_word(
-    payload: dict,
+    payload: SnoozeRequest,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> dict:
     """Push due_at forward by `days` days.
 
-    Body: {word: str, days: int}. Default 3 if unset.
+    Body: {word: str, days: int 1..365}. Default 3 if unset; anything else
+    is a 422.
     Useful when the user isn't ready to re-encounter a word yet but doesn't
     want to mark it 'known' or remove it from the queue entirely.
     """
     from datetime import timedelta
 
-    word_raw = (payload.get("word") or "").strip()
-    days = int(payload.get("days") or 3)
+    word_raw = payload.word.strip()
+    days = payload.days
     if not word_raw:
         raise HTTPException(400, "word is required")
-    if not (1 <= days <= 90):
-        raise HTTPException(400, "days must be in [1, 90]")
 
     word = to_canonical(word_raw, user)
     row = db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.word == word).first()

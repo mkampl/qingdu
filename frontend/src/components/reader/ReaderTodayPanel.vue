@@ -85,20 +85,28 @@ function scorePct(item: LibraryForYouItem): number {
   );
 }
 
-function openSavedText(text: SavedTextSummary) {
-  // Mirrors SavedTextsView.open — hydrate the analysis store with the saved
-  // data and stay on / so the reader picks it up without a re-analyse trip.
+async function openSavedText(text: SavedTextSummary) {
+  // Mirrors SavedTextsView.open — fetch the full text, hydrate the analysis
+  // store with the saved data and stay on / so the reader picks it up
+  // without a re-analyse trip.
   openingTextId.value = text.id;
-  analysis.loadSaved(text.content, text.analysisData, {
-    id: text.id,
-    progress: normalizeProgress(text.reading_progress),
-    title: text.title ?? "",
-    tags: parseTags(text.tags),
-    glossaryListIds: text.glossary_list_ids,
-  });
-  reader.reset();
-  // The Today panel sits inside ReaderView itself; we're already on / so a
-  // router.push("/") is a no-op. The store change drives the swap.
+  try {
+    const full = await api.getText(text.id);
+    analysis.loadSaved(full.content, full.analysisData, {
+      id: full.id,
+      progress: normalizeProgress(full.reading_progress),
+      title: full.title ?? "",
+      tags: parseTags(full.tags),
+      glossaryListIds: full.glossary_list_ids,
+    });
+    reader.reset();
+    // The Today panel sits inside ReaderView itself; we're already on / so
+    // a router.push("/") is a no-op. The store change drives the swap.
+  } catch (e) {
+    toasts.error(e instanceof Error ? e.message : "Couldn't open that text");
+  } finally {
+    openingTextId.value = null;
+  }
 }
 
 async function openLibraryPick(slug: string) {

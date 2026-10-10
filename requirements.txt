@@ -16,6 +16,9 @@ httpx==0.25.2
 # Article extraction — server-side Readability-style cleaner so the user
 # can paste any URL and get just the article body in the reader.
 trafilatura==1.12.2
+# Used directly by the SSRF-safe fetcher (app/services/safe_fetch.py);
+# already pulled in by trafilatura, listed so the import is explicit.
+urllib3>=1.26,<3
 
 # Utilities
 python-multipart==0.0.6

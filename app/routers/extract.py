@@ -7,17 +7,21 @@ Uses trafilatura because it's the best open-source extractor for
 multilingual content (including Chinese) and handles the news/blog
 shapes most learners will hit.
 
-SSRF defence: only http/https schemes, never IP literals or hostnames
-that resolve into private/loopback/link-local space. Auth-gated so the
-endpoint isn't a free internet-egress probe for the world.
+SSRF defence lives in `app.services.safe_fetch`: only http/https, never
+IP literals or hostnames that resolve into private/loopback/link-local
+space, every redirect hop re-checked and the connection pinned to the
+checked IP. Auth-gated so the endpoint isn't a free internet-egress probe
+for the world.
+
+Both handlers do blocking work (DNS, HTTP, HTML/PDF/EPUB parsing), so it
+runs in the threadpool rather than on the event loop.
 """
 
 from __future__ import annotations
 
-import ipaddress
+import asyncio
+import json
 import logging
-import socket
-from urllib.parse import urlparse
 
 import trafilatura
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -25,6 +29,7 @@ from pydantic import BaseModel, Field
 
 from app.auth import require_auth
 from app.database import User
+from app.services import safe_fetch
 from app.services.document_import import (
     DocumentImportError,
     extract_document,
@@ -52,74 +57,28 @@ class ExtractResponse(BaseModel):
 
 
 def _validate_url(url: str) -> str:
-    """Return the URL if it's safe to fetch, else raise HTTPException."""
+    """Return the URL if it's safe to fetch, else raise HTTPException(400)."""
     try:
-        parsed = urlparse(url.strip())
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Malformed URL: {e}") from e
-
-    if parsed.scheme not in {"http", "https"}:
-        raise HTTPException(
-            status_code=400,
-            detail="Only http and https URLs are allowed.",
-        )
-
-    hostname = parsed.hostname
-    if not hostname:
-        raise HTTPException(status_code=400, detail="URL is missing a hostname.")
-
-    # Block hostnames that already look like raw IPs in private space.
-    try:
-        ip = ipaddress.ip_address(hostname)
-        if (
-            ip.is_private
-            or ip.is_loopback
-            or ip.is_link_local
-            or ip.is_multicast
-            or ip.is_reserved
-            or ip.is_unspecified
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail="Won't fetch internal/private addresses.",
-            )
-    except ValueError:
-        # Not an IP literal — resolve it and check every A/AAAA record.
-        try:
-            infos = socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
-        except OSError as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Could not resolve {hostname!r}: {e}",
-            ) from e
-        for info in infos:
-            sockaddr = info[4]
-            addr = sockaddr[0]
-            try:
-                ip = ipaddress.ip_address(addr)
-            except ValueError:
-                continue
-            if (
-                ip.is_private
-                or ip.is_loopback
-                or ip.is_link_local
-                or ip.is_multicast
-                or ip.is_reserved
-                or ip.is_unspecified
-            ):
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"{hostname} resolves into a private/internal IP range; refusing to fetch."
-                    ),
-                ) from None
-
+        safe_fetch.check_url(url)
+    except safe_fetch.UnsafeUrlError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return url.strip()
 
 
 def _extract(url: str) -> ExtractResponse:
     """Fetch the URL and pull out the article body. Caps content size."""
-    downloaded = trafilatura.fetch_url(url)
+    try:
+        fetched = safe_fetch.fetch(url)
+    except safe_fetch.UnsafeUrlError as e:
+        # Also raised for a redirect that points somewhere internal.
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except safe_fetch.FetchFailed as e:
+        logger.info("Article fetch failed for %s: %s", url, e)
+        raise HTTPException(
+            status_code=502,
+            detail="Couldn't fetch that URL — the site might be blocking us or down.",
+        ) from e
+    downloaded = fetched.body
     if not downloaded:
         raise HTTPException(
             status_code=502,
@@ -141,8 +100,6 @@ def _extract(url: str) -> ExtractResponse:
             status_code=422,
             detail="We couldn't find a readable article on that page.",
         )
-
-    import json
 
     try:
         meta = json.loads(extracted)
@@ -174,7 +131,7 @@ def _extract(url: str) -> ExtractResponse:
 
 
 @router.post("/api/extract", response_model=ExtractResponse)
-async def extract_article(
+def extract_article(
     data: ExtractRequest,
     user: User = Depends(require_auth),
 ) -> ExtractResponse:
@@ -207,7 +164,7 @@ async def extract_uploaded_file(
         raise HTTPException(status_code=400, detail="Empty file.")
 
     try:
-        doc = extract_document(filename, data)
+        doc = await asyncio.to_thread(extract_document, filename, data)
     except DocumentImportError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 

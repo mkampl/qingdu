@@ -106,3 +106,50 @@ def test_populate_sample_sentence_is_idempotent(db_session):
     # No saved texts at all — but cached value wins, no scan needed.
     chosen = cloze.populate_sample_sentence(row, db_session)
     assert chosen == "cached one."
+
+
+def test_populate_caches_misses_until_forgotten(db_session):
+    row = UserWord(user_id=1, word="中文", state="learning")
+    db_session.add(row)
+    db_session.commit()
+    assert cloze.populate_sample_sentence(row, db_session) is None
+
+    # A text arriving behind the cache's back stays invisible: the miss is
+    # remembered, so the review queue doesn't rescan every session.
+    db_session.add(SavedText(user_id=1, title="t", content="我学中文。", analysis_data="{}"))
+    db_session.commit()
+    assert cloze.populate_sample_sentence(row, db_session) is None
+
+    # Saving / editing a text forgets the user's misses.
+    cloze.forget_misses(1)
+    assert cloze.populate_sample_sentence(row, db_session) == "我学中文。"
+
+
+def test_populate_only_loads_matching_text(db_session):
+    """The lookup asks the database for a text containing the word instead
+    of pulling every saved text into Python."""
+    from sqlalchemy import event
+
+    for i in range(5):
+        db_session.add(
+            SavedText(user_id=1, title=f"t{i}", content="我吃饭。" * 50, analysis_data="{}")
+        )
+    db_session.add(SavedText(user_id=1, title="hit", content="我学中文。", analysis_data="{}"))
+    row = UserWord(user_id=1, word="中文", state="learning")
+    db_session.add(row)
+    db_session.commit()
+
+    statements: list[str] = []
+    engine = db_session.get_bind()
+
+    def _capture(conn, cursor, statement, params, context, executemany):
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", _capture)
+    try:
+        assert cloze.populate_sample_sentence(row, db_session) == "我学中文。"
+    finally:
+        event.remove(engine, "before_cursor_execute", _capture)
+    text_queries = [s for s in statements if "saved_texts" in s]
+    assert len(text_queries) == 1
+    assert "LIKE" in text_queries[0] and "LIMIT" in text_queries[0]
