@@ -264,6 +264,20 @@ const wordOtherMeanings = computed(() =>
   word.value ? otherMeanings(word.value.meaning, word.value.meanings) : [],
 );
 
+// Tokens that are not dictionary words (texts analysed before phrases were
+// split, or leftovers) carry their dictionary parts instead of a meaning.
+// They can't be saved as words; the learner saves the parts instead.
+const wordParts = computed(() => word.value?.parts ?? []);
+
+async function learnPart(part: string) {
+  if (userWords.stateOf(part)) return;
+  try {
+    await userWords.setState(part, "learning", analysis.savedTextId ?? null);
+  } catch {
+    toasts.error("Couldn't update word state");
+  }
+}
+
 const wordLevel = computed(() =>
   word.value ? levelForVersion(word.value, settings.hskVersion) : null,
 );
@@ -324,6 +338,7 @@ watch(word, async (next) => {
   // explicit Learning/Known/Ignored buttons in the popover footer, or turn
   // the auto-promote back on in Settings → Reader.
   if (!settings.autoLearnOnClick) return;
+  if (next.parts?.length) return;
   if (currentState.value === null) {
     try {
       await userWords.setState(
@@ -356,8 +371,10 @@ async function setWordState(state: UserWordState) {
       analysis.savedTextId ?? null,
       buildSnapshot(),
     );
-  } catch {
-    toasts.error("Couldn't update word state");
+  } catch (e) {
+    toasts.error(
+      e instanceof ApiError && e.status === 422 ? e.message : "Couldn't update word state",
+    );
   }
 }
 </script>
@@ -531,10 +548,44 @@ async function setWordState(state: UserWordState) {
             </ul>
           </div>
 
+          <!-- Parts of a token that is not a dictionary word. It has no
+               meaning or state of its own; each part can be saved. -->
+          <div
+            v-if="wordParts.length"
+            class="mt-4 border-t border-border-subtle pt-3 text-xs"
+          >
+            <p class="font-mono uppercase tracking-wider text-fg-subtle">
+              Parts
+            </p>
+            <ul class="mt-1.5 space-y-1">
+              <li
+                v-for="(p, i) in wordParts"
+                :key="i"
+                class="flex items-baseline gap-2"
+              >
+                <span class="font-cn-serif text-base text-fg">{{ p.word }}</span>
+                <span v-if="p.pinyin" class="shrink-0 text-fg-muted">{{ p.pinyin }}</span>
+                <span v-if="p.meaning" class="min-w-0 flex-1 text-fg">{{ p.meaning }}</span>
+                <button
+                  v-if="auth.isAuthed"
+                  type="button"
+                  class="ml-auto shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] text-fg-muted hover:bg-bg-sunken hover:text-fg disabled:opacity-60"
+                  :disabled="!!userWords.stateOf(p.word)"
+                  @click="learnPart(p.word)"
+                >
+                  {{ userWords.stateOf(p.word) ?? "Learn" }}
+                </button>
+              </li>
+            </ul>
+            <p class="mt-2 text-fg-subtle">
+              Not a dictionary word, so it isn't saved as one.
+            </p>
+          </div>
+
           <!-- Word state — LingQ-style progress tracker. Authenticated only;
                anonymous users still get meaning + radical without the gate. -->
           <div
-            v-if="auth.isAuthed && word.text && word.text !== '\n'"
+            v-if="auth.isAuthed && word.text && word.text !== '\n' && !wordParts.length"
             class="mt-4 grid grid-cols-3 gap-1.5 border-t border-border-subtle pt-3"
           >
             <button
@@ -836,7 +887,7 @@ async function setWordState(state: UserWordState) {
             <span
               v-else-if="
                 word.translation_source &&
-                !['hsk', 'linebreak'].includes(word.translation_source)
+                !['hsk', 'linebreak', 'parts'].includes(word.translation_source)
               "
               class="font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
             >
@@ -846,7 +897,7 @@ async function setWordState(state: UserWordState) {
               v-if="
                 reader.selectedSentenceText &&
                 word.translation_source &&
-                !['hsk', 'linebreak'].includes(word.translation_source)
+                !['hsk', 'linebreak', 'parts'].includes(word.translation_source)
               "
               class="font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
             >

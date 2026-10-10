@@ -17,8 +17,6 @@ MAX_TTS_CHARS = 2_000
 # Cache Configuration
 TRANSLATION_CACHE_SIZE = 5000
 TRANSLATION_CACHE_TTL = 3600  # 1 hour in seconds
-UNKNOWN_WORD_CACHE_SIZE = 2000
-UNKNOWN_WORD_CACHE_TTL = 1800  # 30 minutes in seconds
 
 # HSK Configuration
 HSK_WORD_BASE_FREQ = 10000
@@ -50,6 +48,8 @@ TRANSLATION_SOURCE_MYMEMORY = "mymemory"
 TRANSLATION_SOURCE_HSK = "hsk"
 TRANSLATION_SOURCE_HSK_CHARS = "hsk-chars"
 TRANSLATION_SOURCE_CEDICT = "cedict"
+# Not a dictionary word: no meaning, only its dictionary parts.
+TRANSLATION_SOURCE_PARTS = "parts"
 TRANSLATION_SOURCE_CACHE = "cache"
 
 # HSK Vocabulary (drkameleon/complete-hsk-vocabulary, MIT). The file the
@@ -73,4 +73,4 @@ CEDICT_SOURCE_TAG = "cc-cedict"
 # changes (cedict_loader scoring, word_info resolution, learner glosses).
 # It is part of the dictionary version, so the next startup refreshes the
 # pinyin/meaning snapshots on users' words once.
-GLOSS_RULES_VERSION = 1
+GLOSS_RULES_VERSION = 2

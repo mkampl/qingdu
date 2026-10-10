@@ -87,6 +87,23 @@ def read_vendored(source: str, dict_dir: Path | None = None) -> tuple[bytes, str
     return data, digest
 
 
+def load_pinned_dictionaries() -> None:
+    """Fill `hsk_vocab` and `cedict_vocab` from the vendored files the way
+    startup does, without touching the network or the data directory.
+    For tools and tests that run outside the app."""
+    from app import state
+    from app.services import cedict_loader, hsk_loader
+
+    hsk = read_vendored("hsk")
+    cedict = read_vendored("cedict")
+    if hsk is None or cedict is None:
+        raise FileNotFoundError(f"vendored dictionaries missing in {DICT_DIR}")
+    hsk_loader.process_raw_hsk(json.loads(hsk[0]))
+    state.cedict_vocab.clear()
+    state.cedict_vocab.update(cedict_loader._parse_text(cedict[0].decode("utf-8")))
+    cedict_loader._merge_into_hsk_vocab()
+
+
 def _rule_files_digest() -> str:
     h = hashlib.sha256()
     for name in _RULE_FILES:
@@ -134,6 +151,7 @@ __all__ = [
     "ChecksumError",
     "dict_version",
     "get_stored_version",
+    "load_pinned_dictionaries",
     "loaded_sources",
     "read_vendored",
     "read_version_info",

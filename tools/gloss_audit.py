@@ -90,7 +90,6 @@ def build_snapshot(hsk_path: Path, cedict_path: Path, extra_words: list[str]) ->
     else:
         state.hsk_vocab.clear()
         state.hsk_vocab.update(hsk_raw)
-    state.unknown_word_cache.clear()
 
     parsed = cedict_loader._parse_text(_read_text(cedict_path))
     state.cedict_vocab.clear()

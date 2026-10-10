@@ -5,33 +5,40 @@ The route handler in `app.routers.analyze` is a thin wrapper around
 `analyze_chinese_text` — keep all the segmentation logic here.
 """
 
-import asyncio
 import logging
-import time
 
 import jieba
 
-from app.core.constants import TRANSLATION_SOURCE_HSK
+from app.core.constants import HSK_WORD_BASE_FREQ, TRANSLATION_SOURCE_HSK
 from app.schemas import WordInfo
 from app.services import grammar
 from app.services.levels import estimate_text_level
-from app.services.word_lookup import (
-    create_compound_from_hsk,
-    lookup_unknown_word,
-    resolve_from_cedict,
+from app.services.lexicon import (
+    dictionaries_loaded,
+    in_dictionary,
+    is_cjk_word,
+    split_into_known,
 )
-from app.state import cedict_vocab, hsk_vocab
+from app.services.word_lookup import describe_non_word, resolve_from_cedict
+from app.state import hsk_vocab
 
 _SENTENCE_END_CHARS = "。！？!?…"
 
 logger = logging.getLogger(__name__)
 
-# How many unknown-word lookups we'll fire in parallel. Each lookup hits the
-# DeepL/Google/MyMemory chain via a single httpx client, so the real
-# concurrency on each provider is at most this. Pick conservatively — too
-# high and we'll trip DeepL/MyMemory rate limits, too low and long imports
-# remain slow. 8 is empirically fine for a single learner.
-_LOOKUP_CONCURRENCY = 8
+
+def prime_jieba() -> int:
+    """Initialise jieba and add every multi-character HSK word to its
+    dictionary with a high frequency, so HSK words win over jieba's own
+    phrase entries. Called once at startup, after the HSK list loaded.
+    Returns the number of words added."""
+    jieba.initialize()
+    added = 0
+    for word, data in hsk_vocab.items():
+        if len(word) > 1:
+            jieba.add_word(word, freq=max(data.get("frequency", 0) * 100, HSK_WORD_BASE_FREQ))
+            added += 1
+    return added
 
 
 def get_word_info(word: str) -> dict | None:
@@ -56,75 +63,55 @@ def _increment_level(stats: dict, total: int, level: str | None, prefix: str) ->
         return total
 
 
-def _needs_lookup(segment: str) -> str | None:
-    """
-    Return the *kind* of lookup this segment needs, or None if it doesn't.
+def _refine_token(token: str, glossary: dict) -> list[str]:
+    """Keep a token that is a word (HSK, CC-CEDICT, the user's glossary);
+    split anything else into the dictionary words it is made of.
 
-    'cedict'   -> resolve_from_cedict (direct CC-CEDICT hit for the whole
-                  segment — e.g. "一个", "变得" — checked before 'compound'
-                  since a curated dictionary gloss beats gluing per-character
-                  meanings together)
-    'compound' -> create_compound_from_hsk (every char is in HSK, no CEDICT
-                  entry for the whole word)
-    'unknown'  -> lookup_unknown_word
-    None       -> in HSK directly, single char, or whitespace/linebreak
-    """
-    if not segment or segment == "\n":
-        return None
-    if get_word_info(segment) is not None:
-        return None
-    if len(segment) <= 1:
-        return None
-    if segment in cedict_vocab:
-        return "cedict"
-    if all(char in hsk_vocab for char in segment):
-        return "compound"
-    return "unknown"
+    jieba's dictionary is full of phrases (很多, 三个, 洗衣服, 第一个) that
+    are not words for a learner; they used to come out as one token with
+    a glued "very + many" gloss. Non-Chinese tokens and single characters
+    pass through unchanged."""
+    if len(token) <= 1 or token in glossary or not is_cjk_word(token):
+        return [token]
+    if in_dictionary(token) or not dictionaries_loaded():
+        return [token]
+    return split_into_known(token, glossary)
 
 
-async def _resolve_unknowns(
-    segments: list[str],
-) -> dict[str, dict | None]:
-    """
-    Collect unique segments that need online lookup, fire all the calls
-    concurrently (bounded by _LOOKUP_CONCURRENCY), and return a map of
-    segment -> resolved info dict. Sequential lookups dominated total time
-    for imported articles; this is where the speedup comes from.
-    """
-    unique = {}  # ordered: insertion order = first occurrence in text
+def segment_text(text: str, glossary: dict | None = None) -> list[str]:
+    """Tokens of `text` in reading order, with "\n" for every line break.
+
+    Every jieba token that is not a word is split by `_refine_token`.
+    jieba's HMM stays on: it only joins runs of single characters, and
+    what it invents is either a dictionary word jieba's own word list
+    lacks (公钥, 食材, 点赞, 内卷: kept) or a non-word (我来, 太热, 我点:
+    split again). With the HMM off those dictionary words came out as
+    single characters, and the non-words come out the same either way."""
+    glossary = glossary or {}
+    lines = text.split("\n")
+    segments: list[str] = []
+    for i, line in enumerate(lines):
+        if line.strip():
+            for token in jieba.cut(line):
+                segments.extend(_refine_token(token, glossary))
+        if i < len(lines) - 1:
+            segments.append("\n")
+    return segments
+
+
+def _resolve_non_hsk(segments: list[str], glossary: dict) -> dict[str, dict | None]:
+    """Info for every multi-character segment that is not an HSK headword
+    or a glossary entry: the CC-CEDICT entry when there is one, otherwise
+    a reading plus the token's dictionary parts. All local, no network:
+    isolated tokens are never sent to a translation service."""
+    resolved: dict[str, dict | None] = {}
     for seg in segments:
-        kind = _needs_lookup(seg)
-        if kind and seg not in unique:
-            unique[seg] = kind
-
-    if not unique:
-        return {}
-
-    started = time.monotonic()
-    sem = asyncio.Semaphore(_LOOKUP_CONCURRENCY)
-
-    async def _resolve(seg: str, kind: str) -> tuple[str, dict | None]:
-        async with sem:
-            if kind == "cedict":
-                info = resolve_from_cedict(seg)
-            elif kind == "compound":
-                info = await create_compound_from_hsk(seg)
-            else:
-                info = await lookup_unknown_word(seg)
-            return seg, info
-
-    results = await asyncio.gather(
-        *(_resolve(seg, kind) for seg, kind in unique.items()),
-        return_exceptions=False,
-    )
-    elapsed = time.monotonic() - started
-    logger.info(
-        "Resolved %d unknown segments in %.2fs (concurrency=%d)",
-        len(unique),
-        elapsed,
-        _LOOKUP_CONCURRENCY,
-    )
-    return dict(results)
+        if seg in resolved or len(seg) <= 1 or seg == "\n":
+            continue
+        if seg in glossary or get_word_info(seg) is not None:
+            continue
+        resolved[seg] = resolve_from_cedict(seg) or describe_non_word(seg, glossary)
+    return resolved
 
 
 def _group_sentences(segments: list[str]) -> list[tuple[int, grammar.Sentence]]:
@@ -163,9 +150,9 @@ async def analyze_chinese_text(
     glossary: dict[str, dict] | None = None,
 ) -> dict:
     """
-    Segment `text` with jieba, look each word up in the HSK vocab (falling back
-    to compound-from-characters or an online lookup), and return per-word data
-    plus aggregate statistics across both HSK systems.
+    Segment `text` (see `segment_text`), look each word up in the HSK vocab
+    (falling back to CC-CEDICT, or to the token's dictionary parts), and
+    return per-word data plus aggregate statistics across both HSK systems.
 
     `glossary`, if provided, is a {word: {pinyin, meaning, list_name}} map
     built by the caller from the user's glossary-flagged vocabulary lists.
@@ -178,19 +165,8 @@ async def analyze_chinese_text(
         return {"words": [], "statistics": {}}
     glossary = glossary or {}
 
-    # Split by line breaks first so we can preserve them in the output.
-    lines = text.split("\n")
-    segments: list = []
-    for i, line in enumerate(lines):
-        if line.strip():
-            segments.extend(list(jieba.cut(line)))
-        if i < len(lines) - 1:
-            segments.append("\n")
-
-    # Pass 1: kick off every online lookup concurrently. The result is a
-    # dict keyed by segment text, so the per-segment loop below is pure
-    # local work — no awaits, no head-of-line blocking.
-    resolved = await _resolve_unknowns(segments)
+    segments = segment_text(text, glossary)
+    resolved = _resolve_non_hsk(segments, glossary)
 
     words: list = []
     hsk_stats_new = {f"hsk{i}": 0 for i in range(1, 10)}
@@ -263,10 +239,10 @@ async def analyze_chinese_text(
         elif len(segment) > 1:
             info = resolved.get(segment)
             if info:
-                # Compound (every char in HSK) brings both new and old levels;
-                # generic unknowns don't, so we branch on the presence of
-                # 'level_new'/'level_old' fields rather than re-deriving the
-                # 'compound' vs 'unknown' decision here.
+                word_info.parts = info.get("parts") or None
+                # Words made only of HSK characters bring both new and old
+                # levels; others don't, so we branch on the presence of
+                # 'level_new'/'level_old' rather than re-deriving it here.
                 is_compound = info.get("level_new") is not None or info.get("level_old") is not None
                 if is_compound:
                     word_info.hsk_level = info["level"]

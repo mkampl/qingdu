@@ -31,6 +31,7 @@ export type TranslationSource =
   | "hsk-chars"
   | "cedict"
   | "cache"
+  | "parts"
   | "linebreak";
 
 export interface WordInfo {
@@ -62,6 +63,16 @@ export interface WordInfo {
    *  review card so the same character can carry both a CEDICT default
    *  and one or more package-specific meanings side-by-side. */
   user_glosses?: WordGloss[];
+  /** Only for tokens that are not dictionary words: the dictionary words
+   *  they are made of. Such a token has no meaning of its own and cannot
+   *  be saved as a user word. */
+  parts?: WordPart[] | null;
+}
+
+export interface WordPart {
+  word: string;
+  pinyin: string;
+  meaning: string;
 }
 
 export interface WordGloss {

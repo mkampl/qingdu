@@ -231,10 +231,8 @@ def _validate_environment() -> None:
 @app.on_event("startup")
 async def startup_event() -> None:
     """Load HSK vocabulary, init the DB, and warm up jieba."""
-    import jieba
-
-    from app.core.constants import HSK_WORD_BASE_FREQ
     from app.core.paths import DATA_DIR
+    from app.services.segmentation import prime_jieba
 
     _validate_environment()
 
@@ -256,14 +254,7 @@ async def startup_event() -> None:
         logger.warning("CC-CEDICT load failed (%s); proceeding with HSK only", e)
 
     logger.info("Initializing jieba tokenizer...")
-    jieba.initialize()
-    logger.info("Adding HSK words to jieba dictionary with high frequency...")
-    added_to_jieba = 0
-    for word, data in hsk_vocab.items():
-        if len(word) > 1:
-            base_freq = max(data.get("frequency", 0) * 100, HSK_WORD_BASE_FREQ)
-            jieba.add_word(word, freq=base_freq)
-            added_to_jieba += 1
+    added_to_jieba = prime_jieba()
     logger.info(f"Added {added_to_jieba} multi-character HSK words with priority to jieba")
 
     _release_startup_memory()

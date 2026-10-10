@@ -11,8 +11,8 @@ whenever CC-CEDICT already has a proper entry for the whole word.
 
 import pytest
 
-from app.services.segmentation import _needs_lookup
-from app.services.word_lookup import resolve_from_cedict
+from app.services.segmentation import _resolve_non_hsk
+from app.services.word_lookup import describe_non_word, resolve_from_cedict
 from app.state import cedict_vocab, hsk_vocab
 
 
@@ -86,14 +86,30 @@ def test_no_cedict_entry_returns_none(vocab):
     assert resolve_from_cedict("不存在的词") is None
 
 
-def test_needs_lookup_prefers_cedict_over_compound_glue(vocab):
-    """End-to-end priority check: a segment that's both all-HSK-characters
-    AND has a direct CEDICT entry must be routed to 'cedict', not
-    'compound' — otherwise the dispatcher would still hit the glue path
-    resolve_from_cedict was built to avoid."""
-    assert _needs_lookup("一个") == "cedict"
+def test_resolver_prefers_cedict_entry(vocab):
+    """A segment that is all HSK characters AND has a CEDICT entry gets the
+    CEDICT gloss, never a per-character breakdown."""
+    info = _resolve_non_hsk(["一个"], {})["一个"]
+    assert info["translation_source"] == "cedict"
+    assert info["meaning"] == "a; an; one"
 
 
-def test_needs_lookup_falls_back_to_compound_without_cedict_entry(vocab):
+def test_non_word_gets_parts_not_a_glued_meaning(vocab):
     cedict_vocab.pop("一个", None)
-    assert _needs_lookup("一个") == "compound"
+    info = _resolve_non_hsk(["一个"], {})["一个"]
+    assert info["translation_source"] == "parts"
+    assert info["meaning"] == ""
+    assert info["meanings"] == []
+    assert [p["word"] for p in info["parts"]] == ["一", "个"]
+    assert info["parts"][0]["meaning"] == "one"
+    # Still coloured by its characters' HSK level.
+    assert info["level_new"] == "new-1"
+
+
+def test_resolver_skips_hsk_and_glossary_words(vocab):
+    glossary = {"道德": {"meaning": "virtue"}}
+    assert _resolve_non_hsk(["一", "变", "\n", "道德"], glossary) == {}
+
+
+def test_describe_non_word_ignores_non_chinese_tokens(vocab):
+    assert describe_non_word("iPhone") is None

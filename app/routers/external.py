@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_api_scope
 from app.database import User, UserWord, get_db
-from app.routers.words import _upsert
+from app.routers.words import _upsert, may_create_word
 from app.services.script import to_canonical
 from app.services.streak import record_activity
 from app.state import hsk_vocab
@@ -80,8 +80,11 @@ async def report_encountered_words(
     """Upsert newly-encountered words as 'learning' — the same state a
     reader click assigns. A word the user already marked 'known' or
     'ignored' is left untouched; this only ever moves a word toward
-    tracked, never overrides an explicit prior choice."""
+    tracked, never overrides an explicit prior choice. Words that are not
+    dictionary words (or in the user's own lists) are not created and
+    come back under `rejected`."""
     accepted = []
+    rejected = []
     for item in payload.words:
         word = to_canonical(item.word.strip(), user)
         if not word:
@@ -91,10 +94,13 @@ async def report_encountered_words(
         )
         if existing and existing.state in ("known", "ignored"):
             continue
+        if existing is None and not may_create_word(db, user.id, word):
+            rejected.append(word)
+            continue
         _upsert(db, user.id, word, "learning", None)
         accepted.append(word)
 
     if accepted:
         record_activity(user, db)
     db.commit()
-    return {"accepted": accepted}
+    return {"accepted": accepted, "rejected": rejected}

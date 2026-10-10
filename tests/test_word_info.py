@@ -6,8 +6,8 @@ columns on UserWord at insert time.
 
 import pytest
 
-from app.services.word_info import lookup_pinyin_meaning
-from app.state import cedict_vocab, hsk_vocab, unknown_word_cache
+from app.services.word_info import lookup_pinyin_meaning, word_parts
+from app.state import cedict_vocab, hsk_vocab
 
 
 @pytest.fixture
@@ -45,25 +45,25 @@ def test_direct_hsk_entry(hsk_chars):
     assert meaning == "I"
 
 
-def test_compound_assembled_from_hsk_characters(hsk_chars):
+def test_non_dictionary_compound_gets_no_glued_meaning(hsk_chars):
+    """你好 is not in this test's dictionaries: the reading comes from
+    pypinyin and the meaning stays empty instead of "you + good"."""
     pinyin, meaning = lookup_pinyin_meaning("你好")
     assert "nǐ" in pinyin and "hǎo" in pinyin
-    assert "you" in meaning and "good" in meaning
-    assert " + " in meaning  # joined glosses
+    assert meaning == ""
 
 
-def test_unknown_word_cache_used_when_hsk_misses(hsk_chars):
-    unknown_word_cache["道德"] = {"pinyin": "dào dé", "meaning": "virtue (cached)"}
-    try:
-        pinyin, meaning = lookup_pinyin_meaning("道德")
-        assert pinyin == "dào dé"
-        assert meaning == "virtue (cached)"
-    finally:
-        unknown_word_cache.pop("道德", None)
+def test_word_parts_lists_known_sub_words(hsk_chars):
+    assert word_parts("我好") == [
+        {"word": "我", "pinyin": "wǒ", "meaning": "I"},
+        {"word": "好", "pinyin": "hǎo", "meaning": "good"},
+    ]
+    assert word_parts("我") == []
+    assert word_parts("") == []
 
 
 def test_pure_pypinyin_fallback_when_everything_else_misses(hsk_chars):
-    # 龍 is not in our test hsk_vocab, not in the unknown cache.
+    # 龍 is not in our test hsk_vocab.
     pinyin, meaning = lookup_pinyin_meaning("龍")
     assert pinyin  # pypinyin always produces something
     assert meaning == ""  # no gloss source -> empty

@@ -55,3 +55,24 @@ def _reset_cloze_miss_cache():
     cloze.forget_misses()
     yield
     cloze.forget_misses()
+
+
+@pytest.fixture(scope="module")
+def pinned_dictionaries():
+    """Load the vendored HSK list and CC-CEDICT exactly as startup does,
+    then put the previous shared state back."""
+    from app import state
+    from app.services import dict_data
+
+    saved = (
+        dict(state.hsk_vocab),
+        dict(state.hsk_lists_original),
+        dict(state.cedict_vocab),
+    )
+    dict_data.load_pinned_dictionaries()
+    yield
+    for target, copy in zip(
+        (state.hsk_vocab, state.hsk_lists_original, state.cedict_vocab), saved, strict=True
+    ):
+        target.clear()
+        target.update(copy)

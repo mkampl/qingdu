@@ -1009,7 +1009,7 @@ export const bulkMarkKnown = (
   source_text_id?: number | null,
   snapshots?: Record<string, WordSnapshot> | null,
 ) =>
-  request<{ updated: number; total: number }>("/api/words/bulk-mark-known", {
+  request<{ updated: number; total: number; skipped?: string[] }>("/api/words/bulk-mark-known", {
     body: {
       words,
       source_text_id: source_text_id ?? null,

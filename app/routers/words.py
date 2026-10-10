@@ -31,6 +31,7 @@ from app.schemas import (
     WordStateUpdate,
 )
 from app.services.due import due_clause, end_of_day, utcnow
+from app.services.lexicon import is_lexical_word, user_word_sources
 from app.services.localday import user_tz
 from app.services.script import to_canonical, to_user_script
 from app.services.srs import ALREADY_KNOWN_STABILITY_DAYS, already_known_state
@@ -152,6 +153,23 @@ def _ensure_gloss(
         row.meaning_source = source
 
 
+def not_a_word_detail(word: str) -> str:
+    return f"「{word}」 is not a dictionary word. Save the words it is made of instead."
+
+
+def may_create_word(db: Session, user_id: int, word: str, *, is_pkg: bool = False) -> bool:
+    """Whether a new UserWord row may be created for `word`. Dictionary
+    words, the user's own list and package words, and words clicked in a
+    package text qualify; phrases such as 很多 or 洗衣服 do not. An
+    existing row can always be updated, so this only guards inserts."""
+    if is_pkg:
+        return True
+    exists = (
+        db.query(UserWord.id).filter(UserWord.user_id == user_id, UserWord.word == word).first()
+    )
+    return exists is not None or is_lexical_word(word, db=db, user_id=user_id)
+
+
 def _upsert(
     db: Session,
     user_id: int,
@@ -244,6 +262,9 @@ async def set_word_state(
     word = to_canonical(payload.word.strip(), user)
     if not word:
         raise HTTPException(status_code=400, detail="word is required")
+    is_pkg = payload.translation_source == "package" and bool(payload.meaning or payload.pinyin)
+    if not may_create_word(db, user.id, word, is_pkg=is_pkg):
+        raise HTTPException(status_code=422, detail=not_a_word_detail(word))
 
     row = _upsert(
         db,
@@ -288,7 +309,9 @@ async def bulk_mark_known(
     """
     Promote a batch of words to 'known'. Used by the page-complete /
     section-complete LingQ-style action. Idempotent: words already known are
-    no-ops; words in other states are overwritten.
+    no-ops; words in other states are overwritten. Words that are not
+    dictionary words (phrases from texts analysed before they were split)
+    are skipped and listed under `skipped`.
     """
     # Dedup at the boundary — callers may include the same word twice (e.g.
     # multiple sentences in the same section). Without this we'd try to
@@ -304,7 +327,7 @@ async def bulk_mark_known(
         seen.add(stripped)
         words.append(stripped)
     if not words:
-        return {"updated": 0, "total": 0}
+        return {"updated": 0, "total": 0, "skipped": []}
 
     existing = {
         r.word: r
@@ -317,6 +340,8 @@ async def bulk_mark_known(
     # to_canonical() pass above.
     snapshots = payload.snapshots or {}
     updated = 0
+    skipped: list[str] = []
+    own_words: set[str] | None = None
     for word in words:
         snap = snapshots.get(word)
         pkg_meaning = snap.meaning if snap else None
@@ -326,6 +351,12 @@ async def bulk_mark_known(
         is_pkg = pkg_source == "package" and (pkg_meaning or pkg_pinyin) is not None
 
         row = existing.get(word)
+        if row is None and not is_pkg and not is_lexical_word(word):
+            if own_words is None:
+                own_words = user_word_sources(db, user.id)
+            if word not in own_words:
+                skipped.append(word)
+                continue
         if row is None:
             row = UserWord(user_id=user.id, word=word, state="learning", seen_count=1)
             _apply_known_scheduling(row)
@@ -361,7 +392,7 @@ async def bulk_mark_known(
         _record_event(db, user.id, word, "bulk_mark_known", "known", payload.source_text_id)
     record_activity(user, db)
     db.commit()
-    return {"updated": updated, "total": len(words)}
+    return {"updated": updated, "total": len(words), "skipped": skipped}
 
 
 @router.get("/api/words/stats")

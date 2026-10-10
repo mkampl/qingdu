@@ -140,7 +140,19 @@ export const useUserWordsStore = defineStore("userWords", () => {
     states.value = next;
     recomputeStats();
     try {
-      return await api.bulkMarkKnown(unique, sourceTextId, snapshots);
+      const resp = await api.bulkMarkKnown(unique, sourceTextId, snapshots);
+      // Phrases that are not dictionary words were not saved; undo their
+      // optimistic state.
+      if (resp.skipped?.length) {
+        const fixed = { ...states.value };
+        for (const w of resp.skipped) {
+          if (prev[w]) fixed[w] = prev[w];
+          else delete fixed[w];
+        }
+        states.value = fixed;
+        recomputeStats();
+      }
+      return resp;
     } catch (err) {
       states.value = prev;
       recomputeStats();

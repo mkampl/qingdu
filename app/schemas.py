@@ -44,6 +44,10 @@ class WordInfo(BaseModel):
     # carries any free-form annotation the package author provided.
     package_source: str | None = None
     notes: str | None = None
+    # Set only for tokens that are not dictionary words: the dictionary
+    # words they are made of, [{word, pinyin, meaning}]. Such a token has
+    # no meaning of its own and cannot be saved as a user word.
+    parts: list[dict] | None = None
 
 
 class LoginRequest(BaseModel):

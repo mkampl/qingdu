@@ -16,7 +16,7 @@ import pytest
 from pypinyin import Style, lazy_pinyin
 
 from app import state
-from app.services import cedict_loader, dict_data, hsk_loader
+from app.services.segmentation import segment_text
 from app.services.word_info import lookup_pinyin_meaning
 
 GOLDEN_FILE = Path(__file__).parent / "data" / "golden_glosses.json"
@@ -34,31 +34,6 @@ def keyword_in(headline: str, keyword: str) -> bool:
     """Whole-word, case-insensitive match; plural and -ed/-ing endings ok."""
     pattern = r"(?<![a-z])" + re.escape(keyword.lower()) + r"(?:s|es|ed|d|ing)?(?![a-z])"
     return re.search(pattern, (headline or "").lower()) is not None
-
-
-@pytest.fixture(scope="module")
-def pinned_dictionaries():
-    """Load the vendored HSK list and CC-CEDICT exactly as startup does,
-    then put the previous shared state back."""
-    saved = (
-        dict(state.hsk_vocab),
-        dict(state.hsk_lists_original),
-        dict(state.cedict_vocab),
-    )
-    hsk_raw, _ = dict_data.read_vendored("hsk")
-    cedict_raw, _ = dict_data.read_vendored("cedict")
-    hsk_loader.process_raw_hsk(json.loads(hsk_raw))
-    state.cedict_vocab.clear()
-    state.cedict_vocab.update(cedict_loader._parse_text(cedict_raw.decode("utf-8")))
-    cedict_loader._merge_into_hsk_vocab()
-    state.unknown_word_cache.clear()
-    yield
-    for target, copy in zip(
-        (state.hsk_vocab, state.hsk_lists_original, state.cedict_vocab), saved, strict=True
-    ):
-        target.clear()
-        target.update(copy)
-    state.unknown_word_cache.clear()
 
 
 def _test_id(word: str) -> str:
@@ -81,6 +56,10 @@ def test_golden_gloss(entry, pinned_dictionaries):
 
     if entry.get("expect") == "not_a_word":
         assert " + " not in meaning, f"{word}: glued gloss {meaning!r}"
+        assert meaning == "", f"{word}: non-word got a meaning {meaning!r}"
+        tokens = segment_text(word)
+        assert word not in tokens, f"{word}: kept as one token"
+        assert "".join(tokens) == word
         return
 
     allowed = [entry["pinyin"], *entry.get("pinyin_alt", [])]

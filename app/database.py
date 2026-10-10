@@ -232,8 +232,7 @@ class UserWord(Base):
     # Phase #96 — snapshot of the word's pinyin and meaning at insert time.
     # /api/review/queue serves these directly so reviews always have a
     # gloss, even for compounds and Dao-De-Jing-style imports whose
-    # translations are not in the upstream HSK list and would otherwise
-    # be lost once unknown_word_cache (TTL 30min) evicts them.
+    # translations are not in the upstream HSK list.
     pinyin = Column(String(128), nullable=True)
     meaning = Column(Text, nullable=True)
     # Phase #100 follow-up — provenance of the pinyin/meaning snapshot above.
