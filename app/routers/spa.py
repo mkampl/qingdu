@@ -55,12 +55,25 @@ async def v2_subpath_redirect(rest: str, request: Request):
     return RedirectResponse(f"/{rest}{qs}", status_code=301)
 
 
+# Prefixes that belong to the backend. Anything under them that reached the
+# fallback matched no real route, so it's a 404, not a client-side route —
+# answering index.html would hand the API client HTML to JSON.parse.
+_BACKEND_PREFIXES = ("api", "static", "assets", "health")
+
+
+def _is_backend_path(rest: str) -> bool:
+    first = rest.split("/", 1)[0]
+    return first in _BACKEND_PREFIXES
+
+
 # Root and SPA fallback. Registered LAST in main.py via mount() so it doesn't
 # swallow /api/*, /static/*, /health, etc.
 @router.get("/", include_in_schema=False)
 @router.get("/{rest:path}", include_in_schema=False)
 async def spa_fallback(request: Request, rest: str | None = None):
     """Serve index.html so Vue Router can take it from there."""
+    if rest and _is_backend_path(rest):
+        raise HTTPException(status_code=404, detail="Not Found")
     index = SPA_DIST / "index.html"
     if not index.exists():
         raise HTTPException(

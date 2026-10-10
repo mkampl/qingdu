@@ -41,6 +41,8 @@ Run your own backend; point the official Android APK at it via **Settings → Se
 - `ALLOWED_ORIGINS` — comma-separated list of origins allowed by CORS. Set this if the SPA / Capacitor wrapper talks to your server from a different host. Example: `ALLOWED_ORIGINS=https://qingdu.example.com,capacitor://localhost,http://localhost`.
 - `SECRET_KEY` — JWT signing key; rotate per deployment.
 
+Behind a reverse proxy, also set `FORWARDED_ALLOW_IPS` to the proxy's address (see `.env.example`); otherwise every visitor shares one login/signup rate-limit budget.
+
 The web build at `/` is same-origin so CORS isn't needed for browser users. The Capacitor build hits the server cross-origin (its WebView loads from `capacitor://localhost`), so the wrapper origin must appear in `ALLOWED_ORIGINS` on the server.
 
 ## Technology

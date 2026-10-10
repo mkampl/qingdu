@@ -68,4 +68,12 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 # twice for no real benefit. (The one CPU-heavy endpoint that used to
 # justify hedging on this, /api/pronounce, was removed 2026-08-06 along
 # with the rest of the Whisper/librosa pronunciation-check feature.)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+#
+# Proxy headers: uvicorn only trusts X-Forwarded-For / -Proto from the peers
+# listed in FORWARDED_ALLOW_IPS and rewrites the client address from them;
+# rate limits and signup caps are keyed on that address. Behind a reverse
+# proxy on the Docker host the peer is the bridge gateway, not 127.0.0.1,
+# so set FORWARDED_ALLOW_IPS in .env (see .env.example) or every visitor
+# shares one rate-limit budget.
+ENV FORWARDED_ALLOW_IPS=127.0.0.1
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --proxy-headers --forwarded-allow-ips \"${FORWARDED_ALLOW_IPS:-127.0.0.1}\""]

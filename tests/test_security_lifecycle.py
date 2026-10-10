@@ -25,6 +25,7 @@ from app.database import (
     User,
     UserWord,
     UserWordEvent,
+    UserWordGloss,
     VocabularyList,
 )
 from app.services import captcha, lifecycle
@@ -255,6 +256,41 @@ def test_export_contains_all_user_data(owner_client, db_session):
     assert body["texts"][0]["content"] == "很久很久以前"
     assert [w["word"] for w in body["words"]] == ["你好"]
     assert body["review_events"][0]["event_type"] == "seen"
+
+
+def test_export_includes_glosses(owner_client, db_session):
+    """Any user with a gloss row used to 500 the export (it read a
+    non-existent `gloss` attribute)."""
+    client, owner = owner_client
+    uw = UserWord(user_id=owner.id, word="道", state="learning", pinyin="dào", meaning="way")
+    db_session.add(uw)
+    db_session.commit()
+    db_session.add_all(
+        [
+            UserWordGloss(user_word_id=uw.id, pinyin="dào", meaning="way", source="dictionary"),
+            UserWordGloss(
+                user_word_id=uw.id,
+                pinyin="dào",
+                meaning="the Tao",
+                source="package",
+                source_tag="dao_de_jing_ch1",
+            ),
+        ]
+    )
+    db_session.commit()
+
+    r = client.get("/api/auth/export")
+    assert r.status_code == 200
+    glosses = r.json()["words"][0]["glosses"]
+    assert sorted(glosses, key=lambda g: g["source"]) == [
+        {"meaning": "way", "pinyin": "dào", "source": "dictionary", "source_tag": None},
+        {
+            "meaning": "the Tao",
+            "pinyin": "dào",
+            "source": "package",
+            "source_tag": "dao_de_jing_ch1",
+        },
+    ]
 
 
 def test_delete_account_requires_correct_password(owner_client, db_session):

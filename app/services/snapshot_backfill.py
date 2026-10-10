@@ -64,17 +64,16 @@ def refresh_all_user_words(db: Session) -> int:
                 dict_gloss.pinyin = fresh_pinyin
                 changed = True
 
-        # Keep legacy columns in sync. Order: the dictionary gloss is
-        # the canonical default headline; if there's only a package
-        # gloss, use that.
-        primary_meaning = fresh_meaning
-        primary_pinyin = fresh_pinyin
-        if primary_meaning and primary_meaning != (row.meaning or ""):
-            row.meaning = primary_meaning
-            changed = True
-        if primary_pinyin and primary_pinyin != (row.pinyin or ""):
-            row.pinyin = primary_pinyin
-            changed = True
+        # Keep legacy columns in sync with the dictionary gloss, unless the
+        # headline came from a package: that snapshot is curated and must
+        # survive dictionary changes like the package gloss row does.
+        if row.meaning_source != "package":
+            if fresh_meaning != (row.meaning or ""):
+                row.meaning = fresh_meaning
+                changed = True
+            if fresh_pinyin and fresh_pinyin != (row.pinyin or ""):
+                row.pinyin = fresh_pinyin
+                changed = True
 
         if changed:
             updated += 1

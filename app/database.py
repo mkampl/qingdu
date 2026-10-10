@@ -662,8 +662,12 @@ def init_db():
                 session.rollback()
             finally:
                 session.close()
-    except Exception as e:
-        logger.error(f"Error updating database schema: {e}")
+    except Exception:
+        # Every ALTER above is guarded by a column check, so a re-run on an
+        # up-to-date schema never gets here. Anything that does is a real
+        # failure: refuse to boot rather than serve on a half-migrated schema.
+        logger.exception("Error updating database schema")
+        raise
     finally:
         db.close()
 

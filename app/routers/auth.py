@@ -12,7 +12,7 @@ from app.auth import (
     verify_password,
 )
 from app.core.constants import AUTH_RATE_LIMIT, MIN_PASSWORD_LENGTH
-from app.core.rate_limit import limiter
+from app.core.rate_limit import client_ip, limiter
 from app.database import (
     InvitationToken,
     SavedText,
@@ -35,13 +35,9 @@ from app.services import captcha, lifecycle
 router = APIRouter(tags=["Authentication"])
 
 
-def _client_ip(request: Request) -> str:
-    """Best-effort client IP. Caddy / reverse-proxies set X-Forwarded-For
-    with the original client first; fall back to the socket peer."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+# Same derivation as the rate limiter, so signup caps and slowapi agree on
+# who the client is.
+_client_ip = client_ip
 
 
 @router.post(
@@ -362,7 +358,13 @@ async def export_my_data(
                     w.last_reviewed_at.isoformat() if w.last_reviewed_at else None
                 ),
                 "glosses": [
-                    {"gloss": g.gloss, "pinyin": g.pinyin, "source": g.source} for g in w.glosses
+                    {
+                        "meaning": g.meaning,
+                        "pinyin": g.pinyin,
+                        "source": g.source,
+                        "source_tag": g.source_tag,
+                    }
+                    for g in w.glosses
                 ],
             }
             for w in words

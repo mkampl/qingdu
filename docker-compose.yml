@@ -5,7 +5,9 @@ services:
     build: .
     container_name: chinese_analyzer
     ports:
-      - "${PORT:-8000}:8000"
+      # BIND_ADDRESS=127.0.0.1 keeps the port off the public interface when a
+      # reverse proxy on the same host fronts it (Docker bypasses ufw).
+      - "${BIND_ADDRESS:-0.0.0.0}:${PORT:-8000}:8000"
     volumes:
       # Only persistent data is mounted. The application code lives inside
       # the image so a pull-and-restart-without-rebuild can't end up running
@@ -20,6 +22,8 @@ services:
       # CORS: leave unset in production to default to the public origin
       # (see app/main.py). Override via .env / Ansible for staging hosts.
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+      # Peers allowed to set X-Forwarded-For. See .env.example.
+      - FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IPS:-127.0.0.1}
       - WORKERS=2
       - RELOAD=false
       # Legal pages — all optional, unset = no Impressum page. See

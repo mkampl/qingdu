@@ -385,7 +385,7 @@ async function runImport() {
 //
 // Runtime override for the API base URL. Set to the empty string here when
 // the user is on the default; the input doubles as the override field. The
-// "Test" button hits /api/health on whatever URL is in the field so a
+// "Test" button hits /health on whatever URL is in the field so a
 // typo'd server doesn't strand the user mid-config.
 
 const apiBaseDefault = getDefaultApiBase();
