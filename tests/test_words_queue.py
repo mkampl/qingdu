@@ -150,7 +150,7 @@ def test_item_shape_and_hsk_level(queue_client):
     assert item["stability"] == 3.5
     assert item["due_at"].startswith((now + timedelta(days=2)).date().isoformat())
     assert 0 < item["seconds_until_due"] <= 2 * 86400
-    assert item["created_at"] == BASE_TIME.isoformat()
+    assert item["created_at"] == BASE_TIME.isoformat() + "Z"
     for key in ("seen_count", "ease", "difficulty", "last_reviewed_at"):
         assert key in item
 
@@ -732,7 +732,7 @@ def test_mark_known_returns_new_schedule(queue_client):
     assert body["state"] == "known"
     assert body["stability"] == 90.0
     assert body["seconds_until_due"] > 59 * 86400
-    assert body["due_at"] == _row(queue_client, "学习").due_at.isoformat()
+    assert body["due_at"] == _row(queue_client, "学习").due_at.isoformat() + "Z"
 
 
 def test_mark_known_keeps_stability_of_mature_card(queue_client):

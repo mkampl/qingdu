@@ -6,6 +6,7 @@
  */
 
 import type { SavedTextSummary } from "@/api/types";
+import { parseUtc } from "@/utils/time";
 
 export function parseTags(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -33,8 +34,8 @@ export function previewSnippet(content: string | undefined, len = 80): string {
 
 export function formatDate(iso: string): string {
   try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return "";
+    const d = parseUtc(iso);
+    if (!d) return "";
     const now = new Date();
     const sameYear = d.getFullYear() === now.getFullYear();
     return d.toLocaleDateString(undefined, {

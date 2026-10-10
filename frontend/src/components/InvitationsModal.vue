@@ -7,6 +7,7 @@ import type { InvitationSummary } from "@/api/types";
 import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
 import { useToastStore } from "@/stores/toast";
+import { formatUtcDate } from "@/utils/time";
 
 import Button from "@/components/ui/Button.vue";
 import Modal from "@/components/ui/Modal.vue";
@@ -100,11 +101,9 @@ const statusColor = (status: InvitationSummary["status"]) => {
 
 function formatDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    return (
+      formatUtcDate(iso, { year: "numeric", month: "short", day: "numeric" }) || iso
+    );
   } catch {
     return iso;
   }

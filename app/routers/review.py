@@ -19,17 +19,22 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import User, UserWord, UserWordEvent, get_db
 from app.services import cloze, srs
 from app.services.cedict_loader import cap_meanings
-from app.services.due import ACTIVE_REVIEW_STATES, due_clause, end_of_day
+from app.services.due import (
+    ACTIVE_REVIEW_STATES,
+    due_clause,
+    end_of_day,
+    review_window_clause,
+)
 from app.services.enrollment import enroll_daily_words, enrolled_today
 from app.services.script import to_canonical, to_user_script
 from app.services.streak import record_activity
+from app.services.timestamps import iso_utc
 from app.services.word_info import lookup_pinyin_meaning
 from app.state import cedict_vocab, hsk_vocab
 
@@ -39,6 +44,19 @@ router = APIRouter(tags=["Review"])
 # rotation. Auto-transitions in grade_card move rows between 'learning'
 # and 'known' based on the FSRS stability after grading.
 KNOWN_STABILITY_THRESHOLD_DAYS = 90.0
+
+
+def next_state_after_grade(state: str, stability: float | None, grade: int) -> str:
+    """Learning/known transition after one grade (hysteresis).
+
+    learning → known once stability reaches KNOWN_STABILITY_THRESHOLD_DAYS.
+    known → learning only on Again; Hard/Good/Easy keep a known card known.
+    """
+    if state == "known":
+        return "learning" if grade == 1 else "known"
+    if (stability or 0) >= KNOWN_STABILITY_THRESHOLD_DAYS:
+        return "known"
+    return "learning"
 
 
 ReviewMode = Literal["recognition", "dictation", "writing", "cloze"]
@@ -130,6 +148,28 @@ def _enrich(row: UserWord) -> dict:
     }
 
 
+_CLOZE_PAGE_SIZE = 50
+
+
+def _cloze_candidates(query, limit: int, db: Session) -> list[UserWord]:
+    """First `limit` rows of `query` that have (or can be given) a sample
+    sentence. Rows without one are skipped; misses are cached by
+    services.cloze, so re-scans stay cheap."""
+    picked: list[UserWord] = []
+    offset = 0
+    while len(picked) < limit:
+        page = query.offset(offset).limit(_CLOZE_PAGE_SIZE).all()
+        if not page:
+            break
+        offset += len(page)
+        for row in page:
+            if row.sample_sentence or cloze.populate_sample_sentence(row, db):
+                picked.append(row)
+                if len(picked) >= limit:
+                    break
+    return picked
+
+
 @router.get("/api/review/queue")
 def review_queue(
     mode: QueueMode = "recognition",
@@ -157,52 +197,29 @@ def review_queue(
     # 30 minutes; widening the cutoff to "today" covers the typical session
     # without forcing the user to wait for each card to flip due. Strict
     # FSRS-conformant pull is still available via review_window='now'.
-    window = user.review_window or "today"
-    if window == "today":
-        cutoff = end_of_day(now, 0)
-    elif window == "tomorrow":
-        cutoff = end_of_day(now, 1)
-    else:
-        cutoff = now
-    due_filter = (
-        due_clause(cutoff)
-        if window in ("today", "tomorrow")
-        else and_(
-            UserWord.state.in_(ACTIVE_REVIEW_STATES),
-            or_(UserWord.due_at.is_(None), UserWord.due_at <= cutoff),
-        )
-    )
-    rows = (
+    # services.due owns the definition; /api/review/stats counts with it.
+    base = (
         db.query(UserWord)
-        .filter(UserWord.user_id == user.id, due_filter)
-        .order_by(UserWord.due_at.is_(None).desc(), UserWord.due_at.asc())
-        .limit(limit)
-        .all()
+        .filter(UserWord.user_id == user.id, review_window_clause(user.review_window, now))
+        .order_by(UserWord.due_at.is_(None).desc(), UserWord.due_at.asc(), UserWord.id.asc())
     )
+    # Cloze drops rows without a sentence, so a plain LIMIT could hand
+    # back an empty queue while eligible cards sit further down. Page
+    # through the due rows until `limit` cards survive the filter.
+    rows = _cloze_candidates(base, limit, db) if mode == "cloze" else base.limit(limit).all()
     # Build payload and lazy-backfill the snapshot columns on rows that
-    # were inserted before Phase #96 introduced them. For cloze mode we
-    # also fill sample_sentence on demand from the user's saved texts
-    # and drop any row that has no containing sentence — cloze only
-    # makes sense if we can show the word in real context. Other modes
-    # (mixed included — it never renders a cloze step) only pass along a
-    # sentence that is already cached on the row.
-    backfilled = False
+    # were inserted before Phase #96 introduced them. Cloze rows arrive
+    # with a sample sentence already filled in (_cloze_candidates); other
+    # modes (mixed included — it never renders a cloze step) only pass
+    # along a sentence that is already cached on the row.
     cards = []
     for r in rows:
         enriched = _enrich(r)
         if (not r.pinyin and enriched["pinyin"]) or (not r.meaning and enriched["meaning"]):
             r.pinyin = enriched["pinyin"] or None
             r.meaning = enriched["meaning"] or None
-            backfilled = True
 
         sentence: str | None = r.sample_sentence
-        if mode == "cloze" and not sentence:
-            sentence = cloze.populate_sample_sentence(r, db)
-            if not sentence:
-                # Strict cloze mode skips rows that have no sample sentence —
-                # the modality requires one.
-                continue
-            backfilled = True
 
         # Phase 1.3b — progressive prompt stage picked from FSRS stability.
         # intro for fresh / unreviewed cards (full info + auto-pass),
@@ -213,7 +230,7 @@ def review_queue(
 
         card = {
             "word": to_user_script(r.word, user),
-            "due_at": r.due_at.isoformat() if r.due_at else None,
+            "due_at": iso_utc(r.due_at),
             "stability": r.stability,
             "difficulty": r.difficulty,
             "prompt_stage": stage,
@@ -226,7 +243,8 @@ def review_queue(
             card["cloze_template"] = cloze.make_cloze_template(displayed_sentence, displayed_word)
             card["cloze_sentence"] = displayed_sentence
         cards.append(card)
-    if backfilled:
+    # Snapshot backfill and freshly found cloze sentences.
+    if db.dirty:
         db.commit()
     return {"mode": mode, "cards": cards}
 
@@ -256,7 +274,7 @@ def practice_card(
     stage = srs.prompt_stage_for(row.stability)
     card = {
         "word": to_user_script(row.word, user),
-        "due_at": row.due_at.isoformat() if row.due_at else None,
+        "due_at": iso_utc(row.due_at),
         "stability": row.stability,
         "difficulty": row.difficulty,
         "prompt_stage": stage,
@@ -275,7 +293,7 @@ def practice_card(
 
 
 @router.post("/api/review/grade")
-async def grade_card(
+def grade_card(
     payload: GradeRequest,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
@@ -313,13 +331,14 @@ async def grade_card(
 
     # Auto-transition between 'learning' and 'known' based on the new
     # FSRS stability. Crossing into 'known' = mastered (renders as
-    # known-color in the reader); dropping below = back into active
-    # learning. State flips are emitted as state_change events so the
-    # log captures the inflection (helps with stats + undo).
-    new_state_for_row = (
-        "known" if (row.stability or 0) >= KNOWN_STABILITY_THRESHOLD_DAYS else "learning"
-    )
-    if new_state_for_row != row.state and row.state in ACTIVE_REVIEW_STATES:
+    # known-color in the reader). The way back is deliberately narrower:
+    # only a lapse (Again) demotes a known card. FSRS's same-day formula
+    # can drop stability far below the threshold on a plain Hard (90 →
+    # ~41), and that is not the user saying "I forgot this word".
+    # State flips are emitted as state_change events so the log captures
+    # the inflection (helps with stats + undo).
+    new_state_for_row = next_state_after_grade(row.state, row.stability, payload.grade)
+    if new_state_for_row != row.state:
         row.state = new_state_for_row
         db.add(
             UserWordEvent(
@@ -344,7 +363,7 @@ async def grade_card(
     db.commit()
     return {
         "word": to_user_script(word_simp, user),
-        "due_at": row.due_at.isoformat() if row.due_at else None,
+        "due_at": iso_utc(row.due_at),
         "stability": row.stability,
         "difficulty": row.difficulty,
         # The card's new prompt stage given the just-updated stability —
@@ -355,38 +374,34 @@ async def grade_card(
 
 
 @router.get("/api/review/stats")
-async def review_stats(
+def review_stats(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> dict:
     """
     Summary for the nav badge + ReviewView dashboard.
-    - `due_now`: cards currently due (queue depth right now).
-    - `due_today`: cards that will be due before tomorrow midnight UTC.
+    - `due_now`: cards currently due (due_at <= now).
+    - `due_today`: cards due before the end of today (UTC).
+    - `due_in_window`: what /api/review/queue would serve right now under
+      the user's review_window — the badge and the Start gate read this.
     - `learning`: total cards in the 'learning' state.
+    - `in_rotation`: learning + known cards (everything that can come due).
     - `reviewed_today`: reviews logged since UTC midnight.
     """
     now = datetime.utcnow()
     midnight_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    due_now = (
-        db.query(UserWord)
-        .filter(
-            UserWord.user_id == user.id,
-            UserWord.state.in_(ACTIVE_REVIEW_STATES),
-            or_(UserWord.due_at.is_(None), UserWord.due_at <= now),
-        )
-        .count()
-    )
+    def count(*criteria) -> int:
+        return db.query(UserWord).filter(UserWord.user_id == user.id, *criteria).count()
+
+    due_now = count(review_window_clause("now", now))
     # Same definition as the /words "Due today" chip (services.due).
-    due_today = (
-        db.query(UserWord).filter(UserWord.user_id == user.id, due_clause(end_of_day(now))).count()
-    )
+    due_today = count(due_clause(end_of_day(now)))
+    due_in_window = count(review_window_clause(user.review_window, now))
     # The "learning" counter excludes the 'known' bucket so the user can
     # distinguish "still struggling" from "mastered but still in rotation".
-    learning = (
-        db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.state == "learning").count()
-    )
+    learning = count(UserWord.state == "learning")
+    in_rotation = count(UserWord.state.in_(ACTIVE_REVIEW_STATES))
     reviewed_today = (
         db.query(UserWordEvent)
         .filter(
@@ -399,7 +414,9 @@ async def review_stats(
     return {
         "due_now": due_now,
         "due_today": due_today,
+        "due_in_window": due_in_window,
         "learning": learning,
+        "in_rotation": in_rotation,
         "reviewed_today": reviewed_today,
         # Phase #96 — counters for the "new today: X / Y" badge.
         "new_today": enrolled_today(user, db),

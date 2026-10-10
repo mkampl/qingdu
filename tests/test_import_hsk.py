@@ -133,3 +133,12 @@ def test_words_land_as_known_state(import_client):
         assert {r.word for r in rows} == {"你", "好", "今天"}
     finally:
         db.close()
+
+
+def test_import_hsk_counts_every_word_in_weekly_stats(import_client):
+    """The import logs one event for many words; the weekly marked_known
+    count adds up the words, not the events."""
+    client, _ = import_client
+    client.post("/api/words/import-hsk", json={"up_to_level": 2, "hsk_version": "new"})
+    days = client.get("/api/stats/weekly").json()["days"]
+    assert days[-1]["marked_known"] == 4

@@ -33,6 +33,7 @@ from app.schemas import (
     UserSettingsUpdate,
 )
 from app.services import captcha, lifecycle
+from app.services.timestamps import iso_utc
 
 router = APIRouter(tags=["Authentication"])
 
@@ -118,12 +119,8 @@ async def get_me(user: User = Depends(get_current_user), db: Session = Depends(g
             ),
             "review_window": user.review_window or "today",
             "account_status": user.account_status or "active",
-            "soft_delete_at": (
-                expiry["soft_delete_at"].isoformat() if expiry["soft_delete_at"] else None
-            ),
-            "hard_delete_at": (
-                expiry["hard_delete_at"].isoformat() if expiry["hard_delete_at"] else None
-            ),
+            "soft_delete_at": iso_utc(expiry["soft_delete_at"]),
+            "hard_delete_at": iso_utc(expiry["hard_delete_at"]),
         },
     }
 
@@ -305,10 +302,10 @@ async def export_my_data(
     payload = {
         "format": "qingdu-export",
         "version": 1,
-        "exported_at": datetime.utcnow().isoformat() + "Z",
+        "exported_at": iso_utc(datetime.utcnow()),
         "profile": {
             "username": user.username,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "created_at": iso_utc(user.created_at),
             "settings": {
                 "daily_new_words": user.daily_new_words,
                 "hsk_focus_version": user.hsk_focus_version,
@@ -323,7 +320,7 @@ async def export_my_data(
                 "content": t.content,
                 "tags": t.tags,
                 "reading_progress": t.reading_progress,
-                "created_at": t.created_at.isoformat() if t.created_at else None,
+                "created_at": iso_utc(t.created_at),
             }
             for t in db.query(SavedText).filter(SavedText.user_id == user.id).all()
         ],
@@ -333,7 +330,7 @@ async def export_my_data(
                 "list_type": vl.list_type,
                 "sections": vl.sections,
                 "apply_as_glossary": vl.apply_as_glossary,
-                "created_at": vl.created_at.isoformat() if vl.created_at else None,
+                "created_at": iso_utc(vl.created_at),
             }
             for vl in db.query(VocabularyList).filter(VocabularyList.user_id == user.id).all()
         ],
@@ -347,10 +344,8 @@ async def export_my_data(
                 "ease": w.ease,
                 "stability": w.stability,
                 "difficulty": w.difficulty,
-                "due_at": w.due_at.isoformat() if w.due_at else None,
-                "last_reviewed_at": (
-                    w.last_reviewed_at.isoformat() if w.last_reviewed_at else None
-                ),
+                "due_at": iso_utc(w.due_at),
+                "last_reviewed_at": iso_utc(w.last_reviewed_at),
                 "glosses": [
                     {
                         "meaning": g.meaning,
@@ -370,7 +365,7 @@ async def export_my_data(
                 "new_state": e.new_state,
                 "grade": e.grade,
                 "mode": e.mode,
-                "created_at": e.created_at.isoformat() if e.created_at else None,
+                "created_at": iso_utc(e.created_at),
             }
             for e in db.query(UserWordEvent)
             .filter(UserWordEvent.user_id == user.id)

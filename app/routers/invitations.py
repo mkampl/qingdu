@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import InvitationToken, User, get_db
+from app.services.timestamps import iso_utc
 
 router = APIRouter(tags=["Invitations"])
 
@@ -49,7 +50,7 @@ async def generate_invitation(
         "id": invitation.id,
         "token": token,
         "invite_url": invite_url,
-        "expires_at": invitation.expires_at.isoformat(),
+        "expires_at": iso_utc(invitation.expires_at),
         "remaining_quota": (-1 if user.invite_quota == -1 else user.invite_quota - used_count - 1),
     }
 
@@ -96,9 +97,9 @@ async def get_my_invitations(
                 "full_token": inv.token,
                 "status": _status(inv),
                 "claimed_by": _claimed_username(inv),
-                "claimed_at": inv.claimed_at.isoformat() if inv.claimed_at else None,
-                "expires_at": inv.expires_at.isoformat(),
-                "created_at": inv.created_at.isoformat(),
+                "claimed_at": iso_utc(inv.claimed_at),
+                "expires_at": iso_utc(inv.expires_at),
+                "created_at": iso_utc(inv.created_at),
             }
             for inv in invitations
         ],
@@ -125,5 +126,5 @@ async def validate_invitation(token: str, db: Session = Depends(get_db)):
     return {
         "valid": True,
         "invited_by": creator.username if creator else "Unknown",
-        "expires_at": invitation.expires_at.isoformat(),
+        "expires_at": iso_utc(invitation.expires_at),
     }

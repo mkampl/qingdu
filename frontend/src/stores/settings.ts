@@ -1,6 +1,12 @@
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
 
+import {
+  DEFAULT_AUTO_GRADE_DELAY,
+  normalizeAutoGradeDelay,
+  type AutoGradeDelay,
+} from "@/utils/review";
+
 export type Theme = "light" | "dark";
 export type PinyinMode = "auto" | "on" | "off";
 export type HskVersion = "new" | "old";
@@ -37,13 +43,18 @@ interface Persisted {
   // users who only want to drill one modality can flip this from the
   // Review view's Advanced disclosure; we persist it across sessions.
   reviewSingleMode: boolean;
+  // How long the suggested grade waits before firing after a writing
+  // quiz (ms). 0 turns auto-grading off; the user then always picks.
+  autoGradeDelayMs: AutoGradeDelay;
 }
 
 function loadFromStorage(): Persisted {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      return { ...defaults(), ...(JSON.parse(raw) as Partial<Persisted>) };
+      const merged = { ...defaults(), ...(JSON.parse(raw) as Partial<Persisted>) };
+      merged.autoGradeDelayMs = normalizeAutoGradeDelay(merged.autoGradeDelayMs);
+      return merged;
     }
   } catch {
     // ignore — fall through to defaults
@@ -72,6 +83,7 @@ function defaults(): Persisted {
     hapticsEnabled: true,
     autoLearnOnClick: false,
     reviewSingleMode: false,
+    autoGradeDelayMs: DEFAULT_AUTO_GRADE_DELAY,
   };
 }
 
@@ -90,6 +102,7 @@ export const useSettingsStore = defineStore("settings", () => {
   const hapticsEnabled = ref(true);
   const autoLearnOnClick = ref(false);
   const reviewSingleMode = ref(false);
+  const autoGradeDelayMs = ref<AutoGradeDelay>(DEFAULT_AUTO_GRADE_DELAY);
   let hydrated = false;
 
   function applyTheme(value: Theme) {
@@ -111,6 +124,7 @@ export const useSettingsStore = defineStore("settings", () => {
     hapticsEnabled.value = persisted.hapticsEnabled;
     autoLearnOnClick.value = persisted.autoLearnOnClick;
     reviewSingleMode.value = persisted.reviewSingleMode;
+    autoGradeDelayMs.value = persisted.autoGradeDelayMs;
     applyTheme(theme.value);
     hydrated = true;
   }
@@ -129,6 +143,7 @@ export const useSettingsStore = defineStore("settings", () => {
       hapticsEnabled: hapticsEnabled.value,
       autoLearnOnClick: autoLearnOnClick.value,
       reviewSingleMode: reviewSingleMode.value,
+      autoGradeDelayMs: autoGradeDelayMs.value,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }
@@ -136,7 +151,7 @@ export const useSettingsStore = defineStore("settings", () => {
   watch(
     [theme, pinyinMode, hskVersion, showLegend, colorMode, writingShowOutline,
      reminderEnabled, reminderTime, hapticsEnabled, autoLearnOnClick,
-     reviewSingleMode],
+     reviewSingleMode, autoGradeDelayMs],
     () => {
       if (hydrated) persist();
     },
@@ -160,6 +175,7 @@ export const useSettingsStore = defineStore("settings", () => {
     hapticsEnabled,
     autoLearnOnClick,
     reviewSingleMode,
+    autoGradeDelayMs,
     hydrate,
     toggleTheme,
   };

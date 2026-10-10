@@ -12,11 +12,14 @@ import type {
 import { useAuthStore } from "@/stores/auth";
 import { useSettingsStore } from "@/stores/settings";
 import { useUserWordsStore } from "@/stores/userWords";
+import { dueCountForWindow, shouldReinsert } from "@/utils/review";
 
 const DEFAULT_STATS: ReviewStatsResponse = {
   due_now: 0,
   due_today: 0,
+  due_in_window: 0,
   learning: 0,
+  in_rotation: 0,
   reviewed_today: 0,
   new_today: 0,
   daily_target: 0,
@@ -44,6 +47,11 @@ export const useReviewStore = defineStore("review", () => {
   const loading = ref(false);
   const grading = ref(false);
   const error = ref<string | null>(null);
+  // What failed, so ReviewView can offer the matching retry: reload the
+  // queue, or re-send the grade that didn't go through.
+  const errorKind = ref<"queue" | "grade" | "empty" | null>(null);
+  let failedGrade: { grade: ReviewGrade; surface?: ReviewMode } | null = null;
+  let failedPractice: { word: string; returnTo: string | null } | null = null;
   // Phase #119 — mobile focus-mode flag (collapses header/footer during
   // the result phase). Lives in the store so App.vue can read it.
   const inFocus = ref(false);
@@ -63,15 +71,13 @@ export const useReviewStore = defineStore("review", () => {
   const remaining = computed(() =>
     Math.max(0, queue.value.length - cursor.value),
   );
-  // Mirrors the server-side queue cutoff (user.review_window: "now" pulls
-  // strictly due_at <= now; "today"/"tomorrow" both pull today's window —
-  // see /api/review/queue). Using stats.due_now unconditionally here used
-  // to show a badge count that didn't match what /review actually opened
-  // with, since the queue defaults to the wider "today" window.
+  // What a session would open with right now under user.review_window.
+  // The server counts it with the same window definition the queue uses
+  // (stats.due_in_window), so the badge, the Start gate and the queue
+  // can't disagree — "tomorrow" used to read due_today and undercount.
   const dueNow = computed(() => {
     const auth = useAuthStore();
-    const window = auth.user?.review_window ?? "today";
-    return window === "now" ? stats.value.due_now : stats.value.due_today;
+    return dueCountForWindow(stats.value, auth.user?.review_window ?? "today");
   });
 
   // Back-compat alias — older components read `review.mode` expecting
@@ -94,18 +100,29 @@ export const useReviewStore = defineStore("review", () => {
     const mode: QueueMode =
       targetMode ?? (settings.reviewSingleMode ? "recognition" : "mixed");
     loading.value = true;
-    error.value = null;
+    clearError();
     queueMode.value = mode;
     cursor.value = 0;
     sessionGraded.value = 0;
     try {
       const r = await api.getReviewQueue(mode, 30);
       queue.value = r.cards;
+      if (r.cards.length === 0) {
+        // The Start gate said there was something due, but nothing came
+        // back (e.g. cloze with no saved-text sentences). Say so instead
+        // of silently dropping back to the start screen.
+        errorKind.value = "empty";
+        error.value =
+          mode === "cloze"
+            ? "None of your due words appear in a saved text yet, so there's nothing to fill in. Try another mode."
+            : "Nothing to review right now.";
+      }
       // Phase #96 — fetching the queue triggers server-side auto-enrol,
       // which bumps `new_today` and may add to `due_now`. Refresh stats
       // so the SPA badges reflect what the backend just enrolled.
       void refreshStats();
     } catch (e) {
+      errorKind.value = "queue";
       error.value =
         e instanceof Error ? e.message : "Couldn't load review queue";
       queue.value = [];
@@ -116,7 +133,7 @@ export const useReviewStore = defineStore("review", () => {
 
   async function startPractice(word: string, returnTo: string | null = null) {
     loading.value = true;
-    error.value = null;
+    clearError();
     practiceMode.value = true;
     practiceReturnTo.value = returnTo;
     queueMode.value = "mixed";
@@ -126,6 +143,8 @@ export const useReviewStore = defineStore("review", () => {
       const r = await api.getPracticeCard(word);
       queue.value = [r.card];
     } catch (e) {
+      errorKind.value = "queue";
+      failedPractice = { word, returnTo };
       error.value =
         e instanceof Error ? e.message : "Couldn't load practice card";
       queue.value = [];
@@ -135,9 +154,11 @@ export const useReviewStore = defineStore("review", () => {
     }
   }
 
-  async function grade(g: ReviewGrade, surface?: ReviewMode) {
+  /** Grade the current card. Resolves true once the grade is stored
+   *  (or, in practice mode, counted) and the cursor has moved on. */
+  async function grade(g: ReviewGrade, surface?: ReviewMode): Promise<boolean> {
     const card = current.value;
-    if (!card || grading.value) return;
+    if (!card || grading.value) return false;
     // Practice mode — no server call, no FSRS mutation, no streak update.
     // Just count the modality attempt so the SPA's UI counter still ticks
     // and the cursor advances so the session ends naturally after all
@@ -145,9 +166,10 @@ export const useReviewStore = defineStore("review", () => {
     if (practiceMode.value) {
       sessionGraded.value += 1;
       cursor.value += 1;
-      return;
+      return true;
     }
     grading.value = true;
+    clearError();
     try {
       // `surface` is the modality the user actually just performed —
       // ReviewView passes it in mixed mode. Without it every mixed-mode
@@ -160,10 +182,9 @@ export const useReviewStore = defineStore("review", () => {
       // scheduled the card within the next 20 minutes (Again → +1min,
       // Hard → +6min, Good while still in learning → +10min), splice
       // it onto the back of the queue so the cursor reaches it again
-      // this session.
-      const dueAt = response.due_at ? new Date(response.due_at).getTime() : null;
-      const cutoff = Date.now() + 20 * 60_000;
-      if (dueAt !== null && dueAt <= cutoff) {
+      // this session. due_at is UTC; shouldReinsert parses it as such.
+      const reinsert = shouldReinsert(response.due_at);
+      if (reinsert) {
         queue.value = [
           ...queue.value,
           {
@@ -177,26 +198,71 @@ export const useReviewStore = defineStore("review", () => {
       }
 
       cursor.value += 1;
-      // Optimistic stats update — refreshStats reconciles right after.
+      // Optimistic stats update — refreshAfterGrade reconciles right
+      // after. A re-inserted card is still due, so the counts stay.
+      const left = (n: number) => Math.max(0, n - (reinsert ? 0 : 1));
       stats.value = {
         ...stats.value,
-        due_now: Math.max(0, stats.value.due_now - 1),
+        due_now: left(stats.value.due_now),
+        due_today: left(stats.value.due_today),
+        due_in_window: left(stats.value.due_in_window),
         reviewed_today: stats.value.reviewed_today + 1,
       };
-      void refreshStats();
-      // Streak might have just bumped (first activity today). Pull the
-      // freshest word-stats so the flame chip updates without a reload.
-      void useUserWordsStore().refreshStats();
+      void refreshAfterGrade();
+      return true;
     } catch (e) {
+      errorKind.value = "grade";
+      failedGrade = { grade: g, surface };
       error.value = e instanceof Error ? e.message : "Couldn't save grade";
+      return false;
     } finally {
       grading.value = false;
     }
   }
 
+  /** Re-run whatever failed last. Resolves true when it went through. */
+  async function retry(): Promise<boolean> {
+    if (errorKind.value === "grade" && failedGrade) {
+      const { grade: g, surface } = failedGrade;
+      return grade(g, surface);
+    }
+    if (errorKind.value === "queue" && failedPractice) {
+      const { word, returnTo } = failedPractice;
+      await startPractice(word, returnTo);
+      return error.value === null;
+    }
+    if (errorKind.value === "queue" || errorKind.value === "empty") {
+      await loadQueue(queueMode.value);
+      return error.value === null;
+    }
+    return false;
+  }
+
+  function clearError() {
+    error.value = null;
+    errorKind.value = null;
+    failedGrade = null;
+    failedPractice = null;
+  }
+
+  // Streak might have just bumped (first activity today). Pull the word
+  // stats first so the streak handed to the notification cache in
+  // refreshStats is the fresh one, not the value from before this grade.
+  async function refreshAfterGrade() {
+    await useUserWordsStore().refreshStats();
+    await refreshStats();
+  }
+
+  // Only the newest stats response is applied: with fast grading several
+  // requests are in flight, and an older one landing last used to roll
+  // the counters back.
+  let statsSeq = 0;
   async function refreshStats() {
+    const seq = ++statsSeq;
     try {
-      stats.value = await api.getReviewStats();
+      const fresh = await api.getReviewStats();
+      if (seq !== statsSeq) return;
+      stats.value = { ...DEFAULT_STATS, ...fresh };
       const notif = await import("@/services/notifications");
       // dueNow (not the raw stats field) so the reminder body matches
       // what /review actually opens with per the user's window setting.
@@ -222,7 +288,7 @@ export const useReviewStore = defineStore("review", () => {
     // Leave stats alone — they reflect the user's persistent learning
     // state (due counts, streak, total learning words). Pressing Done
     // ends the session, not the day's stats.
-    error.value = null;
+    clearError();
     inFocus.value = false;
     practiceMode.value = false;
     practiceReturnTo.value = null;
@@ -245,6 +311,7 @@ export const useReviewStore = defineStore("review", () => {
     loading,
     grading,
     error,
+    errorKind,
     current,
     hasNext,
     remaining,
@@ -255,6 +322,8 @@ export const useReviewStore = defineStore("review", () => {
     loadQueue,
     startPractice,
     grade,
+    retry,
+    clearError,
     refreshStats,
     reset,
     resetAll,

@@ -28,6 +28,11 @@ import { useReviewStore } from "@/stores/review";
 import { useSettingsStore } from "@/stores/settings";
 import { success as hapticSuccess, tap as hapticTap } from "@/services/native";
 import { otherMeanings } from "@/utils/meanings";
+import {
+  formatHskLevel,
+  reviewShortcutBlocked,
+  suggestedGradeForMistakes,
+} from "@/utils/review";
 
 const review = useReviewStore();
 const router = useRouter();
@@ -115,23 +120,6 @@ const clozeFeedback = ref<"" | "correct" | "wrong">("");
 // the card just sits there with audio + strokes, no time pressure.
 const introReady = ref(false);
 
-function suggestedGradeForMistakes(mistakes: number, strokes: number): ReviewGrade {
-  // Ratio-based instead of hardcoded thresholds — 3 mistakes on 一 (1 stroke)
-  // is catastrophic, on 鬱 (29 strokes) it's solid. Falls back to the old
-  // absolute thresholds if strokes is 0 (data load failed).
-  if (strokes <= 0) {
-    if (mistakes === 0) return 4;
-    if (mistakes <= 2) return 3;
-    if (mistakes <= 5) return 2;
-    return 1;
-  }
-  if (mistakes === 0) return 4;
-  const ratio = mistakes / strokes;
-  if (ratio <= 0.10) return 3; // Good — at most 1 mistake per 10 strokes
-  if (ratio <= 0.25) return 2; // Hard — up to 1 in 4
-  return 1; // Again — more than 1 in 4
-}
-
 function onWritingComplete(payload: {
   totalMistakes: number;
   totalStrokes: number;
@@ -180,7 +168,10 @@ const activeSurface = computed<Surface>(() => {
   return review.queueMode as Surface;
 });
 
-async function start(mode: QueueMode) {
+// Per-card UI state. Cleared whenever the card on screen changes (new
+// session, next card, re-inserted card) — see the review.current watcher.
+function resetCardState() {
+  cancelAutoGrade();
   revealed.value = false;
   dictationInput.value = "";
   dictationFeedback.value = "";
@@ -189,7 +180,18 @@ async function start(mode: QueueMode) {
   writingDone.value = false;
   clozeInput.value = "";
   clozeFeedback.value = "";
+  // Without this an intro card tapped "Got it" on, then End session, made
+  // the next session's first intro card skip straight to trace.
+  introReady.value = false;
+}
+
+async function start(mode: QueueMode) {
+  resetCardState();
   await review.loadQueue(mode);
+}
+
+async function retryReview() {
+  await review.retry();
 }
 
 // Phase 1.3 — Advanced single-mode disclosure. Hidden by default;
@@ -242,14 +244,28 @@ function stopActiveTts() {
   }
 }
 
+// Bumped by every playTts() and whenever the card changes or the view
+// unmounts. A fetch that resolves after that is dropped instead of
+// playing the previous card's audio over the current one.
+let ttsSeq = 0;
+
+function cancelTts() {
+  ttsSeq += 1;
+  stopActiveTts();
+  ttsLoading.value = false;
+}
+
 async function playTts() {
   if (!card.value) return;
   stopActiveTts();
+  const seq = ++ttsSeq;
   ttsLoading.value = true;
   try {
     const r = await api.tts(card.value.word);
     if (!r.ok) throw new Error("TTS failed");
-    const url = URL.createObjectURL(await r.blob());
+    const blob = await r.blob();
+    if (seq !== ttsSeq) return;
+    const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     activeTtsAudio = audio;
     activeTtsUrl = url;
@@ -264,7 +280,7 @@ async function playTts() {
   } catch {
     /* keep button responsive */
   } finally {
-    ttsLoading.value = false;
+    if (seq === ttsSeq) ttsLoading.value = false;
   }
 }
 
@@ -283,17 +299,12 @@ const gradeRowVisible = computed(
     (activeSurface.value === "produce" && writingDone.value),
 );
 
-// Keyboard shortcuts SRS users expect: space reveals, 1-4 grade. The
-// "(space)" hint on the reveal button used to be a lie — no handler
-// existed. Skips entirely while typing in the dictation/cloze inputs.
+// Keyboard shortcuts SRS users expect: space reveals, 1-4 grade. Skipped
+// while typing in the dictation/cloze inputs, while a dialog is open on
+// top (Settings, shortcuts help, …), and Space is left alone when it
+// would activate a focused button.
 function onReviewKeydown(e: KeyboardEvent) {
-  const el = e.target as HTMLElement | null;
-  if (
-    el &&
-    (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)
-  ) {
-    return;
-  }
+  if (reviewShortcutBlocked(e)) return;
   if (!card.value) return;
   if (e.key === " ") {
     if (activeSurface.value === "recognition" && !revealed.value) {
@@ -327,17 +338,10 @@ async function gradeAndAdvance(g: ReviewGrade) {
   if (g >= 3) hapticSuccess(settings.hapticsEnabled);
   else hapticTap(settings.hapticsEnabled);
   cancelAutoGrade();
+  // On success the cursor moves and the review.current watcher resets
+  // the per-card state. On failure the card stays as it is, with the
+  // error banner offering a retry.
   await review.grade(g, surfaceMode());
-  // Reset reveal state for the next card.
-  revealed.value = false;
-  dictationInput.value = "";
-  dictationFeedback.value = "";
-  writingMistakes.value = 0;
-  writingStrokes.value = 0;
-  writingDone.value = false;
-  clozeInput.value = "";
-  clozeFeedback.value = "";
-  introReady.value = false;
 }
 
 // Intro stage — passive absorption. TTS auto-plays and strokes animate
@@ -348,21 +352,6 @@ async function gradeAndAdvance(g: ReviewGrade) {
 function introContinue() {
   introReady.value = true;
 }
-// Auto-play TTS once per card encounter. We watch the word (not the
-// surface) so an intro→trace flip on the *same* card doesn't re-fire
-// the audio — that flip was the source of the echo a user reported on
-// v1.0.34 (intro auto-play + transition auto-play overlapped).
-watch(
-  () => card.value?.word,
-  (word, prev) => {
-    if (!word || word === prev) return;
-    if (activeSurface.value === "intro" || activeSurface.value === "trace") {
-      void playTts();
-    }
-  },
-  { immediate: true },
-);
-
 // When the queue runs out during a session, refresh stats so the
 // session-complete screen shows the true "still due" count rather than
 // whatever the optimistic per-grade decrement left in place.
@@ -384,7 +373,8 @@ watch(
 // the timer and fires the clicked rating instead, so the auto-grade
 // stays a Default rather than a forced choice.
 
-const AUTO_GRADE_DELAY_MS = 2000;
+// Settings → Review → Auto-grade after writing (0 = off, default 2 s).
+const autoGradeDelayMs = computed(() => settings.autoGradeDelayMs);
 const autoGradeTimer = ref<number | null>(null);
 const autoGradePending = ref<ReviewGrade | null>(null);
 
@@ -398,12 +388,13 @@ function cancelAutoGrade() {
 
 function scheduleAutoGrade(g: ReviewGrade) {
   cancelAutoGrade();
+  if (autoGradeDelayMs.value <= 0) return;
   autoGradePending.value = g;
   autoGradeTimer.value = window.setTimeout(() => {
     autoGradeTimer.value = null;
     autoGradePending.value = null;
     void gradeAndAdvance(g);
-  }, AUTO_GRADE_DELAY_MS);
+  }, autoGradeDelayMs.value);
 }
 
 watch(
@@ -428,6 +419,25 @@ watch(
     }
   },
   { immediate: false },
+);
+
+// New card on screen: drop the previous card's UI state and audio, then
+// auto-play TTS once for this encounter. We watch the card (not the
+// surface) so an intro→trace flip on the *same* card doesn't re-fire
+// the audio — that flip was the source of the echo a user reported on
+// v1.0.34 (intro auto-play + transition auto-play overlapped).
+watch(
+  () => review.current,
+  (cur, prev) => {
+    if (cur === prev) return;
+    cancelTts();
+    resetCardState();
+    if (!cur) return;
+    if (activeSurface.value === "intro" || activeSurface.value === "trace") {
+      void playTts();
+    }
+  },
+  { immediate: true },
 );
 
 // Phase #119 — Mobile focus-mode. Stays on as long as a card is loaded,
@@ -521,7 +531,7 @@ async function dictationContinue() {
 
 onBeforeUnmount(() => {
   cancelAutoGrade();
-  stopActiveTts();
+  cancelTts();
   review.inFocus = false;
   window.removeEventListener("keydown", onReviewKeydown);
 });
@@ -531,33 +541,6 @@ onMounted(() => {
   window.addEventListener("keydown", onReviewKeydown);
 });
 
-// When the user toggles modes mid-session, reset the per-card state.
-watch(
-  () => review.mode,
-  () => {
-    revealed.value = false;
-    dictationInput.value = "";
-    dictationFeedback.value = "";
-    writingMistakes.value = 0;
-    writingStrokes.value = 0;
-    writingDone.value = false;
-    clozeInput.value = "";
-    clozeFeedback.value = "";
-  },
-);
-
-// Reset writing + cloze state when the cursor advances to a new card so
-// the quiz remounts cleanly.
-watch(
-  () => review.cursor,
-  () => {
-    writingMistakes.value = 0;
-    writingStrokes.value = 0;
-    writingDone.value = false;
-    clozeInput.value = "";
-    clozeFeedback.value = "";
-  },
-);
 </script>
 
 <template>
@@ -608,6 +591,46 @@ watch(
       </button>
     </div>
 
+    <!-- Review errors: queue load, grade save, or an empty queue. A failed
+         grade keeps the card on screen; Retry re-sends the same grade. -->
+    <div
+      v-if="auth.isAuthed && review.error"
+      :class="[
+        'mb-6 flex items-start gap-3 rounded-md border px-4 py-3 text-sm',
+        review.errorKind === 'empty'
+          ? 'border-border-subtle bg-bg-elevated text-fg-muted'
+          : 'border-red-300/60 bg-red-50/70 text-red-800 dark:border-red-800/50 dark:bg-red-500/10 dark:text-red-200',
+      ]"
+      :role="review.errorKind === 'empty' ? 'status' : 'alert'"
+    >
+      <p class="flex-1 leading-snug">
+        <span v-if="review.errorKind === 'grade'" class="font-medium">
+          Couldn't save that grade.
+        </span>
+        <span v-else-if="review.errorKind === 'queue'" class="font-medium">
+          Couldn't load your review queue.
+        </span>
+        {{ review.error }}
+      </p>
+      <button
+        v-if="review.errorKind === 'grade' || review.errorKind === 'queue'"
+        type="button"
+        class="shrink-0 rounded-md border border-current/30 px-3 py-1 font-mono text-[10px] uppercase tracking-wider transition-opacity hover:opacity-80 disabled:opacity-50"
+        :disabled="review.grading || review.loading"
+        @click="retryReview"
+      >
+        Retry
+      </button>
+      <button
+        type="button"
+        class="shrink-0 px-1 font-mono text-[10px] uppercase tracking-wider opacity-70 transition-opacity hover:opacity-100"
+        aria-label="Dismiss"
+        @click="review.clearError()"
+      >
+        ✕
+      </button>
+    </div>
+
     <!-- Not authed -->
     <div
       v-if="!auth.isAuthed"
@@ -615,8 +638,9 @@ watch(
     >
       <p class="font-display text-lg text-fg">Sign in to review your words.</p>
       <p class="mt-2 text-sm text-fg-muted">
-        Review draws from words you've marked as
-        <span class="font-medium">Learning</span> in the reader.
+        Review draws from the words you track in the reader —
+        <span class="font-medium">Learning</span> words often,
+        <span class="font-medium">Known</span> words now and then.
       </p>
       <button
         type="button"
@@ -746,18 +770,20 @@ watch(
       </details>
 
       <div
-        v-if="effectiveDueCount === 0 && review.stats.learning > 0"
+        v-if="effectiveDueCount === 0 && review.stats.in_rotation > 0"
         class="mt-2 rounded-lg border border-border-subtle bg-bg-elevated px-5 py-4 text-center text-sm text-fg-muted"
       >
-        Nothing's due right now — come back later, or mark a few more words as
-        Learning in the reader.
+        Nothing's due right now — come back later. Your
+        {{ review.stats.in_rotation.toLocaleString() }} Learning and Known
+        words come back on their own schedule.
       </div>
       <div
-        v-else-if="review.stats.learning === 0"
+        v-else-if="review.stats.in_rotation === 0"
         class="mt-2 rounded-lg border border-border-subtle bg-bg-elevated px-5 py-4 text-center text-sm text-fg-muted"
       >
-        No words in Learning yet. Click any word in the reader, then choose
-        "Learning" from the popover.
+        Nothing to review yet. Click any word in the reader and choose
+        "Learning" (or "Known") from the popover — both join your review
+        rotation.
       </div>
     </div>
 
@@ -941,7 +967,7 @@ watch(
             v-if="card.hsk_level"
             class="mb-4 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
           >
-            {{ card.hsk_level }}
+            {{ formatHskLevel(card.hsk_level) }}
           </p>
           <p class="font-cn-serif text-6xl leading-none text-fg sm:text-7xl">
             {{ card.word }}
@@ -1093,6 +1119,7 @@ watch(
             </button>
           </div>
           <WritingQuiz
+            :key="`${card.word}-${review.cursor}`"
             :word="card.word"
             :pinyin="card.pinyin"
             :meaning="card.meaning"
@@ -1208,6 +1235,7 @@ watch(
         >
           <span
             v-if="autoGradePending === 1"
+            :style="{ animationDuration: `${autoGradeDelayMs}ms` }"
             class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-red-500"
           />
 
@@ -1233,6 +1261,7 @@ watch(
         >
           <span
             v-if="autoGradePending === 2"
+            :style="{ animationDuration: `${autoGradeDelayMs}ms` }"
             class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-amber-500"
           />
 
@@ -1258,6 +1287,7 @@ watch(
         >
           <span
             v-if="autoGradePending === 3"
+            :style="{ animationDuration: `${autoGradeDelayMs}ms` }"
             class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-emerald-500"
           />
 
@@ -1283,6 +1313,7 @@ watch(
         >
           <span
             v-if="autoGradePending === 4"
+            :style="{ animationDuration: `${autoGradeDelayMs}ms` }"
             class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-sky-500"
           />
 
@@ -1343,7 +1374,8 @@ watch(
 
 <style scoped>
 /* Auto-grade countdown progress bar — fills bottom of the suggested
- * grade button over AUTO_GRADE_DELAY_MS (2000ms). Width syncs with the
+ * grade button over the auto-grade delay (inline animation-duration from
+ * settings.autoGradeDelayMs). Width syncs with the
  * setTimeout, so users see exactly when the auto-fire is coming. */
 .qd-auto-grade-progress {
   transform-origin: left;

@@ -50,3 +50,28 @@ def due_clause(cutoff: datetime) -> ColumnElement[bool]:
         UserWord.state.in_(ACTIVE_REVIEW_STATES),
         or_(UserWord.due_at.is_(None), UserWord.due_at < cutoff),
     )
+
+
+# user.review_window values. "today"/"tomorrow" look ahead to the end of
+# that UTC day so a once-a-day session covers everything coming due;
+# "now" is the strict FSRS pull (due_at <= now).
+REVIEW_WINDOWS = ("now", "today", "tomorrow")
+DEFAULT_REVIEW_WINDOW = "today"
+
+
+def review_window_clause(window: str | None, now: datetime) -> ColumnElement[bool]:
+    """Rows the review queue serves under `window`.
+
+    The single definition behind both `/api/review/queue` and the
+    `due_in_window` count in `/api/review/stats`, so the nav badge and the
+    Start button can never disagree with what a session actually opens.
+    """
+    window = window or DEFAULT_REVIEW_WINDOW
+    if window == "today":
+        return due_clause(end_of_day(now, 0))
+    if window == "tomorrow":
+        return due_clause(end_of_day(now, 1))
+    return and_(
+        UserWord.state.in_(ACTIVE_REVIEW_STATES),
+        or_(UserWord.due_at.is_(None), UserWord.due_at <= now),
+    )

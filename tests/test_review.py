@@ -6,7 +6,7 @@ job); we just verify our wiring: a graded card's due_at moves forward,
 the queue stops returning it, and stats reflect the action.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,7 +15,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.auth import get_current_user, require_auth
-from app.database import Base, User, UserWord, get_db
+from app.database import Base, User, UserWord, UserWordEvent, get_db
+from app.routers.review import KNOWN_STABILITY_THRESHOLD_DAYS, next_state_after_grade
+from app.services import srs
+from app.services.timestamps import iso_utc
 
 
 @pytest.fixture
@@ -303,3 +306,204 @@ def test_queue_meanings_cap_skips_headline_not_index_zero(review_client, monkeyp
     yi = cards["一"]
     assert yi["meaning"] == "one"
     assert yi["meaning_tags"] == ["bound form"]
+
+
+# --- Review correctness: timestamps, hysteresis, cloze fill, windows, weekly stats
+
+
+def _set_user(Session, **fields):
+    db = Session()
+    try:
+        user = db.query(User).filter(User.id == 1).one()
+        for k, v in fields.items():
+            setattr(user, k, v)
+        db.commit()
+    finally:
+        db.close()
+
+
+def _add(Session, *rows):
+    db = Session()
+    try:
+        for r in rows:
+            db.add(r)
+        db.commit()
+    finally:
+        db.close()
+
+
+# --- H6: timestamps ---------------------------------------------------------
+
+
+def test_iso_utc_marks_naive_datetimes_as_utc():
+    assert iso_utc(None) is None
+    assert iso_utc(datetime(2026, 3, 1, 23, 30)) == "2026-03-01T23:30:00Z"
+    aware = datetime(2026, 3, 1, 18, 30, tzinfo=UTC).astimezone()
+    assert iso_utc(aware) == "2026-03-01T18:30:00Z"
+
+
+def test_review_and_words_timestamps_carry_utc_offset(review_client):
+    client, _ = review_client
+    cards = client.get("/api/review/queue").json()["cards"]
+    dated = [c for c in cards if c["due_at"]]
+    assert dated and all(c["due_at"].endswith("Z") for c in dated)
+
+    graded = client.post("/api/review/grade", json={"word": "一", "grade": 1}).json()
+    assert graded["due_at"].endswith("Z")
+    # Again schedules within minutes; read as UTC that is close to now.
+    due = datetime.fromisoformat(graded["due_at"].replace("Z", "+00:00"))
+    assert abs((due - datetime.now(UTC)).total_seconds()) < 30 * 60
+
+    items = client.get("/api/words/queue").json()["items"]
+    assert items
+    for item in items:
+        for key in ("due_at", "last_reviewed_at", "created_at"):
+            if item[key]:
+                assert item[key].endswith("Z"), (key, item[key])
+
+
+# --- M24: hysteresis --------------------------------------------------------
+
+
+def test_next_state_after_grade_only_again_demotes_known():
+    low = KNOWN_STABILITY_THRESHOLD_DAYS / 2
+    assert next_state_after_grade("known", low, 2) == "known"
+    assert next_state_after_grade("known", low, 3) == "known"
+    assert next_state_after_grade("known", low, 1) == "learning"
+    assert next_state_after_grade("learning", low, 4) == "learning"
+    assert next_state_after_grade("learning", KNOWN_STABILITY_THRESHOLD_DAYS, 3) == "known"
+
+
+def test_hard_on_known_card_keeps_it_known(review_client):
+    client, Session = review_client
+    seeded = srs.already_known_state(jitter_seed=1)
+    _add(
+        Session,
+        UserWord(
+            user_id=1,
+            word="熟",
+            state="known",
+            fsrs_state=seeded["fsrs_state"],
+            stability=seeded["stability"],
+            difficulty=seeded["difficulty"],
+            due_at=datetime.utcnow() - timedelta(minutes=1),
+            last_reviewed_at=seeded["last_reviewed_at"],
+        ),
+    )
+    r = client.post("/api/review/grade", json={"word": "熟", "grade": 2})
+    assert r.status_code == 200, r.text
+    # A same-day Hard really does drop stability under the threshold ...
+    assert r.json()["stability"] < KNOWN_STABILITY_THRESHOLD_DAYS
+    db = Session()
+    try:
+        row = db.query(UserWord).filter(UserWord.word == "熟").one()
+        # ... but the card stays known.
+        assert row.state == "known"
+        assert (
+            db.query(UserWordEvent)
+            .filter(UserWordEvent.word == "熟", UserWordEvent.event_type == "state_change")
+            .count()
+            == 0
+        )
+    finally:
+        db.close()
+
+    # Again is a lapse: that one demotes.
+    client.post("/api/review/grade", json={"word": "熟", "grade": 1})
+    db = Session()
+    try:
+        assert db.query(UserWord).filter(UserWord.word == "熟").one().state == "learning"
+    finally:
+        db.close()
+
+
+# --- M20: cloze fills up to the limit ---------------------------------------
+
+
+def test_cloze_queue_skips_sentence_less_rows_before_limit(review_client):
+    from app.database import SavedText
+
+    client, Session = review_client
+    old = datetime.utcnow() - timedelta(days=10)
+    # Five earlier-due cards that no saved text contains, then two that do.
+    rows = [
+        UserWord(user_id=1, word=f"无{i}", state="learning", due_at=old + timedelta(minutes=i))
+        for i in range(5)
+    ]
+    rows += [
+        UserWord(user_id=1, word="春", state="learning", due_at=old + timedelta(hours=1)),
+        UserWord(user_id=1, word="秋", state="learning", due_at=old + timedelta(hours=2)),
+    ]
+    _add(Session, *rows, SavedText(user_id=1, title="t", content="春天来了。秋天走了。"))
+    # 一 / 二 from the base fixture have no sentence either.
+    cards = client.get("/api/review/queue?mode=cloze&limit=2").json()["cards"]
+    assert [c["word"] for c in cards] == ["春", "秋"]
+    assert all(c["cloze_sentence"] for c in cards)
+    # The sentences found on the way are stored on the rows.
+    db = Session()
+    try:
+        assert db.query(UserWord).filter(UserWord.word == "春").one().sample_sentence
+    finally:
+        db.close()
+
+
+# --- M21: one window definition --------------------------------------------
+
+
+def test_window_counts_match_queue(review_client):
+    client, Session = review_client
+    now = datetime.utcnow()
+    end_of_today = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    _add(
+        Session,
+        # Due tomorrow (mid-day): only the 'tomorrow' window covers it.
+        UserWord(user_id=1, word="明", state="learning", due_at=end_of_today + timedelta(hours=12)),
+        # Due the day after tomorrow: outside every window.
+        UserWord(
+            user_id=1,
+            word="后",
+            state="learning",
+            due_at=end_of_today + timedelta(days=1, hours=1),
+        ),
+    )
+    for window in ("now", "today", "tomorrow"):
+        _set_user(Session, review_window=window)
+        stats = client.get("/api/review/stats").json()
+        cards = client.get("/api/review/queue?limit=100").json()["cards"]
+        assert stats["due_in_window"] == len(cards), window
+        words = {c["word"] for c in cards}
+        assert ("明" in words) is (window == "tomorrow")
+        assert "后" not in words
+    # The old client read due_today for 'tomorrow' and undercounted.
+    assert stats["due_in_window"] > stats["due_today"]
+
+
+def test_stats_in_rotation_counts_learning_and_known(review_client):
+    client, _ = review_client
+    body = client.get("/api/review/stats").json()
+    # 一 二 三 learning + 远期 known; the ignored row is out.
+    assert body["in_rotation"] == 4
+    assert body["learning"] == 3
+
+
+# --- L21: weekly marked_known ----------------------------------------------
+
+
+def test_weekly_marked_known_counts_words_not_reviews(review_client):
+    client, Session = review_client
+    _add(
+        Session,
+        UserWordEvent(user_id=1, word="a", event_type="state_change", new_state="known"),
+        UserWordEvent(user_id=1, word="b", event_type="bulk_mark_known", new_state="known"),
+        UserWordEvent(
+            user_id=1,
+            word="hsk-new-<=L1",
+            event_type="bulk_mark_known",
+            new_state="known",
+            word_count=300,
+        ),
+        # Reviewing a known card is not "marking it known".
+        UserWordEvent(user_id=1, word="c", event_type="review", new_state="known", grade=3),
+    )
+    today = client.get("/api/stats/weekly").json()["days"][-1]
+    assert today["marked_known"] == 302

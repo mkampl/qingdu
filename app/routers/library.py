@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from app.auth import require_auth
 from app.database import User, UserLibraryProgress, UserWord, get_db
 from app.services import library
+from app.services.timestamps import iso_utc
 
 router = APIRouter(tags=["Library"])
 
@@ -71,7 +72,7 @@ def _progress_dict(row: UserLibraryProgress) -> dict:
     return {
         "status": row.status,
         "score": row.score,
-        "completed_at": row.completed_at.isoformat() if row.completed_at else None,
+        "completed_at": iso_utc(row.completed_at),
     }
 
 

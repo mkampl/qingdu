@@ -13,6 +13,7 @@ from app.database import SavedText, User, UserWord, get_db
 from app.services import cloze
 from app.services.migrations import migrate_analysis_data
 from app.services.script import convert_analysis_data, to_user_script
+from app.services.timestamps import iso_utc
 
 router = APIRouter(tags=["Saved Texts"])
 logger = logging.getLogger(__name__)
@@ -187,7 +188,7 @@ def _summary(text: SavedText, analysis_data: dict, known_set: set[str], user: Us
         "id": text.id,
         "title": to_user_script(text.title or "", user),
         "preview": to_user_script((text.content or "")[:_PREVIEW_CHARS], user),
-        "date": text.created_at.isoformat(),
+        "date": iso_utc(text.created_at),
         "tags": text.tags,
         "reading_progress": text.reading_progress or 0,
         "share_token": text.share_token,
@@ -329,7 +330,7 @@ async def get_shared_text(
         "title": text.title,
         "content": text.content,
         "analysisData": migrated,
-        "created_at": text.created_at.isoformat(),
+        "created_at": iso_utc(text.created_at),
     }
 
 

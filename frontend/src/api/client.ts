@@ -1175,7 +1175,11 @@ export interface ReviewGradeResponse {
 export interface ReviewStatsResponse {
   due_now: number;
   due_today: number;
+  /** What /api/review/queue would serve now under user.review_window. */
+  due_in_window: number;
   learning: number;
+  /** learning + known — every card that can come due. */
+  in_rotation: number;
   reviewed_today: number;
   /** Phase #96 — auto-enrolled HSK words since UTC midnight. */
   new_today: number;

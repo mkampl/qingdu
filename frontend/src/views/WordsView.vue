@@ -38,6 +38,7 @@ import {
   type WordsFilters,
 } from "@/utils/words-filters";
 import { useAuthStore } from "@/stores/auth";
+import { formatUtcDate } from "@/utils/time";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReviewStore } from "@/stores/review";
 import { useSettingsStore } from "@/stores/settings";
@@ -671,7 +672,7 @@ function toggleExpanded(word: string) {
               <span v-if="item.seen_count">seen {{ item.seen_count }}×</span>
               <span v-if="item.last_reviewed_at">
                 · last reviewed
-                {{ new Date(item.last_reviewed_at).toLocaleDateString() }}
+                {{ formatUtcDate(item.last_reviewed_at) }}
               </span>
               <span v-if="item.stability !== null && item.stability !== undefined">
                 · stability {{ item.stability.toFixed(1) }}d

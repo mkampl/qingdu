@@ -14,6 +14,8 @@ import {
 import { isNative } from "@/services/native";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
+import { formatUtcDate } from "@/utils/time";
+import type { AutoGradeDelay } from "@/utils/review";
 
 import Modal from "@/components/ui/Modal.vue";
 
@@ -56,6 +58,17 @@ const hapticsEnabled = computed<boolean>({
   get: () => settings.hapticsEnabled,
   set: (v) => (settings.hapticsEnabled = v),
 });
+const autoGradeDelayMs = computed<AutoGradeDelay>({
+  get: () => settings.autoGradeDelayMs,
+  set: (v) => (settings.autoGradeDelayMs = v),
+});
+const autoGradeOptions: { value: AutoGradeDelay; label: string }[] = [
+  { value: 0, label: "Off" },
+  { value: 1000, label: "1 s" },
+  { value: 2000, label: "2 s" },
+  { value: 3000, label: "3 s" },
+];
+
 const autoLearnOnClick = computed<boolean>({
   get: () => settings.autoLearnOnClick,
   set: (v) => (settings.autoLearnOnClick = v),
@@ -657,6 +670,35 @@ function resetApiBase() {
         </div>
       </fieldset>
 
+      <!-- Auto-grade delay after a writing quiz (device-local) -->
+      <fieldset>
+        <legend
+          class="mb-1 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          Auto-grade after writing
+        </legend>
+        <p class="mb-3 text-xs text-fg-muted">
+          After you finish drawing, the suggested grade fires on its own after
+          this delay. Off means you always pick the grade yourself.
+        </p>
+        <div class="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Auto-grade delay">
+          <label
+            v-for="opt in autoGradeOptions"
+            :key="opt.value"
+            class="flex cursor-pointer items-center justify-center rounded-md border border-border-subtle px-2 py-1.5 text-sm transition-colors hover:bg-bg-sunken"
+            :class="{ 'border-accent bg-bg-sunken text-fg': autoGradeDelayMs === opt.value, 'text-fg-muted': autoGradeDelayMs !== opt.value }"
+          >
+            <input
+              v-model="autoGradeDelayMs"
+              type="radio"
+              :value="opt.value"
+              class="sr-only"
+            />
+            {{ opt.label }}
+          </label>
+        </div>
+      </fieldset>
+
       <!-- Behaviour on word tap -->
       <label
         class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
@@ -1101,7 +1143,7 @@ function resetApiBase() {
               <span class="block truncate font-medium text-fg">{{ t.name }}</span>
               <span class="block font-mono text-[10px] text-fg-subtle">
                 {{ t.token_prefix }}… · {{ t.scopes.join(", ") }}
-                <template v-if="t.last_used_at"> · last used {{ new Date(t.last_used_at).toLocaleDateString() }}</template>
+                <template v-if="t.last_used_at"> · last used {{ formatUtcDate(t.last_used_at) }}</template>
                 <template v-else> · never used</template>
               </span>
             </span>

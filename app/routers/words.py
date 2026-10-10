@@ -34,6 +34,7 @@ from app.services.due import due_clause, end_of_day, utcnow
 from app.services.script import to_canonical, to_user_script
 from app.services.srs import ALREADY_KNOWN_STABILITY_DAYS, already_known_state
 from app.services.streak import current_streak, record_activity
+from app.services.timestamps import iso_utc
 from app.services.word_info import lookup_pinyin_meaning
 from app.services.word_search import search_clause
 from app.state import hsk_vocab
@@ -457,6 +458,7 @@ async def import_hsk_known(
             word=f"hsk-{payload.hsk_version}-<=L{payload.up_to_level}",
             event_type="bulk_mark_known",
             new_state="known",
+            word_count=len(to_insert),
         )
     )
     record_activity(user, db)
@@ -496,11 +498,11 @@ def _hsk_level(entry: dict | None, hsk_version: str = "new") -> int | None:
 def _schedule_fields(row: UserWord, now: datetime) -> dict:
     """The FSRS fields of a row as the /words list shows them."""
     return {
-        "due_at": row.due_at.isoformat() if row.due_at else None,
+        "due_at": iso_utc(row.due_at),
         "seconds_until_due": int((row.due_at - now).total_seconds()) if row.due_at else None,
         "stability": row.stability,
         "difficulty": row.difficulty,
-        "last_reviewed_at": (row.last_reviewed_at.isoformat() if row.last_reviewed_at else None),
+        "last_reviewed_at": iso_utc(row.last_reviewed_at),
     }
 
 
@@ -606,7 +608,7 @@ async def list_queue(
             "seen_count": r.seen_count,
             "ease": r.ease,
             **_schedule_fields(r, now),
-            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "created_at": iso_utc(r.created_at),
         }
         for r in rows
     ]
@@ -666,4 +668,4 @@ async def review_now(
     row.due_at = datetime.utcnow()
     _record_event(db, user.id, word, "review_now")
     db.commit()
-    return {"word": word, "due_at": row.due_at.isoformat()}
+    return {"word": word, "due_at": iso_utc(row.due_at)}

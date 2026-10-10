@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth, require_auth_flexible
 from app.database import User, UserWord, get_db
+from app.services.timestamps import iso_utc
 from app.state import hsk_vocab
 
 router = APIRouter(tags=["Export"])
@@ -71,9 +72,9 @@ async def export_words_csv(
                 "seen_count": r.seen_count or 0,
                 "stability": r.stability if r.stability is not None else "",
                 "difficulty": r.difficulty if r.difficulty is not None else "",
-                "due_at": r.due_at.isoformat() if r.due_at else "",
-                "last_reviewed_at": r.last_reviewed_at.isoformat() if r.last_reviewed_at else "",
-                "created_at": r.created_at.isoformat() if r.created_at else "",
+                "due_at": iso_utc(r.due_at) or "",
+                "last_reviewed_at": iso_utc(r.last_reviewed_at) or "",
+                "created_at": iso_utc(r.created_at) or "",
             }
         )
 

@@ -8,6 +8,7 @@ import type { AdminUserSummary } from "@/api/types";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useToastStore } from "@/stores/toast";
+import { formatUtcDate } from "@/utils/time";
 
 import Button from "@/components/ui/Button.vue";
 import Modal from "@/components/ui/Modal.vue";
@@ -230,11 +231,9 @@ async function submitReset(e: Event) {
 
 function formatDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    return (
+      formatUtcDate(iso, { year: "numeric", month: "short", day: "numeric" }) || iso
+    );
   } catch {
     return iso;
   }

@@ -134,3 +134,22 @@ def test_init_db_backfills_token_version_for_existing_users(db_file):
     init_db()
     with engine.connect() as conn:
         assert conn.execute(text("SELECT token_version FROM users WHERE id = 1")).scalar() == 0
+
+
+def test_init_db_adds_word_count_to_user_word_events(db_file):
+    from sqlalchemy import text
+
+    from app.database import init_db
+
+    engine = db_file()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE user_word_events (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, "
+                "word VARCHAR(64) NOT NULL, event_type VARCHAR(32) NOT NULL, "
+                "new_state VARCHAR(16), created_at DATETIME)"
+            )
+        )
+    init_db()
+    init_db()
+    assert {"grade", "mode", "word_count"} <= _columns(engine, "user_word_events")

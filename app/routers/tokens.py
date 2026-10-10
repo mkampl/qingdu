@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import API_TOKEN_SCOPES, generate_api_token, hash_api_token, require_auth
 from app.database import ApiToken, User, get_db
+from app.services.timestamps import iso_utc
 
 router = APIRouter(prefix="/api/tokens", tags=["API Tokens"])
 
@@ -40,8 +41,8 @@ async def list_tokens(user: User = Depends(require_auth), db: Session = Depends(
                 "name": row.name,
                 "token_prefix": row.token_prefix,
                 "scopes": row.scopes.split(),
-                "created_at": row.created_at,
-                "last_used_at": row.last_used_at,
+                "created_at": iso_utc(row.created_at),
+                "last_used_at": iso_utc(row.last_used_at),
             }
             for row in rows
         ]
@@ -85,7 +86,7 @@ async def create_token(
         "token": raw_token,
         "token_prefix": row.token_prefix,
         "scopes": row.scopes.split(),
-        "created_at": row.created_at,
+        "created_at": iso_utc(row.created_at),
     }
 
 

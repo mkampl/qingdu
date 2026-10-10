@@ -17,6 +17,9 @@ from app.database import User, UserWordEvent, get_db
 
 router = APIRouter(tags=["Stats"])
 
+# Event types that record a word turning 'known'.
+KNOWN_EVENT_TYPES = ("state_change", "bulk_mark_known")
+
 
 @router.get("/api/stats/weekly")
 async def weekly_activity(
@@ -44,11 +47,19 @@ async def weekly_activity(
         .group_by(func.date(UserWordEvent.created_at))
         .all()
     )
+    # Words that became known: explicit marks (state_change), bulk marks,
+    # and FSRS promotions in grade_card (also a state_change). Review
+    # events carry new_state too and must not count. The HSK import logs
+    # one row for many words, so sum word_count (NULL = one word).
     known_rows = (
-        db.query(func.date(UserWordEvent.created_at), func.count())
+        db.query(
+            func.date(UserWordEvent.created_at),
+            func.sum(func.coalesce(UserWordEvent.word_count, 1)),
+        )
         .filter(
             UserWordEvent.user_id == user.id,
             UserWordEvent.new_state == "known",
+            UserWordEvent.event_type.in_(KNOWN_EVENT_TYPES),
             UserWordEvent.created_at >= start_dt,
         )
         .group_by(func.date(UserWordEvent.created_at))
@@ -65,7 +76,7 @@ async def weekly_activity(
             {
                 "date": key,
                 "reviews": reviews_by_day.get(key, 0),
-                "marked_known": known_by_day.get(key, 0),
+                "marked_known": int(known_by_day.get(key, 0) or 0),
             }
         )
     return {"days": days}

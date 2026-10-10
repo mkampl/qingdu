@@ -16,6 +16,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 
 import { useAuthStore } from "@/stores/auth";
+import { parseUtcMs } from "@/utils/time";
 
 const auth = useAuthStore();
 
@@ -51,8 +52,8 @@ onUnmounted(() => {
 const daysUntilSoftDelete = computed<number | null>(() => {
   const iso = auth.user?.soft_delete_at;
   if (!iso) return null;
-  const target = new Date(iso).getTime();
-  if (Number.isNaN(target)) return null;
+  const target = parseUtcMs(iso);
+  if (target === null) return null;
   const diffMs = target - now.value.getTime();
   if (diffMs <= 0) return 0;
   return Math.ceil(diffMs / (24 * 60 * 60 * 1000));

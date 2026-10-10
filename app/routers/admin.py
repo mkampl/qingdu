@@ -18,6 +18,7 @@ from app.schemas import (
     UpdateInviteQuotaRequest,
 )
 from app.services import lifecycle
+from app.services.timestamps import iso_utc
 
 router = APIRouter(tags=["Admin"])
 
@@ -94,8 +95,8 @@ async def list_users(
             "username": u.username,
             "is_admin": u.is_admin,
             "invite_quota": u.invite_quota,
-            "last_active": u.last_active.isoformat(),
-            "created_at": u.created_at.isoformat(),
+            "last_active": iso_utc(u.last_active),
+            "created_at": iso_utc(u.created_at),
         }
         for u in users
     ]

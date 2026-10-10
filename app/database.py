@@ -348,6 +348,10 @@ class UserWordEvent(Base):
     source_text_id = Column(
         Integer, ForeignKey("saved_texts.id", ondelete="SET NULL"), nullable=True
     )
+    # How many words one event stands for. NULL means one; the HSK import
+    # logs a single bulk_mark_known row for thousands of words and stores
+    # the count here so weekly stats can add it up.
+    word_count = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (Index("ix_user_word_events_user_created", "user_id", "created_at"),)
@@ -647,6 +651,11 @@ def init_db():
                 logger.info("Adding mode column to user_word_events")
                 with engine.connect() as conn:
                     conn.execute(text("ALTER TABLE user_word_events ADD COLUMN mode VARCHAR(16)"))
+                    conn.commit()
+            if "word_count" not in ev_cols:
+                logger.info("Adding word_count column to user_word_events")
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE user_word_events ADD COLUMN word_count INTEGER"))
                     conn.commit()
 
         # Phase #120 — backfill user_word_glosses for legacy rows. Every

@@ -14,6 +14,13 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import { useSettingsStore } from "@/stores/settings";
 import { otherMeanings } from "@/utils/meanings";
+import {
+  emptyScores,
+  scoreTotals,
+  shownScore,
+  skippedScore,
+  type CharScore,
+} from "@/utils/writing-score";
 
 const settings = useSettingsStore();
 
@@ -113,8 +120,13 @@ function forwardPointerAsMouse(e: PointerEvent) {
 
 const canvasRef = ref<HTMLDivElement | null>(null);
 const currentIdx = ref(0);
-const totalMistakes = ref(0);
-const totalStrokes = ref(0);
+// One entry per character: its stroke count (recorded once, when its
+// data first loads) and its final mistakes. Re-creating the writer for
+// an outline/theme change must not count a character's strokes again —
+// that halved the mistake ratio and made the suggested grade lenient.
+const scores = ref<CharScore[]>([]);
+const totalMistakes = computed(() => scoreTotals(scores.value).mistakes);
+const totalStrokes = computed(() => scoreTotals(scores.value).strokes);
 const currentMistakes = ref(0);
 const completed = ref(false);
 const skipped = ref(false);
@@ -138,6 +150,31 @@ const writer = ref<AnyHanziWriter>(null);
 // hanzi-writer's stroke state.
 let inputListeners: AbortController | null = null;
 
+// Bumped on every startCharQuiz call; a run that finds a newer one has
+// started after its awaits bails out instead of drawing over it.
+let quizSeq = 0;
+
+function resetScores() {
+  scores.value = emptyScores(cjkChars.value.length);
+}
+resetScores();
+
+function setScore(idx: number, patch: Partial<CharScore>) {
+  const next = scores.value.slice();
+  next[idx] = { ...(next[idx] ?? { strokes: null, mistakes: null }), ...patch };
+  scores.value = next;
+}
+
+function finish(wasSkipped: boolean) {
+  completed.value = true;
+  skipped.value = wasSkipped;
+  emit("complete", {
+    totalMistakes: totalMistakes.value,
+    totalStrokes: totalStrokes.value,
+    skipped: wasSkipped,
+  });
+}
+
 const isLastChar = computed(
   () => currentIdx.value === cjkChars.value.length - 1,
 );
@@ -145,6 +182,7 @@ const isLastChar = computed(
 async function startCharQuiz(idx: number) {
   const char = cjkChars.value[idx];
   if (!char || !canvasRef.value) return;
+  const seq = ++quizSeq;
   loading.value = true;
   error.value = null;
   currentMistakes.value = 0;
@@ -156,13 +194,16 @@ async function startCharQuiz(idx: number) {
     // mount land on a writer that has no data yet and silently no-op,
     // which reads to the user as "nothing happens when I draw".
     const charData = await HanziWriter.loadCharacterData(char);
+    if (seq !== quizSeq || !canvasRef.value) return;
     if (!charData) {
       error.value = `No stroke data for "${char}".`;
       return;
     }
     // Stroke count drives the dynamic mistake threshold downstream.
-    // Summed across all chars in a multi-char word.
-    totalStrokes.value += charData.strokes?.length ?? 0;
+    // Recorded per character, so a re-init doesn't add it twice.
+    if (scores.value[idx]?.strokes == null) {
+      setScore(idx, { strokes: charData.strokes?.length ?? 0 });
+    }
 
     canvasRef.value.innerHTML = "";
 
@@ -233,14 +274,10 @@ async function startCharQuiz(idx: number) {
         currentMistakes.value = info.totalMistakes;
       },
       onComplete: (info: { totalMistakes: number }) => {
-        totalMistakes.value += info.totalMistakes;
+        if (seq !== quizSeq) return;
+        setScore(idx, { mistakes: info.totalMistakes });
         if (isLastChar.value) {
-          completed.value = true;
-          emit("complete", {
-            totalMistakes: totalMistakes.value,
-            totalStrokes: totalStrokes.value,
-            skipped: false,
-          });
+          finish(false);
         } else {
           // Linger on the completed char for ~700ms so the user can see
           // the green highlight + grade the stroke shape before the next
@@ -254,39 +291,34 @@ async function startCharQuiz(idx: number) {
     });
     writer.value = w;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : "Couldn't load stroke data.";
+    if (seq === quizSeq) {
+      error.value = e instanceof Error ? e.message : "Couldn't load stroke data.";
+    }
   } finally {
-    loading.value = false;
+    if (seq === quizSeq) loading.value = false;
   }
 }
 
 /** "Show me" — user gives up on this char, hanzi-writer plays the full
- *  stroke animation so they actually see the right order, then we count
- *  this attempt as worst-case (mistakes = strokes × 2 → ratio ≥ 2.0 →
- *  ReviewView grades it Again). On multi-char words, advance to the next
- *  char after the animation finishes; only the last char emits `complete`. */
+ *  stroke animation so they actually see the right order, and the char
+ *  is scored as twice its strokes in mistakes (worse than a skip). On
+ *  multi-char words, advance to the next char after the animation
+ *  finishes; only the last char emits `complete`. */
 const showing = ref(false);
-
 function showCurrentChar() {
   const w = writer.value;
   if (!w || showing.value) return;
   showing.value = true;
+  const idx = currentIdx.value;
+  const seq = quizSeq;
   w.cancelQuiz();
-  // Force the ratio gate into Again territory. totalStrokes was already
-  // incremented for this char by startCharQuiz(); doubling it as mistakes
-  // is conceptually "I knew nothing", which Again captures faithfully.
-  totalMistakes.value = totalStrokes.value * 2;
+  setScore(idx, shownScore(scores.value[idx]?.strokes ?? null));
   w.animateCharacter({
     onComplete: () => {
       showing.value = false;
+      if (seq !== quizSeq) return;
       if (isLastChar.value) {
-        completed.value = true;
-        skipped.value = true;
-        emit("complete", {
-          totalMistakes: totalMistakes.value,
-          totalStrokes: totalStrokes.value,
-          skipped: true,
-        });
+        finish(true);
       } else {
         currentIdx.value += 1;
       }
@@ -294,18 +326,13 @@ function showCurrentChar() {
   });
 }
 
+/** Skip — the char counts as every stroke wrong, on the same ratio
+ *  scale the grade uses (a flat +5 used to be lenient on long words). */
 function skipCurrentChar() {
-  // Treat as if the user got every stroke wrong — adds a heavy
-  // mistake penalty to nudge the FSRS grade toward Again.
-  totalMistakes.value += 5;
+  const idx = currentIdx.value;
+  setScore(idx, skippedScore(scores.value[idx]?.strokes ?? null));
   if (isLastChar.value) {
-    completed.value = true;
-    skipped.value = true;
-    emit("complete", {
-      totalMistakes: totalMistakes.value,
-      totalStrokes: totalStrokes.value,
-      skipped: true,
-    });
+    finish(true);
   } else {
     currentIdx.value += 1;
   }
@@ -323,16 +350,18 @@ watch(currentIdx, (idx) => {
 onMounted(() => void startCharQuiz(0));
 
 // Subsequent word changes (parent advanced to the next card).
+// ReviewView keys every mount on the card, so this only matters for
+// other hosts. Start the quiz once: when currentIdx moves back to 0 its
+// own watcher does it.
 watch(
   () => props.word,
   () => {
-    currentIdx.value = 0;
-    totalMistakes.value = 0;
-    totalStrokes.value = 0;
+    resetScores();
     currentMistakes.value = 0;
     completed.value = false;
     skipped.value = false;
-    void startCharQuiz(0);
+    if (currentIdx.value === 0) void startCharQuiz(0);
+    else currentIdx.value = 0;
   },
 );
 
@@ -355,6 +384,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  quizSeq += 1;
   inputListeners?.abort();
   inputListeners = null;
   try {
