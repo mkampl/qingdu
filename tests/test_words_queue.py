@@ -1,10 +1,9 @@
 """
 Characterisation tests for GET /api/words/queue (the /words page list).
 
-They pin down today's filter, sort and paging behaviour so the paging and
-filter rework can't silently change it. Known-wrong behaviour (HSK filter
-applied after LIMIT/OFFSET, unclamped negative limit) is recorded as strict
-xfail tests that describe the intended result.
+They pin down the filter, sort and paging behaviour. HSK filter and HSK sort
+are applied in SQL, so `total`, `has_more` and every page agree with each
+other no matter how many rows the user has.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -120,7 +119,7 @@ def _words(body):
 
 
 def test_empty_queue(queue_client):
-    assert _get(queue_client) == {"items": [], "total": 0}
+    assert _get(queue_client) == {"items": [], "total": 0, "has_more": False}
 
 
 def test_item_shape_and_hsk_level(queue_client):
@@ -386,10 +385,6 @@ def _seed_newest_hundred_hsk1(client):
     state.hsk_vocab.update({f"w{i:03d}": {"level_new": "new-1"} for i in range(200, 300)})
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="HSK filter runs after LIMIT/OFFSET, so pages miss matches and total counts all rows",
-)
 def test_hsk_filter_across_pages_returns_every_match_and_correct_total(queue_client):
     _seed_newest_hundred_hsk1(queue_client)
     found = []
@@ -400,19 +395,125 @@ def test_hsk_filter_across_pages_returns_every_match_and_correct_total(queue_cli
     assert sorted(found) == [f"w{i:03d}" for i in range(200, 300)]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="sort=hsk only re-sorts the current page; lowest levels don't come first overall",
-)
 def test_sort_hsk_puts_lowest_levels_on_first_page(queue_client):
     _seed_newest_hundred_hsk1(queue_client)
     body = _get(queue_client, sort="hsk", limit=100)
     assert [it["hsk_level"] for it in body["items"]] == [1] * 100
 
 
-@pytest.mark.xfail(strict=True, reason="negative limit is passed to SQL as LIMIT -1 (no limit)")
 def test_negative_limit_is_clamped(queue_client):
     _seed_numbered(queue_client, 5)
     body = _get(queue_client, limit=-1)
     assert len(body["items"]) == 1
     assert body["total"] == 5
+
+
+def test_zero_limit_is_clamped_to_one(queue_client):
+    _seed_numbered(queue_client, 3)
+    body = _get(queue_client, limit=0)
+    assert len(body["items"]) == 1
+    assert body["has_more"] is True
+
+
+# --- has_more -------------------------------------------------------------------
+
+
+def test_has_more_tracks_the_last_page(queue_client):
+    _seed_numbered(queue_client, 25)
+    assert _get(queue_client, limit=10, offset=0)["has_more"] is True
+    assert _get(queue_client, limit=10, offset=10)["has_more"] is True
+    assert _get(queue_client, limit=10, offset=20)["has_more"] is False
+    assert _get(queue_client, limit=25)["has_more"] is False
+    assert _get(queue_client, limit=10, offset=40)["has_more"] is False
+
+
+def test_has_more_with_hsk_filter(queue_client):
+    _seed_newest_hundred_hsk1(queue_client)
+    body = _get(queue_client, hsk_levels="1", limit=60)
+    assert len(body["items"]) == 60
+    assert body["has_more"] is True
+    body = _get(queue_client, hsk_levels="1", limit=60, offset=60)
+    assert len(body["items"]) == 40
+    assert body["has_more"] is False
+
+
+# --- HSK filter + sort across pages ----------------------------------------------
+
+
+def test_sort_hsk_across_pages_is_globally_ordered(queue_client):
+    # 300 words; levels cycle 6,5,...,1,None in insertion order, so only a
+    # sort over the full set (not per page) yields a monotonic sequence.
+    _seed_numbered(queue_client, 300)
+    cycle = [6, 5, 4, 3, 2, 1, None]
+    for i in range(300):
+        lvl = cycle[i % len(cycle)]
+        if lvl is not None:
+            state.hsk_vocab[f"w{i:03d}"] = {"level_new": f"new-{lvl}"}
+    levels, words = [], []
+    for offset in range(0, 300, 40):
+        body = _get(queue_client, sort="hsk", limit=40, offset=offset)
+        assert body["total"] == 300
+        levels.extend(it["hsk_level"] for it in body["items"])
+        words.extend(_words(body))
+    assert len(words) == 300 == len(set(words))
+    known = [lv for lv in levels if lv is not None]
+    assert known == sorted(known)
+    # Words outside HSK come last.
+    assert levels[len(known) :] == [None] * (300 - len(known))
+    # Within a level, oldest first.
+    lvl1 = [w for w, lv in zip(words, levels, strict=True) if lv == 1]
+    assert lvl1 == sorted(lvl1)
+
+
+def test_hsk_filter_and_sort_hsk_combine(queue_client):
+    _add(queue_client, [{"word": "难"}, {"word": "易"}, {"word": "外"}, {"word": "中"}])
+    state.hsk_vocab.update(
+        {
+            "难": {"level_new": "new-5"},
+            "易": {"level_new": "new-1"},
+            "中": {"level_new": "new-3"},
+        }
+    )
+    body = _get(queue_client, sort="hsk", hsk_levels="5,1")
+    assert _words(body) == ["易", "难"]
+    assert body["total"] == 2
+
+
+def test_hsk_filter_combines_with_state_and_search(queue_client):
+    _add(
+        queue_client,
+        [
+            {"word": "学生", "state": "known"},
+            {"word": "学习", "state": "learning"},
+            {"word": "学者", "state": "learning"},
+            {"word": "老师", "state": "learning"},
+        ],
+    )
+    state.hsk_vocab.update(
+        {
+            "学生": {"level_new": "new-1"},
+            "学习": {"level_new": "new-1"},
+            "学者": {"level_new": "new-6"},
+            "老师": {"level_new": "new-1"},
+        }
+    )
+    body = _get(queue_client, hsk_levels="1", state="learning", search="学")
+    assert _words(body) == ["学习"]
+    assert body["total"] == 1
+
+
+def test_hsk_filter_and_sort_with_full_size_vocab(queue_client):
+    # A realistic ~13k-word vocab must not trip SQLite's bound-parameter limit.
+    state.hsk_vocab.update({f"v{i:05d}": {"level_new": f"new-{i % 7 + 1}"} for i in range(13_000)})
+    _add(queue_client, [{"word": f"v{i:05d}"} for i in range(700)])
+    body = _get(queue_client, hsk_levels="1,2,3,4,5,6,7", limit=500)
+    assert body["total"] == 700
+    assert len(body["items"]) == 500
+    body = _get(queue_client, hsk_levels="1", limit=500)
+    assert body["total"] == 100
+    assert {it["hsk_level"] for it in body["items"]} == {1}
+    body = _get(queue_client, sort="hsk", limit=500, offset=500)
+    page_levels = [it["hsk_level"] for it in body["items"]]
+    assert len(page_levels) == 200
+    assert page_levels == sorted(page_levels)
+    assert page_levels[0] >= 5

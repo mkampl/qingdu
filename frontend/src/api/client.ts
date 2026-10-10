@@ -835,6 +835,14 @@ export interface WordsQueueParams {
   offset?: number;
 }
 
+export interface WordsQueuePage {
+  items: WordsQueueItem[];
+  /** Rows matching every filter (all pages). */
+  total: number;
+  /** True when rows exist past offset + items.length. */
+  has_more: boolean;
+}
+
 export const listWordsQueue = (params: WordsQueueParams = {}) => {
   const q = new URLSearchParams();
   if (params.state) q.set("state", params.state);
@@ -846,7 +854,7 @@ export const listWordsQueue = (params: WordsQueueParams = {}) => {
   if (params.limit !== undefined) q.set("limit", String(params.limit));
   if (params.offset !== undefined) q.set("offset", String(params.offset));
   const suffix = q.toString() ? `?${q}` : "";
-  return request<{ items: WordsQueueItem[]; total: number }>(
+  return request<WordsQueuePage>(
     `/api/words/queue${suffix}`,
   );
 };

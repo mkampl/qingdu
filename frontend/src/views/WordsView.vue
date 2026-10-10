@@ -14,6 +14,12 @@ import { RouterLink, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
 import type { WordsQueueItem, WordsQueueParams } from "@/api/client";
+import {
+  createRequestSequence,
+  mergePage,
+  nextBatchSize,
+  nextPageOffset,
+} from "@/utils/paged-list";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReviewStore } from "@/stores/review";
@@ -61,8 +67,20 @@ const search = ref("");
 const sortKey = ref<SortKey>("due");
 const expanded = ref<string | null>(null);
 
+// Server page size; "Load more" fetches the next batch of this size.
+const PAGE = 200;
+// Rows the server has handed out for the current filters (its offset).
+const fetched = ref(0);
+// Local edits since the last fetch — each can shift the server-side list
+// by one row, so the next page re-reads that many (see nextPageOffset).
+const drift = ref(0);
+const hasMore = ref(false);
+const loadingMore = ref(false);
+const loadMoreError = ref<string | null>(null);
+const requests = createRequestSequence();
+
 const queryParams = computed<WordsQueueParams>(() => {
-  const p: WordsQueueParams = { sort: sortKey.value, limit: 200 };
+  const p: WordsQueueParams = { sort: sortKey.value, limit: PAGE };
   if (stateFilter.value !== "all") p.state = stateFilter.value;
   if (dueFilter.value === "today") p.dueWithinDays = 0;
   else if (dueFilter.value === "week") p.dueWithinDays = 7;
@@ -72,25 +90,74 @@ const queryParams = computed<WordsQueueParams>(() => {
   return p;
 });
 
+const hasFilters = computed(
+  () =>
+    stateFilter.value !== "all" ||
+    dueFilter.value !== "all" ||
+    hskFilter.value.size > 0 ||
+    search.value.trim() !== "",
+);
+
 let searchTimer: number | null = null;
+// Load the first page for the current filters, dropping whatever was shown.
+// Responses from requests started before a newer one are ignored, so a slow
+// search for "学" can't overwrite the results for "学生".
 async function refresh() {
   if (!auth.isAuthed) return;
+  const id = requests.next();
+  items.value = [];
+  fetched.value = 0;
+  drift.value = 0;
+  hasMore.value = false;
+  loadingMore.value = false;
+  loadMoreError.value = null;
   loading.value = true;
   error.value = null;
   try {
-    const r = await api.listWordsQueue(queryParams.value);
+    const r = await api.listWordsQueue({ ...queryParams.value, offset: 0 });
+    if (!requests.isLatest(id)) return;
     items.value = r.items;
     total.value = r.total;
+    fetched.value = r.items.length;
+    hasMore.value = r.has_more;
     loaded.value = true;
     // Pull the same numbers the header badge shows, so the user can't see
     // "38 due" in the nav and "28 due" here at the same time.
     review.refreshStats();
   } catch (e) {
+    if (!requests.isLatest(id)) return;
     error.value = e instanceof Error ? e.message : "Couldn't load your queue";
   } finally {
-    loading.value = false;
+    if (requests.isLatest(id)) loading.value = false;
   }
 }
+
+async function loadMore() {
+  if (loading.value || loadingMore.value || !hasMore.value) return;
+  // Not a new sequence number: a filter change while this is in flight
+  // calls refresh(), which bumps the sequence and makes this response stale.
+  const id = requests.current();
+  const offset = nextPageOffset(fetched.value, drift.value);
+  loadingMore.value = true;
+  loadMoreError.value = null;
+  try {
+    const r = await api.listWordsQueue({ ...queryParams.value, offset });
+    if (!requests.isLatest(id)) return;
+    items.value = mergePage(items.value, r.items, (it) => it.word);
+    total.value = r.total;
+    fetched.value = offset + r.items.length;
+    drift.value = 0;
+    hasMore.value = r.has_more;
+  } catch (e) {
+    if (!requests.isLatest(id)) return;
+    loadMoreError.value = e instanceof Error ? e.message : "Couldn't load more words";
+  } finally {
+    if (requests.isLatest(id)) loadingMore.value = false;
+  }
+}
+
+const nextBatch = computed(() => nextBatchSize(items.value.length, total.value, PAGE));
+
 
 watch([stateFilter, dueFilter, hskFilter, sortKey], () => refresh(), { deep: true });
 watch(search, () => {
@@ -159,6 +226,7 @@ async function setState(word: string, state: "known" | "learning" | "ignored") {
     items.value = items.value.map((it) =>
       it.word === word ? { ...it, state } : it,
     );
+    drift.value++;
     toast.success(`Marked ${word} as ${state}`);
   } catch (e) {
     toast.error(e instanceof Error ? e.message : "Update failed");
@@ -168,7 +236,12 @@ async function setState(word: string, state: "known" | "learning" | "ignored") {
 async function resetState(word: string) {
   try {
     await userWords.clearState(word);
+    const before = items.value.length;
     items.value = items.value.filter((it) => it.word !== word);
+    if (items.value.length < before) {
+      total.value = Math.max(0, total.value - 1);
+      drift.value++;
+    }
     toast.info(`${word} back to new`);
   } catch (e) {
     toast.error(e instanceof Error ? e.message : "Reset failed");
@@ -183,6 +256,7 @@ async function snooze(word: string, days: number) {
         ? { ...it, due_at: r.due_at, seconds_until_due: days * 86400 }
         : it,
     );
+    drift.value++;
     toast.success(`Snoozed ${word} for ${days} day${days === 1 ? "" : "s"}`);
   } catch (e) {
     toast.error(e instanceof Error ? e.message : "Snooze failed");
@@ -197,6 +271,7 @@ async function makeDue(word: string) {
         ? { ...it, due_at: r.due_at, seconds_until_due: 0 }
         : it,
     );
+    drift.value++;
     toast.success(`${word} queued for review`);
   } catch (e) {
     toast.error(e instanceof Error ? e.message : "Couldn't queue");
@@ -346,15 +421,30 @@ function toggleExpanded(word: string) {
       <span>{{ review.stats.learning }} learning · {{ counts.known }} known<span v-if="counts.ignored"> · {{ counts.ignored }} ignored</span></span>
     </div>
 
-    <p v-if="loading || !loaded" class="py-10 text-center text-sm text-fg-subtle">Loading…</p>
-    <p v-else-if="error" class="py-10 text-center text-sm text-rose-600">{{ error }}</p>
+    <p v-if="error" class="py-10 text-center text-sm text-rose-600">{{ error }}</p>
+    <p v-else-if="loading || !loaded" class="py-10 text-center text-sm text-fg-subtle">Loading…</p>
     <p
-      v-else-if="items.length === 0"
+      v-else-if="items.length === 0 && total === 0 && hasFilters"
       class="py-10 text-center text-sm text-fg-subtle"
     >
-      Nothing matches. Try clearing the filters above.
+      None of your words match these filters. Try clearing some of them above.
     </p>
-    <ul v-else class="divide-y divide-border-subtle rounded-lg border border-border bg-bg-elevated">
+    <p
+      v-else-if="items.length === 0 && total === 0"
+      class="py-10 text-center text-sm text-fg-subtle"
+    >
+      You aren't tracking any words yet. Words you click while reading show up here.
+    </p>
+    <p
+      v-if="!error && loaded && !loading && items.length > 0 && items.length < total"
+      class="mb-2 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+    >
+      Showing {{ items.length.toLocaleString() }} of {{ total.toLocaleString() }}
+    </p>
+    <ul
+      v-if="!error && loaded && !loading && items.length > 0"
+      class="divide-y divide-border-subtle rounded-lg border border-border bg-bg-elevated"
+    >
       <li
         v-for="item in items"
         :key="item.word"
@@ -493,5 +583,22 @@ function toggleExpanded(word: string) {
         </Transition>
       </li>
     </ul>
+
+    <!-- Pager -->
+    <template v-if="!error && loaded && !loading">
+      <p v-if="loadMoreError" class="mt-3 text-center text-xs text-rose-600">
+        {{ loadMoreError }}
+      </p>
+      <div v-if="loadingMore" class="py-4 text-center text-xs text-fg-subtle">Loading…</div>
+      <button
+        v-else-if="hasMore"
+        type="button"
+        class="mt-3 w-full rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 text-xs font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
+        @click="loadMore"
+      >
+        Load {{ nextBatch > 0 ? `${nextBatch} ` : "" }}more · {{ items.length.toLocaleString() }} /
+        {{ total.toLocaleString() }}
+      </button>
+    </template>
   </section>
 </template>

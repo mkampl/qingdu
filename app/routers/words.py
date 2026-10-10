@@ -14,10 +14,11 @@ analytics later without changing this code path.
 """
 
 import contextlib
+import json
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.auth import require_auth
@@ -459,6 +460,17 @@ async def import_hsk_known(
     }
 
 
+def _hsk_level_new(entry: dict | None) -> int | None:
+    """Numeric new-HSK level of a hsk_vocab entry ("new-3" -> 3), or None."""
+    if not entry:
+        return None
+    lvl = entry.get("level_new") or ""
+    if lvl.startswith("new-"):
+        with contextlib.suppress(ValueError):
+            return int(lvl.split("-", 1)[1].split("-")[0])
+    return None
+
+
 @router.get("/api/words/queue")
 async def list_queue(
     user: User = Depends(require_auth),
@@ -480,6 +492,8 @@ async def list_queue(
         global hsk_vocab map
       - search: substring match on the word column
     sort: 'due' (NULL last), 'recent' (newest first), 'hsk' (lowest level first)
+    Paging: limit is clamped to 1..500, offset to >= 0. `total` counts every
+    row matching the filters; `has_more` says whether a later page exists.
     """
     from datetime import datetime, timedelta
 
@@ -500,27 +514,55 @@ async def list_queue(
     if search:
         q = q.filter(UserWord.word.contains(search.strip()))
 
-    if sort == "recent":
-        q = q.order_by(UserWord.created_at.desc())
-    elif sort == "hsk":
-        q = q.order_by(UserWord.created_at.asc())  # client-side re-sort if HSK known
-    else:  # 'due' default — due-now first, then upcoming, NULLs last
-        q = q.order_by(UserWord.due_at.is_(None), UserWord.due_at.asc())
+    wanted_lvls: set[int] = set()
+    if hsk_levels:
+        try:
+            wanted_lvls = {int(s) for s in hsk_levels.split(",") if s.strip()}
+        except ValueError as e:
+            raise HTTPException(400, "hsk_levels must be comma-separated ints") from e
 
+    # HSK filter and HSK sort both run in SQL so `total`, LIMIT and OFFSET
+    # see the same row set. The word -> level map is shipped as a single
+    # JSON parameter and expanded with json_each(), which sidesteps
+    # SQLite's bound-variable limit (the full vocab is ~13k words).
+    level_col = None
+    if wanted_lvls or sort == "hsk":
+        level_map = {
+            w: lvl
+            for w, entry in hsk_vocab.items()
+            if (lvl := _hsk_level_new(entry)) is not None and (sort == "hsk" or lvl in wanted_lvls)
+        }
+        lv = (
+            func.json_each(json.dumps(level_map, ensure_ascii=False))
+            .table_valued("key", "value")
+            .alias("hsk_lv")
+        )
+        if wanted_lvls:
+            q = q.join(lv, lv.c.key == UserWord.word).filter(lv.c.value.in_(wanted_lvls))
+        else:
+            q = q.outerjoin(lv, lv.c.key == UserWord.word)
+        level_col = lv.c.value
+
+    if sort == "recent":
+        q = q.order_by(UserWord.created_at.desc(), UserWord.id.desc())
+    elif sort == "hsk" and level_col is not None:
+        # Lowest level first, words outside HSK last, oldest first within a level.
+        q = q.order_by(
+            level_col.is_(None), level_col.asc(), UserWord.created_at.asc(), UserWord.id.asc()
+        )
+    else:  # 'due' default — due-now first, then upcoming, NULLs last
+        q = q.order_by(UserWord.due_at.is_(None), UserWord.due_at.asc(), UserWord.id.asc())
+
+    limit = max(1, min(limit, 500))
+    offset = max(offset, 0)
     total = q.count()
-    rows = q.limit(min(limit, 500)).offset(max(offset, 0)).all()
+    rows = q.limit(limit).offset(offset).all()
 
     now = datetime.utcnow()
     vocab = hsk_vocab
     items = []
     for r in rows:
-        hsk_entry = vocab.get(r.word) if vocab else None
-        hsk_level = None
-        if hsk_entry:
-            lvl = hsk_entry.get("level_new") or ""
-            if lvl.startswith("new-"):
-                with contextlib.suppress(ValueError):
-                    hsk_level = int(lvl.split("-", 1)[1].split("-")[0])
+        hsk_level = _hsk_level_new(vocab.get(r.word)) if vocab else None
         seconds_until = None
         if r.due_at:
             seconds_until = int((r.due_at - now).total_seconds())
@@ -544,18 +586,7 @@ async def list_queue(
             }
         )
 
-    # Optional HSK-band filter (client-side, since hsk lookup is from vocab map)
-    if hsk_levels:
-        try:
-            wanted_lvls = {int(s) for s in hsk_levels.split(",") if s.strip()}
-        except ValueError as e:
-            raise HTTPException(400, "hsk_levels must be comma-separated ints") from e
-        items = [it for it in items if it["hsk_level"] in wanted_lvls]
-
-    if sort == "hsk":
-        items.sort(key=lambda it: it["hsk_level"] if it["hsk_level"] is not None else 99)
-
-    return {"items": items, "total": total}
+    return {"items": items, "total": total, "has_more": offset + len(items) < total}
 
 
 @router.post("/api/words/snooze")
