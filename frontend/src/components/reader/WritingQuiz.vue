@@ -13,6 +13,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import { useSettingsStore } from "@/stores/settings";
+import { otherMeanings } from "@/utils/meanings";
 
 const settings = useSettingsStore();
 
@@ -26,8 +27,8 @@ const props = withDefaults(
     meaning?: string;
     /**
      * Full list of meanings from the dictionary (CC-CEDICT / HSK source).
-     * The primary `meaning` is also the first entry here. Secondary
-     * meanings are rendered as a smaller stacked list under the prompt
+     * The primary `meaning`'s own sense is somewhere in here (not always
+     * first); every other sense is rendered as a smaller stacked list under the prompt
      * so the learner sees the full sense range, not just the first.
      */
     meanings?: string[];
@@ -42,7 +43,7 @@ const props = withDefaults(
   { showOutline: false, meanings: () => [] },
 );
 
-const secondaryMeanings = computed(() => (props.meanings ?? []).slice(1));
+const secondaryMeanings = computed(() => otherMeanings(props.meaning, props.meanings));
 
 const emit = defineEmits<{
   /**

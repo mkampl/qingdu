@@ -106,7 +106,8 @@ def test_parser_self_variant_check_ignores_unrelated_secondary_sense():
         "蠒 茧 [jian3] /variant of 繭|茧[jian3]/\n"
     )
     parsed = cedict_loader._parse_text(sample)
-    assert parsed["茧"]["meaning"] == "(bound form) cocoon"
+    assert parsed["茧"]["meaning"] == "cocoon"
+    assert parsed["茧"]["meaning_tags"] == ["bound form"]
 
 
 def test_parser_resolves_used_in_pointer_to_target_meaning():
@@ -374,7 +375,10 @@ def test_preferred_sense_override_fixes_nan_baron_misfire(monkeypatch):
         "of nobility 五等爵位[wu3 deng3 jue2 wei4]/\n"
     )
     parsed = cedict_loader._parse_text(sample)
-    assert parsed["男"]["meaning"] == "(bound form) male"
+    # The register tag moves off the headline into meaning_tags.
+    assert parsed["男"]["meaning"] == "male"
+    assert parsed["男"]["meaning_tags"] == ["bound form"]
+    assert parsed["男"]["meanings"][0] == "(bound form) male"
 
 
 def test_preferred_sense_override_fixes_yuan2_military_generals_misfire(monkeypatch):
@@ -396,7 +400,8 @@ def test_preferred_sense_override_fixes_yuan2_military_generals_misfire(monkeypa
         "(bound form) member/classifier for military generals/\n"
     )
     parsed = cedict_loader._parse_text(sample)
-    assert parsed["员"]["meaning"] == "(bound form) person engaged in a certain field of activity"
+    assert parsed["员"]["meaning"] == "person engaged in a certain field of activity"
+    assert parsed["员"]["meaning_tags"] == ["bound form"]
 
 
 def test_preferred_sense_override_fixes_hao4_misfire(monkeypatch):
@@ -422,10 +427,9 @@ def test_preferred_sense_override_fixes_hao4_misfire(monkeypatch):
 def test_preferred_sense_override_fixes_shang4_bound_form_misfire(monkeypatch):
     """上's core "on/above" sense is tagged bound-form, so the heuristic
     fell through to verb fragments ("first (of multiple parts)") for
-    this HSK-1 character. The override substring must match against the
-    already-cleaned, sense-capped gloss -- "up; upper; above" not the
-    raw "up; upper; above; previous" -- since clean_gloss_for_display
-    caps display to 3 senses and truncates the rest with an ellipsis."""
+    this HSK-1 character. The override substring is matched against the
+    already-cleaned senses; a substring of the sense is enough to pick
+    it, and the headline keeps the whole sense minus its register tag."""
     monkeypatch.setattr(
         cedict_loader,
         "_load_primary_overrides",
@@ -438,4 +442,5 @@ def test_preferred_sense_override_fixes_shang4_bound_form_misfire(monkeypatch):
         "(noun suffix) on; above/\n"
     )
     parsed = cedict_loader._parse_text(sample)
-    assert parsed["上"]["meaning"].startswith("(bound form) up; upper; above")
+    assert parsed["上"]["meaning"] == "up; upper; above; previous"
+    assert parsed["上"]["meaning_tags"] == ["bound form"]

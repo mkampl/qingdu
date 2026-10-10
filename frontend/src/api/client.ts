@@ -263,6 +263,7 @@ export interface HskBrowseItem {
   pinyin: string | null;
   meaning: string | null;
   meanings: string[];
+  meaning_tags?: string[];
   level_new: string | null;
   level_old: string | null;
   frequency: number | null;
@@ -1100,7 +1101,11 @@ export interface ReviewCard {
   word: string;
   pinyin: string;
   meaning: string;
+  /** Every dictionary sense, full text. The headline's own sense is not
+   *  necessarily first — list the rest with otherMeanings(). */
   meanings: string[];
+  /** Register tags stripped off the dictionary headline. */
+  meaning_tags?: string[];
   hsk_level: string | null;
   stability: number | null;
   difficulty: number | null;

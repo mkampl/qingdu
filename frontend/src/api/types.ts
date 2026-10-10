@@ -41,6 +41,9 @@ export interface WordInfo {
   pinyin?: string;
   meaning?: string;
   meanings?: string[];
+  /** Register tags stripped off the dictionary headline ("bound form",
+   *  "coll." ...), shown as small badges next to `meaning`. */
+  meaning_tags?: string[] | null;
   frequency?: number;
   is_hsk: boolean;
   translation_source?: TranslationSource;

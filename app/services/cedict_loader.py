@@ -63,7 +63,9 @@ _CL_RE = re.compile(r"^CL:")
 #
 # CC-CEDICT pinyin uses tone-number form ("chuan2"). The rest of the app
 # expects tone-mark form ("chuán"). Mark placement follows the standard
-# rule: a > e > o (when no a/e/o, the last vowel takes the mark).
+# rule: a or e takes the mark; in "ou" the o does; otherwise the last
+# vowel does. The last-vowel case is what puts the mark on the u of "iu"
+# (liù, jiǔ) and on the i of "ui" (huí, duì, shuǐ).
 _TONE_MARKS = {
     "a": "āáǎà",
     "e": "ēéěè",
@@ -72,8 +74,10 @@ _TONE_MARKS = {
     "u": "ūúǔù",
     "ü": "ǖǘǚǜ",
 }
-# Order of preference for where the tone mark sits in a syllable.
-_VOWEL_PRIORITY = ["a", "e", "o", "ou", "u", "i", "ü"]
+# Vowels that take the mark outright when present, in priority order
+# ("ao" → a). "o" also covers "ou" and "uo".
+_VOWEL_PRIORITY = ["a", "e", "o"]
+_LAST_VOWEL_CANDIDATES = "iuü"
 
 
 def _apply_tone(syllable: str) -> str:
@@ -89,14 +93,16 @@ def _apply_tone(syllable: str) -> str:
         # Tone 5 (neutral) gets no mark; tone 0 / any other gets no mark.
         return body
     body = body.replace("u:", "ü").replace("v", "ü")
-    # Find the vowel that takes the mark, in priority order.
+    # Find the vowel that takes the mark: a/e/o first, else the last of
+    # i/u/ü ("iu" → u, "ui" → i).
     target_index = -1
     for vowel in _VOWEL_PRIORITY:
         idx = body.find(vowel)
         if idx >= 0:
-            # For "ou", the o gets the mark — that's already idx of "o".
             target_index = idx
             break
+    if target_index < 0:
+        target_index = max(body.rfind(v) for v in _LAST_VOWEL_CANDIDATES)
     if target_index < 0:
         return body
     target_char = body[target_index]
@@ -132,10 +138,13 @@ def _convert_pinyin(numbered: str) -> str:
 #   "road; path (CL:條|条[tiao2],股[gu3])"
 # We rewrite the inline brackets to a rendered pinyin in parens, collapse
 # the trad|simp alternative to just the simplified form, drop classifier
-# annotations, and cap at the first ~3 semicolon-separated senses so the
-# display column doesn't run away with 150-char paragraphs. The lexico-
-# graphic detail is still present in the underlying CC-CEDICT data; this
-# is purely a display layer.
+# annotations, and cap the length so the display column doesn't run away
+# with 150-char paragraphs. The input is ONE CC-CEDICT sense (the "/"
+# separated unit); the ";" inside it separate near-synonyms of that same
+# sense ("many; much; more; a lot of"), so a short sense is shown whole
+# and only an over-long one is cut, preferably at a ";" boundary. The
+# lexicographic detail is still present in the underlying CC-CEDICT
+# data; this is purely a display layer.
 
 _CL_INLINE_RE = re.compile(r"\s*\(CL:[^)]*\)")
 # Multi-clause idioms/proverbs are still a single trad|simp pair spanning
@@ -148,7 +157,6 @@ _CL_INLINE_RE = re.compile(r"\s*\(CL:[^)]*\)")
 # of the pair.
 _TRAD_SIMP_RE = re.compile(r"([一-鿿，。！？、；：]+)\|([一-鿿，。！？、；：]+)")
 _BRACKET_PINYIN_RE = re.compile(r"\[([^\]]+)\]")
-_MAX_DISPLAY_SENSES = 3
 _MAX_DISPLAY_CHARS = 110
 
 
@@ -176,16 +184,188 @@ def clean_gloss_for_display(meaning: str) -> str:
 
     s = _BRACKET_PINYIN_RE.sub(_render_bracket, s)
     s = re.sub(r"\s+", " ", s).strip()
-    # Cap to N semicolon-separated senses, ellipsis if there were more.
+    return _truncate_gloss(s)
+
+
+def _truncate_gloss(s: str) -> str:
+    """Cap a gloss at _MAX_DISPLAY_CHARS (ellipsis included). Cuts after
+    the last whole ";" part that fits; falls back to the last word
+    boundary when even the first part is too long. Output never exceeds
+    the cap, so a second pass leaves it unchanged."""
+    if len(s) <= _MAX_DISPLAY_CHARS:
+        return s
+    budget = _MAX_DISPLAY_CHARS - 1  # room for the ellipsis
     parts = [p.strip() for p in s.split(";") if p.strip()]
-    if len(parts) > _MAX_DISPLAY_SENSES:
-        s = "; ".join(parts[:_MAX_DISPLAY_SENSES]) + "…"
-    # Hard length cap — truncate at the last word boundary.
-    if len(s) > _MAX_DISPLAY_CHARS:
-        cut = s.rfind(" ", 0, _MAX_DISPLAY_CHARS)
-        if cut > 0:
-            s = s[:cut].rstrip(",;: ") + "…"
-    return s
+    kept: list[str] = []
+    for part in parts:
+        candidate = "; ".join([*kept, part])
+        if len(candidate) > budget:
+            break
+        kept.append(part)
+    if kept:
+        return "; ".join(kept) + "…"
+    cut = s.rfind(" ", 0, budget)
+    if cut > 0:
+        return s[:cut].rstrip(",;: ") + "…"
+    return s[:budget] + "…"
+
+
+# --- headline cleanup ---------------------------------------------------------
+#
+# The headline ("meaning") is what a learner reads first on a card or in
+# the popover; the full senses ("meanings") stay untouched. CC-CEDICT
+# opens many senses with a register tag ("(bound form) male", "(coll.)
+# father; dad") or an editorial note ("(third-person singular) (since the
+# early 20th century, usu. male) he; him; his"), and some end in a long
+# usage note ("you (Note: In Taiwan, 妳 is used ...)"). The headline drops
+# all of these; the register tags are handed back separately so the UI
+# can show them as a small badge next to the headline.
+
+# Leading tags that become a badge. Kept to register/usage labels; domain
+# labels like "(physics)" or qualifiers like "(of a person)" stay inline
+# because they change what the gloss means.
+_HEADLINE_BADGE_TAGS = frozenset(
+    {
+        "bound form",
+        "coll.",
+        "literary",
+        "classical",
+        "archaic",
+        "dialect",
+        "old",
+        "tcm",
+        "slang",
+        "vulgar",
+        "erhua-only",
+        "idiom",
+        "loanword",
+        "formal",
+        "informal",
+        "honorific",
+        "polite",
+        "humble",
+        "derog.",
+        "onom.",
+        "euphemism",
+    }
+)
+# Leading notes that are dropped from the headline outright (no badge).
+_HEADLINE_EDITORIAL_RE = re.compile(
+    r"^(?:(?:first|second|third)-person (?:singular|plural)|since\b.*|note:.*)$",
+    re.IGNORECASE,
+)
+# A leading parenthetical longer than this is an editorial note, not a tag,
+# unless it says what the word applies to ("(of markets, industries ...)
+# rising") or how it is used grammatically ("(after a noun N and before a
+# predicate P)", "(classical particle similar to 于)"); those stay inline.
+_HEADLINE_EDITORIAL_MIN_CHARS = 30
+_HEADLINE_KEEP_NOTE_RE = re.compile(
+    r"^(?:of|after|before|followed by)\b|particle|classifier|prefix|suffix|marker",
+    re.IGNORECASE,
+)
+# A trailing parenthetical is a usage note dropped from the headline when
+# it starts with "Note:" or when keeping it would push the headline past
+# the display cap (it would be cut off mid-note anyway). Shorter ones
+# ("to leave (the stage, an exam room ...)") stay: they carry meaning.
+_LEADING_PAREN_RE = re.compile(r"^\(([^()]*)\)\s*")
+_TRAILING_PAREN_RE = re.compile(r"\s*\(([^()]*)\)$")
+_HAS_WORD_RE = re.compile(r"[A-Za-z]{2,}")
+
+
+def split_headline(gloss: str) -> tuple[str, list[str]]:
+    """Split a sense into (headline text, register tags).
+
+    "(bound form) male" → ("male", ["bound form"]);
+    "(third-person singular) (since ..., usu. male) he; him; his" →
+    ("he; him; his", []). A prefix or note is only removed while real
+    text remains after it, so a sense that is nothing but a parenthetical
+    ("(prefix indicating ordinal number ...)") is returned unchanged.
+    Works on raw CC-CEDICT text and on clean_gloss_for_display output,
+    and is idempotent."""
+    if not gloss:
+        return gloss, []
+    s = gloss.strip()
+    tags: list[str] = []
+    while True:
+        m = _LEADING_PAREN_RE.match(s)
+        if not m:
+            break
+        inner = m.group(1).strip()
+        rest = s[m.end() :]
+        if not _HAS_WORD_RE.search(rest):
+            break
+        if inner.lower() in _HEADLINE_BADGE_TAGS:
+            if inner.lower() not in (t.lower() for t in tags):
+                tags.append(inner)
+        elif not (
+            _HEADLINE_EDITORIAL_RE.match(inner)
+            or (
+                len(inner) >= _HEADLINE_EDITORIAL_MIN_CHARS
+                and not _HEADLINE_KEEP_NOTE_RE.search(inner)
+            )
+        ):
+            break
+        s = rest
+    m = _TRAILING_PAREN_RE.search(s)
+    if m:
+        inner = m.group(1).strip()
+        rest = s[: m.start()].rstrip()
+        if (
+            inner.lower().startswith("note:") or len(s) > _MAX_DISPLAY_CHARS
+        ) and _HAS_WORD_RE.search(rest):
+            s = rest
+    return s, tags
+
+
+def headline_for_display(gloss: str) -> tuple[str, list[str]]:
+    """Display headline for a raw or cleaned sense: tags/notes removed
+    (see split_headline), then CC-CEDICT markup cleaned and length capped.
+    Returns (headline, tags)."""
+    headline, tags = split_headline(gloss)
+    return clean_gloss_for_display(headline), tags
+
+
+_SAME_SENSE_STRIP_RE = re.compile(r"[\s…]+")
+
+
+def _sense_key(gloss: str) -> str:
+    text, _ = split_headline(gloss or "")
+    # An over-long sense truncated mid-note leaves an unclosed "(" tail;
+    # cut it so it still compares equal to the note-free headline.
+    if text.count("(") > text.count(")"):
+        text = text[: text.rfind("(")]
+    return _SAME_SENSE_STRIP_RE.sub(" ", text).strip(" ;,").lower()
+
+
+def is_same_sense(headline: str, sense: str) -> bool:
+    """True when `sense` (a full entry of `meanings`) is the sense the
+    `headline` was derived from — equal after tag/note stripping, or one
+    a truncated prefix of the other. Used to list the *other* meanings
+    under a headline instead of blindly dropping meanings[0]."""
+    a, b = _sense_key(headline), _sense_key(sense)
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    a_cut = (headline or "").rstrip().endswith("…")
+    b_cut = (sense or "").rstrip().endswith("…")
+    return (a_cut and b.startswith(a)) or (b_cut and a.startswith(b))
+
+
+def cap_meanings(headline: str, meanings: list[str], max_others: int) -> list[str]:
+    """Keep the sense(s) the headline came from plus the first
+    `max_others` other senses, in dictionary order. The cap counts only
+    the *other* senses, so a headline picked from deep in the list
+    (男, 上) doesn't push an alternative out or get cut off itself."""
+    out: list[str] = []
+    others = 0
+    for m in meanings:
+        if is_same_sense(headline, m):
+            out.append(m)
+        elif others < max_others:
+            out.append(m)
+            others += 1
+    return out
 
 
 # --- file fetch + parse --------------------------------------------------------
@@ -683,6 +863,7 @@ def _parse_text(text: str) -> dict[str, dict]:
         # frequency tiebreaker the dú reading wins.
         if existing_quality is not None and new_quality < existing_quality:
             continue
+        headline, headline_tags = headline_for_display(primary)
         out[simplified] = {
             "traditional": traditional,
             "pinyin": _convert_pinyin(numbered_pinyin),
@@ -692,7 +873,11 @@ def _parse_text(text: str) -> dict[str, dict]:
             # resolution below still works because the cleanup preserves
             # the target hanzi (just rewrites the bracket pinyin around
             # it). See clean_gloss_for_display above.
-            "meaning": clean_gloss_for_display(primary),
+            # The headline also loses register tags and editorial notes
+            # (see split_headline); the tags travel in meaning_tags and
+            # the full senses stay in meanings.
+            "meaning": headline,
+            "meaning_tags": headline_tags,
             "meanings": [clean_gloss_for_display(m) for m in meanings],
             "source": CEDICT_SOURCE_TAG,
         }
@@ -712,7 +897,7 @@ def _parse_text(text: str) -> dict[str, dict]:
             continue
         match = next((s for s in entry["meanings"] if wanted_substring in s), None)
         if match is not None:
-            entry["meaning"] = match
+            entry["meaning"], entry["meaning_tags"] = headline_for_display(match)
     _resolve_variant_references(out)
     return out
 
@@ -770,6 +955,7 @@ def _resolve_variant_references(parsed: dict[str, dict]) -> None:
                 # Cycle (target also points back here) — leave as-is.
                 continue
             entry["meaning"] = target["meaning"]
+            entry["meaning_tags"] = list(target.get("meaning_tags") or [])
             entry["meanings"] = list(target["meanings"])
             changed = True
         if not changed:
@@ -794,6 +980,7 @@ def _merge_into_hsk_vocab() -> tuple[int, int]:
             missing += 1
             continue
         hsk_entry["meaning"] = cedict_entry["meaning"]
+        hsk_entry["meaning_tags"] = list(cedict_entry.get("meaning_tags") or [])
         hsk_entry["meanings"] = cedict_entry["meanings"]
         cedict_pinyin = cedict_entry.get("pinyin")
         if cedict_pinyin:

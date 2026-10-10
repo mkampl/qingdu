@@ -21,11 +21,13 @@ import type { QueueMode, ReviewGrade, ReviewMode } from "@/api/client";
 import WeeklySparkline from "@/components/reader/WeeklySparkline.vue";
 import StrokeOrder from "@/components/reader/StrokeOrder.vue";
 import WritingQuiz from "@/components/reader/WritingQuiz.vue";
+import MeaningTags from "@/components/reader/MeaningTags.vue";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReviewStore } from "@/stores/review";
 import { useSettingsStore } from "@/stores/settings";
 import { success as hapticSuccess, tap as hapticTap } from "@/services/native";
+import { otherMeanings } from "@/utils/meanings";
 
 const review = useReviewStore();
 const router = useRouter();
@@ -140,6 +142,11 @@ function onWritingComplete(payload: {
 }
 
 const card = computed(() => review.current);
+// Senses listed under the headline: everything except the headline's
+// own sense, which isn't necessarily meanings[0].
+const cardOtherMeanings = computed(() =>
+  card.value ? otherMeanings(card.value.meaning, card.value.meanings) : [],
+);
 const total = computed(() => review.queue.length);
 const idx = computed(() => Math.min(review.cursor + 1, total.value));
 
@@ -813,13 +820,13 @@ watch(
             {{ card.word }}
           </p>
           <p class="mt-4 font-display text-base leading-snug text-fg">
-            {{ card.meaning }}
+            {{ card.meaning }}<MeaningTags :tags="card.meaning_tags" />
           </p>
           <ul
-            v-if="card.meanings && card.meanings.length > 1"
+            v-if="cardOtherMeanings.length"
             class="mt-1 space-y-0.5 text-xs text-fg-muted"
           >
-            <li v-for="(m, i) in card.meanings.slice(1)" :key="i">{{ m }}</li>
+            <li v-for="(m, i) in cardOtherMeanings" :key="i">{{ m }}</li>
           </ul>
 
           <!-- Stroke animation: auto-replays each card via the :key bind
@@ -964,12 +971,14 @@ watch(
               </div>
             </div>
             <template v-else>
-              <p class="font-display text-xl text-fg">{{ card.meaning }}</p>
+              <p class="font-display text-xl text-fg">
+                {{ card.meaning }}<MeaningTags :tags="card.meaning_tags" />
+              </p>
               <ul
-                v-if="card.meanings && card.meanings.length > 1"
+                v-if="cardOtherMeanings.length"
                 class="mt-1 space-y-0.5 text-sm text-fg-muted"
               >
-                <li v-for="(m, i) in card.meanings.slice(1)" :key="i">{{ m }}</li>
+                <li v-for="(m, i) in cardOtherMeanings" :key="i">{{ m }}</li>
               </ul>
             </template>
           </div>
@@ -1056,12 +1065,14 @@ watch(
             </p>
             <p class="font-cn-serif text-3xl text-fg">{{ card.word }}</p>
             <p class="font-sans text-sm text-fg-muted">{{ card.pinyin }}</p>
-            <p class="font-display text-base text-fg">{{ card.meaning }}</p>
+            <p class="font-display text-base text-fg">
+              {{ card.meaning }}<MeaningTags :tags="card.meaning_tags" />
+            </p>
             <ul
-              v-if="card.meanings && card.meanings.length > 1"
+              v-if="cardOtherMeanings.length"
               class="mt-1 space-y-0.5 text-xs text-fg-muted"
             >
-              <li v-for="(m, i) in card.meanings.slice(1)" :key="i">{{ m }}</li>
+              <li v-for="(m, i) in cardOtherMeanings" :key="i">{{ m }}</li>
             </ul>
           </div>
         </template>
@@ -1161,12 +1172,14 @@ watch(
             </p>
             <p class="font-cn-serif text-3xl text-fg">{{ card.word }}</p>
             <p class="font-sans text-sm text-fg-muted">{{ card.pinyin }}</p>
-            <p class="font-display text-base text-fg">{{ card.meaning }}</p>
+            <p class="font-display text-base text-fg">
+              {{ card.meaning }}<MeaningTags :tags="card.meaning_tags" />
+            </p>
             <ul
-              v-if="card.meanings && card.meanings.length > 1"
+              v-if="cardOtherMeanings.length"
               class="mx-auto mt-1 max-w-xs space-y-0.5 text-xs text-fg-muted"
             >
-              <li v-for="(m, i) in card.meanings.slice(1)" :key="i">{{ m }}</li>
+              <li v-for="(m, i) in cardOtherMeanings" :key="i">{{ m }}</li>
             </ul>
             <p
               class="mx-auto mt-3 max-w-md font-cn-serif text-lg leading-relaxed text-fg-muted"

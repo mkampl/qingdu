@@ -112,6 +112,7 @@ async def browse_hsk(
             "pinyin": data.get("pinyin"),
             "meaning": data.get("meaning"),
             "meanings": data.get("meanings") or [],
+            "meaning_tags": data.get("meaning_tags") or [],
             "level_new": data.get("level_new"),
             "level_old": data.get("level_old"),
             "frequency": data.get("frequency"),

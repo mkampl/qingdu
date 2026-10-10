@@ -192,3 +192,58 @@ def test_stats_endpoint(review_client):
     body2 = client.get("/api/review/stats").json()
     assert body2["reviewed_today"] == 1
     assert body2["due_now"] == 1  # '一' moved out of the due window
+
+
+def test_queue_meanings_cap_skips_headline_not_index_zero(review_client, monkeypatch):
+    """The headline is not always meanings[0] (here it is the sixth).
+    The card keeps the headline's own sense plus up to four others, and
+    register tags stripped off the headline ride along as meaning_tags."""
+    from app import state
+
+    client, session_factory = review_client
+    db = session_factory()
+    db.add(UserWord(user_id=1, word="号", state="learning"))
+    db.commit()
+    db.close()
+    senses = [
+        "(literary) to call out",
+        "(bound form) bugle",
+        "to mark; to label",
+        "day of the month",
+        "number in a series",
+        "size",
+        "mark; sign",
+    ]
+    monkeypatch.setitem(
+        state.hsk_vocab,
+        "号",
+        {
+            "pinyin": "hào",
+            "meaning": "size",
+            "meanings": senses,
+            "meaning_tags": [],
+            "level": "1",
+        },
+    )
+    monkeypatch.setitem(
+        state.hsk_vocab,
+        "一",
+        {
+            "pinyin": "yī",
+            "meaning": "one",
+            "meanings": ["(bound form) one", "single"],
+            "meaning_tags": ["bound form"],
+            "level": "1",
+        },
+    )
+    r = client.get("/api/review/queue")
+    assert r.status_code == 200, r.text
+    cards = {c["word"]: c for c in r.json()["cards"]}
+    hao = cards["号"]
+    assert hao["meaning"] == "size"
+    # Headline sense + the first four others; the rest drop.
+    assert hao["meanings"] == [*senses[:4], "size"]
+    assert hao["meaning_tags"] == []
+    yi = cards["一"]
+    assert yi["meaning"] == "one"
+    assert yi["meaning_tags"] == ["bound form"]

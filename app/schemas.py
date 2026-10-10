@@ -23,6 +23,9 @@ class WordInfo(BaseModel):
     pinyin: str | None = None
     meaning: str | None = None
     meanings: list[str] | None = None
+    # Register tags stripped off the dictionary headline ("bound form",
+    # "coll." ...), shown as a small badge next to `meaning`.
+    meaning_tags: list[str] | None = None
     frequency: int | None = None
     is_hsk: bool = False
     translation_source: str | None = None

@@ -12,7 +12,10 @@ import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 import { useVocabListsStore } from "@/stores/vocab-lists";
 
+import { otherMeanings } from "@/utils/meanings";
+
 import HskChip from "./HskChip.vue";
+import MeaningTags from "./MeaningTags.vue";
 import StrokeOrder from "./StrokeOrder.vue";
 import { levelForVersion } from "./utils";
 
@@ -195,6 +198,10 @@ function translateSentenceFromWord() {
     reader.toggleSentence(sentenceKey);
   void reader.translateSentence(sentenceText);
 }
+
+const wordOtherMeanings = computed(() =>
+  word.value ? otherMeanings(word.value.meaning, word.value.meanings) : [],
+);
 
 const wordLevel = computed(() =>
   word.value ? levelForVersion(word.value, settings.hskVersion) : null,
@@ -442,13 +449,13 @@ async function setWordState(state: UserWordState) {
             class="mt-4"
           >
             <p class="font-display text-[15px] leading-snug text-fg">
-              {{ word.meaning }}
+              {{ word.meaning }}<MeaningTags :tags="word.meaning_tags" />
             </p>
             <ul
-              v-if="word.meanings && word.meanings.length > 1"
+              v-if="wordOtherMeanings.length"
               class="mt-1 list-inside space-y-0.5 text-xs text-fg-muted"
             >
-              <li v-for="(m, i) in word.meanings.slice(1)" :key="i">
+              <li v-for="(m, i) in wordOtherMeanings" :key="i">
                 {{ m }}
               </li>
             </ul>

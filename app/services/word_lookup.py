@@ -128,6 +128,7 @@ def resolve_from_cedict(word: str) -> dict | None:
         "pinyin": entry.get("pinyin") or stats.get("pinyin", ""),
         "meaning": entry["meaning"],
         "meanings": entry.get("meanings") or [entry["meaning"]],
+        "meaning_tags": list(entry.get("meaning_tags") or []),
         "level": stats.get("level", "unknown"),
         "level_new": stats.get("level_new"),
         "level_old": stats.get("level_old"),

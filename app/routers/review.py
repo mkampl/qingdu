@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from app.auth import require_auth
 from app.database import User, UserWord, UserWordEvent, get_db
 from app.services import cloze, srs
+from app.services.cedict_loader import cap_meanings
 from app.services.enrollment import enroll_daily_words, enrolled_today
 from app.services.script import to_user_script
 from app.services.streak import record_activity
@@ -75,14 +76,8 @@ def _enrich(row: UserWord) -> dict:
     # Prefer the meanings list from the richer source: HSK entries already
     # have CC-CEDICT meanings overlaid at startup, so hsk_vocab is the
     # primary; cedict_vocab covers non-HSK literary/proper-noun terms.
-    meanings = (entry or cedict_entry or {}).get("meanings", []) or []
-    # Cap the alternatives shown on a review card. CC-CEDICT frequently
-    # ships 10+ etymologically-ordered senses (零 has 12: "zero, nought,
-    # zero sign, fractional, ..., to wither"); showing them all under
-    # the primary reading distracts from the everyday meaning. Analysis
-    # / popovers read the vocab dicts directly, so they still see the
-    # full list.
-    meanings = meanings[:5]
+    source_entry = entry or cedict_entry or {}
+    meanings = source_entry.get("meanings", []) or []
     hsk_level = entry.get("level") if entry else None
 
     if not pinyin or not meaning:
@@ -92,8 +87,25 @@ def _enrich(row: UserWord) -> dict:
         if not meaning:
             meaning = looked_up_meaning
 
+    # Cap the alternatives shown on a review card. CC-CEDICT frequently
+    # ships 10+ etymologically-ordered senses (零 has 12: "zero, nought,
+    # zero sign, fractional, ..., to wither"); showing them all under
+    # the primary reading distracts from the everyday meaning. The cap
+    # counts senses other than the headline's own, which the card hides
+    # (the headline is not always meanings[0]). Analysis / popovers read
+    # the vocab dicts directly, so they still see the full list.
+    meanings = cap_meanings(meaning, meanings, 4)
+
     if not meanings and meaning:
         meanings = [meaning]
+
+    # Register tags only belong to the dictionary headline; a curated
+    # package/glossary meaning on the row gets none.
+    meaning_tags = (
+        list(source_entry.get("meaning_tags") or [])
+        if meaning and meaning == source_entry.get("meaning")
+        else []
+    )
 
     # Phase #120 — tagged glosses. Each is one (source, source_tag,
     # meaning, pinyin) row, surfaced in creation order so the
@@ -114,6 +126,7 @@ def _enrich(row: UserWord) -> dict:
         "pinyin": pinyin,
         "meaning": meaning,
         "meanings": meanings,
+        "meaning_tags": meaning_tags,
         "hsk_level": hsk_level,
         "glosses": glosses_payload,
     }
