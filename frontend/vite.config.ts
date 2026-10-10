@@ -35,5 +35,8 @@ export default defineConfig({
   test: {
     environment: "happy-dom",
     globals: true,
+    // Unit tests live next to the code they cover; keep the runner out of
+    // android/ and dist/.
+    include: ["src/**/*.{test,spec}.ts"],
   },
 });
