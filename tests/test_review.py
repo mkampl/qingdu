@@ -308,6 +308,51 @@ def test_queue_meanings_cap_skips_headline_not_index_zero(review_client, monkeyp
     assert yi["meaning_tags"] == ["bound form"]
 
 
+def test_queue_card_carries_readings_with_card_reading_on_top(review_client, monkeypatch):
+    """A polyphone card lists every reading for the card back; the one
+    the card is graded on (its stored pinyin) comes first as main."""
+    from app import state
+
+    client, session_factory = review_client
+    db = session_factory()
+    db.add(UserWord(user_id=1, word="长", state="learning", pinyin="cháng", meaning="long"))
+    db.commit()
+    db.close()
+    readings = [
+        {
+            "pinyin": "cháng",
+            "primary": "long",
+            "meanings": ["long"],
+            "meaning_tags": [],
+            "is_main": True,
+        },
+        {
+            "pinyin": "zhǎng",
+            "primary": "chief",
+            "meanings": ["chief", "to grow"],
+            "meaning_tags": [],
+            "is_main": False,
+            "example": {"word": "校长", "pinyin": "xiào zhǎng", "meaning": "principal"},
+        },
+    ]
+    monkeypatch.setitem(
+        state.hsk_vocab,
+        "长",
+        {"pinyin": "cháng", "meaning": "long", "meanings": ["long"], "readings": readings},
+    )
+    r = client.get("/api/review/queue")
+    assert r.status_code == 200, r.text
+    card = next(c for c in r.json()["cards"] if c["word"] == "长")
+    assert [(x["pinyin"], x["is_main"]) for x in card["readings"]] == [
+        ("cháng", True),
+        ("zhǎng", False),
+    ]
+    assert card["readings"][1]["example"]["word"] == "校长"
+    # Cards for single-reading words carry no readings list.
+    one = next(c for c in r.json()["cards"] if c["word"] == "一")
+    assert one["readings"] is None
+
+
 # --- Review correctness: timestamps, hysteresis, cloze fill, windows, weekly stats
 
 

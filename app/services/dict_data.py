@@ -35,7 +35,11 @@ VERSION_FILE_NAME = "VERSION.json"
 
 # Bundled files that change how a gloss is picked. Hashed into the
 # dictionary version so editing them also triggers a backfill.
-_RULE_FILES = ("cedict_primary_overrides.json", "subtlex_char_pinyin_freq.json")
+_RULE_FILES = (
+    "cedict_primary_overrides.json",
+    "reading_overrides.json",
+    "subtlex_char_pinyin_freq.json",
+)
 
 DICT_VERSION_SETTING = "dictionary.version"
 

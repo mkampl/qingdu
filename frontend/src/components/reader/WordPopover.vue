@@ -13,12 +13,11 @@ import { useUserWordsStore } from "@/stores/userWords";
 import { useVocabListsStore } from "@/stores/vocab-lists";
 import { hasOpenOverlay } from "@/utils/modal-stack";
 
-import { otherMeanings } from "@/utils/meanings";
 import { defaultSectionName, sectionContaining } from "@/utils/vocab-lists";
 
 import HskChip from "./HskChip.vue";
-import MeaningTags from "./MeaningTags.vue";
 import StrokeOrder from "./StrokeOrder.vue";
+import WordReadings from "./WordReadings.vue";
 import { effectiveWordState, levelForVersion, placePopover } from "./utils";
 
 const reader = useReaderStore();
@@ -260,9 +259,6 @@ function translateSentenceFromWord() {
   void reader.translateSentence(sentenceText);
 }
 
-const wordOtherMeanings = computed(() =>
-  word.value ? otherMeanings(word.value.meaning, word.value.meanings) : [],
-);
 
 // Tokens that are not dictionary words (texts analysed before phrases were
 // split, or leftovers) carry their dictionary parts instead of a meaning.
@@ -531,22 +527,15 @@ async function setWordState(state: UserWordState) {
               </p>
             </div>
           </div>
-          <div
+          <WordReadings
             v-else-if="word.meaning || word.meanings?.length"
             class="mt-4"
-          >
-            <p class="font-display text-[15px] leading-snug text-fg">
-              {{ word.meaning }}<MeaningTags :tags="word.meaning_tags" />
-            </p>
-            <ul
-              v-if="wordOtherMeanings.length"
-              class="mt-1 list-inside space-y-0.5 text-xs text-fg-muted"
-            >
-              <li v-for="(m, i) in wordOtherMeanings" :key="i">
-                {{ m }}
-              </li>
-            </ul>
-          </div>
+            :meaning="word.meaning"
+            :meanings="word.meanings"
+            :meaning-tags="word.meaning_tags"
+            :readings="word.readings"
+            list-class="mt-1 list-inside space-y-0.5 text-xs text-fg-muted"
+          />
 
           <!-- Parts of a token that is not a dictionary word. It has no
                meaning or state of its own; each part can be saved. -->

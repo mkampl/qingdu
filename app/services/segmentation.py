@@ -19,6 +19,7 @@ from app.services.lexicon import (
     is_cjk_word,
     split_into_known,
 )
+from app.services.readings import readings_payload
 from app.services.word_lookup import describe_non_word, resolve_from_cedict
 from app.state import hsk_vocab
 
@@ -225,6 +226,7 @@ async def analyze_chinese_text(
             word_info.meaning = vocab_entry["meaning"]
             word_info.meanings = vocab_entry["meanings"]
             word_info.meaning_tags = vocab_entry.get("meaning_tags") or None
+            word_info.readings = readings_payload(vocab_entry)
             word_info.frequency = vocab_entry["frequency"]
             word_info.is_hsk = True
             word_info.translation_source = TRANSLATION_SOURCE_HSK
@@ -252,6 +254,7 @@ async def analyze_chinese_text(
                     word_info.meaning = info["meaning"]
                     word_info.meanings = info["meanings"]
                     word_info.meaning_tags = info.get("meaning_tags") or None
+                    word_info.readings = info.get("readings") or None
                     word_info.frequency = 0
                     word_info.is_hsk = True
                     word_info.translation_source = info.get("translation_source")
@@ -277,6 +280,7 @@ async def analyze_chinese_text(
                     word_info.meaning = info["meaning"]
                     word_info.meanings = info["meanings"]
                     word_info.meaning_tags = info.get("meaning_tags") or None
+                    word_info.readings = info.get("readings") or None
                     word_info.frequency = 0
                     word_info.is_hsk = True
                     word_info.translation_source = info.get("translation_source")

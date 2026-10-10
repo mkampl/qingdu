@@ -73,4 +73,4 @@ CEDICT_SOURCE_TAG = "cc-cedict"
 # changes (cedict_loader scoring, word_info resolution, learner glosses).
 # It is part of the dictionary version, so the next startup refreshes the
 # pinyin/meaning snapshots on users' words once.
-GLOSS_RULES_VERSION = 2
+GLOSS_RULES_VERSION = 3

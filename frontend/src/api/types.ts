@@ -45,6 +45,9 @@ export interface WordInfo {
   /** Register tags stripped off the dictionary headline ("bound form",
    *  "coll." ...), shown as small badges next to `meaning`. */
   meaning_tags?: string[] | null;
+  /** All dictionary readings of a polyphone, main one first. Absent or
+   *  null when the word has a single reading. */
+  readings?: WordReading[] | null;
   frequency?: number;
   is_hsk: boolean;
   translation_source?: TranslationSource;
@@ -73,6 +76,18 @@ export interface WordPart {
   word: string;
   pinyin: string;
   meaning: string;
+}
+
+/** One dictionary reading of a word (长 cháng / zhǎng). */
+export interface WordReading {
+  pinyin: string;
+  primary: string;
+  meanings: string[];
+  meaning_tags?: string[];
+  /** The reading the headline, pinyin and review card use. */
+  is_main: boolean;
+  /** A common word that uses this reading (长 zhǎng → 校长). */
+  example?: { word: string; pinyin: string; meaning: string } | null;
 }
 
 export interface WordGloss {

@@ -19,6 +19,7 @@ from pypinyin import Style, lazy_pinyin
 from app.core.constants import TRANSLATION_SOURCE_CEDICT, TRANSLATION_SOURCE_PARTS
 from app.core.radicals import CHAR_TO_RADICAL, RADICAL_PINYIN
 from app.services.lexicon import is_cjk_char
+from app.services.readings import readings_payload
 from app.services.word_info import word_parts
 from app.state import cedict_vocab, hsk_vocab
 
@@ -100,6 +101,7 @@ def resolve_from_cedict(word: str) -> dict | None:
         "meaning": entry["meaning"],
         "meanings": entry.get("meanings") or [entry["meaning"]],
         "meaning_tags": list(entry.get("meaning_tags") or []),
+        "readings": readings_payload(entry),
         "level": stats.get("level", "unknown"),
         "level_new": stats.get("level_new"),
         "level_old": stats.get("level_old"),

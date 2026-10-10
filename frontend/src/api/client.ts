@@ -21,6 +21,7 @@ import type {
   VocabStatsResponse,
   VocabularyListSummary,
   WordInfo,
+  WordReading,
 } from "./types";
 
 const TOKEN_KEY = "qingdu.token.v2";
@@ -265,6 +266,7 @@ export interface HskBrowseItem {
   meaning: string | null;
   meanings: string[];
   meaning_tags?: string[];
+  readings?: WordReading[] | null;
   level_new: string | null;
   level_old: string | null;
   frequency: number | null;
@@ -1138,6 +1140,8 @@ export interface ReviewCard {
   meanings: string[];
   /** Register tags stripped off the dictionary headline. */
   meaning_tags?: string[];
+  /** All readings of a polyphone, the one this card is graded on first. */
+  readings?: WordReading[] | null;
   hsk_level: string | null;
   stability: number | null;
   difficulty: number | null;

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import User, UserWord, get_db
+from app.services.readings import readings_payload
 from app.state import hsk_lists_original, hsk_vocab
 
 router = APIRouter(tags=["Vocabulary"])
@@ -113,6 +114,7 @@ async def browse_hsk(
             "meaning": data.get("meaning"),
             "meanings": data.get("meanings") or [],
             "meaning_tags": data.get("meaning_tags") or [],
+            "readings": readings_payload(data),
             "level_new": data.get("level_new"),
             "level_old": data.get("level_old"),
             "frequency": data.get("frequency"),

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import gzip
 import logging
+import math
 import re
 from pathlib import Path
 
@@ -45,7 +46,8 @@ from app.core.constants import (
 )
 from app.core.paths import DATA_DIR
 from app.services import dict_data
-from app.state import cedict_vocab, hsk_vocab
+from app.services import readings as readings_service
+from app.state import cedict_vocab, hsk_lists_original, hsk_vocab
 
 logger = logging.getLogger(__name__)
 
@@ -574,12 +576,21 @@ _GRAMMATICAL_TRIGGERS = (
     "particle used",
     "particle for",
     "classical particle",
+    "question particle",
+    "sentence-final particle",
+    "particle equivalent",
     "completed action marker",
     "action marker",
     "tense marker",
     "classifier",
     "measure word",
 )
+
+
+# Characters whose particle/classifier reading earns the grammatical
+# bonus in _entry_quality.
+_PARTICLE_CHARS = frozenset("了的着地得吧吗呢个啊呀啦嘛哦")
+_FREQUENCY_POINTS_PER_DECADE = 32
 
 
 def _looks_grammatical_function(primary: str) -> bool:
@@ -634,9 +645,9 @@ def _entry_quality(
     score = 100
     # CC-CEDICT capitalizes the pinyin of proper-noun readings
     # ("Ping2 guo3" the company vs "ping2 guo3" the fruit). The company
-    # entry's long parenthesised gloss dodges every other penalty while
-    # the fruit's bare "apple" eats the stub-gloss one, so 苹果 (HSK 3!)
-    # was glossed "Apple (American tech company)" on review cards. When
+    # entry's long parenthesised gloss dodged every other penalty while
+    # the fruit's bare "apple" ate the (since removed) stub-gloss one, so
+    # 苹果 (HSK 3!) was glossed "Apple (American tech company)" on review cards. When
     # a word only HAS proper-noun readings (中国), they all carry the
     # penalty and the relative ranking still works.
     if numbered_pinyin[:1].isupper():
@@ -665,42 +676,21 @@ def _entry_quality(
         score -= 90
     if _looks_register_only(primary):
         score -= 50
-    if _looks_grammatical_function(primary):
-        # Big positive — the particle/classifier reading is fundamental
-        # for learners and wins even against a multi-sense content-word
-        # reading at the same frequency.
+    if simplified in _PARTICLE_CHARS and _looks_grammatical_function(primary):
+        # The particle reading of a real particle (了 le, 着 zhe, 个 gè)
+        # is the one a learner needs first, even against a content-word
+        # reading at the same frequency. Limited to these characters: a
+        # classifier sense anywhere else is usually the rare reading
+        # (服 fù "dose", 通 tòng, 只 zhī) and must not get a boost.
         score += 40
-    # Frequency tiebreaker — log-scaled, but with a wider band so
-    # SUBTLEX's per-reading frequencies cleanly separate "almost never
-    # used" (a few hundred) from "everyday" (tens of thousands). Cap
-    # at +80 so it can outweigh the sense-count bonus when the
-    # high-sense entry is the rare reading (着 zhao1 has 4 senses but
-    # is barely used; zhe5 has 1 sense and is the everyday particle).
+    # Frequency, log-scaled and uncapped. The old +80 cap was reached at
+    # ~100k occurrences, so for every common character both everyday
+    # readings tied (好 hǎo vs hào) and the strongest signal was lost
+    # exactly where it mattered. 32 points per decade fitted best when
+    # the picks were checked against pypinyin's phrase readings for all
+    # HSK words with several readings.
     if frequency > 0:
-        import math
-
-        score += min(80, int(math.log10(max(1, frequency)) * 16))
-    # Stub-gloss penalty. A primary that's just a single English noun
-    # ("comma", "yes", "earth") with no verb / preposition / multi-sense
-    # punctuation is usually a marginal reading: the everyday reading
-    # of the same simplified form will spell out 2-3 senses separated
-    # by `;` or `,`. The penalty fires only when the gloss is short
-    # AND looks like a single noun (no space) so phrases like "to look
-    # at" or "to grow" survive. Caps at -25.
-    bare = primary.strip().rstrip(".")
-    # Affix markers ("-ly", "~ish") are already caught by _looks_pure_marker;
-    # don't double-penalise here. The bare-noun rule is for *plain English
-    # nouns* like "comma", not for the marker syntax.
-    is_affix_marker = bare.startswith("-") or bare.startswith("~")
-    if (
-        len(bare) <= 10
-        and " " not in bare
-        and ";" not in bare
-        and "," not in bare
-        and "(" not in bare
-        and not is_affix_marker
-    ):
-        score -= 25
+        score += int(math.log10(frequency) * _FREQUENCY_POINTS_PER_DECADE)
     # Sense-count bonus. A reading with multiple distinct senses
     # (separated by `/` in CC-CEDICT) is almost always the everyday
     # meaning: 中 zhōng has 4 senses ("within; among; in / middle;
@@ -791,23 +781,28 @@ def _per_reading_frequency(
 def _parse_text(text: str) -> dict[str, dict]:
     """Parse a CC-CEDICT .u8 text into {simplified: entry} dict.
 
-    On collisions (multiple pinyin readings of the same simplified form),
-    `_entry_quality` picks the more useful headline reading: content
-    words beat particle-only readings, full-tone pinyin beats all-neutral,
-    surname / variant-of placeholders lose to anything else, and ties
-    are broken by SUBTLEX-CH per-(character, reading) corpus frequency
-    so the most-spoken reading wins over the archaic one.
+    Every distinct reading of a simplified form is kept in
+    `entry["readings"]` (one per pinyin, case-insensitive; when several
+    lines share a pinyin, the best-scored line stands for it). The top
+    level of the entry (`pinyin`, `meaning`, `meaning_tags`, `meanings`)
+    mirrors the main reading.
+
+    The main reading of an HSK word is anchored on its HSK-list and
+    pypinyin readings (see app.services.readings). For every other word,
+    and for HSK words where anchoring finds nothing, `_entry_quality`
+    picks it: content words beat particle-only readings, full-tone pinyin
+    beats all-neutral, surname / variant-of placeholders lose to anything
+    else, and SUBTLEX-CH per-(character, reading) frequency weighs in so
+    the most-spoken reading wins over the archaic one.
     """
     subtlex = _load_subtlex_char_pinyin()
     overrides = _load_primary_overrides()
     preferred_reading = overrides["preferred_reading"]
     preferred_sense = overrides["preferred_sense"]
 
-    out: dict[str, dict] = {}
-    # Track which existing entry's quality we'd be comparing against
-    # without recomputing on each pass.
-    quality_cache: dict[str, int] = {}
-    for raw_line in text.splitlines():
+    # simplified -> {lower-case numbered pinyin -> best line for it}
+    grouped: dict[str, dict[str, dict]] = {}
+    for order, raw_line in enumerate(text.splitlines()):
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
@@ -830,7 +825,7 @@ def _parse_text(text: str) -> dict[str, dict]:
         # heuristic at distinguishing e.g. zhe5 (109K, particle) from
         # zhuo2 (103K, "to wear") from zhao2 (103K, ...) inside 着.
         reading_freq = _per_reading_frequency(subtlex, simplified, numbered_pinyin)
-        new_quality = _entry_quality(
+        quality = _entry_quality(
             primary, numbered_pinyin, reading_freq, meanings=meanings, simplified=simplified
         )
         # Hand-curated reading override wins outright, structural score
@@ -841,18 +836,21 @@ def _parse_text(text: str) -> dict[str, dict]:
         # winning) fires on 汉 too, since CC-CEDICT capitalizes pinyin
         # for named concepts generally, not just irrelevant proper nouns.
         if preferred_reading.get(simplified) == numbered_pinyin:
-            new_quality = 10_000_000
-        existing_quality = quality_cache.get(simplified)
-        # `<` (not `<=`) so a later entry with equal score doesn't lose
-        # to file-order alone. That kept 读 stuck on the dòu "comma"
-        # reading because it happened to parse first; with `<` and the
-        # frequency tiebreaker the dú reading wins.
-        if existing_quality is not None and new_quality < existing_quality:
+            quality = 10_000_000
+        group = grouped.setdefault(simplified, {})
+        key = numbered_pinyin.lower()
+        existing = group.get(key)
+        # `<` (not `<=`) so a later line with an equal score doesn't lose
+        # to file order alone.
+        if existing is not None and quality < existing["quality"]:
             continue
         headline, headline_tags = headline_for_display(primary)
-        out[simplified] = {
+        group[key] = {
             "traditional": traditional,
-            "pinyin": _convert_pinyin(numbered_pinyin),
+            "numbered": numbered_pinyin,
+            "quality": quality,
+            "stub": _looks_stub_reading(primary, simplified),
+            "order": order,
             # Cleanup happens here — strip CL annotations, rewrite the
             # `字[bracket pinyin]` cross-references as readable pinyin,
             # collapse trad|simp to simp, cap senses + length. Variant
@@ -862,12 +860,47 @@ def _parse_text(text: str) -> dict[str, dict]:
             # The headline also loses register tags and editorial notes
             # (see split_headline); the tags travel in meaning_tags and
             # the full senses stay in meanings.
-            "meaning": headline,
-            "meaning_tags": headline_tags,
-            "meanings": [clean_gloss_for_display(m) for m in meanings],
-            "source": CEDICT_SOURCE_TAG,
+            "reading": {
+                "pinyin": _convert_pinyin(numbered_pinyin),
+                "primary": headline,
+                "meaning_tags": headline_tags,
+                "meanings": [clean_gloss_for_display(m) for m in meanings],
+                "is_main": False,
+            },
         }
-        quality_cache[simplified] = new_quality
+
+    anchors = _hsk_reading_anchors()
+    reading_overrides = readings_service.load_reading_overrides()
+    out: dict[str, dict] = {}
+    for simplified, group in grouped.items():
+        lines = list(group.values())
+        # Highest score wins; on a tie the later line does, which kept 读
+        # off the dòu "comma" reading that happens to be listed first.
+        main = max(lines, key=lambda c: (c["quality"], c["order"]))
+        pinned = preferred_reading.get(simplified)
+        if (
+            simplified in anchors
+            and len(lines) > 1
+            and not (pinned and any(c["numbered"] == pinned for c in lines))
+        ):
+            picked = readings_service.pick_main_reading(
+                simplified,
+                [(c["numbered"], c["quality"], c["stub"]) for c in lines],
+                anchors[simplified],
+                reading_overrides.get(simplified),
+            )
+            if picked is not None:
+                main = lines[picked]
+        ordered = [main] + sorted(
+            (c for c in lines if c is not main), key=lambda c: (-c["quality"], c["order"])
+        )
+        for c in ordered:
+            c["reading"]["is_main"] = c is main
+        out[simplified] = {
+            "traditional": main["traditional"],
+            "source": CEDICT_SOURCE_TAG,
+            "readings": [c["reading"] for c in ordered],
+        }
     # Hand-curated sense override, for entries where the *reading* already
     # won correctly but CC-CEDICT's etymology-first sense ordering within
     # that one entry buries the everyday meaning behind an obscure one --
@@ -876,16 +909,89 @@ def _parse_text(text: str) -> dict[str, dict]:
     # substring against the already-cleaned senses so it survives
     # clean_gloss_for_display's markup stripping; silently no-ops if
     # CC-CEDICT's wording ever shifts enough to break the match, rather
-    # than crashing or reintroducing the raw markup.
+    # than crashing or reintroducing the raw markup. Applied to every
+    # reading the substring matches, so it holds whichever reading ends
+    # up main.
     for simplified, wanted_substring in preferred_sense.items():
         entry = out.get(simplified)
         if entry is None:
             continue
-        match = next((s for s in entry["meanings"] if wanted_substring in s), None)
-        if match is not None:
-            entry["meaning"], entry["meaning_tags"] = headline_for_display(match)
+        for reading in entry["readings"]:
+            match = next((s for s in reading["meanings"] if wanted_substring in s), None)
+            if match is not None:
+                reading["primary"], reading["meaning_tags"] = headline_for_display(match)
     _resolve_variant_references(out)
+    for entry in out.values():
+        _sync_main_reading(entry)
+    _attach_reading_examples(out)
     return out
+
+
+def _looks_stub_reading(primary: str, simplified: str) -> bool:
+    """A reading that is never the main one while a real reading
+    matches: a pointer at another reading of the same word ("see
+    過來|过来[guo4 lai2]" on 过来 guò lai), a reading that only occurs
+    inside one compound ("used in 似的[shi4 de5]" on 似 shì), and, for a
+    compound, a bare grammatical note ("(verb suffix)" on 过去 guò qu).
+    Single characters keep their parenthesised particle readings (了 le
+    "(completed action marker)")."""
+    m = _VARIANT_REF_RE.match(primary)
+    if m and m.group(1).strip() == simplified:
+        return True
+    if _looks_referential(primary):
+        return True
+    text = primary.strip()
+    return (
+        len(simplified) > 1 and text.startswith("(") and text.endswith(")") and text.count("(") == 1
+    )
+
+
+def _sync_main_reading(entry: dict) -> None:
+    """Copy the main reading onto the entry's top-level fields."""
+    main = next((r for r in entry["readings"] if r["is_main"]), entry["readings"][0])
+    entry["pinyin"] = main["pinyin"]
+    entry["meaning"] = main["primary"]
+    entry["meaning_tags"] = list(main["meaning_tags"])
+    entry["meanings"] = main["meanings"]
+
+
+def _hsk_reading_anchors() -> dict[str, str | None]:
+    """{HSK word: its HSK-list pinyin} for anchoring the main reading.
+    Component characters (no list entry of their own) map to None, so only
+    pypinyin anchors them. Read from `hsk_lists_original`, which keeps the
+    list's own pinyin even after the CC-CEDICT overlay rewrote
+    `hsk_vocab`."""
+    anchors: dict[str, str | None] = {}
+    for word, entry in hsk_vocab.items():
+        original = hsk_lists_original.get(word)
+        if original is not None:
+            anchors[word] = original.get("pinyin") or None
+        elif entry.get("is_original_hsk"):
+            anchors[word] = entry.get("pinyin") or None
+        else:
+            anchors[word] = None
+    return anchors
+
+
+def _attach_reading_examples(parsed: dict[str, dict]) -> None:
+    """Give each reading of a polyphone character a usage example: the
+    most basic HSK word that reads the character that way (长 zhǎng →
+    校长). Stored as {word, pinyin, meaning} on the reading, or None."""
+    if not hsk_vocab:
+        return
+    index = readings_service.build_example_index(parsed, hsk_vocab)
+    for simplified, entry in parsed.items():
+        if len(simplified) != 1 or len(entry["readings"]) < 2:
+            continue
+        for reading in entry["readings"]:
+            syllables = readings_service.numbered_syllables(reading["pinyin"])
+            word = index.get((simplified, syllables[0])) if syllables else None
+            example = parsed.get(word) if word else None
+            reading["example"] = (
+                {"word": word, "pinyin": example["pinyin"], "meaning": example["meaning"]}
+                if example
+                else None
+            )
 
 
 # Matches "erhua variant of X", "erhua form of X", "variant of X",
@@ -903,19 +1009,48 @@ def _parse_text(text: str) -> dict[str, dict]:
 # correctly, since piao4 only exists inside 漂亮 and that compound is
 # very common — but then displaying the bare "used in 漂亮" pointer
 # instead of following it to 漂亮's actual meaning ("pretty").
+#
+# The cleaned headline renders the target's bracket pinyin as "(pīn
+# yīn)" right after it; group 2 captures that so a pointer can be
+# followed to the right reading of a polyphone target.
 _VARIANT_REF_RE = re.compile(
     r"^(?:erhua (?:variant|form) of|old variant of|variant of|see|abbr\. for|used in)\s+"
-    r"(?:[^|\s\[]+\|)?([^\s\[]+)",
+    r"(?:[^|\s\[]+\|)?([^\s\[(]+)(?:\s*\(([^)]*)\))?",
     re.IGNORECASE,
 )
 
 
+def _target_reading(
+    entry: dict, wanted_pinyin: str | None, exclude: dict | None = None
+) -> dict | None:
+    """The reading of `entry` a pointer refers to: the one whose pinyin
+    matches the pointer's, else the main reading. `exclude` (the pointing
+    reading itself, for a self-reference) is never returned."""
+    candidates = [r for r in entry["readings"] if r is not exclude]
+    if not candidates:
+        return None
+    wanted = readings_service.numbered_syllables(wanted_pinyin)
+    if wanted:
+        for r in candidates:
+            strength = readings_service.match_strength(
+                wanted, readings_service.numbered_syllables(r["pinyin"])
+            )
+            if strength == readings_service.STRONG_MATCH:
+                return r
+    return next((r for r in candidates if r["is_main"]), candidates[0])
+
+
 def _resolve_variant_references(parsed: dict[str, dict]) -> None:
-    """When the primary gloss is *only* a pointer at another entry
+    """When a reading's primary gloss is *only* a pointer at another entry
     ("erhua variant of 一塊|一块"), follow the pointer and copy the
     target's primary + meanings here. Without this, 一块儿 displays
     "erhua variant of 一塊|一块[yi1 kuai4]" instead of the actual
     meaning "(coll.) together".
+
+    A pointer at the same headword ("see 血[xue4]" on 血 xiě, "see
+    儘快|尽快[jin3 kuai4]" on 尽快 jìn kuài) resolves to the other
+    reading it names. Pointers at other polyphones follow the bracket
+    pinyin too, falling back to the target's main reading.
 
     Runs to a fixed point (capped) rather than a single pass so chained
     pointers (A -> B -> C) resolve fully instead of leaving A on B's
@@ -923,38 +1058,49 @@ def _resolve_variant_references(parsed: dict[str, dict]) -> None:
     it's common for the target of one referential stub to itself be a
     variant-of another entry.
 
-    Mutates `parsed` in place. Skips entries whose primary mixes a
+    "used in X" on a reading other than the main one stays as written:
+    "gě: used in 自个儿" says more than 自个儿's gloss would.
+
+    Mutates `parsed` in place. Skips readings whose primary mixes a
     reference with real content (e.g. "abbr. for 中国 / China") —
     those are usable as-is."""
     for _ in range(5):
         changed = False
-        for entry in parsed.values():
-            primary = entry["meaning"]
-            m = _VARIANT_REF_RE.match(primary)
-            if not m:
-                continue
-            target_word = m.group(1).strip()
-            target = parsed.get(target_word)
-            if target is None:
-                continue
-            if target["meaning"] == primary:
-                # Cycle (target also points back here) — leave as-is.
-                continue
-            entry["meaning"] = target["meaning"]
-            entry["meaning_tags"] = list(target.get("meaning_tags") or [])
-            entry["meanings"] = list(target["meanings"])
-            changed = True
+        for simplified, entry in parsed.items():
+            for reading in entry["readings"]:
+                primary = reading["primary"]
+                m = _VARIANT_REF_RE.match(primary)
+                if not m:
+                    continue
+                if not reading["is_main"] and primary.lower().startswith("used in "):
+                    # An other reading that only occurs inside one word
+                    # (个 gě in 自个儿) reads better as the pointer than
+                    # as that word's gloss.
+                    continue
+                target_word = m.group(1).strip()
+                target_entry = parsed.get(target_word)
+                if target_entry is None:
+                    continue
+                own = reading if target_word == simplified else None
+                target = _target_reading(target_entry, m.group(2), exclude=own)
+                if target is None or target["primary"] == primary:
+                    # Cycle (target also points back here) — leave as-is.
+                    continue
+                reading["primary"] = target["primary"]
+                reading["meaning_tags"] = list(target.get("meaning_tags") or [])
+                reading["meanings"] = list(target["meanings"])
+                changed = True
         if not changed:
             break
 
 
 def _merge_into_hsk_vocab() -> tuple[int, int]:
-    """For every HSK word also in CC-CEDICT, overlay the richer meanings
-    AND the matching pinyin. Pinyin needs to come along because the
-    HSK source picks pinyin for whichever reading it had as primary —
-    if our CC-CEDICT primary-pick heuristic chose a different reading
-    (e.g. 地 dì for "earth" instead of de for the particle) the HSK
-    pinyin would be wrong for the displayed meaning.
+    """For every HSK word also in CC-CEDICT, overlay the richer meanings,
+    the matching pinyin and all readings. Pinyin needs to come along
+    because the HSK source picks pinyin for whichever reading it had as
+    primary — if the anchored main reading differs (e.g. 读 dú instead of
+    the list's dòu "comma") the HSK pinyin would be wrong for the
+    displayed meaning.
 
     Returns (overlaid_count, missing_count) for logging.
     """
@@ -968,6 +1114,8 @@ def _merge_into_hsk_vocab() -> tuple[int, int]:
         hsk_entry["meaning"] = cedict_entry["meaning"]
         hsk_entry["meaning_tags"] = list(cedict_entry.get("meaning_tags") or [])
         hsk_entry["meanings"] = cedict_entry["meanings"]
+        if cedict_entry.get("readings"):
+            hsk_entry["readings"] = cedict_entry["readings"]
         cedict_pinyin = cedict_entry.get("pinyin")
         if cedict_pinyin:
             hsk_entry["pinyin"] = cedict_pinyin

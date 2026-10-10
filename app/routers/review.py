@@ -34,6 +34,7 @@ from app.services.due import (
 )
 from app.services.enrollment import enroll_daily_words, enrolled_today
 from app.services.localday import start_of_today, user_tz
+from app.services.readings import readings_payload
 from app.services.script import to_canonical, to_user_script
 from app.services.streak import record_activity
 from app.services.timestamps import iso_utc
@@ -145,6 +146,9 @@ def _enrich(row: UserWord) -> dict:
         "meaning": meaning,
         "meanings": meanings,
         "meaning_tags": meaning_tags,
+        # Every reading of a polyphone for the card back, the one this
+        # card is graded on (its stored pinyin) marked main.
+        "readings": readings_payload(source_entry, main_pinyin=pinyin),
         "hsk_level": hsk_level,
         "glosses": glosses_payload,
     }

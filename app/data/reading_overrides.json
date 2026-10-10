@@ -1,0 +1,121 @@
+{
+  "_comment": "Main reading for HSK words where anchoring on the HSK-list pinyin and pypinyin's phrase reading picks the wrong CC-CEDICT reading (see app/services/readings.py). The HSK list's pinyin is just its first CC-CEDICT form, so it is often the rare reading; pypinyin's single-character default is sometimes the rarer one too; and for compounds the neutral-tone reading is preferred, which is wrong for a few words. Each entry was checked by hand against CC-CEDICT and the reading an HSK textbook teaches for that level. Tone-marked pinyin, syllables space-separated; 'why' says what goes wrong without the pin.",
+  "readings": {
+    "个": {
+      "pinyin": "gè",
+      "why": "HSK list: gě (only in 自个儿)"
+    },
+    "读": {
+      "pinyin": "dú",
+      "why": "HSK list: dòu 'comma'"
+    },
+    "听": {
+      "pinyin": "tīng",
+      "why": "HSK list: yǐn 'smile (archaic)'"
+    },
+    "地": {
+      "pinyin": "dì",
+      "why": "HSK list: de '-ly'; dì 'earth' is the HSK 1 word, de stays as the other reading"
+    },
+    "说": {
+      "pinyin": "shuō",
+      "why": "HSK list: shuì 'to persuade'"
+    },
+    "子": {
+      "pinyin": "zǐ",
+      "why": "pypinyin and SUBTLEX: the zi suffix reading"
+    },
+    "教": {
+      "pinyin": "jiāo",
+      "why": "pypinyin and SUBTLEX: jiào 'religion'"
+    },
+    "长": {
+      "pinyin": "cháng",
+      "why": "pypinyin and SUBTLEX: zhǎng 'chief'"
+    },
+    "脏": {
+      "pinyin": "zāng",
+      "why": "pypinyin and SUBTLEX: zàng 'viscera'"
+    },
+    "为": {
+      "pinyin": "wèi",
+      "why": "HSK list: wéi 'as'; HSK 2 teaches wèi 'for; because of', wéi stays as the other reading"
+    },
+    "弹": {
+      "pinyin": "tán",
+      "why": "HSK list and pypinyin: dàn 'crossball'; HSK 5 teaches tán 'to play (an instrument)'"
+    },
+    "幢": {
+      "pinyin": "zhuàng",
+      "why": "HSK list and pypinyin: chuáng 'banner'; the HSK word is the classifier for buildings"
+    },
+    "正当": {
+      "pinyin": "zhèng dàng",
+      "why": "HSK list and pypinyin: zhèng dāng 'timely'; HSK 6 teaches zhèngdàng 'legitimate; proper'"
+    },
+    "女人": {
+      "pinyin": "nǚ rén",
+      "why": "neutral-tone preference: nǚ ren 'wife'"
+    },
+    "精神": {
+      "pinyin": "jīng shén",
+      "why": "neutral-tone preference: jīng shen 'vigor'; HSK 3 teaches jīngshén 'spirit'"
+    },
+    "土地": {
+      "pinyin": "tǔ dì",
+      "why": "neutral-tone preference: tǔ di 'local god'"
+    },
+    "言语": {
+      "pinyin": "yán yǔ",
+      "why": "neutral-tone preference: yán yu 'to speak'"
+    },
+    "开通": {
+      "pinyin": "kāi tōng",
+      "why": "neutral-tone preference: kāi tong 'open-minded'"
+    },
+    "冷战": {
+      "pinyin": "lěng zhàn",
+      "why": "neutral-tone preference: lěng zhan 'shudder'"
+    },
+    "利害": {
+      "pinyin": "lì hài",
+      "why": "neutral-tone preference: lì hai, a variant of 厉害"
+    },
+    "跟前": {
+      "pinyin": "gēn qián",
+      "why": "neutral-tone preference: gēn qian 'at one's side'"
+    },
+    "款式": {
+      "pinyin": "kuǎn shì",
+      "why": "neutral-tone preference: kuǎn shi 'elegant'"
+    },
+    "说道": {
+      "pinyin": "shuō dào",
+      "why": "neutral-tone preference: shuō dao 'to discuss'; narration uses shuōdào 'to say'"
+    },
+    "处": {
+      "pinyin": "chù",
+      "why": "scorer: chǔ 'to reside'; HSK 4 teaches chù 'place; department' (chǔ stays as the other reading, as in 处理)"
+    },
+    "当天": {
+      "pinyin": "dàng tiān",
+      "why": "HSK list: dāng tiān; dictionaries give dàngtiān 'that very day'"
+    },
+    "当日": {
+      "pinyin": "dàng rì",
+      "why": "HSK list: dāng rì; dictionaries give dàngrì 'that very day'"
+    },
+    "挨": {
+      "pinyin": "ái",
+      "why": "scorer: āi 'in order'; HSK 6 teaches ái 'to suffer; to endure' (āi stays as the other reading)"
+    },
+    "晃": {
+      "pinyin": "huàng",
+      "why": "scorer: huǎng 'to dazzle'; the everyday verb is huàng 'to sway; to shake'"
+    },
+    "拽": {
+      "pinyin": "zhuài",
+      "why": "scorer: zhuāi 'to throw'; the everyday verb is zhuài 'to pull'"
+    }
+  }
+}

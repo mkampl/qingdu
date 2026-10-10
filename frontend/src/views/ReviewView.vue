@@ -21,13 +21,12 @@ import type { QueueMode, ReviewGrade, ReviewMode } from "@/api/client";
 import WeeklySparkline from "@/components/reader/WeeklySparkline.vue";
 import StrokeOrder from "@/components/reader/StrokeOrder.vue";
 import WritingQuiz from "@/components/reader/WritingQuiz.vue";
-import MeaningTags from "@/components/reader/MeaningTags.vue";
+import WordReadings from "@/components/reader/WordReadings.vue";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReviewStore } from "@/stores/review";
 import { useSettingsStore } from "@/stores/settings";
 import { success as hapticSuccess, tap as hapticTap } from "@/services/native";
-import { otherMeanings } from "@/utils/meanings";
 import {
   formatHskLevel,
   reviewShortcutBlocked,
@@ -131,11 +130,6 @@ function onWritingComplete(payload: {
 }
 
 const card = computed(() => review.current);
-// Senses listed under the headline: everything except the headline's
-// own sense, which isn't necessarily meanings[0].
-const cardOtherMeanings = computed(() =>
-  card.value ? otherMeanings(card.value.meaning, card.value.meanings) : [],
-);
 const total = computed(() => review.queue.length);
 const idx = computed(() => Math.min(review.cursor + 1, total.value));
 
@@ -846,15 +840,14 @@ onMounted(() => {
           <p class="font-cn-serif text-6xl text-fg sm:text-7xl">
             {{ card.word }}
           </p>
-          <p class="mt-4 font-display text-base leading-snug text-fg">
-            {{ card.meaning }}<MeaningTags :tags="card.meaning_tags" />
-          </p>
-          <ul
-            v-if="cardOtherMeanings.length"
-            class="mt-1 space-y-0.5 text-xs text-fg-muted"
-          >
-            <li v-for="(m, i) in cardOtherMeanings" :key="i">{{ m }}</li>
-          </ul>
+          <WordReadings
+            class="mx-auto mt-4 max-w-md"
+            :meaning="card.meaning"
+            :meanings="card.meanings"
+            :meaning-tags="card.meaning_tags"
+            :readings="card.readings"
+            headline-class="font-display text-base leading-snug text-fg"
+          />
 
           <!-- Stroke animation: auto-replays each card via the :key bind
                so the animation restarts when the cursor advances. For
@@ -997,17 +990,16 @@ onMounted(() => {
                 <p class="font-display text-lg text-fg">{{ g.meaning }}</p>
               </div>
             </div>
-            <template v-else>
-              <p class="font-display text-xl text-fg">
-                {{ card.meaning }}<MeaningTags :tags="card.meaning_tags" />
-              </p>
-              <ul
-                v-if="cardOtherMeanings.length"
-                class="mt-1 space-y-0.5 text-sm text-fg-muted"
-              >
-                <li v-for="(m, i) in cardOtherMeanings" :key="i">{{ m }}</li>
-              </ul>
-            </template>
+            <WordReadings
+              v-else
+              class="mx-auto max-w-md"
+              :meaning="card.meaning"
+              :meanings="card.meanings"
+              :meaning-tags="card.meaning_tags"
+              :readings="card.readings"
+              headline-class="font-display text-xl text-fg"
+              list-class="mt-1 space-y-0.5 text-sm text-fg-muted"
+            />
           </div>
 
           <button
@@ -1092,15 +1084,14 @@ onMounted(() => {
             </p>
             <p class="font-cn-serif text-3xl text-fg">{{ card.word }}</p>
             <p class="font-sans text-sm text-fg-muted">{{ card.pinyin }}</p>
-            <p class="font-display text-base text-fg">
-              {{ card.meaning }}<MeaningTags :tags="card.meaning_tags" />
-            </p>
-            <ul
-              v-if="cardOtherMeanings.length"
-              class="mt-1 space-y-0.5 text-xs text-fg-muted"
-            >
-              <li v-for="(m, i) in cardOtherMeanings" :key="i">{{ m }}</li>
-            </ul>
+            <WordReadings
+              class="mx-auto max-w-md"
+              :meaning="card.meaning"
+              :meanings="card.meanings"
+              :meaning-tags="card.meaning_tags"
+              :readings="card.readings"
+              headline-class="font-display text-base text-fg"
+            />
           </div>
         </template>
 
@@ -1200,15 +1191,14 @@ onMounted(() => {
             </p>
             <p class="font-cn-serif text-3xl text-fg">{{ card.word }}</p>
             <p class="font-sans text-sm text-fg-muted">{{ card.pinyin }}</p>
-            <p class="font-display text-base text-fg">
-              {{ card.meaning }}<MeaningTags :tags="card.meaning_tags" />
-            </p>
-            <ul
-              v-if="cardOtherMeanings.length"
-              class="mx-auto mt-1 max-w-xs space-y-0.5 text-xs text-fg-muted"
-            >
-              <li v-for="(m, i) in cardOtherMeanings" :key="i">{{ m }}</li>
-            </ul>
+            <WordReadings
+              class="mx-auto max-w-xs"
+              :meaning="card.meaning"
+              :meanings="card.meanings"
+              :meaning-tags="card.meaning_tags"
+              :readings="card.readings"
+              headline-class="font-display text-base text-fg"
+            />
             <p
               class="mx-auto mt-3 max-w-md font-cn-serif text-lg leading-relaxed text-fg-muted"
             >

@@ -26,6 +26,10 @@ class WordInfo(BaseModel):
     # Register tags stripped off the dictionary headline ("bound form",
     # "coll." ...), shown as a small badge next to `meaning`.
     meaning_tags: list[str] | None = None
+    # All dictionary readings of a polyphone, main one first:
+    # [{pinyin, primary, meanings, meaning_tags, is_main, example}].
+    # None when the word has a single reading.
+    readings: list[dict] | None = None
     frequency: int | None = None
     is_hsk: bool = False
     translation_source: str | None = None
