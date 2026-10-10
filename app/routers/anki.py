@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.auth import require_auth, require_auth_flexible
 from app.core.paths import DATA_DIR
 from app.database import User, VocabularyList, get_db
+from app.services.gloss_refresh import refresh_vocab_list
 
 router = APIRouter(tags=["Anki Export"])
 logger = logging.getLogger(__name__)
@@ -143,6 +144,7 @@ def export_vocabulary_list_anki(
 ):
     """Export a vocabulary list as an Anki .apkg file with stroke animations + subdecks."""
     vocab_list = _owned_list(db, user, list_id)
+    refresh_vocab_list(db, vocab_list)
     sections = json.loads(vocab_list.sections) if vocab_list.sections else []
 
     audio_cache_dir = DATA_DIR / "audio_cache"
@@ -311,6 +313,7 @@ def export_vocabulary_list_csv(
 ):
     """Export a vocabulary list as CSV (`hanzi;pinyin;meaning;level`)."""
     vocab_list = _owned_list(db, user, list_id)
+    refresh_vocab_list(db, vocab_list)
     sections = json.loads(vocab_list.sections) if vocab_list.sections else []
     csv_lines = [
         f"{w.get('hanzi', '')};{w.get('pinyin', '')};{w.get('meaning', '')};{w.get('level', '')}"

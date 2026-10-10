@@ -148,6 +148,9 @@ class VocabularyList(Base):
     # /api/analyze. Used for specialized corpora (Daoist, Buddhist, jargon)
     # where the default meanings don't fit.
     apply_as_glossary = Column(Boolean, default=False)
+    # Dictionary version (dict_data.dict_version) the words' pinyin and
+    # meanings were last refreshed against; see services/gloss_refresh.
+    dict_version = Column(String(64), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="vocabulary_lists")
@@ -489,6 +492,13 @@ def init_db():
                             "ALTER TABLE vocabulary_lists ADD COLUMN apply_as_glossary "
                             "BOOLEAN DEFAULT 0"
                         )
+                    )
+                    conn.commit()
+            if "dict_version" not in vl_cols:
+                logger.info("Adding dict_version column to vocabulary_lists")
+                with engine.connect() as conn:
+                    conn.execute(
+                        text("ALTER TABLE vocabulary_lists ADD COLUMN dict_version VARCHAR(64)")
                     )
                     conn.commit()
 

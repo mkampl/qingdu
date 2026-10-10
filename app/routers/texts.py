@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from app.auth import require_auth
 from app.core.rate_limit import limiter
 from app.database import SavedText, User, UserWord, get_db
-from app.services import cloze
+from app.services import cloze, dict_data
+from app.services.gloss_refresh import DICT_VERSION_KEY, refresh_analysis
 from app.services.migrations import migrate_analysis_data
 from app.services.script import convert_analysis_data, to_user_script
 from app.services.timestamps import iso_utc
@@ -55,6 +56,25 @@ def _load_analysis(text: SavedText) -> dict | None:
         logger.warning("saved text %s has unreadable analysis_data; skipping", text.id)
         return None
     return data
+
+
+def _refreshed_analysis(db: Session, text: SavedText) -> dict | None:
+    """The stored analysis with its dictionary and MT glosses brought up to
+    the current dictionary. The refreshed blob is written back (with the
+    version it was resolved against), so this only does work on the first
+    open after a dictionary change."""
+    analysis_data = _load_analysis(text)
+    if analysis_data is not None and refresh_analysis(analysis_data, dict_data.dict_version()):
+        text.analysis_data = json.dumps(analysis_data)
+        db.commit()
+    return analysis_data
+
+
+def _strip_dict_version(analysis_data: dict) -> dict:
+    """A client-supplied analysis is resolved against whatever dictionary
+    the server has now, never against a version the client claims."""
+    analysis_data.pop(DICT_VERSION_KEY, None)
+    return analysis_data
 
 
 def _glossary_ids(text: SavedText) -> list[int] | None:
@@ -167,7 +187,7 @@ async def save_text(
         user_id=user.id,
         title=text_data.title,
         content=text_data.content,
-        analysis_data=json.dumps(text_data.analysis_data),
+        analysis_data=json.dumps(_strip_dict_version(text_data.analysis_data)),
         tags=json.dumps(tags) if tags else None,
         glossary_list_ids=json.dumps(glossary_ids) if glossary_ids is not None else None,
     )
@@ -234,7 +254,7 @@ def get_text(
     text = db.query(SavedText).filter(SavedText.id == text_id, SavedText.user_id == user.id).first()
     if not text:
         raise HTTPException(status_code=404, detail="Text not found")
-    analysis_data = _load_analysis(text)
+    analysis_data = _refreshed_analysis(db, text)
     if analysis_data is None:
         raise HTTPException(status_code=422, detail="This saved text's analysis is damaged")
 
@@ -324,7 +344,7 @@ async def get_shared_text(
     text = db.query(SavedText).filter(SavedText.share_token == token).first()
     if not text:
         raise HTTPException(status_code=404, detail="Share link not found or revoked")
-    analysis_data = json.loads(text.analysis_data) if text.analysis_data else None
+    analysis_data = _refreshed_analysis(db, text)
     migrated = migrate_analysis_data(analysis_data) if analysis_data else None
     return {
         "title": text.title,
@@ -360,7 +380,7 @@ async def update_text(
             analysis_data = _check_analysis_data(data["analysis_data"])
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
-        text.analysis_data = json.dumps(analysis_data)
+        text.analysis_data = json.dumps(_strip_dict_version(analysis_data))
     if "glossary_list_ids" in data:
         ids = data["glossary_list_ids"]
         text.glossary_list_ids = json.dumps(ids) if ids is not None else None

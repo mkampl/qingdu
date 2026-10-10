@@ -30,8 +30,8 @@ export type TranslationSource =
   | "hsk"
   | "hsk-chars"
   | "cedict"
-  | "cache"
   | "parts"
+  | "cache"
   | "linebreak";
 
 export interface WordInfo {
@@ -261,6 +261,8 @@ export interface VocabularyWord {
   level: HskLevel;
   /** Traditional form, kept by older imports alongside `hanzi`. */
   traditional?: string;
+  /** The meaning was set by the user, so dictionary updates leave it alone. */
+  edited?: boolean;
 }
 
 export interface InvitationSummary {

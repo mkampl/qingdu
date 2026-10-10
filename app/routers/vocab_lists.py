@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import User, VocabularyList, get_db
+from app.services import dict_data
+from app.services.gloss_refresh import is_user_meaning, refresh_vocab_list
 from app.services.migrations import migrate_vocabulary_sections
 from app.services.script import convert_vocab_sections, to_user_script
 
@@ -164,6 +166,9 @@ async def get_vocabulary_lists(
 ):
     """Return all vocabulary lists for the current user, with auto-migration."""
     lists = db.query(VocabularyList).filter(VocabularyList.user_id == user.id).all()
+    version = dict_data.dict_version()
+    for vocab_list in lists:
+        refresh_vocab_list(db, vocab_list, version)
     return [_serialize_list(vocab_list, user) for vocab_list in lists]
 
 
@@ -174,7 +179,9 @@ async def get_vocabulary_list(
     db: Session = Depends(get_db),
 ):
     """One list, same shape as an entry of the list endpoint."""
-    return _serialize_list(_owned_list(db, user, list_id), user)
+    vocab_list = _owned_list(db, user, list_id)
+    refresh_vocab_list(db, vocab_list)
+    return _serialize_list(vocab_list, user)
 
 
 @router.put("/api/vocabulary-lists/{list_id}")
@@ -239,14 +246,18 @@ async def add_word_to_list(
         sections.append(section)
 
     pinyin = " ".join(lazy_pinyin(hanzi, style=Style.TONE))
-    section["words"].append(
-        {
-            "hanzi": hanzi,
-            "pinyin": pinyin,
-            "meaning": word_data.meaning,
-            "level": "Custom",
-        }
-    )
+    entry = {
+        "hanzi": hanzi,
+        "pinyin": pinyin,
+        "meaning": word_data.meaning,
+        "level": "Custom",
+    }
+    # A meaning other than the dictionary's (typed by hand, or a glossary
+    # or package gloss picked up in the reader) is kept through later
+    # dictionary refreshes.
+    if is_user_meaning(hanzi, word_data.meaning):
+        entry["edited"] = True
+    section["words"].append(entry)
     vocab_list.sections = json.dumps(sections)
     db.commit()
     return {"message": "Word added", "added": True, "pinyin": pinyin}
@@ -360,6 +371,15 @@ async def update_word_in_list(
             status_code=409,
             detail=f"「{new_hanzi}」 is already in section “{section_name}”.",
         )
+    if new_word.meaning is not None and (
+        new_hanzi != old_hanzi or new_word.meaning != word.get("meaning")
+    ):
+        # Edited meanings survive dictionary refreshes; one that matches
+        # the dictionary (or is cleared) keeps following it.
+        if is_user_meaning(new_hanzi, new_word.meaning):
+            word["edited"] = True
+        else:
+            word.pop("edited", None)
     word["hanzi"] = new_hanzi
     word["pinyin"] = " ".join(lazy_pinyin(new_hanzi, style=Style.TONE))
     if new_word.meaning is not None:

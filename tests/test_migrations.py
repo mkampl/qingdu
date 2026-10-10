@@ -177,3 +177,27 @@ def test_init_db_adds_timezone_as_null_for_existing_users(db_file):
     assert "timezone" in _columns(engine, "users")
     with engine.connect() as conn:
         assert conn.execute(text("SELECT timezone FROM users WHERE id = 1")).scalar() is None
+
+
+def test_init_db_adds_dict_version_to_vocabulary_lists(db_file):
+    from sqlalchemy import text
+
+    from app.database import init_db
+
+    engine = db_file()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE vocabulary_lists (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, "
+                "name VARCHAR(255), list_type VARCHAR(50), sections TEXT, anki_deck_id INTEGER, "
+                "created_at DATETIME)"
+            )
+        )
+        conn.execute(
+            text("INSERT INTO vocabulary_lists (id, user_id, sections) VALUES (1, 1, '[]')")
+        )
+    init_db()
+    init_db()
+    assert {"apply_as_glossary", "dict_version"} <= _columns(engine, "vocabulary_lists")
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT dict_version FROM vocabulary_lists")).scalar() is None
