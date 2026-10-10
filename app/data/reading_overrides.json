@@ -116,6 +116,22 @@
     "拽": {
       "pinyin": "zhuài",
       "why": "scorer: zhuāi 'to throw'; the everyday verb is zhuài 'to pull'"
+    },
+    "大夫": {
+      "pinyin": "dài fu",
+      "why": "anchor: dà fū 'senior official (imperial China)'; learners meet dàifu 'doctor'"
+    },
+    "切": {
+      "pinyin": "qiē",
+      "why": "anchor: qiè 'definitely'; HSK 4 teaches qiē 'to cut' (qiè stays as the other reading, as in 一切)"
+    },
+    "老公": {
+      "pinyin": "lǎo gōng",
+      "why": "anchor: lǎo gong 'eunuch'; the everyday word is lǎogōng 'husband'"
+    },
+    "划": {
+      "pinyin": "huá",
+      "why": "anchor: huà 'to draw (a line)'; HSK 4 teaches huá 'to row; to paddle' (huà stays as the other reading, as in 计划)"
     }
   }
 }

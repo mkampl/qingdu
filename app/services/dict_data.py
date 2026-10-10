@@ -9,8 +9,8 @@ only thing that replaces them, and it is run by hand after reviewing the
 gloss diff.
 
 `dict_version()` combines the hashes of everything that shapes a word's
-gloss (both source files, the bundled sense overrides and
-`GLOSS_RULES_VERSION`). It is stored in `system_settings` after the
+gloss (both source files, the bundled sense and reading overrides, the
+learner glosses and `GLOSS_RULES_VERSION`). It is stored in `system_settings` after the
 user-word snapshot backfill ran, so the backfill only rewrites user rows
 when that combination actually changed.
 """
@@ -37,6 +37,7 @@ VERSION_FILE_NAME = "VERSION.json"
 # dictionary version so editing them also triggers a backfill.
 _RULE_FILES = (
     "cedict_primary_overrides.json",
+    "learner_glosses.json",
     "reading_overrides.json",
     "subtlex_char_pinyin_freq.json",
 )

@@ -6,8 +6,13 @@ indirectly by integration. Focus is on the pure-Python pieces: tone
 conversion, parsing, and the HSK-overlay merge.
 """
 
+import pytest
+
 from app.services import cedict_loader
 from app.state import cedict_vocab, hsk_vocab
+
+# These tests check the CC-CEDICT selection itself, under the learner glosses.
+pytestmark = pytest.mark.usefixtures("no_learner_glosses")
 
 
 def test_tone_conversion_basic_a():

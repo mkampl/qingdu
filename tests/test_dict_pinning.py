@@ -325,7 +325,11 @@ def refresh_tool():
         sys.path.remove(tools_dir)
 
 
-def test_refresh_tool_dry_run_and_write(tmp_path, monkeypatch, saved_state, refresh_tool, capsys):
+def test_refresh_tool_dry_run_and_write(
+    tmp_path, monkeypatch, saved_state, refresh_tool, capsys, no_learner_glosses
+):
+    # Without the learner layer: 学生 has a learner gloss, which would hide
+    # the CC-CEDICT headline change this test feeds the tool.
     d = _write_dict_dir(tmp_path / "dict")
     info = json.loads((d / "VERSION.json").read_text())
     info["hsk"]["commit"] = "abc"

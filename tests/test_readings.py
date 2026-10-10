@@ -9,6 +9,9 @@ import pytest
 from app import state
 from app.services import cedict_loader, readings
 
+# These tests check the CC-CEDICT selection itself, under the learner glosses.
+pytestmark = pytest.mark.usefixtures("no_learner_glosses")
+
 # --- pinyin normalisation -------------------------------------------------------
 
 

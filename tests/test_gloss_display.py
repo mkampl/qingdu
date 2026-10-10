@@ -5,6 +5,9 @@ import pytest
 
 from app.services import cedict_loader
 
+# These tests check the CC-CEDICT selection itself, under the learner glosses.
+pytestmark = pytest.mark.usefixtures("no_learner_glosses")
+
 _MARKS = {"i": "īíǐì", "u": "ūúǔù"}
 
 _IU_INITIALS = ["d", "j", "l", "m", "n", "q", "x"]

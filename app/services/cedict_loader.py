@@ -45,7 +45,7 @@ from app.core.constants import (
     MAX_RETRY_ATTEMPTS,
 )
 from app.core.paths import DATA_DIR
-from app.services import dict_data
+from app.services import dict_data, learner_glosses
 from app.services import readings as readings_service
 from app.state import cedict_vocab, hsk_lists_original, hsk_vocab
 
@@ -921,6 +921,9 @@ def _parse_text(text: str) -> dict[str, dict]:
             if match is not None:
                 reading["primary"], reading["meaning_tags"] = headline_for_display(match)
     _resolve_variant_references(out)
+    # Reviewed learner headlines replace CC-CEDICT's on the main reading
+    # only; senses and other readings stay (see app.services.learner_glosses).
+    learner_glosses.apply_to_parsed(out, learner_glosses.load_learner_glosses())
     for entry in out.values():
         _sync_main_reading(entry)
     _attach_reading_examples(out)
@@ -1106,10 +1109,12 @@ def _merge_into_hsk_vocab() -> tuple[int, int]:
     """
     overlaid = 0
     missing = 0
+    glosses = learner_glosses.load_learner_glosses()
     for word, hsk_entry in hsk_vocab.items():
         cedict_entry = cedict_vocab.get(word)
         if not cedict_entry:
             missing += 1
+            learner_glosses.apply_to_hsk_only(word, hsk_entry, glosses)
             continue
         hsk_entry["meaning"] = cedict_entry["meaning"]
         hsk_entry["meaning_tags"] = list(cedict_entry.get("meaning_tags") or [])

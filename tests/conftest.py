@@ -57,6 +57,17 @@ def _reset_cloze_miss_cache():
     cloze.forget_misses()
 
 
+@pytest.fixture
+def no_learner_glosses(monkeypatch, tmp_path):
+    """Parse dictionaries without app/data/learner_glosses.json, for tests
+    of the CC-CEDICT reading and sense selection underneath it. The app
+    always loads the learner layer; tests about what the user sees should
+    keep it."""
+    from app.services import learner_glosses
+
+    monkeypatch.setattr(learner_glosses, "LEARNER_GLOSSES_FILE", tmp_path / "no-glosses.json")
+
+
 @pytest.fixture(scope="module")
 def pinned_dictionaries():
     """Load the vendored HSK list and CC-CEDICT exactly as startup does,

@@ -1,6 +1,8 @@
 """Golden set: readings and headline glosses for HSK 1-2 words, tricky
 polyphones and glue tokens, resolved through the app's own loaders on the
-pinned dictionary data (app/data/dict/).
+pinned dictionary data (app/data/dict/). That load includes the reading
+overrides and the learner-gloss layer (app/data/learner_glosses.json), so
+headlines are checked as the app shows them.
 
 The expectations live in tests/data/golden_glosses.json (see its "about"
 block). Entries the code still gets wrong carry an "xfail" field naming
