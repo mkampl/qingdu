@@ -11,17 +11,20 @@ Rules:
 - A row with no `due_at` is a card that has never been scheduled (freshly
   clicked or auto-enrolled). The review queue serves those first, so they
   count as due under every cutoff.
-- Day boundaries are UTC midnight (see L22 for the local-day follow-up).
+- Day boundaries are the user's local midnight (services.localday);
+  without a stored timezone that is UTC midnight.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, or_
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.database import UserWord
+from app.services import localday
 
 # State values that participate in the review queue. 'known' joined
 # 'learning' once it became a high-stability SRS card instead of a
@@ -32,16 +35,17 @@ ACTIVE_REVIEW_STATES = ("learning", "known")
 
 def utcnow() -> datetime:
     """Naive UTC, matching how due_at is stored."""
-    return datetime.utcnow()
+    return localday.utcnow()
 
 
-def end_of_day(now: datetime, days_ahead: int = 0) -> datetime:
-    """UTC midnight that ends the day `days_ahead` days after `now`.
+def end_of_day(now: datetime, days_ahead: int = 0, tz: ZoneInfo | None = None) -> datetime:
+    """Local midnight (as naive UTC) that ends the day `days_ahead` days after `now`.
 
     days_ahead=0 is "end of today" (the Review page's due_today), 1 is the
-    end of tomorrow, 7 the end of the day a week from now.
+    end of tomorrow, 7 the end of the day a week from now. `tz` is the
+    user's zone (localday.user_tz); None means UTC.
     """
-    return (now + timedelta(days=days_ahead + 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return localday.end_of_local_day(now, tz, days_ahead)
 
 
 def due_clause(cutoff: datetime) -> ColumnElement[bool]:
@@ -53,13 +57,15 @@ def due_clause(cutoff: datetime) -> ColumnElement[bool]:
 
 
 # user.review_window values. "today"/"tomorrow" look ahead to the end of
-# that UTC day so a once-a-day session covers everything coming due;
+# that local day so a once-a-day session covers everything coming due;
 # "now" is the strict FSRS pull (due_at <= now).
 REVIEW_WINDOWS = ("now", "today", "tomorrow")
 DEFAULT_REVIEW_WINDOW = "today"
 
 
-def review_window_clause(window: str | None, now: datetime) -> ColumnElement[bool]:
+def review_window_clause(
+    window: str | None, now: datetime, tz: ZoneInfo | None = None
+) -> ColumnElement[bool]:
     """Rows the review queue serves under `window`.
 
     The single definition behind both `/api/review/queue` and the
@@ -68,9 +74,9 @@ def review_window_clause(window: str | None, now: datetime) -> ColumnElement[boo
     """
     window = window or DEFAULT_REVIEW_WINDOW
     if window == "today":
-        return due_clause(end_of_day(now, 0))
+        return due_clause(end_of_day(now, 0, tz))
     if window == "tomorrow":
-        return due_clause(end_of_day(now, 1))
+        return due_clause(end_of_day(now, 1, tz))
     return and_(
         UserWord.state.in_(ACTIVE_REVIEW_STATES),
         or_(UserWord.due_at.is_(None), UserWord.due_at <= now),

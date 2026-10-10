@@ -32,7 +32,7 @@ from app.schemas import (
     SignupWithInviteRequest,
     UserSettingsUpdate,
 )
-from app.services import captcha, lifecycle
+from app.services import captcha, lifecycle, localday, streak
 from app.services.timestamps import iso_utc
 
 router = APIRouter(tags=["Authentication"])
@@ -118,6 +118,9 @@ async def get_me(user: User = Depends(get_current_user), db: Session = Depends(g
                 user.review_retention if user.review_retention is not None else 0.95
             ),
             "review_window": user.review_window or "today",
+            # IANA zone for local-day boundaries; null until the SPA sends
+            # the browser's zone on first load.
+            "timezone": user.timezone,
             "account_status": user.account_status or "active",
             "soft_delete_at": iso_utc(expiry["soft_delete_at"]),
             "hard_delete_at": iso_utc(expiry["hard_delete_at"]),
@@ -255,6 +258,8 @@ async def update_my_settings(
             status_code=400,
             detail="review_window must be 'now', 'today', or 'tomorrow'",
         )
+    if payload.timezone is not None and not localday.is_valid_timezone(payload.timezone):
+        raise HTTPException(status_code=400, detail="timezone must be a known IANA zone name")
     user = db.merge(user)
     if payload.daily_new_words is not None:
         user.daily_new_words = payload.daily_new_words
@@ -266,6 +271,12 @@ async def update_my_settings(
         user.review_retention = payload.review_retention
     if payload.review_window is not None:
         user.review_window = payload.review_window
+    if payload.timezone is not None and payload.timezone != user.timezone:
+        # Day boundaries move with the zone; keep the streak whole across it.
+        streak.rebase_for_timezone(
+            user, localday.user_tz(user), localday.resolve_tz(payload.timezone)
+        )
+        user.timezone = payload.timezone
     db.commit()
     return {
         "daily_new_words": user.daily_new_words,
@@ -273,6 +284,7 @@ async def update_my_settings(
         "display_script": user.display_script,
         "review_retention": user.review_retention,
         "review_window": user.review_window,
+        "timezone": user.timezone,
     }
 
 
@@ -312,6 +324,7 @@ async def export_my_data(
                 "display_script": user.display_script,
                 "review_retention": user.review_retention,
                 "review_window": user.review_window,
+                "timezone": user.timezone,
             },
         },
         "texts": [

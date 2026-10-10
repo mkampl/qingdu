@@ -30,8 +30,10 @@ from app.services.due import (
     due_clause,
     end_of_day,
     review_window_clause,
+    utcnow,
 )
 from app.services.enrollment import enroll_daily_words, enrolled_today
+from app.services.localday import start_of_today, user_tz
 from app.services.script import to_canonical, to_user_script
 from app.services.streak import record_activity
 from app.services.timestamps import iso_utc
@@ -189,10 +191,11 @@ def review_queue(
     Plain `def`: everything in here is sync DB work, so FastAPI runs it
     in the threadpool instead of blocking the event loop.
     """
-    enrolled = enroll_daily_words(user, db)
+    now = utcnow()
+    tz = user_tz(user)
+    enrolled = enroll_daily_words(user, db, now)
     if enrolled:
         db.commit()
-    now = datetime.utcnow()
     # Phase #119 — look-ahead window. People review once a day, not every
     # 30 minutes; widening the cutoff to "today" covers the typical session
     # without forcing the user to wait for each card to flip due. Strict
@@ -200,7 +203,7 @@ def review_queue(
     # services.due owns the definition; /api/review/stats counts with it.
     base = (
         db.query(UserWord)
-        .filter(UserWord.user_id == user.id, review_window_clause(user.review_window, now))
+        .filter(UserWord.user_id == user.id, review_window_clause(user.review_window, now, tz))
         .order_by(UserWord.due_at.is_(None).desc(), UserWord.due_at.asc(), UserWord.id.asc())
     )
     # Cloze drops rows without a sentence, so a plain LIMIT could hand
@@ -381,23 +384,26 @@ def review_stats(
     """
     Summary for the nav badge + ReviewView dashboard.
     - `due_now`: cards currently due (due_at <= now).
-    - `due_today`: cards due before the end of today (UTC).
+    - `due_today`: cards due before the end of the user's local today.
     - `due_in_window`: what /api/review/queue would serve right now under
       the user's review_window — the badge and the Start gate read this.
     - `learning`: total cards in the 'learning' state.
     - `in_rotation`: learning + known cards (everything that can come due).
-    - `reviewed_today`: reviews logged since UTC midnight.
+    - `reviewed_today`: reviews logged since local midnight.
+
+    "Today" is the user's local day (services.localday, users.timezone).
     """
-    now = datetime.utcnow()
-    midnight_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    now = utcnow()
+    tz = user_tz(user)
+    midnight_today = start_of_today(now, tz)
 
     def count(*criteria) -> int:
         return db.query(UserWord).filter(UserWord.user_id == user.id, *criteria).count()
 
     due_now = count(review_window_clause("now", now))
     # Same definition as the /words "Due today" chip (services.due).
-    due_today = count(due_clause(end_of_day(now)))
-    due_in_window = count(review_window_clause(user.review_window, now))
+    due_today = count(due_clause(end_of_day(now, 0, tz)))
+    due_in_window = count(review_window_clause(user.review_window, now, tz))
     # The "learning" counter excludes the 'known' bucket so the user can
     # distinguish "still struggling" from "mastered but still in rotation".
     learning = count(UserWord.state == "learning")
@@ -419,6 +425,6 @@ def review_stats(
         "in_rotation": in_rotation,
         "reviewed_today": reviewed_today,
         # Phase #96 — counters for the "new today: X / Y" badge.
-        "new_today": enrolled_today(user, db),
+        "new_today": enrolled_today(user, db, now),
         "daily_target": user.daily_new_words or 0,
     }

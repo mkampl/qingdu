@@ -91,6 +91,7 @@ def test_init_db_adds_missing_columns_to_legacy_table(db_file):
         "invite_quota",
         "streak_count",
         "review_window",
+        "timezone",
         "account_status",
         "token_version",
     } <= cols
@@ -153,3 +154,26 @@ def test_init_db_adds_word_count_to_user_word_events(db_file):
     init_db()
     init_db()
     assert {"grade", "mode", "word_count"} <= _columns(engine, "user_word_events")
+
+
+def test_init_db_adds_timezone_as_null_for_existing_users(db_file):
+    """Existing accounts get no zone (= UTC days) until their browser sends one."""
+    from sqlalchemy import text
+
+    from app.database import init_db
+
+    engine = db_file()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE users (id INTEGER PRIMARY KEY, username VARCHAR(50) UNIQUE "
+                "NOT NULL, password_hash VARCHAR(255) NOT NULL, is_admin BOOLEAN, "
+                "must_change_password BOOLEAN, last_active DATETIME, created_at DATETIME)"
+            )
+        )
+        conn.execute(text("INSERT INTO users (id, username, password_hash) VALUES (1, 'a', 'x')"))
+    init_db()
+    init_db()
+    assert "timezone" in _columns(engine, "users")
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT timezone FROM users WHERE id = 1")).scalar() is None

@@ -75,13 +75,21 @@ function lastStreak(): number {
   }
 }
 
+/** YYYY-MM-DD of the device's local day. The server's streak day is
+ *  local too (users.timezone, sent from this device), so the at-risk
+ *  check must not compare UTC dates. */
+export function localDateKey(d: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 /** Phase 1.8 — every successful user action (open the app, finish a
  *  review) calls this with today's date. The at-risk evening ping checks
  *  the cache: if today's date already matches, skip — the streak isn't
  *  in danger yet. */
 export function rememberActiveToday(): void {
   try {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateKey();
     localStorage.setItem(ACTIVE_DATE_KEY, today);
   } catch {
     // ignore
@@ -104,7 +112,7 @@ export function forgetUserCaches(): void {
 function activeToday(): boolean {
   try {
     const stored = localStorage.getItem(ACTIVE_DATE_KEY);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateKey();
     return stored === today;
   } catch {
     return false;

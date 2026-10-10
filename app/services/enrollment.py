@@ -7,8 +7,9 @@ target by walking HSK levels in order (low -> high), and picking words
 at random within each level. The user has to make some progress through
 HSK 1 before they ever see an HSK 2 word — sequential by design.
 
-Idempotent across a UTC day: each enrolled word logs an `auto_enroll`
-UserWordEvent and we count those since midnight before adding more.
+Idempotent across the user's local day: each enrolled word logs an
+`auto_enroll` UserWordEvent and we count those since local midnight
+(services.localday) before adding more.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.database import User, UserWord, UserWordEvent
+from app.services import localday
 from app.services.word_info import lookup_pinyin_meaning
 from app.state import hsk_vocab
 
@@ -45,7 +47,7 @@ def _max_level(hsk_version: str) -> int:
     return 9 if hsk_version == "new" else 6
 
 
-def enroll_daily_words(user: User, db: Session) -> list[str]:
+def enroll_daily_words(user: User, db: Session, now: datetime | None = None) -> list[str]:
     """
     Enrol up to (daily_new_words - already_enrolled_today) HSK words into
     the user's 'learning' pool. Returns the list of newly enrolled words
@@ -62,16 +64,8 @@ def enroll_daily_words(user: User, db: Session) -> list[str]:
     if target <= 0:
         return []
 
-    midnight = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    already_today = (
-        db.query(UserWordEvent)
-        .filter(
-            UserWordEvent.user_id == user.id,
-            UserWordEvent.event_type == "auto_enroll",
-            UserWordEvent.created_at >= midnight,
-        )
-        .count()
-    )
+    now = now or localday.utcnow()
+    already_today = enrolled_today(user, db, now)
     remaining = target - already_today
     if remaining <= 0:
         return []
@@ -106,6 +100,7 @@ def enroll_daily_words(user: User, db: Session) -> list[str]:
                     word=word,
                     event_type="auto_enroll",
                     new_state="learning",
+                    created_at=now,
                 )
             )
             enrolled.append(word)
@@ -117,9 +112,9 @@ def enroll_daily_words(user: User, db: Session) -> list[str]:
     return enrolled
 
 
-def enrolled_today(user: User, db: Session) -> int:
-    """Number of auto-enrol events for this user since UTC midnight."""
-    midnight = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+def enrolled_today(user: User, db: Session, now: datetime | None = None) -> int:
+    """Number of auto-enrol events for this user since local midnight."""
+    midnight = localday.start_of_today(now or localday.utcnow(), localday.user_tz(user))
     return (
         db.query(UserWordEvent)
         .filter(

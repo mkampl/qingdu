@@ -330,6 +330,7 @@ export interface UserSettingsPayload {
   display_script?: "auto" | "simp" | "trad";
   review_retention?: number;
   review_window?: "now" | "today" | "tomorrow";
+  timezone?: string;
 }
 
 export const updateMySettings = (payload: UserSettingsPayload) =>
@@ -339,6 +340,7 @@ export const updateMySettings = (payload: UserSettingsPayload) =>
     display_script: string;
     review_retention: number;
     review_window: string;
+    timezone?: string | null;
   }>("/api/auth/me/settings", { method: "PATCH", body: payload });
 
 export const signupWithInvite = (

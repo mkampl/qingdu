@@ -7,6 +7,7 @@ import type { User } from "@/api/types";
 import { useReviewStore } from "@/stores/review";
 import { resetUserScopedStores } from "@/stores/user-scope";
 import { useUserWordsStore } from "@/stores/userWords";
+import { browserTimeZone } from "@/utils/timezone";
 
 export const useAuthStore = defineStore("auth", () => {
   const user = ref<User | null>(null);
@@ -92,6 +93,37 @@ export const useAuthStore = defineStore("auth", () => {
       // Fire-and-forget; the reader still renders before this resolves.
       useUserWordsStore().hydrate();
       useReviewStore().refreshStats();
+      void syncTimezone();
+    }
+  }
+
+  // The server counts "today" in the zone stored on the account. Until
+  // one is stored (null), send this device's zone — once; after that the
+  // user changes it in Settings. An older server omits the field
+  // (undefined) and is left alone.
+  async function syncTimezone() {
+    if (user.value?.timezone !== null) return;
+    const tz = browserTimeZone();
+    if (!tz) return;
+    try {
+      await updateSettings({ timezone: tz });
+    } catch {
+      // Not critical: the server keeps counting in UTC, and the next app
+      // start tries again.
+    }
+  }
+
+  // /login and /signup answer with a bare identity; /me carries the
+  // settings (timezone among them).
+  async function loadProfile() {
+    try {
+      const me = await api.me();
+      if (me.authenticated && me.user.username === user.value?.username) {
+        user.value = { ...user.value, ...me.user };
+        await syncTimezone();
+      }
+    } catch {
+      // The identity from the login response is enough to carry on.
     }
   }
 
@@ -104,6 +136,7 @@ export const useAuthStore = defineStore("auth", () => {
       adoptUser(result.user);
       useUserWordsStore().hydrate(true);
       useReviewStore().refreshStats();
+      void loadProfile();
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Login failed";
       throw e;
@@ -125,6 +158,7 @@ export const useAuthStore = defineStore("auth", () => {
       adoptUser(result.user);
       useUserWordsStore().hydrate(true);
       useReviewStore().refreshStats();
+      void loadProfile();
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Signup failed";
       throw e;
@@ -195,6 +229,7 @@ export const useAuthStore = defineStore("auth", () => {
         display_script: updated.display_script as "auto" | "simp" | "trad",
         review_retention: updated.review_retention,
         review_window: updated.review_window as "now" | "today" | "tomorrow",
+        ...(updated.timezone !== undefined ? { timezone: updated.timezone } : {}),
       };
     }
     // The review-stats badge depends on daily_target; nudge it so the UI

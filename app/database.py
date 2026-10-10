@@ -73,6 +73,11 @@ class User(Base):
     #   'tomorrow' → due_at < midnight day-after-tomorrow (pre-pull for
     #                "I won't be around tomorrow")
     review_window = Column(String(16), default="today")
+    # IANA zone name ("Europe/Vienna"). Day boundaries for streaks, due
+    # today, reviewed today, auto-enrol and the sparkline follow it
+    # (services.localday). NULL until the SPA sends the browser's zone;
+    # treated as UTC meanwhile.
+    timezone = Column(String(64), nullable=True)
     # Phase 2.7 — account lifecycle. `active` is the default; the lifecycle
     # scheduler flips dormant accounts to `dormant` and (after the hard
     # threshold) hard-deletes them. Self-hosters can disable the whole
@@ -559,6 +564,9 @@ def init_db():
                             "ALTER TABLE users ADD COLUMN review_window VARCHAR(16) DEFAULT 'today'"
                         )
                     )
+                if "timezone" not in user_cols:
+                    logger.info("Adding timezone column to users")
+                    conn.execute(text("ALTER TABLE users ADD COLUMN timezone VARCHAR(64)"))
                 # Phase 2.7 — account lifecycle status.
                 if "account_status" not in user_cols:
                     logger.info("Adding account_status column to users")

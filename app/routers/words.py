@@ -31,6 +31,7 @@ from app.schemas import (
     WordStateUpdate,
 )
 from app.services.due import due_clause, end_of_day, utcnow
+from app.services.localday import user_tz
 from app.services.script import to_canonical, to_user_script
 from app.services.srs import ALREADY_KNOWN_STABILITY_DAYS, already_known_state
 from app.services.streak import current_streak, record_activity
@@ -548,7 +549,7 @@ async def list_queue(
         q = q.filter(UserWord.state.in_(wanted))
 
     if due_within_days is not None and due_within_days >= 0:
-        q = q.filter(due_clause(end_of_day(now, due_within_days)))
+        q = q.filter(due_clause(end_of_day(now, due_within_days, user_tz(user))))
 
     if search and (clause := search_clause(search, user)) is not None:
         q = q.filter(clause)

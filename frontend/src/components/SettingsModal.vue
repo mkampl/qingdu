@@ -15,6 +15,7 @@ import { isNative } from "@/services/native";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 import { formatUtcDate } from "@/utils/time";
+import { browserTimeZone, timeZoneOptions } from "@/utils/timezone";
 import type { AutoGradeDelay } from "@/utils/review";
 
 import Modal from "@/components/ui/Modal.vue";
@@ -307,6 +308,19 @@ const reviewWindow = computed<ReviewWindow>({
     });
   },
 });
+// --- Timezone: where "today" starts (streak, due today, new words) ---
+// Filled from the device on first load; changeable here, e.g. after a move.
+const deviceTimeZone = browserTimeZone();
+const timeZone = computed<string>({
+  get: () => auth.user?.timezone ?? "UTC",
+  set: (v) => {
+    void auth.updateSettings({ timezone: v }).catch(() => {
+      toasts.error("Couldn't save timezone.");
+    });
+  },
+});
+const timeZoneChoices = computed(() => timeZoneOptions(auth.user?.timezone, deviceTimeZone));
+
 const reviewWindowOptions: { value: ReviewWindow; label: string; hint: string }[] = [
   {
     value: "now",
@@ -635,6 +649,38 @@ function resetApiBase() {
               <span class="block text-xs text-fg-muted">{{ opt.hint }}</span>
             </span>
           </label>
+        </div>
+      </fieldset>
+
+      <!-- Local day boundary -->
+      <fieldset v-if="auth.isAuthed">
+        <legend
+          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          Timezone
+        </legend>
+        <p class="mb-2 text-xs text-fg-muted">
+          Your day starts at midnight here: streak, "due today" and new words
+          roll over then.
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <select
+            v-model="timeZone"
+            aria-label="Timezone"
+            class="min-w-0 max-w-full rounded-md border border-border bg-bg-elevated px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none"
+          >
+            <option v-for="tz in timeZoneChoices" :key="tz" :value="tz">
+              {{ tz.replace(/_/g, " ") }}
+            </option>
+          </select>
+          <button
+            v-if="deviceTimeZone && deviceTimeZone !== timeZone"
+            type="button"
+            class="font-mono text-[11px] uppercase tracking-wider text-accent hover:underline"
+            @click="timeZone = deviceTimeZone"
+          >
+            Use this device's ({{ deviceTimeZone.replace(/_/g, " ") }})
+          </button>
         </div>
       </fieldset>
 

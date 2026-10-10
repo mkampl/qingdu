@@ -97,4 +97,66 @@ describe("auth store", () => {
     expect(localStorage.getItem("qingdu.notif.lastStreak")).toBeNull();
     expect(localStorage.getItem("qingdu.notif.lastActiveDate")).toBeNull();
   });
+  describe("timezone", () => {
+    function recordFetch(user: Record<string, unknown>) {
+      const calls: { url: string; method: string; body: unknown }[] = [];
+      vi.stubGlobal(
+        "fetch",
+        vi.fn((url: string, init?: RequestInit) => {
+          const method = init?.method ?? "GET";
+          const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+          calls.push({ url, method, body });
+          let payload: unknown = {};
+          if (url.endsWith("/api/auth/me")) payload = { authenticated: true, user };
+          if (url.endsWith("/api/auth/me/settings")) payload = { ...user, ...(body as object) };
+          return Promise.resolve(
+            new Response(JSON.stringify(payload), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            }),
+          );
+        }),
+      );
+      return calls;
+    }
+    const patches = (calls: { url: string; method: string; body: unknown }[]) =>
+      calls.filter((c) => c.url.endsWith("/api/auth/me/settings") && c.method === "PATCH");
+
+    beforeEach(() => {
+      vi.spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions").mockReturnValue({
+        timeZone: "Asia/Shanghai",
+      } as Intl.ResolvedDateTimeFormatOptions);
+    });
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("sends the device zone when the account has none yet", async () => {
+      api.setToken("tok");
+      const calls = recordFetch({ ...ME, timezone: null });
+      const auth = useAuthStore();
+      await auth.hydrate();
+      await vi.waitFor(() => expect(patches(calls)).toHaveLength(1));
+      expect(patches(calls)[0].body).toEqual({ timezone: "Asia/Shanghai" });
+      await vi.waitFor(() => expect(auth.user?.timezone).toBe("Asia/Shanghai"));
+    });
+
+    it("leaves a stored zone alone", async () => {
+      api.setToken("tok");
+      const calls = recordFetch({ ...ME, timezone: "Europe/Vienna" });
+      const auth = useAuthStore();
+      await auth.hydrate();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(patches(calls)).toHaveLength(0);
+      expect(auth.user?.timezone).toBe("Europe/Vienna");
+    });
+
+    it("leaves an older server without the field alone", async () => {
+      api.setToken("tok");
+      const calls = recordFetch({ ...ME });
+      await useAuthStore().hydrate();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(patches(calls)).toHaveLength(0);
+    });
+  });
 });

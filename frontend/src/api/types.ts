@@ -143,6 +143,9 @@ export interface User {
   review_retention?: number;
   /** Phase #119 — look-ahead window for the review queue. */
   review_window?: "now" | "today" | "tomorrow";
+  /** IANA zone whose midnight starts the user's "today" on the server.
+   *  null until the SPA has sent the device's zone. */
+  timezone?: string | null;
   /** Phase 2.7 — lifecycle. `dormant` accounts get the in-app banner
    *  prompting reactivation; `active` is the everyday case. */
   account_status?: "active" | "dormant";
