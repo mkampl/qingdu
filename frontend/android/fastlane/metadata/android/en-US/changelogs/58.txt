@@ -1,0 +1,7 @@
+- Words list loads all your words; HSK filter and sort cover the whole list
+- Filters: "Due today" matches Review, search by hanzi, pinyin or meaning,
+  filters survive Practice and back, Reset button
+- Correct tone marks on -ui syllables; cleaner glosses with tag badges
+- Review: visible errors with Retry, steadier writing scoring, auto-grade setting
+- Popover usable on small screens, reading position restored
+- Mistyped old password no longer logs you out; everyone is signed out once
