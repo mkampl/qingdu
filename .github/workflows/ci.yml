@@ -38,9 +38,8 @@ jobs:
         # Failing test ids are surfaced as annotations so they show up on the
         # run summary without opening the full log.
         run: |
-          set -o pipefail
-          pytest -rfE 2>&1 | tee pytest.log
-          status=$?
+          status=0
+          pytest -rfE 2>&1 | tee pytest.log || status=$?
           grep -E '^(FAILED|ERROR) ' pytest.log | head -20 | sed 's/^/::error::/' || true
           exit $status
 
