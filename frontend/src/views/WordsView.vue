@@ -6,14 +6,15 @@
  *
  * Default sort is "due first" so the user sees what FSRS thinks they should
  * touch next. State + due-zone + HSK filter chips above. Free-text search
- * for jumping to a known word.
+ * over hanzi, pinyin and meaning. Filters live in the URL query (see
+ * utils/words-filters.ts) so they survive a reload or a trip to Practice.
  */
 
 import { computed, ref, watch } from "vue";
-import { RouterLink, useRouter } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
-import type { WordsQueueItem, WordsQueueParams } from "@/api/client";
+import type { WordSchedule, WordsQueueItem, WordsQueueParams } from "@/api/client";
 import { onAuthReady } from "@/composables/use-auth-ready";
 import {
   createRequestSequence,
@@ -21,9 +22,25 @@ import {
   nextBatchSize,
   nextPageOffset,
 } from "@/utils/paged-list";
+import {
+  DEFAULT_FILTERS,
+  filtersFromQuery,
+  filtersToParams,
+  filtersToQuery,
+  hasActiveFilters,
+  isDefaultFilters,
+  maxHskLevel,
+  normaliseHsk,
+  sameFilters,
+  type DueFilter,
+  type SortKey,
+  type StateFilter,
+  type WordsFilters,
+} from "@/utils/words-filters";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReviewStore } from "@/stores/review";
+import { useSettingsStore } from "@/stores/settings";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 
@@ -32,13 +49,15 @@ import Spinner from "@/components/ui/Spinner.vue";
 const auth = useAuthStore();
 const authModals = useAuthModalsStore();
 const review = useReviewStore();
+const settings = useSettingsStore();
 const toast = useToastStore();
 const userWords = useUserWordsStore();
+const route = useRoute();
 const router = useRouter();
 
 async function practice(word: string) {
   try {
-    await review.startPractice(word);
+    await review.startPractice(word, route.fullPath);
     if (review.error) {
       toast.error(review.error);
       return;
@@ -49,10 +68,6 @@ async function practice(word: string) {
   }
 }
 
-type StateFilter = "all" | "learning" | "known" | "ignored";
-type DueFilter = "all" | "today" | "week" | "month";
-type SortKey = "due" | "recent" | "hsk";
-
 const items = ref<WordsQueueItem[]>([]);
 const total = ref(0);
 const loading = ref(false);
@@ -61,11 +76,14 @@ const loading = ref(false);
 const loaded = ref(false);
 const error = ref<string | null>(null);
 
-const stateFilter = ref<StateFilter>("all");
-const dueFilter = ref<DueFilter>("all");
-const hskFilter = ref<Set<number>>(new Set());
-const search = ref("");
-const sortKey = ref<SortKey>("due");
+const initial = filtersFromQuery(route.query);
+const stateFilter = ref<StateFilter>(initial.state);
+const dueFilter = ref<DueFilter>(initial.due);
+const hskFilter = ref<Set<number>>(
+  new Set(normaliseHsk(initial.hsk, maxHskLevel(settings.hskVersion))),
+);
+const search = ref(initial.search);
+const sortKey = ref<SortKey>(initial.sort);
 const expanded = ref<string | null>(null);
 
 // Server page size; "Load more" fetches the next batch of this size.
@@ -80,30 +98,53 @@ const loadingMore = ref(false);
 const loadMoreError = ref<string | null>(null);
 const requests = createRequestSequence();
 
-const queryParams = computed<WordsQueueParams>(() => {
-  const p: WordsQueueParams = { sort: sortKey.value, limit: PAGE };
-  if (stateFilter.value !== "all") p.state = stateFilter.value;
-  if (dueFilter.value === "today") p.dueWithinDays = 0;
-  else if (dueFilter.value === "week") p.dueWithinDays = 7;
-  else if (dueFilter.value === "month") p.dueWithinDays = 30;
-  if (hskFilter.value.size > 0) p.hskLevels = Array.from(hskFilter.value).join(",");
-  if (search.value.trim()) p.search = search.value.trim();
-  return p;
-});
+const filters = computed<WordsFilters>(() => ({
+  state: stateFilter.value,
+  due: dueFilter.value,
+  hsk: Array.from(hskFilter.value),
+  search: search.value,
+  sort: sortKey.value,
+}));
 
-const hasFilters = computed(
-  () =>
-    stateFilter.value !== "all" ||
-    dueFilter.value !== "all" ||
-    hskFilter.value.size > 0 ||
-    search.value.trim() !== "",
-);
+const queryParams = computed<WordsQueueParams>(() => ({
+  ...filtersToParams(filters.value, settings.hskVersion),
+  limit: PAGE,
+}));
+
+const hasFilters = computed(() => hasActiveFilters(filters.value));
+const canReset = computed(() => !isDefaultFilters(filters.value));
+const hskChips = computed(() => maxHskLevel(settings.hskVersion));
+
+function applyFilters(f: WordsFilters) {
+  stateFilter.value = f.state;
+  dueFilter.value = f.due;
+  hskFilter.value = new Set(normaliseHsk(f.hsk, maxHskLevel(settings.hskVersion)));
+  search.value = f.search;
+  sortKey.value = f.sort;
+}
+
+function resetFilters() {
+  applyFilters({ ...DEFAULT_FILTERS, hsk: [] });
+}
+
+// Mirror the filters into the URL. replace(), not push(): flipping chips
+// shouldn't fill the back button with one entry per click.
+function syncUrl() {
+  if (route.path !== "/words") return;
+  if (sameFilters(filtersFromQuery(route.query), filters.value)) return;
+  void router.replace({ query: filtersToQuery(filters.value) });
+}
 
 let searchTimer: number | null = null;
 // Load the first page for the current filters, dropping whatever was shown.
 // Responses from requests started before a newer one are ignored, so a slow
 // search for "学" can't overwrite the results for "学生".
 async function refresh() {
+  if (searchTimer) {
+    window.clearTimeout(searchTimer);
+    searchTimer = null;
+  }
+  syncUrl();
   if (!auth.isAuthed) return;
   const id = requests.next();
   items.value = [];
@@ -125,6 +166,7 @@ async function refresh() {
     // Pull the same numbers the header badge shows, so the user can't see
     // "38 due" in the nav and "28 due" here at the same time.
     review.refreshStats();
+    userWords.refreshStats();
   } catch (e) {
     if (!requests.isLatest(id)) return;
     error.value = e instanceof Error ? e.message : "Couldn't load your queue";
@@ -165,6 +207,24 @@ watch(search, () => {
   if (searchTimer) window.clearTimeout(searchTimer);
   searchTimer = window.setTimeout(() => refresh(), 200);
 });
+// Back/forward between filter states, or the nav link to a plain /words.
+watch(
+  () => route.query,
+  (q) => {
+    if (route.path !== "/words") return;
+    const next = filtersFromQuery(q);
+    if (!sameFilters(next, filters.value)) applyFilters(next);
+  },
+);
+// Switching between old and new HSK in Settings changes what a level means.
+watch(
+  () => settings.hskVersion,
+  (v) => {
+    const kept = normaliseHsk(hskFilter.value, maxHskLevel(v));
+    if (kept.length !== hskFilter.value.size) hskFilter.value = new Set(kept);
+    else refresh();
+  },
+);
 // Fetch once the boot-time session check settles (or after a login on
 // this page); drop the previous account's words on logout.
 onAuthReady(refresh, () => {
@@ -181,7 +241,9 @@ function toggleHsk(n: number) {
 }
 
 function fmtDue(item: WordsQueueItem): string {
-  if (item.due_at === null) return "no schedule";
+  // Never scheduled: a new card the review queue serves first (ignored
+  // words never come up for review).
+  if (item.due_at === null) return item.state === "ignored" ? "—" : "new";
   const sec = item.seconds_until_due ?? 0;
   if (sec <= 0) return "due now";
   const m = Math.round(sec / 60);
@@ -197,35 +259,39 @@ function fmtDue(item: WordsQueueItem): string {
 
 function dueTone(item: WordsQueueItem): string {
   const sec = item.seconds_until_due ?? Infinity;
-  if (item.due_at === null) return "text-fg-subtle";
+  if (item.due_at === null) {
+    return item.state === "ignored" ? "text-fg-subtle" : "text-accent font-medium";
+  }
   if (sec <= 0) return "text-accent font-medium";
   if (sec < 24 * 3600) return "text-fg";
   return "text-fg-muted";
 }
 
-const counts = computed(() => {
-  const c = { due_now: 0, due_week: 0, learning: 0, known: 0, ignored: 0 };
-  const now = Date.now();
-  for (const it of items.value) {
-    if (it.state === "learning") c.learning++;
-    if (it.state === "known") c.known++;
-    if (it.state === "ignored") c.ignored++;
-    if (it.due_at) {
-      const t = new Date(it.due_at).getTime();
-      if (t <= now) c.due_now++;
-      else if (t - now < 7 * 86400_000) c.due_week++;
-    }
-  }
-  return c;
-});
+// Patch one row with what the server reports (state and FSRS schedule), so
+// e.g. a word just marked known shows "in 3mo", not "due now".
+function patchRow(word: string, patch: Partial<WordsQueueItem> & WordSchedule) {
+  items.value = items.value.map((it) => (it.word === word ? { ...it, ...patch } : it));
+}
+
+// Global counters (strip + nav badge) after a row changed.
+function refreshCounters() {
+  review.refreshStats();
+  userWords.refreshStats();
+}
 
 async function setState(word: string, state: "known" | "learning" | "ignored") {
   try {
-    await userWords.setState(word, state);
-    items.value = items.value.map((it) =>
-      it.word === word ? { ...it, state } : it,
-    );
+    const r = await userWords.setState(word, state);
+    patchRow(word, {
+      state,
+      due_at: r.due_at,
+      seconds_until_due: r.seconds_until_due,
+      stability: r.stability,
+      difficulty: r.difficulty,
+      last_reviewed_at: r.last_reviewed_at,
+    });
     drift.value++;
+    refreshCounters();
     toast.success(`Marked ${word} as ${state}`);
   } catch (e) {
     toast.error(e instanceof Error ? e.message : "Update failed");
@@ -241,6 +307,7 @@ async function resetState(word: string) {
       total.value = Math.max(0, total.value - 1);
       drift.value++;
     }
+    refreshCounters();
     toast.info(`${word} back to new`);
   } catch (e) {
     toast.error(e instanceof Error ? e.message : "Reset failed");
@@ -250,12 +317,15 @@ async function resetState(word: string) {
 async function snooze(word: string, days: number) {
   try {
     const r = await api.snoozeWord(word, days);
-    items.value = items.value.map((it) =>
-      it.word === word
-        ? { ...it, due_at: r.due_at, seconds_until_due: days * 86400 }
-        : it,
-    );
+    patchRow(word, {
+      due_at: r.due_at,
+      seconds_until_due: r.seconds_until_due,
+      stability: r.stability,
+      difficulty: r.difficulty,
+      last_reviewed_at: r.last_reviewed_at,
+    });
     drift.value++;
+    refreshCounters();
     toast.success(`Snoozed ${word} for ${days} day${days === 1 ? "" : "s"}`);
   } catch (e) {
     toast.error(e instanceof Error ? e.message : "Snooze failed");
@@ -271,6 +341,7 @@ async function makeDue(word: string) {
         : it,
     );
     drift.value++;
+    refreshCounters();
     toast.success(`${word} queued for review`);
   } catch (e) {
     toast.error(e instanceof Error ? e.message : "Couldn't queue");
@@ -381,14 +452,25 @@ function toggleExpanded(word: string) {
       >
         {{ d.label }}
       </button>
+      <button
+        v-if="canReset"
+        type="button"
+        class="ml-auto rounded-full px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-fg-muted underline-offset-2 hover:text-fg hover:underline"
+        @click="resetFilters"
+      >
+        Reset filters
+      </button>
     </div>
 
     <div class="mb-6 flex flex-wrap items-center gap-2">
-      <span class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
-        HSK
+      <span
+        class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+        :title="settings.hskVersion === 'old' ? 'Old HSK (2.0) levels — change in Settings' : 'New HSK (3.0) levels — change in Settings'"
+      >
+        {{ settings.hskVersion === "old" ? "HSK 2.0" : "HSK" }}
       </span>
       <button
-        v-for="n in 9"
+        v-for="n in hskChips"
         :key="n"
         type="button"
         :class="[
@@ -405,11 +487,13 @@ function toggleExpanded(word: string) {
       <input
         v-model="search"
         type="search"
-        placeholder="Search a character"
-        class="w-40 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-sm placeholder:text-fg-subtle focus:border-accent focus:outline-none"
+        placeholder="Hanzi, pinyin or meaning"
+        aria-label="Search your words by hanzi, pinyin or meaning"
+        class="w-48 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-sm placeholder:text-fg-subtle focus:border-accent focus:outline-none"
       />
       <select
         v-model="sortKey"
+        aria-label="Sort"
         class="rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-sm focus:border-accent focus:outline-none"
       >
         <option value="due">Sort: due first</option>
@@ -418,14 +502,14 @@ function toggleExpanded(word: string) {
       </select>
     </div>
 
-    <!-- Mini stats strip — global counts from /api/review/stats (the same
-         numbers the nav badge shows) so the two never disagree. The list
-         below is filtered; these counts are not. -->
+    <!-- Mini stats strip — global totals only: due counts from
+         /api/review/stats (the nav badge), state totals from
+         /api/words/stats. The list below is filtered; these counts are not. -->
     <div class="mb-4 flex flex-wrap gap-3 text-xs text-fg-muted">
       <span><strong class="text-accent">{{ review.stats.due_now }}</strong> due now</span>
       <span><strong>{{ review.stats.due_today }}</strong> due today</span>
       <span class="text-fg-subtle">·</span>
-      <span>{{ review.stats.learning }} learning · {{ counts.known }} known<span v-if="counts.ignored"> · {{ counts.ignored }} ignored</span></span>
+      <span>{{ userWords.stats.learning.toLocaleString() }} learning · {{ userWords.stats.known.toLocaleString() }} known<span v-if="userWords.stats.ignored"> · {{ userWords.stats.ignored.toLocaleString() }} ignored</span></span>
     </div>
 
     <p v-if="error" class="py-10 text-center text-sm text-rose-600">{{ error }}</p>
@@ -434,7 +518,14 @@ function toggleExpanded(word: string) {
       v-else-if="items.length === 0 && total === 0 && hasFilters"
       class="py-10 text-center text-sm text-fg-subtle"
     >
-      None of your words match these filters. Try clearing some of them above.
+      None of your words match these filters.
+      <button
+        type="button"
+        class="ml-1 font-medium text-accent hover:underline"
+        @click="resetFilters"
+      >
+        Reset filters
+      </button>
     </p>
     <p
       v-else-if="items.length === 0 && total === 0"

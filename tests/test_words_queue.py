@@ -17,6 +17,8 @@ from sqlalchemy.pool import StaticPool
 from app import state
 from app.auth import get_current_user, require_auth
 from app.database import Base, User, UserWord, get_db
+from app.services.due import end_of_day
+from app.services.word_search import pinyin_key
 
 BASE_TIME = datetime(2026, 1, 1)
 
@@ -517,3 +519,245 @@ def test_hsk_filter_and_sort_with_full_size_vocab(queue_client):
     assert len(page_levels) == 200
     assert page_levels == sorted(page_levels)
     assert page_levels[0] >= 5
+
+
+# --- filters agree with the rest of the app ------------------------------------
+# "Due today" is the Review page due_today, search covers hanzi (either
+# script) / pinyin (tones optional) / meaning, HSK chips follow the old/new
+# preference, words come back in the display script, and marking a mature
+# card known keeps its FSRS history.
+
+
+def _set_script(client, script):
+    s = client.session_factory()
+    s.query(User).filter(User.id == 1).update({"display_script": script})
+    s.commit()
+    s.close()
+
+
+def _row(client, word):
+    s = client.session_factory()
+    try:
+        return s.query(UserWord).filter(UserWord.user_id == 1, UserWord.word == word).one()
+    finally:
+        s.close()
+
+
+# --- due ------------------------------------------------------------------------
+
+
+@pytest.fixture
+def due_fixture(queue_client):
+    now = _utcnow()
+    midnight = end_of_day(now)
+    # Due later today (UTC) — the case the old "due now" cutoff missed.
+    later_today = max(now + timedelta(seconds=1), midnight - timedelta(seconds=1))
+    _add(
+        queue_client,
+        [
+            {"word": "过去", "due_at": now - timedelta(days=1)},
+            {"word": "今晚", "due_at": later_today},
+            {"word": "未排", "due_at": None},
+            {"word": "熟词", "state": "known", "due_at": now - timedelta(hours=1)},
+            {"word": "明天", "due_at": midnight + timedelta(hours=1)},
+            {"word": "下周", "due_at": midnight + timedelta(days=6, hours=1)},
+            {"word": "忽略", "state": "ignored", "due_at": now - timedelta(days=2)},
+            {"word": "忽略二", "state": "ignored", "due_at": None},
+        ],
+    )
+    return queue_client
+
+
+def test_due_today_matches_review_stats(due_fixture):
+    stats = due_fixture.get("/api/review/stats").json()
+    body = _get(due_fixture, due_within_days=0)
+    assert sorted(_words(body)) == sorted(["过去", "今晚", "未排", "熟词"])
+    assert body["total"] == stats["due_today"] == 4
+
+
+def test_ignored_words_are_never_due(due_fixture):
+    for days in (0, 7, 30):
+        assert not {"忽略", "忽略二"} & set(_words(_get(due_fixture, due_within_days=days)))
+
+
+def test_never_scheduled_active_rows_count_as_due(due_fixture):
+    # The review queue serves unscheduled learning cards first, so /words
+    # lists them under every due chip, like the Review page counts them.
+    assert "未排" in _words(_get(due_fixture, due_within_days=0))
+
+
+def test_due_week_runs_to_end_of_day(due_fixture):
+    body = _get(due_fixture, due_within_days=7)
+    assert sorted(_words(body)) == sorted(["过去", "今晚", "未排", "熟词", "明天", "下周"])
+
+
+def test_end_of_day_boundaries():
+    from datetime import datetime
+
+    now = datetime(2026, 3, 5, 23, 59, 30)
+    assert end_of_day(now) == datetime(2026, 3, 6)
+    assert end_of_day(now, 7) == datetime(2026, 3, 13)
+    assert end_of_day(datetime(2026, 3, 5, 0, 0, 0)) == datetime(2026, 3, 6)
+
+
+# --- search ---------------------------------------------------------------------
+
+
+@pytest.fixture
+def search_fixture(queue_client):
+    _add(
+        queue_client,
+        [
+            {"word": "好", "pinyin": "hǎo", "meaning": "good"},
+            {"word": "你好", "pinyin": "nǐ hǎo", "meaning": "hello"},
+            {"word": "号", "pinyin": "hào", "meaning": "number"},
+            {"word": "学生", "pinyin": "xué sheng", "meaning": "Student"},
+            {"word": "女", "pinyin": "nǚ", "meaning": "female"},
+            {"word": "阿拉伯语", "pinyin": "Ā lā bó yǔ", "meaning": "Arabic (language)"},
+            {"word": "百分之百", "pinyin": "bǎi fēn zhī bǎi", "meaning": "a hundred percent"},
+        ],
+    )
+    return queue_client
+
+
+@pytest.mark.parametrize("term", ["hao", "hao3", "hǎo", "HAO"])
+def test_search_pinyin_ignores_tones(search_fixture, term):
+    assert sorted(_words(_get(search_fixture, search=term))) == sorted(["好", "你好", "号"])
+
+
+@pytest.mark.parametrize("term", ["nihao", "ni hao", "ni3hao3", "nǐ hǎo"])
+def test_search_pinyin_ignores_spaces(search_fixture, term):
+    assert _words(_get(search_fixture, search=term)) == ["你好"]
+
+
+def test_search_pinyin_umlaut_and_capitals(search_fixture):
+    assert _words(_get(search_fixture, search="nv")) == ["女"]
+    assert _words(_get(search_fixture, search="nü3")) == ["女"]
+    assert _words(_get(search_fixture, search="alabo")) == ["阿拉伯语"]
+
+
+def test_search_meaning_case_insensitive(search_fixture):
+    assert _words(_get(search_fixture, search="student")) == ["学生"]
+    assert _words(_get(search_fixture, search="HELLO")) == ["你好"]
+
+
+def test_search_percent_is_literal(search_fixture):
+    assert _words(_get(search_fixture, search="%")) == []
+
+
+def test_search_traditional_input_finds_simplified_row(search_fixture):
+    # 'auto' users: no canonicalisation on write, so both scripts are tried.
+    assert _words(_get(search_fixture, search="學生")) == ["学生"]
+    _set_script(search_fixture, "trad")
+    assert _words(_get(search_fixture, search="學生")) == ["學生"]
+    assert _words(_get(search_fixture, search="学生")) == ["學生"]
+
+
+def test_pinyin_key():
+    assert pinyin_key("Nǐ hǎo") == "nihao"
+    assert pinyin_key("ni3 hao3") == "nihao"
+    assert pinyin_key("lv4") == "lu"
+    assert pinyin_key("lü") == "lu"  # decomposed ü
+
+
+# --- HSK version ----------------------------------------------------------------
+
+
+@pytest.fixture
+def hsk_versions(queue_client):
+    _add(queue_client, [{"word": "甲"}, {"word": "乙"}, {"word": "丙"}, {"word": "丁"}])
+    state.hsk_vocab.update(
+        {
+            "甲": {"level_new": "new-4", "level_old": "old-3"},
+            "乙": {"level_new": "new-3", "level_old": "old-5"},
+            "丙": {"level_new": None, "level_old": "old-3"},
+            "丁": {"level_new": "new-7", "level_old": None},
+        }
+    )
+    return queue_client
+
+
+def test_old_hsk_filter_uses_old_levels(hsk_versions):
+    body = _get(hsk_versions, hsk_levels="3", hsk_version="old")
+    assert sorted(_words(body)) == sorted(["甲", "丙"])
+    assert body["total"] == 2
+    assert {it["word"]: it["hsk_level"] for it in body["items"]} == {"甲": 3, "丙": 3}
+
+
+def test_new_hsk_filter_falls_back_to_old_level_like_the_reader(hsk_versions):
+    # Default is new HSK; a word that only exists in the old list keeps its
+    # old level, as the reader's levelForVersion() colours it.
+    assert sorted(_words(_get(hsk_versions, hsk_levels="3"))) == sorted(["乙", "丙"])
+    assert _words(_get(hsk_versions, hsk_levels="7", hsk_version="old")) == ["丁"]
+
+
+def test_old_hsk_sort(hsk_versions):
+    body = _get(hsk_versions, sort="hsk", hsk_version="old")
+    assert [it["hsk_level"] for it in body["items"]] == [3, 3, 5, 7]
+
+
+def test_hsk_version_is_validated(hsk_versions):
+    r = hsk_versions.get("/api/words/queue", params={"hsk_version": "newest"})
+    assert r.status_code == 400
+
+
+# --- display script (L7) --------------------------------------------------------
+
+
+def test_queue_returns_words_in_display_script(queue_client):
+    _add(queue_client, [{"word": "学习"}])
+    assert _words(_get(queue_client)) == ["学习"]
+    _set_script(queue_client, "trad")
+    assert _words(_get(queue_client)) == ["學習"]
+
+
+def test_actions_accept_display_script(queue_client):
+    _add(queue_client, [{"word": "学习", "due_at": _utcnow()}])
+    _set_script(queue_client, "trad")
+    r = queue_client.post("/api/words/snooze", json={"word": "學習", "days": 3})
+    assert r.status_code == 200, r.text
+    r = queue_client.get("/api/review/practice/學習")
+    assert r.status_code == 200, r.text
+    assert r.json()["card"]["word"] == "學習"
+
+
+# --- server state in responses (L2) / known keeps history (L3) -------------------
+
+
+def test_mark_known_returns_new_schedule(queue_client):
+    _add(queue_client, [{"word": "学习", "due_at": _utcnow() - timedelta(days=1)}])
+    r = queue_client.post("/api/words/state", json={"word": "学习", "state": "known"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["state"] == "known"
+    assert body["stability"] == 90.0
+    assert body["seconds_until_due"] > 59 * 86400
+    assert body["due_at"] == _row(queue_client, "学习").due_at.isoformat()
+
+
+def test_mark_known_keeps_stability_of_mature_card(queue_client):
+    due = _utcnow() + timedelta(days=200)
+    _add(
+        queue_client,
+        [{"word": "学习", "state": "learning", "stability": 250.0, "due_at": due}],
+    )
+    r = queue_client.post("/api/words/state", json={"word": "学习", "state": "known"})
+    assert r.status_code == 200, r.text
+    row = _row(queue_client, "学习")
+    assert row.state == "known"
+    assert row.stability == 250.0
+    assert row.due_at == due
+    assert r.json()["stability"] == 250.0
+
+
+def test_mark_known_reseeds_young_card(queue_client):
+    _add(queue_client, [{"word": "学习", "stability": 4.0, "due_at": _utcnow()}])
+    queue_client.post("/api/words/state", json={"word": "学习", "state": "known"})
+    assert _row(queue_client, "学习").stability == 90.0
+
+
+def test_snooze_returns_seconds_from_existing_due_date(queue_client):
+    _add(queue_client, [{"word": "学习", "due_at": _utcnow() + timedelta(days=10)}])
+    body = queue_client.post("/api/words/snooze", json={"word": "学习", "days": 3}).json()
+    # Snooze extends from the later of now and the current due date.
+    assert 12 * 86400 < body["seconds_until_due"] <= 13 * 86400

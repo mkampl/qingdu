@@ -14,32 +14,30 @@ Mode hints in the queue payload:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import User, UserWord, UserWordEvent, get_db
 from app.services import cloze, srs
 from app.services.cedict_loader import cap_meanings
+from app.services.due import ACTIVE_REVIEW_STATES, due_clause, end_of_day
 from app.services.enrollment import enroll_daily_words, enrolled_today
-from app.services.script import to_user_script
+from app.services.script import to_canonical, to_user_script
 from app.services.streak import record_activity
 from app.services.word_info import lookup_pinyin_meaning
 from app.state import cedict_vocab, hsk_vocab
 
 router = APIRouter(tags=["Review"])
 
-# State values that participate in the review queue. 'known' joined
-# 'learning' once it became a high-stability SRS card instead of a
-# terminal opt-out; only 'ignored' (and absence of row) stay out of
-# the rotation. Auto-transitions in grade_card move rows between
-# 'learning' and 'known' based on the FSRS stability after grading.
-ACTIVE_REVIEW_STATES = ("learning", "known")
+# ACTIVE_REVIEW_STATES (from services.due) are the states in the review
+# rotation. Auto-transitions in grade_card move rows between 'learning'
+# and 'known' based on the FSRS stability after grading.
 KNOWN_STABILITY_THRESHOLD_DAYS = 90.0
 
 
@@ -158,20 +156,22 @@ async def review_queue(
     # FSRS-conformant pull is still available via review_window='now'.
     window = user.review_window or "today"
     if window == "today":
-        midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-        cutoff = midnight
+        cutoff = end_of_day(now, 0)
     elif window == "tomorrow":
-        midnight = (now + timedelta(days=2)).replace(hour=0, minute=0, second=0, microsecond=0)
-        cutoff = midnight
+        cutoff = end_of_day(now, 1)
     else:
         cutoff = now
-    rows = (
-        db.query(UserWord)
-        .filter(
-            UserWord.user_id == user.id,
+    due_filter = (
+        due_clause(cutoff)
+        if window in ("today", "tomorrow")
+        else and_(
             UserWord.state.in_(ACTIVE_REVIEW_STATES),
             or_(UserWord.due_at.is_(None), UserWord.due_at <= cutoff),
         )
+    )
+    rows = (
+        db.query(UserWord)
+        .filter(UserWord.user_id == user.id, due_filter)
         .order_by(UserWord.due_at.is_(None).desc(), UserWord.due_at.asc())
         .limit(limit)
         .all()
@@ -243,6 +243,8 @@ async def practice_card(
     Konkurrenz raus'. Nothing is graded, so there's no matching
     /api/review/grade sibling; the SPA advances modes locally and
     returns to /words on End Practice."""
+    # /words lists words in the user's display script; rows are canonical.
+    word = to_canonical(word, user)
     row = db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.word == word).first()
     if not row:
         raise HTTPException(status_code=404, detail="Not a tracked word")
@@ -287,8 +289,6 @@ async def grade_card(
 
     # If the user is on a non-auto display script, the word came back to
     # us in their preferred form. UserWord rows are keyed by simp.
-    from app.services.script import to_canonical
-
     word_simp = to_canonical(payload.word, user)
 
     row = db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.word == word_simp).first()
@@ -361,7 +361,6 @@ async def review_stats(
     - `reviewed_today`: reviews logged since UTC midnight.
     """
     now = datetime.utcnow()
-    midnight_tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
     midnight_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     due_now = (
@@ -373,17 +372,9 @@ async def review_stats(
         )
         .count()
     )
+    # Same definition as the /words "Due today" chip (services.due).
     due_today = (
-        db.query(UserWord)
-        .filter(
-            UserWord.user_id == user.id,
-            UserWord.state.in_(ACTIVE_REVIEW_STATES),
-            or_(
-                UserWord.due_at.is_(None),
-                UserWord.due_at < midnight_tomorrow,
-            ),
-        )
-        .count()
+        db.query(UserWord).filter(UserWord.user_id == user.id, due_clause(end_of_day(now))).count()
     )
     # The "learning" counter excludes the 'known' bucket so the user can
     # distinguish "still struggling" from "mastered but still in rotation".

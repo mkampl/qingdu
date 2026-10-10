@@ -75,7 +75,10 @@ def words_client(app_module, monkeypatch):
 def test_set_state_then_list_roundtrip(words_client):
     r = words_client.post("/api/words/state", json={"word": "你好", "state": "learning"})
     assert r.status_code == 200, r.text
-    assert r.json() == {"word": "你好", "state": "learning"}
+    body = r.json()
+    assert (body["word"], body["state"]) == ("你好", "learning")
+    # Never-scheduled learning row: no FSRS fields yet.
+    assert body["due_at"] is None and body["stability"] is None
 
     r = words_client.get("/api/words/state")
     assert r.status_code == 200

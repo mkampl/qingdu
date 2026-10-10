@@ -71,6 +71,16 @@ def to_canonical(text: str, user: User | None) -> str:
     return _converter("t2s").convert(text)
 
 
+def script_variants(text: str) -> set[str]:
+    """The string as typed plus its Simplified and Traditional forms.
+
+    Used for search: rows are normally stored Simplified, but 'auto' users
+    keep whatever they typed, so a query is matched in both scripts."""
+    if not text:
+        return set()
+    return {text, _converter("t2s").convert(text), _converter("s2t").convert(text)}
+
+
 def convert_analysis_data(data: dict | list | None, user: User | None) -> dict | list | None:
     """Walk an /api/analyze-shaped response and convert every Chinese
     surface (word.text, grammar sentence.text, segments) to the user's

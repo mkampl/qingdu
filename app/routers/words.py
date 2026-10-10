@@ -13,12 +13,12 @@ Every mutation also appends a UserWordEvent so we can power undo and
 analytics later without changing this code path.
 """
 
-import contextlib
 import json
+import re
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth import require_auth
@@ -29,10 +29,12 @@ from app.schemas import (
     ImportHskRequest,
     WordStateUpdate,
 )
-from app.services.script import to_canonical
-from app.services.srs import already_known_state
+from app.services.due import due_clause, end_of_day, utcnow
+from app.services.script import to_canonical, to_user_script
+from app.services.srs import ALREADY_KNOWN_STABILITY_DAYS, already_known_state
 from app.services.streak import current_streak, record_activity
 from app.services.word_info import lookup_pinyin_meaning
+from app.services.word_search import search_clause
 from app.state import hsk_vocab
 
 router = APIRouter(tags=["Words"])
@@ -173,7 +175,10 @@ def _upsert(
         db.add(row)
         db.flush()  # row.id needed for gloss FK
     else:
-        if state == "known":
+        # Same guard as bulk_mark_known: a mature card (stability already
+        # past the "known" seed) keeps its FSRS history instead of being
+        # reseeded to 90 days.
+        if state == "known" and (row.stability or 0) < ALREADY_KNOWN_STABILITY_DAYS:
             _apply_known_scheduling(row)
         else:
             row.state = state
@@ -237,7 +242,7 @@ async def set_word_state(
     if not word:
         raise HTTPException(status_code=400, detail="word is required")
 
-    _upsert(
+    row = _upsert(
         db,
         user.id,
         word,
@@ -250,7 +255,9 @@ async def set_word_state(
     )
     record_activity(user, db)
     db.commit()
-    return {"word": word, "state": payload.state}
+    # The scheduling fields let a list view patch its row with what the
+    # server actually did (marking known reschedules due_at 60-180 d out).
+    return {"word": word, "state": payload.state, **_schedule_fields(row, utcnow())}
 
 
 @router.delete("/api/words/state")
@@ -322,7 +329,7 @@ async def bulk_mark_known(
             db.add(row)
             db.flush()
             updated += 1
-        elif (row.stability or 0) < 90:
+        elif (row.stability or 0) < ALREADY_KNOWN_STABILITY_DAYS:
             _apply_known_scheduling(row)
             row.updated_at = datetime.utcnow()
             updated += 1
@@ -460,15 +467,40 @@ async def import_hsk_known(
     }
 
 
-def _hsk_level_new(entry: dict | None) -> int | None:
-    """Numeric new-HSK level of a hsk_vocab entry ("new-3" -> 3), or None."""
+def _hsk_level_number(level: str | None) -> int | None:
+    """ "new-3" -> 3, "old-6" -> 6, "new-7-9" -> 7; None for anything else."""
+    if not level:
+        return None
+    m = re.match(r"^(?:new|old)-(\d+)", level)
+    return int(m.group(1)) if m else None
+
+
+def _hsk_level(entry: dict | None, hsk_version: str = "new") -> int | None:
+    """Numeric HSK level of a hsk_vocab entry for the chosen HSK version.
+
+    Mirrors the reader's levelForVersion(): the preferred version's level,
+    falling back to the other one when the word only exists in that list.
+    """
     if not entry:
         return None
-    lvl = entry.get("level_new") or ""
-    if lvl.startswith("new-"):
-        with contextlib.suppress(ValueError):
-            return int(lvl.split("-", 1)[1].split("-")[0])
-    return None
+    first, second = (
+        ("level_old", "level_new") if hsk_version == "old" else ("level_new", "level_old")
+    )
+    lvl = _hsk_level_number(entry.get(first))
+    if lvl is None:
+        lvl = _hsk_level_number(entry.get(second))
+    return lvl
+
+
+def _schedule_fields(row: UserWord, now: datetime) -> dict:
+    """The FSRS fields of a row as the /words list shows them."""
+    return {
+        "due_at": row.due_at.isoformat() if row.due_at else None,
+        "seconds_until_due": int((row.due_at - now).total_seconds()) if row.due_at else None,
+        "stability": row.stability,
+        "difficulty": row.difficulty,
+        "last_reviewed_at": (row.last_reviewed_at.isoformat() if row.last_reviewed_at else None),
+    }
 
 
 @router.get("/api/words/queue")
@@ -478,6 +510,7 @@ async def list_queue(
     state: str | None = None,
     due_within_days: int | None = None,
     hsk_levels: str | None = None,
+    hsk_version: str = "new",
     search: str | None = None,
     sort: str = "due",
     limit: int = 200,
@@ -487,16 +520,22 @@ async def list_queue(
 
     Filters:
       - state: comma-separated subset of {learning, known, ignored}
-      - due_within_days: only rows whose due_at is within now+N days (None=no filter)
+      - due_within_days: rows due before the end of the day N days from now,
+        with the definition the Review page uses (services.due): 0 is the
+        Review page's "due today". Ignored rows are never due;
+        never-scheduled learning/known rows always are.
       - hsk_levels: comma-separated HSK levels like "1,2,3" — matched against the
-        global hsk_vocab map
-      - search: substring match on the word column
+        global hsk_vocab map, using `hsk_version` ("new" or "old")
+      - search: hanzi (either script), pinyin (tones optional) or meaning
     sort: 'due' (NULL last), 'recent' (newest first), 'hsk' (lowest level first)
     Paging: limit is clamped to 1..500, offset to >= 0. `total` counts every
     row matching the filters; `has_more` says whether a later page exists.
+    Words come back in the user's display script, like /api/review.
     """
-    from datetime import datetime, timedelta
+    if hsk_version not in {"new", "old"}:
+        raise HTTPException(400, "hsk_version must be 'new' or 'old'")
 
+    now = utcnow()
     q = db.query(UserWord).filter(UserWord.user_id == user.id)
 
     if state:
@@ -506,13 +545,10 @@ async def list_queue(
         q = q.filter(UserWord.state.in_(wanted))
 
     if due_within_days is not None and due_within_days >= 0:
-        cutoff = datetime.utcnow() + timedelta(days=due_within_days)
-        # NULL due_at counts as "due now" (matches /api/review/stats — those
-        # are typically freshly clicked rows that haven't been scheduled yet).
-        q = q.filter(or_(UserWord.due_at.is_(None), UserWord.due_at <= cutoff))
+        q = q.filter(due_clause(end_of_day(now, due_within_days)))
 
-    if search:
-        q = q.filter(UserWord.word.contains(search.strip()))
+    if search and (clause := search_clause(search, user)) is not None:
+        q = q.filter(clause)
 
     wanted_lvls: set[int] = set()
     if hsk_levels:
@@ -530,7 +566,8 @@ async def list_queue(
         level_map = {
             w: lvl
             for w, entry in hsk_vocab.items()
-            if (lvl := _hsk_level_new(entry)) is not None and (sort == "hsk" or lvl in wanted_lvls)
+            if (lvl := _hsk_level(entry, hsk_version)) is not None
+            and (sort == "hsk" or lvl in wanted_lvls)
         }
         lv = (
             func.json_each(json.dumps(level_map, ensure_ascii=False))
@@ -558,34 +595,20 @@ async def list_queue(
     total = q.count()
     rows = q.limit(limit).offset(offset).all()
 
-    now = datetime.utcnow()
-    vocab = hsk_vocab
-    items = []
-    for r in rows:
-        hsk_level = _hsk_level_new(vocab.get(r.word)) if vocab else None
-        seconds_until = None
-        if r.due_at:
-            seconds_until = int((r.due_at - now).total_seconds())
-        items.append(
-            {
-                "word": r.word,
-                "state": r.state,
-                "pinyin": r.pinyin,
-                "meaning": r.meaning,
-                "hsk_level": hsk_level,
-                "seen_count": r.seen_count,
-                "ease": r.ease,
-                "stability": r.stability,
-                "difficulty": r.difficulty,
-                "due_at": r.due_at.isoformat() if r.due_at else None,
-                "seconds_until_due": seconds_until,
-                "last_reviewed_at": (
-                    r.last_reviewed_at.isoformat() if r.last_reviewed_at else None
-                ),
-                "created_at": r.created_at.isoformat() if r.created_at else None,
-            }
-        )
-
+    items = [
+        {
+            "word": to_user_script(r.word, user),
+            "state": r.state,
+            "pinyin": r.pinyin,
+            "meaning": r.meaning,
+            "hsk_level": _hsk_level(hsk_vocab.get(r.word), hsk_version),
+            "seen_count": r.seen_count,
+            "ease": r.ease,
+            **_schedule_fields(r, now),
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]
     return {"items": items, "total": total, "has_more": offset + len(items) < total}
 
 
@@ -601,7 +624,7 @@ async def snooze_word(
     Useful when the user isn't ready to re-encounter a word yet but doesn't
     want to mark it 'known' or remove it from the queue entirely.
     """
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     word_raw = (payload.get("word") or "").strip()
     days = int(payload.get("days") or 3)
@@ -615,15 +638,12 @@ async def snooze_word(
     if row is None:
         raise HTTPException(404, "word not in your queue")
 
-    base = max(row.due_at or datetime.utcnow(), datetime.utcnow())
+    now = utcnow()
+    base = max(row.due_at or now, now)
     row.due_at = base + timedelta(days=days)
     _record_event(db, user.id, word, "snooze")
     db.commit()
-    return {
-        "word": word,
-        "due_at": row.due_at.isoformat(),
-        "days": days,
-    }
+    return {"word": word, "days": days, **_schedule_fields(row, now)}
 
 
 @router.post("/api/words/review-now")

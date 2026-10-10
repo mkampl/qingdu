@@ -52,6 +52,9 @@ export const useReviewStore = defineStore("review", () => {
   // streak, and stats stay untouched. ReviewView renders a persistent
   // banner reminding the user the session is out-of-competition.
   const practiceMode = ref(false);
+  // Where "End practice" goes back to — the /words URL including its
+  // filter query, so the list comes back the way the user left it.
+  const practiceReturnTo = ref<string | null>(null);
 
   const current = computed<ReviewCard | null>(
     () => queue.value[cursor.value] ?? null,
@@ -111,10 +114,11 @@ export const useReviewStore = defineStore("review", () => {
     }
   }
 
-  async function startPractice(word: string) {
+  async function startPractice(word: string, returnTo: string | null = null) {
     loading.value = true;
     error.value = null;
     practiceMode.value = true;
+    practiceReturnTo.value = returnTo;
     queueMode.value = "mixed";
     cursor.value = 0;
     sessionGraded.value = 0;
@@ -221,6 +225,7 @@ export const useReviewStore = defineStore("review", () => {
     error.value = null;
     inFocus.value = false;
     practiceMode.value = false;
+    practiceReturnTo.value = null;
   }
 
   // Logout variant: stats must go too, or the next account signing in on
@@ -246,6 +251,7 @@ export const useReviewStore = defineStore("review", () => {
     dueNow,
     inFocus,
     practiceMode,
+    practiceReturnTo,
     loadQueue,
     startPractice,
     grade,

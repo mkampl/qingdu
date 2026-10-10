@@ -33,8 +33,9 @@ const review = useReviewStore();
 const router = useRouter();
 
 function endPractice() {
+  const to = review.practiceReturnTo || "/words";
   review.reset();
-  void router.push("/words");
+  void router.push(to);
 }
 
 // Auto-end practice once the single practice card has been graded so the

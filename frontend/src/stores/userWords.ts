@@ -94,7 +94,9 @@ export const useUserWordsStore = defineStore("userWords", () => {
     states.value = { ...states.value, [word]: state };
     recomputeStats();
     try {
-      await api.setUserWordState(word, state, sourceTextId, snapshot);
+      // The response carries the row's new schedule; list views use it
+      // instead of guessing what the server did.
+      return await api.setUserWordState(word, state, sourceTextId, snapshot);
     } catch (err) {
       // Roll back on failure.
       const next = { ...states.value };

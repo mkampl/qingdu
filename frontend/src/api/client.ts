@@ -836,10 +836,22 @@ export interface WordsQueueItem {
   created_at: string | null;
 }
 
+/** FSRS fields of a word row as the server left them after a change. */
+export interface WordSchedule {
+  due_at: string | null;
+  seconds_until_due: number | null;
+  stability: number | null;
+  difficulty: number | null;
+  last_reviewed_at: string | null;
+}
+
 export interface WordsQueueParams {
   state?: string;
+  /** Due before the end of the day N days from now (0 = Review's "due today"). */
   dueWithinDays?: number | null;
   hskLevels?: string;
+  /** Which HSK list the level filter, sort and badge use. */
+  hskVersion?: "new" | "old";
   search?: string;
   sort?: "due" | "recent" | "hsk";
   limit?: number;
@@ -860,6 +872,7 @@ export const listWordsQueue = (params: WordsQueueParams = {}) => {
   if (params.dueWithinDays !== undefined && params.dueWithinDays !== null)
     q.set("due_within_days", String(params.dueWithinDays));
   if (params.hskLevels) q.set("hsk_levels", params.hskLevels);
+  if (params.hskVersion) q.set("hsk_version", params.hskVersion);
   if (params.search) q.set("search", params.search);
   if (params.sort) q.set("sort", params.sort);
   if (params.limit !== undefined) q.set("limit", String(params.limit));
@@ -871,7 +884,7 @@ export const listWordsQueue = (params: WordsQueueParams = {}) => {
 };
 
 export const snoozeWord = (word: string, days = 3) =>
-  request<{ word: string; due_at: string; days: number }>("/api/words/snooze", {
+  request<{ word: string; days: number } & WordSchedule>("/api/words/snooze", {
     body: { word, days },
   });
 
@@ -951,7 +964,7 @@ export const setUserWordState = (
   source_text_id?: number | null,
   snapshot?: WordSnapshot | null,
 ) =>
-  request<{ word: string; state: UserWordState }>("/api/words/state", {
+  request<{ word: string; state: UserWordState } & WordSchedule>("/api/words/state", {
     body: {
       word,
       state,
