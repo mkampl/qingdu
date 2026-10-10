@@ -15,3 +15,5 @@ CLAUDE.local.md
 !app/data/
 !app/data/packages/
 !app/data/packages/*.json
+# Test fixtures (golden gloss set) are checked in as well.
+!tests/data/

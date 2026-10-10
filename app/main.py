@@ -47,7 +47,7 @@ from app.routers import (
     words,
 )
 from app.services.cedict_loader import load_cedict
-from app.services.hsk_loader import download_hsk_vocabulary
+from app.services.hsk_loader import load_hsk_vocabulary
 from app.state import hsk_vocab
 
 load_dotenv()
@@ -231,57 +231,29 @@ def _validate_environment() -> None:
 @app.on_event("startup")
 async def startup_event() -> None:
     """Load HSK vocabulary, init the DB, and warm up jieba."""
-    import json
-
     import jieba
 
-    from app import state as _state
     from app.core.constants import HSK_WORD_BASE_FREQ
     from app.core.paths import DATA_DIR
 
     _validate_environment()
 
-    vocab_file = DATA_DIR / "hsk_vocabulary.json"
-
-    logger.info("Downloading fresh HSK vocabulary from GitHub...")
+    logger.info("Loading pinned HSK vocabulary...")
     try:
-        await download_hsk_vocabulary()
-        logger.info(f"Successfully downloaded {len(hsk_vocab)} HSK words")
+        await load_hsk_vocabulary()
+        logger.info(f"Loaded {len(hsk_vocab)} HSK words")
     except Exception as e:
-        logger.error(f"Failed to download vocabulary from GitHub: {e}", exc_info=True)
-        if vocab_file.exists():
-            logger.warning("Falling back to cached vocabulary...")
-            try:
-                with open(vocab_file, encoding="utf-8") as f:
-                    _state.hsk_vocab.clear()
-                    _state.hsk_vocab.update(json.load(f))
-                logger.info(f"Loaded {len(hsk_vocab)} HSK words from cache")
-            except Exception as cache_error:
-                logger.error(f"Failed to load from cache: {cache_error}", exc_info=True)
-                logger.warning(
-                    "Application will start without vocabulary - some features may not work"
-                )
-        else:
-            logger.warning(
-                "No cache available. Application will start without vocabulary - "
-                "some features may not work"
-            )
+        logger.error(f"Failed to load HSK vocabulary: {e}", exc_info=True)
+        logger.warning("Application will start without vocabulary - some features may not work")
 
     # CC-CEDICT — overlay richer meanings onto hsk_vocab and populate
-    # `cedict_vocab` for non-HSK lookups. Safe to no-op if the download
-    # fails and no cache exists; the app keeps working on plain HSK data.
+    # `cedict_vocab` for non-HSK lookups. Reads the vendored snapshot; if
+    # no copy is available the app keeps working on plain HSK data.
     logger.info("Loading CC-CEDICT...")
     try:
         await load_cedict()
     except Exception as e:
         logger.warning("CC-CEDICT load failed (%s); proceeding with HSK only", e)
-
-    # Refresh per-user word snapshots so any pinyin/meaning improvements
-    # from the dictionary load propagate to rows that were snapshotted
-    # earlier with stale (or worse) glosses.
-    from app.services.snapshot_backfill import run_at_startup as _refresh_snapshots
-
-    _refresh_snapshots()
 
     logger.info("Initializing jieba tokenizer...")
     jieba.initialize()
@@ -300,11 +272,17 @@ async def startup_event() -> None:
     init_db()
     logger.info("Database initialized")
 
+    # Refresh per-user word snapshots when the dictionary version changed
+    # since the last run, so pinyin/meaning fixes reach rows snapshotted
+    # with older glosses. Needs the tables, hence after init_db.
+    from app.services.snapshot_backfill import run_at_startup as _refresh_snapshots
+
+    _refresh_snapshots()
+
     # Bootstrap default admin if no users exist.
     import secrets
 
     from app.auth import get_password_hash
-    from app.core.paths import DATA_DIR
     from app.database import SessionLocal, User
 
     db = SessionLocal()

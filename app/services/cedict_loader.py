@@ -1,17 +1,17 @@
 """
 CC-CEDICT loader.
 
-Pulls the canonical Chinese-English dictionary file from mdbg.net's
-weekly export, parses each entry and populates `app.state.cedict_vocab`
-keyed by simplified form. Then merges the better meanings into the
-already-loaded `hsk_vocab` so every downstream consumer (analyze,
-review queue, word_info snapshots) sees the richer glosses without
-further code changes.
+Reads the CC-CEDICT snapshot vendored in `app/data/dict/` (see
+`app.services.dict_data`), parses each entry and populates
+`app.state.cedict_vocab` keyed by simplified form. Then merges the better
+meanings into the already-loaded `hsk_vocab` so every downstream consumer
+(analyze, review queue, word_info snapshots) sees the richer glosses
+without further code changes.
 
-Distribution: the file is served gzip-compressed at
-`cedict_1_0_ts_utf-8_mdbg.txt.gz` (NOT a .zip — that path 404s on
-mdbg.net). We download the .gz, decompress to UTF-8 text, parse, and
-cache the decompressed file at `data/cedict_ts.u8`.
+The snapshot is replaced only by `tools/refresh_dictionaries.py`. If the
+vendored file is missing, an older `data/cedict_ts.u8` cache is used, and
+only if that is missing too do we download mdbg's current export
+(`cedict_1_0_ts_utf-8_mdbg.txt.gz`, NOT a .zip — that path 404s).
 
 CC-CEDICT format (one entry per line, # comments at file top):
     傳統 传统 [chuan2 tong3] /tradition/convention/heritage/CL:個|个[ge4]/
@@ -30,14 +30,12 @@ from __future__ import annotations
 import gzip
 import logging
 import re
-from datetime import datetime, timedelta
 from pathlib import Path
 
 import httpx
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.core.constants import (
-    CEDICT_REFRESH_DAYS,
     CEDICT_SOURCE_TAG,
     CEDICT_URL,
     HSK_DOWNLOAD_TIMEOUT,
@@ -46,6 +44,7 @@ from app.core.constants import (
     MAX_RETRY_ATTEMPTS,
 )
 from app.core.paths import DATA_DIR
+from app.services import dict_data
 from app.state import cedict_vocab, hsk_vocab
 
 logger = logging.getLogger(__name__)
@@ -371,14 +370,6 @@ def cap_meanings(headline: str, meanings: list[str], max_others: int) -> list[st
 # --- file fetch + parse --------------------------------------------------------
 
 
-def _is_cache_fresh() -> bool:
-    """True if cedict_ts.u8 exists and is younger than CEDICT_REFRESH_DAYS."""
-    if not CEDICT_CACHE_FILE.exists():
-        return False
-    mtime = datetime.fromtimestamp(CEDICT_CACHE_FILE.stat().st_mtime)
-    return datetime.now() - mtime < timedelta(days=CEDICT_REFRESH_DAYS)
-
-
 @retry(
     stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
     wait=wait_exponential(multiplier=1, min=HSK_RETRY_MIN_WAIT, max=HSK_RETRY_MAX_WAIT),
@@ -390,11 +381,6 @@ async def _download_archive() -> bytes:
         r = await client.get(CEDICT_URL)
         r.raise_for_status()
         return r.content
-
-
-def _decompress(archive_bytes: bytes) -> str:
-    """Decompress the gzipped CC-CEDICT export into a UTF-8 string."""
-    return gzip.decompress(archive_bytes).decode("utf-8")
 
 
 def _looks_minor(primary: str) -> bool:
@@ -992,12 +978,12 @@ def _merge_into_hsk_vocab() -> tuple[int, int]:
 # --- public entry point --------------------------------------------------------
 
 
-async def load_cedict(force_refresh: bool = False) -> None:
+async def load_cedict() -> None:
     """Populate `cedict_vocab` + merge meanings into `hsk_vocab`.
 
-    Safe to call even if the network is down — we fall back to the cached
-    file. If both fail (no cache + no network), CC-CEDICT is just absent
-    and the app keeps working on the existing HSK data.
+    Normally reads the vendored snapshot and touches no network. If no
+    copy exists anywhere, CC-CEDICT is just absent and the app keeps
+    working on the existing HSK data.
 
     Honours `QINGDU_SKIP_CEDICT_LOAD=1` as a hard skip. conftest sets
     this in the test suite so CI doesn't pull ~4MB on every run; the
@@ -1010,21 +996,33 @@ async def load_cedict(force_refresh: bool = False) -> None:
         logger.info("CC-CEDICT load skipped (QINGDU_SKIP_CEDICT_LOAD=1)")
         return
 
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    dict_data.loaded_sources["cedict"] = None
     text: str | None = None
+    digest: str | None = None
 
-    if force_refresh or not _is_cache_fresh():
+    vendored = None
+    try:
+        vendored = dict_data.read_vendored("cedict")
+    except (dict_data.ChecksumError, OSError, ValueError) as e:
+        logger.error("Vendored CC-CEDICT unusable: %s", e)
+    if vendored is not None:
+        data, digest = vendored
+        text = data.decode("utf-8")
+    elif CEDICT_CACHE_FILE.exists():
+        logger.warning("Vendored CC-CEDICT missing; using cache %s", CEDICT_CACHE_FILE)
+        data = CEDICT_CACHE_FILE.read_bytes()
+        digest = dict_data.sha256_bytes(data)
+        text = data.decode("utf-8")
+    else:
         try:
-            logger.info("Downloading CC-CEDICT from %s", CEDICT_URL)
-            archive_bytes = await _download_archive()
-            text = _decompress(archive_bytes)
-            CEDICT_CACHE_FILE.write_text(text, encoding="utf-8")
-            logger.info("CC-CEDICT cache refreshed: %s", CEDICT_CACHE_FILE)
-        except Exception as e:
-            logger.warning("CC-CEDICT download failed (%s); will use cached copy if any", e)
-
-    if text is None and CEDICT_CACHE_FILE.exists():
-        text = CEDICT_CACHE_FILE.read_text(encoding="utf-8")
+            logger.warning("No CC-CEDICT on disk; downloading unpinned %s", CEDICT_URL)
+            data = gzip.decompress(await _download_archive())
+            digest = dict_data.sha256_bytes(data)
+            text = data.decode("utf-8")
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            CEDICT_CACHE_FILE.write_bytes(data)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("CC-CEDICT download failed (%s)", e)
 
     if text is None:
         logger.warning("CC-CEDICT unavailable — proceeding without it")
@@ -1034,6 +1032,7 @@ async def load_cedict(force_refresh: bool = False) -> None:
     cedict_vocab.clear()
     cedict_vocab.update(parsed)
     overlaid, missing = _merge_into_hsk_vocab()
+    dict_data.loaded_sources["cedict"] = digest
     logger.info(
         "CC-CEDICT loaded: %d entries (overlaid onto %d HSK words; %d HSK words had no CC-CEDICT match)",
         len(cedict_vocab),

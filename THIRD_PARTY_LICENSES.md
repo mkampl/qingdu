@@ -2,7 +2,7 @@
 
 Libraries, data, and services used by QingDu, grouped by licence.
 
-Last reconciled: 2026-07-02 against `requirements.txt`, `frontend/package.json`, bundled `app/data/`, and Google-Fonts CDN imports in `frontend/index.html` + `frontend/src/styles/global.css`.
+Last reconciled: 2026-10-10 against `requirements.txt`, `frontend/package.json`, bundled `app/data/`, and Google-Fonts CDN imports in `frontend/index.html` + `frontend/src/styles/global.css`.
 
 ## Backend (Python)
 
@@ -93,11 +93,13 @@ QingDu uses self-hosted Latin display fonts via `@fontsource-variable` and CJK f
 - **Source**: [drkameleon/complete-hsk-vocabulary](https://github.com/drkameleon/complete-hsk-vocabulary)
 - **License**: MIT
 - **Description**: HSK 1–9 vocabulary with pinyin and English glosses.
+- **Bundled file**: `app/data/dict/complete-hsk-vocabulary.json.gz` — upstream `complete.json` at the commit recorded in `app/data/dict/VERSION.json`, gzip-compressed, unmodified. The MIT notice ships next to it as `app/data/dict/LICENSE-complete-hsk-vocabulary.txt`.
 
 ### CC-CEDICT
 - **Source**: [mdbg.net](https://www.mdbg.net/chinese/dictionary?page=cc-cedict)
 - **License**: [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
-- **Description**: Chinese-to-English dictionary used as the primary meaning source. Downloaded as `cedict_1_0_ts_utf-8_mdbg.txt.gz` on first start, cached locally, refreshed weekly. Attribution: <https://www.mdbg.net/chinese/dictionary>.
+- **Description**: Chinese-to-English dictionary used as the primary meaning source. Attribution: <https://www.mdbg.net/chinese/dictionary>; based on CEDICT, Copyright (C) 1997, 1998 Paul Andrew Denisowski.
+- **Bundled file**: `app/data/dict/cedict_ts.u8.gz` — a dated mdbg export (`cedict_1_0_ts_utf-8_mdbg.txt.gz`, date and sha256 in `app/data/dict/VERSION.json`), unmodified apart from gzip compression; the licence header is kept inside the file. It is shipped as a separate data file under its own CC BY-SA 4.0 licence; QingDu's MIT licence does not apply to it, and any redistributed copy or adaptation of the file itself stays under CC BY-SA 4.0. Updated only by hand with `tools/refresh_dictionaries.py` after reviewing the gloss diff.
 
 ### SUBTLEX-CH per-reading frequencies
 - **Source**: SUBTLEX-CH-WF, Cai & Brysbaert (2010), *PLoS ONE* 5(6):e10729, DOI 10.1371/journal.pone.0010729. Distributed as free academic download via Ghent University (originally crr.ugent.be, now ugent.be/pp/experimentele-psychologie/en/research/documents/subtlexch).

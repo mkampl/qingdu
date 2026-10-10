@@ -1,0 +1,20 @@
+{
+  "hsk": {
+    "file": "complete-hsk-vocabulary.json.gz",
+    "source": "https://github.com/drkameleon/complete-hsk-vocabulary",
+    "upstream_file": "complete.json",
+    "commit": "7ac65bf1a6387d35f1ade478906172a19311c7f9",
+    "commit_date": "2026-03-23T14:02:13Z",
+    "sha256": "c869a0ce353279c9333d9b42c31fc3549785e8b40673dab57ee42bc99cd14131",
+    "license": "MIT (see LICENSE-complete-hsk-vocabulary.txt)"
+  },
+  "cedict": {
+    "file": "cedict_ts.u8.gz",
+    "source": "https://www.mdbg.net/chinese/dictionary?page=cc-cedict",
+    "upstream_file": "cedict_1_0_ts_utf-8_mdbg.txt.gz",
+    "date": "2026-09-03T08:26:05Z",
+    "entries": 124962,
+    "sha256": "c478b26ac8e14caa665c0b7b528e9ebce1142feb8b3efc6f94c3a2600e1915d0",
+    "license": "CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/); published by MDBG, based on CEDICT (C) 1997, 1998 Paul Andrew Denisowski"
+  }
+}

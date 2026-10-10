@@ -52,7 +52,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 | `PORT` | `8000` | Server port. |
 | `LOG_LEVEL` | `INFO` | Python logging level. |
 | `ALLOWED_ORIGINS` | `*` | CORS allow-list, comma-separated. |
-| `QINGDU_SKIP_CEDICT_LOAD` | `0` | Set to `1` to skip the ~4 MB CC-CEDICT download at startup (used by the test suite; not recommended in production — disables CC-CEDICT meaning overlay). |
+| `QINGDU_SKIP_CEDICT_LOAD` | `0` | Set to `1` to skip loading the bundled CC-CEDICT (`app/data/dict/`) at startup (used by the test suite; not recommended in production — disables the CC-CEDICT meaning overlay and the user-word snapshot refresh). |
 
 ## Troubleshooting
 

@@ -59,6 +59,7 @@ Builds:
     # The scanner otherwise errors on esbuild's ELF binary + tesseract wasm.
     scanignore:
       - frontend/node_modules
+      - app/data/dict
     gradle:
       - yes
 

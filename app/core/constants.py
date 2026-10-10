@@ -52,15 +52,25 @@ TRANSLATION_SOURCE_HSK_CHARS = "hsk-chars"
 TRANSLATION_SOURCE_CEDICT = "cedict"
 TRANSLATION_SOURCE_CACHE = "cache"
 
-# HSK Vocabulary
-HSK_VOCAB_URL = "https://raw.githubusercontent.com/drkameleon/complete-hsk-vocabulary/refs/heads/main/complete.json"
+# HSK Vocabulary (drkameleon/complete-hsk-vocabulary, MIT). The file the
+# app loads is vendored under app/data/dict/ at the commit recorded in
+# VERSION.json; this template is only used by tools/refresh_dictionaries.py
+# and by the startup fallback when the vendored copy is missing.
+HSK_VOCAB_URL_TEMPLATE = (
+    "https://raw.githubusercontent.com/drkameleon/complete-hsk-vocabulary/{ref}/complete.json"
+)
 
 # CC-CEDICT — the primary Chinese-English dictionary source we layer on
 # top of the HSK list. Format: `traditional simplified [pinyin] /m1/m2/.../`.
-# License: CC-BY-SA 4.0. Distributed as a single gzip-compressed UTF-8
-# text file (~4 MB compressed, ~9 MB unpacked, ~120k entries). Refreshed
-# weekly upstream; we cache the decompressed .u8 locally and re-fetch
-# if it ages beyond CEDICT_REFRESH_DAYS.
+# License: CC-BY-SA 4.0. mdbg publishes only a moving "latest" export, so
+# a reviewed snapshot is vendored under app/data/dict/ (see VERSION.json)
+# and replaced by hand with tools/refresh_dictionaries.py. The URL is used
+# by that tool and as a last-resort startup fallback.
 CEDICT_URL = "https://www.mdbg.net/chinese/export/cedict/cedict_1_0_ts_utf-8_mdbg.txt.gz"
-CEDICT_REFRESH_DAYS = 7
 CEDICT_SOURCE_TAG = "cc-cedict"
+
+# Bump whenever the code that picks a word's reading or headline gloss
+# changes (cedict_loader scoring, word_info resolution, learner glosses).
+# It is part of the dictionary version, so the next startup refreshes the
+# pinyin/meaning snapshots on users' words once.
+GLOSS_RULES_VERSION = 1

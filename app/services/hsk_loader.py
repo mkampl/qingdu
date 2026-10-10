@@ -1,10 +1,11 @@
 """
 HSK vocabulary loader.
 
-Downloads the complete-hsk-vocabulary JSON from GitHub, processes it into
-the dual New-HSK / Old-HSK shape, supplements missing levels from character
-components, applies the authoritative Konfuzius-Institut old-HSK overrides,
-and writes the result to disk for offline restart.
+Reads the complete-hsk-vocabulary JSON vendored at a pinned commit (see
+`app.services.dict_data`), processes it into the dual New-HSK / Old-HSK
+shape, supplements missing levels from character components, applies the
+authoritative Konfuzius-Institut old-HSK overrides, and writes the result
+to `data/hsk_vocabulary.json` for tools and as a fallback cache.
 
 Mutates `app.state.hsk_vocab` and `app.state.hsk_lists_original` in place.
 """
@@ -27,12 +28,13 @@ from app.core.constants import (
     HSK_DOWNLOAD_TIMEOUT,
     HSK_RETRY_MAX_WAIT,
     HSK_RETRY_MIN_WAIT,
-    HSK_VOCAB_URL,
+    HSK_VOCAB_URL_TEMPLATE,
     MAX_RETRY_ATTEMPTS,
 )
 from app.core.paths import BACKUP_DIR, DATA_DIR
 from app.core.radicals import CHAR_TO_RADICAL, RADICAL_PINYIN
 from app.konfuzius_parser import parse_konfuzius_old_hsk
+from app.services import dict_data
 from app.state import hsk_lists_original, hsk_vocab
 
 logger = logging.getLogger(__name__)
@@ -90,20 +92,6 @@ def _extract_levels(levels: list) -> tuple[str | None, str | None]:
             elif level.startswith("old-"):
                 level_old = level
     return level_new, level_old
-
-
-def _backup_raw(raw_data: list) -> None:
-    """Write a dated raw-source backup and prune old backups."""
-    try:
-        today = datetime.now().strftime("%Y-%m-%d")
-        raw_backup_file = BACKUP_DIR / f"complete_hsk_{today}.json"
-        if not raw_backup_file.exists():
-            with open(raw_backup_file, "w", encoding="utf-8") as f:
-                json.dump(raw_data, f, ensure_ascii=False, indent=2)
-            logger.info(f"Backup saved: {raw_backup_file.name}")
-            cleanup_old_backups(max_age_days=30)
-    except Exception as e:
-        logger.warning(f"Failed to create backup (non-critical): {e}")
 
 
 def _add_character_components(char_levels_new: dict, char_levels_old: dict) -> None:
@@ -284,20 +272,166 @@ def _apply_konfuzius_old_hsk() -> None:
 
 
 def _save_processed() -> None:
-    """Persist the processed vocabulary + a dated backup."""
+    """Persist the processed vocabulary for tools and as a fallback cache.
+    The dated backups the old download path kept are pruned over time."""
     vocab_file = DATA_DIR / "hsk_vocabulary.json"
     with open(vocab_file, "w", encoding="utf-8") as f:
         json.dump(hsk_vocab, f, ensure_ascii=False, indent=2)
+    cleanup_old_backups(max_age_days=30)
 
-    try:
-        today = datetime.now().strftime("%Y-%m-%d")
-        processed_backup_file = BACKUP_DIR / f"hsk_vocabulary_{today}.json"
-        if not processed_backup_file.exists():
-            with open(processed_backup_file, "w", encoding="utf-8") as f:
-                json.dump(hsk_vocab, f, ensure_ascii=False, indent=2)
-            logger.info(f"Processed vocabulary backup saved: {processed_backup_file.name}")
-    except Exception as e:
-        logger.warning(f"Failed to backup processed vocabulary (non-critical): {e}")
+
+def process_raw_hsk(raw_data: list) -> None:
+    """Turn the upstream complete.json list into `hsk_vocab` /
+    `hsk_lists_original` (in place). Pure processing: no network, no disk
+    writes, so tools can run it on any copy of the upstream file."""
+    hsk_vocab.clear()
+    hsk_lists_original.clear()
+
+    processed = 0
+    char_levels_new: dict = {}
+    char_levels_old: dict = {}
+    total_entries = 0
+    entries_with_both = 0
+    entries_with_new_only = 0
+    entries_with_old_only = 0
+    old_level_words: dict = {f"{i}": [] for i in range(1, 7)}
+
+    for entry in raw_data:
+        total_entries += 1
+        if not isinstance(entry, dict):
+            continue
+        simplified = entry.get("simplified")
+        if not simplified:
+            continue
+        levels = entry.get("level", [])
+        if not levels:
+            continue
+        forms = entry.get("forms", [])
+        if not forms:
+            continue
+
+        best_form = _choose_best_form(forms) or forms[0]
+        transcriptions = best_form.get("transcriptions", {})
+        pinyin = transcriptions.get("pinyin", "")
+        meanings = best_form.get("meanings", [])
+
+        level_new, level_old = _extract_levels(levels)
+        if level_new and level_old:
+            entries_with_both += 1
+        elif level_new:
+            entries_with_new_only += 1
+        elif level_old:
+            entries_with_old_only += 1
+
+        if (level_new or level_old) and simplified:
+            radical = entry.get("radical", "")
+            new_entry = {
+                "pinyin": pinyin,
+                "meaning": meanings[0] if meanings else "No translation",
+                "meanings": meanings,
+                "level_new": level_new,
+                "level_old": level_old,
+                "level": level_new or level_old,
+                "frequency": entry.get("frequency", 0),
+                "radical": radical,
+                "is_original_hsk": True,
+            }
+
+            if simplified not in hsk_vocab:
+                hsk_vocab[simplified] = new_entry
+                hsk_lists_original[simplified] = new_entry.copy()
+                if level_old:
+                    level_num = level_old.replace("old-", "")
+                    if level_num in old_level_words:
+                        old_level_words[level_num].append(simplified)
+            else:
+                existing = hsk_vocab[simplified]
+                # First-occurrence wins on levels; fill in missing ones.
+                best_level_new = existing.get("level_new") or new_entry.get("level_new")
+                best_level_old = existing.get("level_old") or new_entry.get("level_old")
+                existing_meaning = existing.get("meaning", "")
+                new_meaning = new_entry["meaning"]
+                new_is_good = "abbr." not in new_meaning and "variant of" not in new_meaning
+                best_meaning = new_meaning if new_is_good else existing_meaning
+                best_meanings = (
+                    new_entry["meanings"] if new_is_good else existing.get("meanings", [])
+                )
+                best_pinyin = new_entry["pinyin"] if new_is_good else existing.get("pinyin", "")
+                best_radical = new_entry.get("radical") or existing.get("radical", "")
+                merged_entry = {
+                    "pinyin": best_pinyin,
+                    "meaning": best_meaning,
+                    "meanings": best_meanings,
+                    "level_new": best_level_new,
+                    "level_old": best_level_old,
+                    "level": best_level_new or best_level_old,
+                    "frequency": max(existing.get("frequency", 0), new_entry.get("frequency", 0)),
+                    "radical": best_radical,
+                    "is_original_hsk": True,
+                }
+                hsk_vocab[simplified] = merged_entry
+                hsk_lists_original[simplified] = merged_entry.copy()
+
+            processed += 1
+
+            # Track lowest HSK level per character in both systems.
+            for char in simplified:
+                if level_new:
+                    level_new_num = int(level_new.replace("new-", "").replace("+", ""))
+                    if char not in char_levels_new or level_new_num < char_levels_new[char]:
+                        char_levels_new[char] = level_new_num
+                if level_old:
+                    level_old_num = int(level_old.replace("old-", ""))
+                    if char not in char_levels_old or level_old_num < char_levels_old[char]:
+                        char_levels_old[char] = level_old_num
+
+    _add_character_components(char_levels_new, char_levels_old)
+    _supplement_missing_levels()
+
+    # Debug breakdown — original HSK vs supplementary entries.
+    original_count = sum(1 for w in hsk_vocab.values() if w.get("is_original_hsk", False))
+    component_count = sum(1 for w in hsk_vocab.values() if not w.get("is_original_hsk", False))
+    logger.info(
+        f"Vocabulary breakdown: {original_count} original HSK words, "
+        f"{component_count} character components/supplemented"
+    )
+
+    # Old HSK distribution (original words only) — sanity check.
+    old_hsk_dist: dict = {}
+    for _word, data in hsk_vocab.items():
+        if data.get("level_old") and data.get("is_original_hsk", False):
+            level_num = data["level_old"].replace("old-", "")
+            old_hsk_dist[level_num] = old_hsk_dist.get(level_num, 0) + 1
+    if old_hsk_dist:
+        logger.info("OLD HSK distribution (original words only, should match GitHub source):")
+        for level in sorted(old_hsk_dist, key=int):
+            logger.info(f"  Level {level}: {old_hsk_dist[level]} words")
+        logger.info("First 20 words in Old HSK Level 1 (from processing):")
+        for i, word in enumerate(old_level_words.get("1", [])[:20]):
+            logger.info(f"  {i + 1}. {word}")
+
+    # New HSK distribution (original words only).
+    new_hsk_dist: dict = {}
+    for _word, data in hsk_vocab.items():
+        if data.get("level_new") and data.get("is_original_hsk", False):
+            level_num = data["level_new"].replace("new-", "").replace("+", "")
+            new_hsk_dist[level_num] = new_hsk_dist.get(level_num, 0) + 1
+    if new_hsk_dist:
+        logger.info("NEW HSK distribution (original words only):")
+        for level in sorted(new_hsk_dist, key=int):
+            logger.info(f"  Level {level}: {new_hsk_dist[level]} words")
+
+    _populate_radical_pinyin()
+    _combine_multi_char_radicals()
+    _apply_konfuzius_old_hsk()
+
+    total_chars = len(set(char_levels_new) | set(char_levels_old))
+    logger.info(f"Processed and saved {processed} HSK words + {total_chars} individual characters")
+    logger.info(
+        f"Level distribution from source: {entries_with_both} with both, "
+        f"{entries_with_new_only} new only, {entries_with_old_only} old only "
+        f"(out of {total_entries} total entries)"
+    )
 
 
 @retry(
@@ -306,176 +440,68 @@ def _save_processed() -> None:
     retry=retry_if_exception_type((httpx.TimeoutException, httpx.NetworkError)),
     reraise=True,
 )
-async def download_hsk_vocabulary() -> None:
-    """
-    Download and process the complete HSK vocabulary.
-    Retries with exponential backoff on network errors.
-    """
+async def _download_pinned(url: str) -> bytes:
+    async with httpx.AsyncClient(timeout=HSK_DOWNLOAD_TIMEOUT, follow_redirects=True) as client:
+        response = await client.get(url)
+        response.raise_for_status()
+        return response.content
+
+
+async def _fetch_pinned_raw() -> tuple[bytes, str] | None:
+    """Last resort when the vendored file is missing from the checkout:
+    download the exact commit named in VERSION.json and verify its hash."""
+    info = dict_data.read_version_info().get("hsk") or {}
+    commit, expected = info.get("commit"), info.get("sha256")
+    if not commit or not expected:
+        return None
+    url = HSK_VOCAB_URL_TEMPLATE.format(ref=commit)
+    logger.warning("Vendored HSK vocabulary missing; downloading pinned copy %s", url)
+    data = await _download_pinned(url)
+    digest = dict_data.sha256_bytes(data)
+    if digest != expected:
+        raise dict_data.ChecksumError(f"downloaded HSK file sha256 {digest} != {expected}")
+    return data, digest
+
+
+def _load_processed_cache() -> bool:
+    vocab_file = DATA_DIR / "hsk_vocabulary.json"
+    if not vocab_file.exists():
+        return False
+    with open(vocab_file, encoding="utf-8") as f:
+        cached = json.load(f)
+    hsk_vocab.clear()
+    hsk_vocab.update(cached)
+    logger.warning("Loaded %d HSK words from the processed cache %s", len(hsk_vocab), vocab_file)
+    return True
+
+
+async def load_hsk_vocabulary() -> None:
+    """Load the pinned HSK vocabulary into `hsk_vocab`.
+
+    Order: the vendored file in app/data/dict/ (normal case, no network);
+    if it is missing, the pinned commit from GitHub (checksum-verified);
+    if that fails too, the processed `data/hsk_vocabulary.json` from an
+    earlier run. Records the source hash for the dictionary version."""
+    dict_data.loaded_sources["hsk"] = None
+    found: tuple[bytes, str] | None = None
     try:
-        async with httpx.AsyncClient(timeout=HSK_DOWNLOAD_TIMEOUT) as client:
-            response = await client.get(HSK_VOCAB_URL)
-            response.raise_for_status()
-            raw_data = response.json()
+        found = dict_data.read_vendored("hsk")
+    except (dict_data.ChecksumError, OSError, ValueError) as e:
+        logger.error("Vendored HSK vocabulary unusable: %s", e)
+    if found is None:
+        try:
+            found = await _fetch_pinned_raw()
+        except Exception as e:  # noqa: BLE001
+            logger.error("Pinned HSK download failed: %s", e)
+    if found is None:
+        if not _load_processed_cache():
+            logger.warning("No HSK vocabulary available - starting without it")
+        return
 
-        _backup_raw(raw_data)
-
-        processed = 0
-        char_levels_new: dict = {}
-        char_levels_old: dict = {}
-        total_entries = 0
-        entries_with_both = 0
-        entries_with_new_only = 0
-        entries_with_old_only = 0
-        old_level_words: dict = {f"{i}": [] for i in range(1, 7)}
-
-        for entry in raw_data:
-            total_entries += 1
-            if not isinstance(entry, dict):
-                continue
-            simplified = entry.get("simplified")
-            if not simplified:
-                continue
-            levels = entry.get("level", [])
-            if not levels:
-                continue
-            forms = entry.get("forms", [])
-            if not forms:
-                continue
-
-            best_form = _choose_best_form(forms) or forms[0]
-            transcriptions = best_form.get("transcriptions", {})
-            pinyin = transcriptions.get("pinyin", "")
-            meanings = best_form.get("meanings", [])
-
-            level_new, level_old = _extract_levels(levels)
-            if level_new and level_old:
-                entries_with_both += 1
-            elif level_new:
-                entries_with_new_only += 1
-            elif level_old:
-                entries_with_old_only += 1
-
-            if (level_new or level_old) and simplified:
-                radical = entry.get("radical", "")
-                new_entry = {
-                    "pinyin": pinyin,
-                    "meaning": meanings[0] if meanings else "No translation",
-                    "meanings": meanings,
-                    "level_new": level_new,
-                    "level_old": level_old,
-                    "level": level_new or level_old,
-                    "frequency": entry.get("frequency", 0),
-                    "radical": radical,
-                    "is_original_hsk": True,
-                }
-
-                if simplified not in hsk_vocab:
-                    hsk_vocab[simplified] = new_entry
-                    hsk_lists_original[simplified] = new_entry.copy()
-                    if level_old:
-                        level_num = level_old.replace("old-", "")
-                        if level_num in old_level_words:
-                            old_level_words[level_num].append(simplified)
-                else:
-                    existing = hsk_vocab[simplified]
-                    # First-occurrence wins on levels; fill in missing ones.
-                    best_level_new = existing.get("level_new") or new_entry.get("level_new")
-                    best_level_old = existing.get("level_old") or new_entry.get("level_old")
-                    existing_meaning = existing.get("meaning", "")
-                    new_meaning = new_entry["meaning"]
-                    new_is_good = "abbr." not in new_meaning and "variant of" not in new_meaning
-                    best_meaning = new_meaning if new_is_good else existing_meaning
-                    best_meanings = (
-                        new_entry["meanings"] if new_is_good else existing.get("meanings", [])
-                    )
-                    best_pinyin = new_entry["pinyin"] if new_is_good else existing.get("pinyin", "")
-                    best_radical = new_entry.get("radical") or existing.get("radical", "")
-                    merged_entry = {
-                        "pinyin": best_pinyin,
-                        "meaning": best_meaning,
-                        "meanings": best_meanings,
-                        "level_new": best_level_new,
-                        "level_old": best_level_old,
-                        "level": best_level_new or best_level_old,
-                        "frequency": max(
-                            existing.get("frequency", 0), new_entry.get("frequency", 0)
-                        ),
-                        "radical": best_radical,
-                        "is_original_hsk": True,
-                    }
-                    hsk_vocab[simplified] = merged_entry
-                    hsk_lists_original[simplified] = merged_entry.copy()
-
-                processed += 1
-
-                # Track lowest HSK level per character in both systems.
-                for char in simplified:
-                    if level_new:
-                        level_new_num = int(level_new.replace("new-", "").replace("+", ""))
-                        if char not in char_levels_new or level_new_num < char_levels_new[char]:
-                            char_levels_new[char] = level_new_num
-                    if level_old:
-                        level_old_num = int(level_old.replace("old-", ""))
-                        if char not in char_levels_old or level_old_num < char_levels_old[char]:
-                            char_levels_old[char] = level_old_num
-
-        _add_character_components(char_levels_new, char_levels_old)
-        _supplement_missing_levels()
-
-        # Debug breakdown — original HSK vs supplementary entries.
-        original_count = sum(1 for w in hsk_vocab.values() if w.get("is_original_hsk", False))
-        component_count = sum(1 for w in hsk_vocab.values() if not w.get("is_original_hsk", False))
-        logger.info(
-            f"Vocabulary breakdown: {original_count} original HSK words, "
-            f"{component_count} character components/supplemented"
-        )
-
-        # Old HSK distribution (original words only) — sanity check.
-        old_hsk_dist: dict = {}
-        for _word, data in hsk_vocab.items():
-            if data.get("level_old") and data.get("is_original_hsk", False):
-                level_num = data["level_old"].replace("old-", "")
-                old_hsk_dist[level_num] = old_hsk_dist.get(level_num, 0) + 1
-        if old_hsk_dist:
-            logger.info("OLD HSK distribution (original words only, should match GitHub source):")
-            for level in sorted(old_hsk_dist, key=int):
-                logger.info(f"  Level {level}: {old_hsk_dist[level]} words")
-            logger.info("First 20 words in Old HSK Level 1 (from processing):")
-            for i, word in enumerate(old_level_words.get("1", [])[:20]):
-                logger.info(f"  {i + 1}. {word}")
-
-        # New HSK distribution (original words only).
-        new_hsk_dist: dict = {}
-        for _word, data in hsk_vocab.items():
-            if data.get("level_new") and data.get("is_original_hsk", False):
-                level_num = data["level_new"].replace("new-", "").replace("+", "")
-                new_hsk_dist[level_num] = new_hsk_dist.get(level_num, 0) + 1
-        if new_hsk_dist:
-            logger.info("NEW HSK distribution (original words only):")
-            for level in sorted(new_hsk_dist, key=int):
-                logger.info(f"  Level {level}: {new_hsk_dist[level]} words")
-
-        _populate_radical_pinyin()
-        _combine_multi_char_radicals()
-        _apply_konfuzius_old_hsk()
+    data, digest = found
+    process_raw_hsk(json.loads(data))
+    dict_data.loaded_sources["hsk"] = digest
+    try:
         _save_processed()
-
-        total_chars = len(set(char_levels_new) | set(char_levels_old))
-        logger.info(
-            f"Processed and saved {processed} HSK words + {total_chars} individual characters"
-        )
-        logger.info(
-            f"Level distribution from source: {entries_with_both} with both, "
-            f"{entries_with_new_only} new only, {entries_with_old_only} old only "
-            f"(out of {total_entries} total entries)"
-        )
-
-    except httpx.HTTPStatusError as e:
-        logger.error(f"HTTP error downloading vocabulary: {e.response.status_code}", exc_info=True)
-        raise
-    except (httpx.TimeoutException, httpx.NetworkError) as e:
-        logger.error(f"Network error downloading vocabulary: {e}", exc_info=True)
-        raise
-    except Exception as e:
-        logger.error(f"Error downloading vocabulary: {e}", exc_info=True)
-        raise
+    except OSError as e:
+        logger.warning("Could not write processed HSK vocabulary (non-critical): %s", e)

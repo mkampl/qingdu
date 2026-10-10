@@ -27,6 +27,8 @@ RUN mkdir -p /app/data /app/static
 
 # Copy application code + favicons/manifest (still served at /static).
 # The Vue 3 frontend supersedes the legacy templates — see Stage 1 build.
+# app/data/dict/ carries the pinned HSK list + CC-CEDICT (~5 MB gzipped),
+# so startup needs no network for dictionary data.
 COPY app/ /app/app/
 COPY static/ /app/static/
 

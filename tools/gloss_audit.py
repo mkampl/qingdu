@@ -15,8 +15,10 @@ Typical use::
     python tools/gloss_audit.py diff /tmp/before.json /tmp/after.json --level 1 --level 2
     python tools/gloss_audit.py stats /tmp/after.json
 
-Inputs default to ``data/hsk_vocabulary.json`` and ``data/cedict_ts.u8``;
-pass ``--hsk`` / ``--cedict`` to point at a copy of the production files.
+Inputs default to the pinned files in ``app/data/dict/`` (the raw upstream
+HSK ``complete.json`` and CC-CEDICT, gzip-compressed). ``--hsk`` also takes
+an already processed ``hsk_vocabulary.json`` and ``--cedict`` a plain or
+gzipped ``cedict_ts.u8``, e.g. copies of the production files.
 Nothing is downloaded and nothing is written except the snapshot file.
 
 Snapshot format: ``{word: {pinyin, meaning, meanings, level, original}}``
@@ -28,6 +30,7 @@ component characters and ``--words-file`` extras).
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import re
 import sys
@@ -37,8 +40,16 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-DEFAULT_HSK = REPO_ROOT / "data" / "hsk_vocabulary.json"
-DEFAULT_CEDICT = REPO_ROOT / "data" / "cedict_ts.u8"
+DICT_DIR = REPO_ROOT / "app" / "data" / "dict"
+DEFAULT_HSK = DICT_DIR / "complete-hsk-vocabulary.json.gz"
+DEFAULT_CEDICT = DICT_DIR / "cedict_ts.u8.gz"
+
+
+def _read_text(path: Path) -> str:
+    raw = path.read_bytes()
+    if path.suffix == ".gz":
+        raw = gzip.decompress(raw)
+    return raw.decode("utf-8")
 
 
 # --- snapshot ------------------------------------------------------------------
@@ -69,12 +80,19 @@ def build_snapshot(hsk_path: Path, cedict_path: Path, extra_words: list[str]) ->
     from app.services import cedict_loader
     from app.services.word_info import lookup_pinyin_meaning
 
-    hsk_raw = json.loads(hsk_path.read_text(encoding="utf-8"))
-    state.hsk_vocab.clear()
-    state.hsk_vocab.update(hsk_raw)
+    hsk_raw = json.loads(_read_text(hsk_path))
+    if isinstance(hsk_raw, list):
+        # Raw upstream complete.json: run the app's own processing.
+        from app.services.hsk_loader import process_raw_hsk
+
+        process_raw_hsk(hsk_raw)
+        hsk_raw = dict(state.hsk_vocab)
+    else:
+        state.hsk_vocab.clear()
+        state.hsk_vocab.update(hsk_raw)
     state.unknown_word_cache.clear()
 
-    parsed = cedict_loader._parse_text(cedict_path.read_text(encoding="utf-8"))
+    parsed = cedict_loader._parse_text(_read_text(cedict_path))
     state.cedict_vocab.clear()
     state.cedict_vocab.update(parsed)
     cedict_loader._merge_into_hsk_vocab()
@@ -270,10 +288,12 @@ def main(argv: list[str] | None = None) -> int:
 
     s = sub.add_parser("snapshot", help="resolve every word and write a JSON snapshot")
     s.add_argument(
-        "--hsk", default=str(DEFAULT_HSK), help="hsk_vocabulary.json (default: %(default)s)"
+        "--hsk",
+        default=str(DEFAULT_HSK),
+        help="complete.json[.gz] or processed hsk_vocabulary.json (default: %(default)s)",
     )
     s.add_argument(
-        "--cedict", default=str(DEFAULT_CEDICT), help="cedict_ts.u8 (default: %(default)s)"
+        "--cedict", default=str(DEFAULT_CEDICT), help="cedict_ts.u8[.gz] (default: %(default)s)"
     )
     s.add_argument(
         "--words-file",

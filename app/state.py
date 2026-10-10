@@ -2,7 +2,7 @@
 Shared mutable application state.
 
 These dicts/caches are populated at startup (`app.main.startup_event` ->
-`app.services.hsk_loader.download_hsk_vocabulary`) and read by services
+`app.services.hsk_loader.load_hsk_vocabulary`) and read by services
 and routers thereafter. Importing services should always read/mutate the
 dicts *in place* — never rebind the names (use `.clear()` + `.update()`
 if you need to swap contents).

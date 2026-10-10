@@ -1,12 +1,13 @@
 """
 Refresh the pinyin/meaning snapshots on every UserWord row so they
 reflect the *current* dictionary (HSK + CC-CEDICT after every parser
-or data-source change). Runs once at app startup, after the dictionary
-loaders complete.
+or data-source change). Runs at app startup, after the dictionary
+loaders complete, but only when the dictionary version
+(`dict_data.dict_version()`) differs from the one stored after the last
+run. A plain restart therefore touches no user rows at all.
 
 Idempotent: we only write rows whose snapshot differs from what
-`lookup_pinyin_meaning` produces today, so a no-op restart costs one
-read per row and zero writes.
+`lookup_pinyin_meaning` produces today.
 """
 
 from __future__ import annotations
@@ -82,19 +83,35 @@ def refresh_all_user_words(db: Session) -> int:
     return updated
 
 
-def run_at_startup() -> None:
+def run_at_startup() -> int | None:
     """Helper called from `app.main.startup_event` so the call site
-    doesn't have to manage its own session."""
+    doesn't have to manage its own session.
+
+    Returns the number of rewritten rows, or None when the backfill was
+    skipped (version unchanged, or dictionary data incomplete)."""
     from app.database import SessionLocal
+    from app.services import dict_data
+
+    current = dict_data.dict_version()
+    if current is None:
+        logger.warning("Dictionary data incomplete; skipping UserWord snapshot refresh")
+        return None
 
     session = SessionLocal()
     try:
+        stored = dict_data.get_stored_version(session)
+        if stored == current:
+            logger.info("Dictionary version %s unchanged; UserWord snapshots untouched", current)
+            return None
+        logger.info("Dictionary version %s -> %s; refreshing UserWord snapshots", stored, current)
         n = refresh_all_user_words(session)
-        if n:
-            logger.info("Refreshed pinyin/meaning on %d UserWord rows", n)
+        dict_data.set_stored_version(session, current)
+        logger.info("Refreshed pinyin/meaning on %d UserWord rows", n)
+        return n
     except Exception as e:  # noqa: BLE001
         logger.warning("UserWord snapshot refresh failed (%s) — skipping", e)
         session.rollback()
+        return None
     finally:
         session.close()
 

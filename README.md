@@ -57,6 +57,7 @@ MIT — see [LICENSE](LICENSE). Third-party attributions: [THIRD_PARTY_LICENSES.
 Dictionary data:
 - HSK vocabulary: [drkameleon/complete-hsk-vocabulary](https://github.com/drkameleon/complete-hsk-vocabulary) (MIT)
 - CC-CEDICT: [mdbg.net](https://www.mdbg.net/chinese/dictionary?page=cc-cedict) (CC-BY-SA 4.0)
+- Both are bundled in `app/data/dict/` at a pinned version (see `VERSION.json`); `tools/refresh_dictionaries.py` updates them.
 
 ## Support
 
