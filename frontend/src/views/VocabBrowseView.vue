@@ -2,42 +2,42 @@
 import { computed, onMounted, ref, watch } from "vue";
 
 import * as api from "@/api/client";
-import type { HskBrowseItem } from "@/api/client";
+import type { HskBrowseItem, UserWordState } from "@/api/client";
 import { useAuthStore } from "@/stores/auth";
+import { useAuthModalsStore } from "@/stores/auth-modals";
+import { useSettingsStore } from "@/stores/settings";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
+import { browseEmptyText, browseLevels, mapBrowseLevel } from "@/utils/browse";
 
 import HskChip from "@/components/reader/HskChip.vue";
+import { effectiveWordState } from "@/components/reader/utils";
 
 const auth = useAuthStore();
+const authModals = useAuthModalsStore();
+const settings = useSettingsStore();
 const toasts = useToastStore();
 const userWords = useUserWordsStore();
 
-type LevelKey = "all" | "new-1" | "new-2" | "new-3" | "new-4" | "new-5" | "new-6" | "new-7" | "new-8" | "new-9";
-
-const LEVELS: { key: LevelKey; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "new-1", label: "HSK 1" },
-  { key: "new-2", label: "HSK 2" },
-  { key: "new-3", label: "HSK 3" },
-  { key: "new-4", label: "HSK 4" },
-  { key: "new-5", label: "HSK 5" },
-  { key: "new-6", label: "HSK 6" },
-  { key: "new-7", label: "HSK 7" },
-  { key: "new-8", label: "HSK 8" },
-  { key: "new-9", label: "HSK 9" },
-];
+// Levels follow the HSK version picked in Settings (old HSK: 1–6).
+const levels = computed(() => browseLevels(settings.hskVersion));
 
 const PAGE = 60;
 
-const level = ref<LevelKey>("new-1");
+const level = ref<string>(mapBrowseLevel("new-1", settings.hskVersion));
 const search = ref("");
 const items = ref<HskBrowseItem[]>([]);
 const total = ref(0);
-const offset = ref(0);
 const loading = ref(false);
 const error = ref<string | null>(null);
-const adding = ref<string | null>(null);
+const busy = ref<string | null>(null);
+
+watch(
+  () => settings.hskVersion,
+  (v) => {
+    level.value = mapBrowseLevel(level.value, v);
+  },
+);
 
 // Debounce search input so we don't fire on every keystroke.
 let searchTimer: number | undefined;
@@ -48,73 +48,110 @@ watch(search, () => {
 
 watch(level, () => void load(true));
 
+// Every load gets a number; only the newest one may touch the list. A
+// "load more" still in flight when the level or search changes would
+// otherwise append the old level's rows to the new one.
+let loadSeq = 0;
+
 async function load(reset = false) {
+  const seq = ++loadSeq;
   if (reset) {
-    offset.value = 0;
     items.value = [];
+    total.value = 0;
   }
+  const offset = items.value.length;
   loading.value = true;
   error.value = null;
   try {
     const params: Parameters<typeof api.browseHsk>[0] = {
-      offset: offset.value,
+      offset,
       limit: PAGE,
     };
     if (level.value !== "all") params.level = level.value;
     if (search.value.trim()) params.q = search.value.trim();
     const r = await api.browseHsk(params);
-    if (reset) {
-      items.value = r.items;
-    } else {
-      items.value = [...items.value, ...r.items];
-    }
+    if (seq !== loadSeq) return;
+    items.value = reset ? r.items : [...items.value, ...r.items];
     total.value = r.total;
   } catch (e) {
+    if (seq !== loadSeq) return;
     error.value = e instanceof Error ? e.message : "Couldn't load HSK vocabulary.";
   } finally {
-    loading.value = false;
+    if (seq === loadSeq) loading.value = false;
   }
 }
 
 async function loadMore() {
-  offset.value += PAGE;
   await load(false);
 }
 
 const hasMore = computed(() => items.value.length < total.value);
+const emptyText = computed(() => browseEmptyText(level.value, search.value));
 
-async function addToLearning(item: HskBrowseItem) {
+function stateOf(item: HskBrowseItem): UserWordState | null {
+  return effectiveWordState(
+    userWords.stateOf(item.hanzi),
+    userWords.hydrated,
+    item.user_state,
+  );
+}
+
+const STATE_DONE: Record<UserWordState, string> = {
+  learning: "Added {w} to learning.",
+  known: "Marked {w} as known.",
+  ignored: "Ignoring {w}.",
+};
+
+/**
+ * Set a state. Clicking the active "Ignored" un-ignores the word; the
+ * active Learning / Known buttons do nothing — clearing those would drop
+ * the word's review history, which belongs on /words, not a browse list.
+ */
+async function toggleState(item: HskBrowseItem, state: UserWordState) {
   if (!auth.isAuthed) {
-    toasts.error("Sign in to track words.");
+    authModals.openLogin();
     return;
   }
-  adding.value = item.hanzi;
+  const current = stateOf(item);
+  if (current === state && state !== "ignored") return;
+  busy.value = item.hanzi;
   try {
-    await userWords.setState(item.hanzi, "learning");
-    // Patch the row optimistically so the button label flips immediately
-    // without a refetch of the whole page.
-    item.user_state = "learning";
-    toasts.success(`Added ${item.hanzi} to learning.`);
+    if (current === state) {
+      await userWords.clearState(item.hanzi);
+      item.user_state = null;
+    } else {
+      await userWords.setState(item.hanzi, state);
+      // Keep the row in step for the pre-hydration fallback.
+      item.user_state = state;
+      toasts.success(STATE_DONE[state].replace("{w}", item.hanzi));
+    }
   } catch (e) {
-    toasts.error(
-      e instanceof Error ? e.message : `Couldn't add ${item.hanzi}.`,
-    );
+    toasts.error(e instanceof Error ? e.message : `Couldn't update ${item.hanzi}.`);
   } finally {
-    adding.value = null;
+    busy.value = null;
   }
 }
 
-function stateLabel(item: HskBrowseItem): string {
-  switch (item.user_state) {
-    case "learning":
-      return "Learning";
-    case "known":
-      return "Known";
-    case "ignored":
-      return "Ignored";
-    default:
-      return "Add to learning";
+const ACTIONS: { state: UserWordState; label: string; active: string }[] = [
+  { state: "learning", label: "Learn", active: "Learning" },
+  { state: "known", label: "Known", active: "Known" },
+  { state: "ignored", label: "Ignore", active: "Ignored" },
+];
+
+function actionTitle(item: HskBrowseItem, state: UserWordState): string {
+  const current = stateOf(item);
+  if (current === state) {
+    return state === "ignored"
+      ? "Stop ignoring"
+      : state === "learning"
+        ? "In your learning pool"
+        : "Marked as known";
   }
+  return state === "learning"
+    ? "Add to learning"
+    : state === "known"
+      ? "Mark as known"
+      : "Ignore this word";
 }
 
 onMounted(() => void load(true));
@@ -124,8 +161,22 @@ onMounted(() => void load(true));
   <section class="space-y-5">
     <p class="text-sm text-fg-muted leading-relaxed">
       Browse the full HSK vocabulary by level or search any hanzi / pinyin /
-      meaning. Tap a word to add it to your learning pool — it'll show up in
-      the next review session.
+      meaning. Add a word to learning and it shows up in the next review
+      session; mark the ones you already know or want to skip.
+    </p>
+
+    <p
+      v-if="auth.hydrated && !auth.isAuthed"
+      class="rounded-md border border-border-subtle bg-bg-sunken px-3 py-2 text-xs text-fg-muted"
+    >
+      <button
+        type="button"
+        class="font-medium text-accent hover:underline"
+        @click="authModals.openLogin()"
+      >
+        Sign in
+      </button>
+      to add words to learning or mark them known.
     </p>
 
     <!-- Level filter — snap-scroll on mobile so 10 chips don't wrap into
@@ -137,7 +188,7 @@ onMounted(() => void load(true));
     >
       <div class="flex w-max gap-1.5">
         <button
-          v-for="lv in LEVELS"
+          v-for="lv in levels"
           :key="lv.key"
           type="button"
           role="tab"
@@ -159,6 +210,7 @@ onMounted(() => void load(true));
     <input
       v-model="search"
       type="search"
+      aria-label="Search HSK vocabulary"
       placeholder="Search hanzi, pinyin, or meaning"
       class="w-full rounded-md border border-border-subtle bg-bg px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none"
     />
@@ -167,7 +219,7 @@ onMounted(() => void load(true));
       v-if="!loading && items.length === 0 && !error"
       class="py-10 text-center font-display italic text-fg-muted"
     >
-      No matches in this level.
+      {{ emptyText }}
     </p>
 
     <p v-if="error" class="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">
@@ -176,7 +228,7 @@ onMounted(() => void load(true));
 
     <!-- Result list — flexible row layout that wraps gracefully on narrow
          screens. The hanzi anchor on the left, pinyin + meaning in the
-         middle, action button on the right. -->
+         middle, state actions on the right. -->
     <ul class="space-y-2">
       <li
         v-for="item in items"
@@ -190,23 +242,36 @@ onMounted(() => void load(true));
         </span>
         <HskChip
           v-if="item.level_new || item.level_old"
-          :level="item.level_new ?? item.level_old"
+          :level="
+            settings.hskVersion === 'old'
+              ? (item.level_old ?? item.level_new)
+              : (item.level_new ?? item.level_old)
+          "
           size="xs"
         />
-        <button
-          type="button"
-          :disabled="adding === item.hanzi || item.user_state !== null"
-          class="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors"
-          :class="
-            item.user_state === null
-              ? 'border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20'
-              : 'border border-border-subtle bg-bg-sunken text-fg-subtle'
-          "
-          @click="addToLearning(item)"
+        <div
+          class="flex shrink-0 items-center gap-1"
+          role="group"
+          :aria-label="`State of ${item.hanzi}`"
         >
-          <span v-if="adding === item.hanzi" class="inline-block size-2.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-          <span v-else>{{ stateLabel(item) }}</span>
-        </button>
+          <button
+            v-for="a in ACTIONS"
+            :key="a.state"
+            type="button"
+            :disabled="!auth.isAuthed || busy === item.hanzi"
+            :aria-pressed="stateOf(item) === a.state"
+            :title="auth.isAuthed ? actionTitle(item, a.state) : 'Sign in to track words'"
+            class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            :class="
+              stateOf(item) === a.state
+                ? 'border-accent bg-accent/15 text-accent'
+                : 'border-border-subtle bg-bg-elevated text-fg-muted hover:border-border hover:text-fg'
+            "
+            @click="toggleState(item, a.state)"
+          >
+            {{ stateOf(item) === a.state ? a.active : a.label }}
+          </button>
+        </div>
       </li>
     </ul>
 

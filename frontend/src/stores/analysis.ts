@@ -4,6 +4,20 @@ import { computed, ref } from "vue";
 import * as api from "@/api/client";
 import type { AnalysisResponse } from "@/api/types";
 
+export interface AnalysisStash {
+  inputText: string;
+  result: AnalysisResponse | null;
+  error: string | null;
+  savedTextId: number | null;
+  savedTextTitle: string | null;
+  savedTextTags: string[];
+  savedTextOriginalContent: string | null;
+  initialProgress: number;
+  glossaryListIds: number[] | null;
+  librarySlug: string | null;
+  libraryHasQuiz: boolean;
+}
+
 export const useAnalysisStore = defineStore("analysis", () => {
   const inputText = ref("");
   const result = ref<AnalysisResponse | null>(null);
@@ -43,6 +57,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
    */
   const glossaryListIds = ref<number[] | null>(null);
   let activeRequest: AbortController | null = null;
+  let requestSeq = 0;
 
   const hasResult = computed(() => result.value !== null);
   /**
@@ -61,33 +76,89 @@ export const useAnalysisStore = defineStore("analysis", () => {
     inputText.value = text;
     error.value = null;
     if (!text.trim()) {
+      cancelPending();
       result.value = null;
       return;
     }
 
     // Cancel any in-flight analysis so the UI never shows stale results.
     if (activeRequest) activeRequest.abort();
-    activeRequest = new AbortController();
+    const controller = new AbortController();
+    activeRequest = controller;
+    const seq = ++requestSeq;
 
     loading.value = true;
     try {
-      result.value = await api.analyze(text, {
+      const next = await api.analyze(text, {
         glossary_list_ids: glossaryListIds.value,
-        signal: activeRequest.signal,
+        signal: controller.signal,
       });
+      if (seq !== requestSeq) return;
+      result.value = next;
       // NOTE: savedTextId is intentionally preserved across re-analyse so the
       // user can edit a saved text + re-analyse + Save (which updates the
       // same record). Use reset() to fully decouple from a saved record.
     } catch (e) {
+      if (seq !== requestSeq) return;
       if (e instanceof DOMException && e.name === "AbortError") return;
       error.value = e instanceof Error ? e.message : "Analysis failed";
       throw e;
     } finally {
-      loading.value = false;
+      // Only the newest request owns the spinner: an aborted one finishing
+      // late must not flip loading off while its successor is in flight.
+      if (seq === requestSeq) {
+        loading.value = false;
+        activeRequest = null;
+      }
     }
   }
 
+  /** Abort any in-flight analysis and forget it. */
+  function cancelPending() {
+    if (activeRequest) activeRequest.abort();
+    activeRequest = null;
+    requestSeq += 1;
+    loading.value = false;
+  }
+
+  /**
+   * Snapshot of the whole reader state. The public share view borrows this
+   * store to render someone else's text; it stashes the reader's own
+   * (possibly unsaved) analysis first and puts it back on the way out.
+   */
+  function stash(): AnalysisStash {
+    return {
+      inputText: inputText.value,
+      result: result.value,
+      error: error.value,
+      savedTextId: savedTextId.value,
+      savedTextTitle: savedTextTitle.value,
+      savedTextTags: [...savedTextTags.value],
+      savedTextOriginalContent: savedTextOriginalContent.value,
+      initialProgress: initialProgress.value,
+      glossaryListIds: glossaryListIds.value,
+      librarySlug: librarySlug.value,
+      libraryHasQuiz: libraryHasQuiz.value,
+    };
+  }
+
+  function restore(s: AnalysisStash) {
+    cancelPending();
+    inputText.value = s.inputText;
+    result.value = s.result;
+    error.value = s.error;
+    savedTextId.value = s.savedTextId;
+    savedTextTitle.value = s.savedTextTitle;
+    savedTextTags.value = s.savedTextTags;
+    savedTextOriginalContent.value = s.savedTextOriginalContent;
+    initialProgress.value = s.initialProgress;
+    glossaryListIds.value = s.glossaryListIds;
+    librarySlug.value = s.librarySlug;
+    libraryHasQuiz.value = s.libraryHasQuiz;
+  }
+
   function reset() {
+    cancelPending();
     inputText.value = "";
     result.value = null;
     error.value = null;
@@ -118,11 +189,10 @@ export const useAnalysisStore = defineStore("analysis", () => {
     } | null = null,
     libraryEntry: { slug: string; hasQuiz: boolean } | null = null,
   ) {
-    if (activeRequest) activeRequest.abort();
+    cancelPending();
     inputText.value = text;
     result.value = data;
     error.value = null;
-    loading.value = false;
     savedTextId.value = options?.id ?? null;
     savedTextTitle.value = options?.title ?? null;
     savedTextTags.value = options?.tags ?? [];
@@ -173,6 +243,9 @@ export const useAnalysisStore = defineStore("analysis", () => {
     hasResult,
     isEdited,
     analyze,
+    cancelPending,
+    stash,
+    restore,
     reset,
     loadSaved,
     adoptSavedId,

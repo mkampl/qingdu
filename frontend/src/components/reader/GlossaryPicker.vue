@@ -13,19 +13,21 @@
  * nothing to pick and we don't want to advertise the feature in a way
  * the user can't act on.
  */
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 
+import { onAuthReady } from "@/composables/use-auth-ready";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useVocabListsStore } from "@/stores/vocab-lists";
+import { hasOpenOverlay } from "@/utils/modal-stack";
 
 const analysis = useAnalysisStore();
 const vocabLists = useVocabListsStore();
 const open = ref(false);
 const containerRef = ref<HTMLElement | null>(null);
 
-onMounted(() => {
-  void vocabLists.ensureLoaded();
-});
+// After the session check settles — on a hard reload the picker mounts
+// before auth has hydrated and the lists would never load.
+onAuthReady(() => void vocabLists.ensureLoaded());
 
 const glossaryLists = computed(() =>
   vocabLists.lists.filter((vl) => vl.apply_as_glossary),
@@ -72,7 +74,9 @@ function applySelection(selected: Set<number>) {
   // If there's a text in the box already analysed, the change should
   // take effect — re-run analysis so meanings update in place.
   if (analysis.hasResult && analysis.inputText) {
-    void analysis.analyze(analysis.inputText);
+    // A failure lands in analysis.error, which the reader shows; don't let
+    // it escape as an unhandled rejection.
+    analysis.analyze(analysis.inputText).catch(() => undefined);
   }
 }
 
@@ -87,7 +91,7 @@ function onDocClick(e: MouseEvent) {
 }
 
 function onKey(e: KeyboardEvent) {
-  if (e.key === "Escape" && open.value) close();
+  if (e.key === "Escape" && open.value && !hasOpenOverlay()) close();
 }
 
 watch(open, (isOpen) => {

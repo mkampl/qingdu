@@ -500,6 +500,9 @@ export const deleteText = (id: number) =>
 export const listVocabularyLists = () =>
   request<VocabularyListSummary[]>("/api/vocabulary-lists");
 
+export const getVocabularyList = (id: number) =>
+  request<VocabularyListSummary>(`/api/vocabulary-lists/${id}`);
+
 export const createVocabularyList = (input: {
   name: string;
   type?: string;

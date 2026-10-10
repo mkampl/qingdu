@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 
 import { useAppModalsStore } from "@/stores/app-modals";
@@ -28,7 +28,14 @@ import {
   scheduleLifecycleWarnings,
   syncFromSettings as syncReminder,
 } from "@/services/notifications";
+import { closeOverlay, isTopOverlay, openOverlay } from "@/utils/modal-stack";
 import { appScrollEl } from "@/utils/scroll";
+import {
+  decideScroll,
+  historyEntryKey,
+  restoreScrollTop,
+  ScrollMemory,
+} from "@/utils/scroll-memory";
 
 const settings = useSettingsStore();
 const auth = useAuthStore();
@@ -65,23 +72,60 @@ watch(
     // Close on any navigation so a tap on a drawer link doesn't leave the
     // drawer open over the new view.
     mobileNavOpen.value = false;
-    // <main> is the app's actual scroll container, not window (see
-    // utils/scroll.ts) — reset it on every navigation so opening a new
-    // page/text doesn't inherit wherever the previous page was scrolled to.
-    appScrollEl().scrollTop = 0;
   },
 );
 
+// <main> is the app's actual scroll container, not window (see
+// utils/scroll.ts). A new page starts at the top, Back/Forward returns to
+// where that history entry was, and query-only changes (?tab=, filters)
+// keep the current position. See utils/scroll-memory.ts.
+const scrollMemory = new ScrollMemory();
+let currentEntryKey: string | null = historyEntryKey(route.fullPath);
+let popPending = false;
+function onPopState() {
+  popPending = true;
+}
+if (typeof window !== "undefined") window.addEventListener("popstate", onPopState);
+const stopBeforeEach = router.beforeEach(() => {
+  if (currentEntryKey) scrollMemory.save(currentEntryKey, appScrollEl().scrollTop);
+});
+const stopAfterEach = router.afterEach((to, from, failure) => {
+  const isPop = popPending;
+  popPending = false;
+  if (failure) return;
+  currentEntryKey = historyEntryKey(to.fullPath);
+  const action = decideScroll({
+    fromPath: from.matched.length ? from.path : null,
+    toPath: to.path,
+    isPop,
+    saved: scrollMemory.get(currentEntryKey),
+  });
+  if (action.kind === "top") {
+    appScrollEl().scrollTop = 0;
+  } else if (action.kind === "restore") {
+    const top = action.top;
+    void nextTick(() => restoreScrollTop(appScrollEl(), top));
+  }
+});
+onBeforeUnmount(() => {
+  stopBeforeEach();
+  stopAfterEach();
+  if (typeof window !== "undefined") window.removeEventListener("popstate", onPopState);
+});
+
+const drawerOverlay = Symbol("mobile-nav");
+
 function onDrawerKeydown(e: KeyboardEvent) {
-  if (e.key === "Escape") mobileNavOpen.value = false;
+  if (e.key === "Escape" && isTopOverlay(drawerOverlay)) mobileNavOpen.value = false;
 }
 
 watch(mobileNavOpen, (open) => {
   if (typeof document === "undefined") return;
-  document.body.style.overflow = open ? "hidden" : "";
   if (open) {
+    openOverlay(drawerOverlay);
     document.addEventListener("keydown", onDrawerKeydown);
   } else {
+    closeOverlay(drawerOverlay);
     document.removeEventListener("keydown", onDrawerKeydown);
   }
 });

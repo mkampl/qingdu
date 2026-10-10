@@ -28,8 +28,10 @@ def test_route_count(app_module):
     POST /api/media/youtube (spike, not a shipped feature yet).
     +1 = 102/107 for GET /api/texts/{id}: the list endpoint now returns
     summaries and the full text is fetched when one is opened.
+    +1 = 103/108 for GET /api/vocabulary-lists/{id}: the list detail page
+    loads one list instead of every list with every word.
     """
-    assert len(app_module.routes) in (102, 107)
+    assert len(app_module.routes) in (103, 108)
 
 
 def test_router_tags_present(app_module):

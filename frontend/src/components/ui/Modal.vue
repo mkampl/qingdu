@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from "vue";
 
+import { closeOverlay, isTopOverlay, openOverlay } from "@/utils/modal-stack";
+
 const props = defineProps<{
   open: boolean;
   title?: string;
@@ -18,8 +20,12 @@ let opener: HTMLElement | null = null;
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+// Stacked dialogs (e.g. Settings → Change password) share one scroll lock
+// and only the top one reacts to keys; see utils/modal-stack.ts.
+const overlayId = Symbol("modal");
+
 function handleKeydown(e: KeyboardEvent) {
-  if (!props.open) return;
+  if (!props.open || !isTopOverlay(overlayId)) return;
   if (e.key === "Escape") {
     emit("close");
     return;
@@ -55,7 +61,7 @@ watch(
     if (open) {
       opener = document.activeElement as HTMLElement | null;
       document.addEventListener("keydown", handleKeydown);
-      document.body.style.overflow = "hidden";
+      openOverlay(overlayId);
       // Move focus into the dialog once it has rendered. Prefer an
       // autofocus-marked control; else the first focusable; else the
       // shell itself (tabindex=-1) so Escape works immediately.
@@ -69,7 +75,7 @@ watch(
       });
     } else {
       document.removeEventListener("keydown", handleKeydown);
-      document.body.style.overflow = "";
+      closeOverlay(overlayId);
       opener?.focus?.();
       opener = null;
     }
@@ -80,7 +86,7 @@ watch(
 onBeforeUnmount(() => {
   if (typeof document === "undefined") return;
   document.removeEventListener("keydown", handleKeydown);
-  document.body.style.overflow = "";
+  closeOverlay(overlayId);
 });
 
 const sizeClasses = {

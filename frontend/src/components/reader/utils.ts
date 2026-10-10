@@ -20,6 +20,85 @@ export interface Sentence {
   baseIdx: number;
 }
 
+/** True if this token is a learnable Chinese word — excludes punctuation,
+ *  linebreaks, and other render-only tokens. */
+export function isLearnableWord(word: WordInfo): boolean {
+  if (!word.text || word.text === "\n") return false;
+  if (word.translation_source === "linebreak") return false;
+  // Must contain at least one CJK character to be worth tracking.
+  return /[一-鿿]/.test(word.text);
+}
+
+/**
+ * Whether a click on the token opens the popover. Every learnable word
+ * does — including non-HSK words the dictionary has no entry for, which
+ * are still coloured "new" and counted in the text's progress, so the
+ * user needs a way to mark them known or ignored.
+ */
+export function isClickableWord(word: WordInfo): boolean {
+  return word.is_hsk || !!word.meaning || isLearnableWord(word);
+}
+
+type WordState = "learning" | "known" | "ignored";
+
+/**
+ * The state the popover should act on. Once the user-words store has
+ * hydrated it is authoritative (a missing entry really means "new"); before
+ * that, fall back to the state /api/analyze stamped on the token, so a
+ * known word isn't treated as new and auto-promoted back to learning.
+ */
+export function effectiveWordState(
+  storeState: WordState | null,
+  storeHydrated: boolean,
+  tokenState: WordState | null | undefined,
+): WordState | null {
+  if (storeState) return storeState;
+  return storeHydrated ? null : (tokenState ?? null);
+}
+
+export interface PopoverPlacement {
+  top: number;
+  left: number;
+  /** Cap for the popover; its content scrolls inside beyond this. */
+  maxHeight: number;
+}
+
+/**
+ * Desktop popover placement: centred under the word, flipped above when
+ * there is more room there, clamped to the viewport, and given a
+ * max-height so tall content (stroke order + add-to-list) scrolls inside
+ * the popover instead of running off-screen.
+ */
+export function placePopover(opts: {
+  anchor: { top: number; bottom: number; left: number; width: number };
+  viewport: { width: number; height: number };
+  /** Natural (uncapped) height of the popover content. */
+  height: number;
+  width?: number;
+  margin?: number;
+  gap?: number;
+}): PopoverPlacement {
+  const { anchor, viewport, height } = opts;
+  const width = opts.width ?? 320;
+  const margin = opts.margin ?? 12;
+  const gap = opts.gap ?? 8;
+  const minHeight = Math.min(160, viewport.height - 2 * margin);
+
+  let left = anchor.left + anchor.width / 2 - width / 2;
+  left = Math.max(margin, Math.min(left, viewport.width - width - margin));
+
+  const spaceBelow = viewport.height - margin - (anchor.bottom + gap);
+  const spaceAbove = anchor.top - gap - margin;
+  if (height <= spaceBelow || spaceBelow >= spaceAbove) {
+    const maxHeight = Math.max(minHeight, spaceBelow);
+    const top = Math.min(anchor.bottom + gap, viewport.height - margin - maxHeight);
+    return { top: Math.max(margin, top), left, maxHeight };
+  }
+  const maxHeight = Math.max(minHeight, spaceAbove);
+  const top = anchor.top - gap - Math.min(height, maxHeight);
+  return { top: Math.max(margin, top), left, maxHeight };
+}
+
 const SENTENCE_END = /[。！？!?…\n]/;
 
 /**

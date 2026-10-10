@@ -2,6 +2,7 @@ import { computed, ref, watch } from "vue";
 import { defineStore } from "pinia";
 
 import { apiUrl } from "@/api/client";
+import { storageGet, storageSet } from "@/utils/storage";
 
 /**
  * Continuous-narration player for the reader. Plays a queue of sentence
@@ -22,16 +23,14 @@ const DEFAULT_RATE_KEY = "qingdu.player.rate";
 const LISTEN_MODE_KEY = "qingdu.player.listenMode";
 
 function readNumber(key: string, fallback: number): number {
-  if (typeof localStorage === "undefined") return fallback;
-  const raw = localStorage.getItem(key);
+  const raw = storageGet(key);
   if (!raw) return fallback;
   const n = parseFloat(raw);
   return Number.isFinite(n) ? n : fallback;
 }
 
 function readBool(key: string, fallback: boolean): boolean {
-  if (typeof localStorage === "undefined") return fallback;
-  const raw = localStorage.getItem(key);
+  const raw = storageGet(key);
   return raw === null ? fallback : raw === "1";
 }
 
@@ -55,6 +54,7 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
   // a very long article doesn't pin the whole audio set in memory.
   const cache = new Map<string, SentenceFetch>();
   const CACHE_MAX = 6;
+  let playSeq = 0;
 
   const current = computed<PlayableSentence | null>(
     () => queue.value[cursor.value] ?? null,
@@ -64,16 +64,12 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
   const hasQueue = computed(() => queue.value.length > 0);
 
   watch(playbackRate, (rate) => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(DEFAULT_RATE_KEY, String(rate));
-    }
+    storageSet(DEFAULT_RATE_KEY, String(rate));
     if (audio) audio.playbackRate = rate;
   });
 
   watch(listenMode, (on) => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(LISTEN_MODE_KEY, on ? "1" : "0");
-    }
+    storageSet(LISTEN_MODE_KEY, on ? "1" : "0");
   });
 
   function evictExcessCache(keepKeys: Set<string>) {
@@ -173,10 +169,15 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
       playing.value = false;
       return;
     }
+    // A newer playCurrent / pause / reset supersedes this one: its fetch or
+    // play() promise may still settle (often as "interrupted by a new load
+    // request"), and that must not flip state or show "Playback error".
+    const seq = ++playSeq;
     loading.value = true;
     error.value = null;
     try {
       const fetched = await fetchSentence(c);
+      if (seq !== playSeq) return;
       // Evict everything but a small window around the cursor.
       const keep = new Set<string>();
       for (let i = -1; i <= 3; i++) {
@@ -189,10 +190,12 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
       el.src = fetched.url;
       el.playbackRate = playbackRate.value;
       await el.play();
+      if (seq !== playSeq) return;
       playing.value = true;
       // Kick off prefetch for the next one as soon as we start playing.
       prefetchNext();
     } catch (e) {
+      if (seq !== playSeq) return;
       // Capacitor's WebView logs DOMException through console as the
       // bare `[object DOMException]` toString — extract name + message
       // so logcat is actually useful.
@@ -203,8 +206,14 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
       error.value = msg || "Couldn't play audio";
       playing.value = false;
     } finally {
-      loading.value = false;
+      if (seq === playSeq) loading.value = false;
     }
+  }
+
+  /** Invalidate any playCurrent() still awaiting its fetch / play(). */
+  function supersede() {
+    playSeq += 1;
+    loading.value = false;
   }
 
   async function advance() {
@@ -255,6 +264,7 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
   }
 
   function pause() {
+    supersede();
     if (audio && !audio.paused) audio.pause();
     playing.value = false;
   }
@@ -272,6 +282,7 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
   }
 
   function setQueue(next: PlayableSentence[]) {
+    supersede();
     if (audio) {
       audio.pause();
       clearAudioSrc();
@@ -294,6 +305,7 @@ export const useAudioPlayerStore = defineStore("audioPlayer", () => {
   }
 
   function reset() {
+    supersede();
     if (audio) {
       audio.pause();
       clearAudioSrc();

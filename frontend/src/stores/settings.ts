@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, watch } from "vue";
 
+import { storageSet } from "@/utils/storage";
 import {
   DEFAULT_AUTO_GRADE_DELAY,
   normalizeAutoGradeDelay,
@@ -145,7 +146,7 @@ export const useSettingsStore = defineStore("settings", () => {
       reviewSingleMode: reviewSingleMode.value,
       autoGradeDelayMs: autoGradeDelayMs.value,
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    storageSet(STORAGE_KEY, JSON.stringify(payload));
   }
 
   watch(

@@ -230,6 +230,8 @@ export interface VocabularyWord {
   pinyin: string;
   meaning: string;
   level: HskLevel;
+  /** Traditional form, kept by older imports alongside `hanzi`. */
+  traditional?: string;
 }
 
 export interface InvitationSummary {

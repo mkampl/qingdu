@@ -11,13 +11,15 @@ import { useSettingsStore } from "@/stores/settings";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 import { useVocabListsStore } from "@/stores/vocab-lists";
+import { hasOpenOverlay } from "@/utils/modal-stack";
 
 import { otherMeanings } from "@/utils/meanings";
+import { defaultSectionName, sectionContaining } from "@/utils/vocab-lists";
 
 import HskChip from "./HskChip.vue";
 import MeaningTags from "./MeaningTags.vue";
 import StrokeOrder from "./StrokeOrder.vue";
-import { levelForVersion } from "./utils";
+import { effectiveWordState, levelForVersion, placePopover } from "./utils";
 
 const reader = useReaderStore();
 const analysis = useAnalysisStore();
@@ -47,7 +49,8 @@ onBeforeUnmount(() => {
 });
 
 function onKey(e: KeyboardEvent) {
-  if (e.key === "Escape" && word.value) reader.clearWord();
+  // A dialog on top (share, settings) gets Escape first.
+  if (e.key === "Escape" && word.value && !hasOpenOverlay()) reader.clearWord();
 }
 const popoverRef = ref<HTMLElement | null>(null);
 function onDocumentClick(e: MouseEvent) {
@@ -60,30 +63,67 @@ function onDocumentClick(e: MouseEvent) {
   if (!inPopover && !inWord) reader.clearWord();
 }
 
+// Natural height of the popover content, measured so placement can flip /
+// cap it properly instead of guessing.
+const contentRef = ref<HTMLElement | null>(null);
+const contentHeight = ref(240);
+const viewport = ref({ width: 1024, height: 800 });
+let contentObserver: ResizeObserver | null = null;
+
+function measureViewport() {
+  if (typeof window === "undefined") return;
+  viewport.value = { width: window.innerWidth, height: window.innerHeight };
+}
+
+watch(contentRef, (el) => {
+  contentObserver?.disconnect();
+  contentObserver = null;
+  if (!el || typeof ResizeObserver === "undefined") return;
+  contentObserver = new ResizeObserver(() => {
+    // +1 for the accent rule above the content.
+    contentHeight.value = el.offsetHeight + 1;
+  });
+  contentObserver.observe(el);
+});
+
 const desktopPosition = computed(() => {
   if (!anchor.value) return null;
-  const margin = 12;
-  const popoverWidth = 320;
-  const viewportWidth =
-    typeof window !== "undefined" ? window.innerWidth : 1024;
-  const viewportHeight =
-    typeof window !== "undefined" ? window.innerHeight : 800;
+  return placePopover({
+    anchor: anchor.value,
+    viewport: viewport.value,
+    height: contentHeight.value,
+  });
+});
 
-  // Try to centre the popover under the anchor; clamp to viewport.
-  let left = anchor.value.left + anchor.value.width / 2 - popoverWidth / 2;
-  left = Math.max(
-    margin,
-    Math.min(left, viewportWidth - popoverWidth - margin),
-  );
-
-  // Default below the word, flip above if it would overflow the viewport.
-  let top = anchor.value.bottom + 8;
-  const estimatedPopoverHeight = 240;
-  if (top + estimatedPopoverHeight > viewportHeight - margin) {
-    top = anchor.value.top - estimatedPopoverHeight - 8;
-    if (top < margin) top = margin;
+// Follow the word while the page scrolls; close once it leaves the screen
+// (desktop — on phones the popover is a bottom sheet and stays put).
+let scrollFrame = 0;
+function onAnyScroll(e: Event) {
+  if (!word.value) return;
+  if (popoverRef.value && e.target instanceof Node && popoverRef.value.contains(e.target)) {
+    return; // scrolling inside the popover itself
   }
-  return { top, left };
+  if (scrollFrame) return;
+  scrollFrame = requestAnimationFrame(() => {
+    scrollFrame = 0;
+    const visible = reader.refreshAnchor();
+    if (!visible && !isMobile.value) reader.clearWord();
+  });
+}
+function onResize() {
+  measureViewport();
+  if (word.value) reader.refreshAnchor();
+}
+onMounted(() => {
+  measureViewport();
+  window.addEventListener("resize", onResize);
+  document.addEventListener("scroll", onAnyScroll, { capture: true, passive: true });
+});
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", onResize);
+  document.removeEventListener("scroll", onAnyScroll, { capture: true });
+  if (scrollFrame) cancelAnimationFrame(scrollFrame);
+  contentObserver?.disconnect();
 });
 
 const ttsLoading = ref(false);
@@ -111,7 +151,9 @@ watch(word, (next) => {
     addToListExpanded.value = false;
     addToListSelectedId.value = null;
     addToListSection.value = "Main";
+    addToListSectionDirty.value = false;
     addToListError.value = null;
+    addToListNotice.value = null;
   }
 });
 
@@ -125,14 +167,20 @@ watch(word, (next) => {
 const addToListExpanded = ref(false);
 const addToListSelectedId = ref<number | null>(null);
 const addToListSection = ref("Main");
+// True once the user typed a section name themselves. Until then the field
+// follows the picked list (its first section), so switching from list A
+// ("Chapter 3") to list B doesn't create a "Chapter 3" section in B.
+const addToListSectionDirty = ref(false);
 const addToListSubmitting = ref(false);
 const addToListError = ref<string | null>(null);
+const addToListNotice = ref<string | null>(null);
 const addToListAdded = ref(false);
 
 async function expandAddToList() {
   addToListExpanded.value = true;
   addToListAdded.value = false;
   addToListError.value = null;
+  addToListNotice.value = null;
   await vocabLists.ensureLoaded();
   // Pre-select a sensible default: the only list, or the first one.
   if (addToListSelectedId.value === null && vocabLists.lists.length > 0) {
@@ -142,41 +190,54 @@ async function expandAddToList() {
 
 function selectList(id: number) {
   addToListSelectedId.value = id;
+  addToListNotice.value = null;
+  addToListError.value = null;
+  if (addToListSectionDirty.value) return;
   const list = vocabLists.lists.find((l) => l.id === id);
-  const firstSection = list?.sections?.[0]?.name;
-  // Stick with the user's draft if they've already changed it; otherwise
-  // fall back to the first existing section name or 'Main'.
-  if (addToListSection.value === "Main" && firstSection) {
-    addToListSection.value = firstSection;
-  }
+  addToListSection.value = defaultSectionName(list);
+}
+
+function onSectionInput(e: Event) {
+  addToListSection.value = (e.target as HTMLInputElement).value;
+  addToListSectionDirty.value = true;
 }
 
 async function submitAddToList() {
   if (!word.value || !addToListSelectedId.value || addToListSubmitting.value)
     return;
+  const listId = addToListSelectedId.value;
+  const hanzi = word.value.text;
   const sectionName = addToListSection.value.trim() || "Main";
   addToListSubmitting.value = true;
   addToListError.value = null;
+  addToListNotice.value = null;
   try {
-    await api.addWordToList(addToListSelectedId.value, {
+    await api.addWordToList(listId, {
       section_name: sectionName,
-      hanzi: word.value.text,
+      hanzi,
       meaning: word.value.meaning ?? "",
     });
     addToListAdded.value = true;
-    toasts.success(
-      `Added 「${word.value.text}」 to “${currentListName.value}”.`,
-    );
-    // Invalidate so the next open picks up the new word (e.g. for section
-    // defaults on the same list).
-    vocabLists.invalidate();
+    toasts.success(`Added 「${hanzi}」 to “${currentListName.value}”.`);
+    // Refresh in the background (the cached lists stay on screen) so
+    // section defaults and word counts include the new word.
+    void vocabLists.invalidate();
     setTimeout(() => {
       addToListExpanded.value = false;
       addToListAdded.value = false;
     }, 700);
   } catch (e) {
-    addToListError.value =
-      e instanceof ApiError ? e.message : "Couldn't add the word.";
+    if (e instanceof ApiError && e.status === 409) {
+      // Already somewhere in this list — say where instead of "Added".
+      const list = vocabLists.lists.find((l) => l.id === listId);
+      const where = sectionContaining(list, hanzi);
+      addToListNotice.value = where
+        ? `Already in “${where}”.`
+        : e.message || "Already in this list.";
+    } else {
+      addToListError.value =
+        e instanceof ApiError ? e.message : "Couldn't add the word.";
+    }
   } finally {
     addToListSubmitting.value = false;
   }
@@ -223,8 +284,16 @@ watch(word, () => {
 // to 'learning' so the next time it appears the reader can color it as
 // known-in-progress. Explicit known/ignored choices come from the buttons.
 
+// Before the user-words store hydrates, the analysis token's own state is
+// the best we have — without it a known word looks new and auto-learn would
+// demote it to learning.
 const currentState = computed<UserWordState | null>(() => {
-  return word.value ? userWords.stateOf(word.value.text) : null;
+  if (!word.value) return null;
+  return effectiveWordState(
+    userWords.stateOf(word.value.text),
+    userWords.hydrated,
+    word.value.user_state,
+  );
 });
 
 /**
@@ -308,10 +377,10 @@ async function setWordState(state: UserWordState) {
         ref="popoverRef"
         role="dialog"
         aria-modal="false"
-        class="z-50 w-[min(20rem,calc(100vw-1.5rem))] origin-top bg-bg-elevated text-fg shadow-xl ring-1 ring-border"
+        class="z-50 w-[min(20rem,calc(100vw-1.5rem))] origin-top overflow-y-auto overscroll-contain bg-bg-elevated text-fg shadow-xl ring-1 ring-border"
         :class="
           isMobile
-            ? 'fixed inset-x-3 bottom-3 rounded-2xl pb-[env(safe-area-inset-bottom)]'
+            ? 'fixed inset-x-3 bottom-3 max-h-[calc(100dvh-1.5rem-env(safe-area-inset-top))] rounded-2xl pb-[env(safe-area-inset-bottom)]'
             : 'fixed rounded-lg'
         "
         :style="
@@ -319,6 +388,7 @@ async function setWordState(state: UserWordState) {
             ? {
                 top: `${desktopPosition.top}px`,
                 left: `${desktopPosition.left}px`,
+                maxHeight: `${desktopPosition.maxHeight}px`,
               }
             : undefined
         "
@@ -329,7 +399,7 @@ async function setWordState(state: UserWordState) {
           :style="{ backgroundColor: 'var(--color-accent)' }"
         />
 
-        <div class="px-5 pt-4 pb-5">
+        <div ref="contentRef" class="px-5 pt-4 pb-5">
           <div class="flex items-start justify-between gap-3">
             <div>
               <div class="font-cn-serif text-3xl leading-none text-fg">
@@ -621,7 +691,7 @@ async function setWordState(state: UserWordState) {
               </div>
 
               <div
-                v-else-if="vocabLists.error"
+                v-else-if="vocabLists.error && vocabLists.isEmpty"
                 class="text-xs text-red-700 dark:text-red-300"
               >
                 {{ vocabLists.error }}
@@ -656,6 +726,7 @@ async function setWordState(state: UserWordState) {
                         ? 'bg-bg-sunken font-medium text-fg'
                         : 'text-fg-muted'
                     "
+                    :aria-pressed="addToListSelectedId === vl.id"
                     @click="selectList(vl.id)"
                   >
                     {{ vl.name }}
@@ -681,17 +752,26 @@ async function setWordState(state: UserWordState) {
                     Section
                   </span>
                   <input
-                    v-model="addToListSection"
+                    :value="addToListSection"
                     type="text"
                     class="block w-full rounded-md border border-border bg-bg-elevated px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none"
                     autocomplete="off"
+                    @input="onSectionInput"
                     @keydown.enter.prevent="submitAddToList"
                   />
                 </label>
 
                 <p
+                  v-if="addToListNotice"
+                  class="text-xs text-fg-muted"
+                  role="status"
+                >
+                  {{ addToListNotice }}
+                </p>
+                <p
                   v-if="addToListError"
                   class="text-xs text-red-700 dark:text-red-300"
+                  role="alert"
                 >
                   {{ addToListError }}
                 </p>

@@ -141,6 +141,22 @@ async def create_vocabulary_list(
     return {"id": vocab_list.id, "message": "List created"}
 
 
+def _serialize_list(vocab_list: VocabularyList, user: User) -> dict:
+    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    migrated_sections = migrate_vocabulary_sections(sections)
+    # Display-script conversion: each word's hanzi (and the
+    # 'traditional' duplicate, when present) goes to the user's
+    # preferred script. Pinyin / meanings / list name pass through.
+    convert_vocab_sections(migrated_sections, user)
+    return {
+        "id": vocab_list.id,
+        "name": to_user_script(vocab_list.name or "", user),
+        "type": vocab_list.list_type,
+        "sections": migrated_sections,
+        "apply_as_glossary": bool(vocab_list.apply_as_glossary),
+    }
+
+
 @router.get("/api/vocabulary-lists")
 async def get_vocabulary_lists(
     user: User = Depends(require_auth),
@@ -148,24 +164,17 @@ async def get_vocabulary_lists(
 ):
     """Return all vocabulary lists for the current user, with auto-migration."""
     lists = db.query(VocabularyList).filter(VocabularyList.user_id == user.id).all()
-    result = []
-    for vocab_list in lists:
-        sections = json.loads(vocab_list.sections) if vocab_list.sections else []
-        migrated_sections = migrate_vocabulary_sections(sections)
-        # Display-script conversion: each word's hanzi (and the
-        # 'traditional' duplicate, when present) goes to the user's
-        # preferred script. Pinyin / meanings / list name pass through.
-        convert_vocab_sections(migrated_sections, user)
-        result.append(
-            {
-                "id": vocab_list.id,
-                "name": to_user_script(vocab_list.name or "", user),
-                "type": vocab_list.list_type,
-                "sections": migrated_sections,
-                "apply_as_glossary": bool(vocab_list.apply_as_glossary),
-            }
-        )
-    return result
+    return [_serialize_list(vocab_list, user) for vocab_list in lists]
+
+
+@router.get("/api/vocabulary-lists/{list_id}")
+async def get_vocabulary_list(
+    list_id: int,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """One list, same shape as an entry of the list endpoint."""
+    return _serialize_list(_owned_list(db, user, list_id), user)
 
 
 @router.put("/api/vocabulary-lists/{list_id}")

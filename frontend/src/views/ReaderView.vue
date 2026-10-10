@@ -17,6 +17,7 @@ import {
 } from "@/api/client";
 import type { LibraryProgressEntry } from "@/api/client";
 import { submitShortcutLabel } from "@/utils/platform";
+import { hasOpenOverlay } from "@/utils/modal-stack";
 import { appScrollEl } from "@/utils/scroll";
 
 import AnalysingCard from "@/components/reader/AnalysingCard.vue";
@@ -186,6 +187,7 @@ function onExpand() {
 
 function onClear() {
   localInput.value = "";
+  audioPlayer.reset();
   analysis.reset();
   reader.reset();
   saved.value = false;
@@ -368,7 +370,7 @@ async function removeTag(tag: string) {
 // Keyboard: ESC closes any open word popover (handled in WordPopover) and
 // also closes an open sentence translation when no popover is open.
 function onGlobalKey(e: KeyboardEvent) {
-  if (e.key === "Escape") {
+  if (e.key === "Escape" && !hasOpenOverlay()) {
     if (!reader.selectedWord && reader.openSentenceKey) reader.closeSentence();
   }
 }
@@ -446,7 +448,10 @@ function restoreScroll() {
   });
 }
 
-// When a saved text is loaded (id changes), restore its progress.
+// When a saved text is loaded, restore its progress. `immediate` matters:
+// /texts and /library set the id *before* routing here, so without it the
+// watcher never fires on mount and the first scroll overwrites the stored
+// progress with ~0.
 watch(
   () => analysis.savedTextId,
   (id) => {
@@ -458,6 +463,7 @@ watch(
       lastPersistedProgress = null;
     }
   },
+  { immediate: true },
 );
 
 onBeforeUnmount(() => {
@@ -468,6 +474,13 @@ onBeforeUnmount(() => {
       void persistProgress(liveProgress.value);
     }
   }
+  // Coming back to the reader later should land where the user left off,
+  // not where the text was when it was first opened.
+  if (analysis.savedTextId !== null && liveProgress.value > 0) {
+    analysis.initialProgress = liveProgress.value;
+  }
+  // Narration belongs to the reader page; don't keep talking on /words.
+  audioPlayer.reset();
 });
 </script>
 

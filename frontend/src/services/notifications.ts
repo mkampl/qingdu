@@ -88,6 +88,19 @@ export function rememberActiveToday(): void {
   }
 }
 
+/** Drop the cached due-count / streak / active-day of the signed-in
+ *  account, so the next account's reminder doesn't quote someone else's
+ *  numbers. Called from resetUserScopedStores on logout / user switch. */
+export function forgetUserCaches(): void {
+  for (const key of [CACHE_KEY, STREAK_KEY, ACTIVE_DATE_KEY]) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // ignore
+    }
+  }
+}
+
 function activeToday(): boolean {
   try {
     const stored = localStorage.getItem(ACTIVE_DATE_KEY);

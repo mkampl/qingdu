@@ -82,4 +82,19 @@ describe("auth store", () => {
     expect(lists.lists).toEqual([]);
     expect(lists.loadedAt).toBeNull();
   });
+
+  it("forgets the reminder caches of the previous account on logout", async () => {
+    api.setToken("tok");
+    stubFetch((url) => (url.endsWith("/api/auth/me") ? { authenticated: true, user: ME } : {}));
+    const auth = useAuthStore();
+    await auth.hydrate();
+    localStorage.setItem("qingdu.notif.lastDueCount", "12");
+    localStorage.setItem("qingdu.notif.lastStreak", "40");
+    localStorage.setItem("qingdu.notif.lastActiveDate", "2026-10-10");
+
+    await auth.logout();
+    expect(localStorage.getItem("qingdu.notif.lastDueCount")).toBeNull();
+    expect(localStorage.getItem("qingdu.notif.lastStreak")).toBeNull();
+    expect(localStorage.getItem("qingdu.notif.lastActiveDate")).toBeNull();
+  });
 });

@@ -14,6 +14,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useToastStore } from "@/stores/toast";
 import { useVocabListsStore } from "@/stores/vocab-lists";
+import { createEditGate, listCounts } from "@/utils/vocab-lists";
 
 import HskChip from "@/components/reader/HskChip.vue";
 import Button from "@/components/ui/Button.vue";
@@ -45,13 +46,19 @@ const state = ref<LoadState>({ status: "idle" });
 const busy = ref(false);
 
 async function load() {
+  if (!Number.isInteger(listId.value) || listId.value <= 0) {
+    state.value = { status: "notfound" };
+    return;
+  }
   state.value = { status: "loading" };
   try {
-    const lists = await api.listVocabularyLists();
-    const list = lists.find((l) => l.id === listId.value);
-    if (!list) state.value = { status: "notfound" };
-    else state.value = { status: "ok", list };
+    const list = await api.getVocabularyList(listId.value);
+    state.value = { status: "ok", list };
   } catch (e) {
+    if (e instanceof ApiError && e.status === 404) {
+      state.value = { status: "notfound" };
+      return;
+    }
     state.value = {
       status: "error",
       message: e instanceof ApiError ? e.message : "Couldn't load this list.",
@@ -69,32 +76,40 @@ const list = computed(() =>
   state.value.status === "ok" ? state.value.list : null,
 );
 
-const totalWords = computed(() => {
-  if (!list.value) return 0;
-  return list.value.sections.reduce(
-    (sum, s) => sum + (s.words?.length ?? 0),
-    0,
-  );
-});
+// Same counting as the card on /vocab (empty sections count).
+const counts = computed(() =>
+  list.value ? listCounts(list.value) : { sections: 0, words: 0 },
+);
+const totalWords = computed(() => counts.value.words);
 
+/** Apply a local edit and refresh the shared cache the reader's popover
+ *  and glossary picker read (in the background — nothing blanks). */
 function syncList(mutator: (l: VocabularyListSummary) => VocabularyListSummary) {
   if (state.value.status !== "ok") return;
   state.value = { status: "ok", list: mutator({ ...state.value.list }) };
+  void vocabListsCache.invalidate();
 }
 
 // --- Rename list ----------------------------------------------------------
 
 const renamingTitle = ref(false);
 const titleDraft = ref("");
+const titleGate = createEditGate();
 
 function beginRename() {
   if (!list.value) return;
   titleDraft.value = list.value.name;
   renamingTitle.value = true;
+  titleGate.begin();
+}
+
+function cancelRename() {
+  titleGate.take();
+  renamingTitle.value = false;
 }
 
 async function commitRename() {
-  if (!list.value) return;
+  if (!list.value || !titleGate.take()) return;
   const newName = titleDraft.value.trim();
   if (!newName || newName === list.value.name) {
     renamingTitle.value = false;
@@ -102,12 +117,10 @@ async function commitRename() {
   }
   busy.value = true;
   try {
-    await api.updateVocabularyList(list.value.id, {
-      name: newName,
-      sections: list.value.sections,
-    });
+    // Name only: re-sending the sections we got from GET would write back
+    // their display-script conversion (traditional users' hanzi).
+    await api.updateVocabularyList(list.value.id, { name: newName });
     syncList((l) => ({ ...l, name: newName }));
-    vocabListsCache.invalidate();
     toasts.success("Renamed.");
   } catch (e) {
     toasts.error(
@@ -130,7 +143,6 @@ async function toggleGlossary() {
       apply_as_glossary: next,
     });
     syncList((l) => ({ ...l, apply_as_glossary: next }));
-    vocabListsCache.invalidate();
     toasts.success(
       next
         ? "Now available as a glossary for analysis."
@@ -200,13 +212,21 @@ const sectionDraft = ref("");
 const sectionPendingDelete = ref<string | null>(null);
 const sectionDeleting = ref<string | null>(null);
 
+const sectionGate = createEditGate();
+
 function beginSectionRename(name: string) {
   sectionDraft.value = name;
   renamingSection.value = name;
+  sectionGate.begin();
+}
+
+function cancelSectionRename() {
+  sectionGate.take();
+  renamingSection.value = null;
 }
 
 async function commitSectionRename(oldName: string) {
-  if (!list.value) return;
+  if (!list.value || !sectionGate.take()) return;
   const newName = sectionDraft.value.trim();
   if (!newName || newName === oldName) {
     renamingSection.value = null;
@@ -513,7 +533,7 @@ function sectionWordCount(section: VocabularySection): number {
         to="/vocab"
         class="font-mono uppercase tracking-wider text-fg-subtle hover:text-fg"
       >
-        ← Library
+        ← Vocabulary
       </RouterLink>
     </nav>
 
@@ -612,19 +632,20 @@ function sectionWordCount(section: VocabularySection): number {
               <input
                 v-else
                 v-model="titleDraft"
+                aria-label="List name"
                 type="text"
                 class="text-cn-serif w-full max-w-xl rounded-md border border-accent bg-bg-elevated px-2 py-0.5 text-3xl font-medium text-fg focus:outline-none sm:text-4xl"
                 autofocus
                 @blur="commitRename"
                 @keydown.enter.prevent="commitRename"
-                @keydown.escape.prevent="renamingTitle = false"
+                @keydown.escape.prevent="cancelRename"
               />
             </h1>
             <p class="mt-1 font-mono text-[11px] uppercase tracking-wider text-fg-subtle">
               {{ totalWords }} {{ totalWords === 1 ? "word" : "words" }}
               ·
-              {{ list.sections.length }}
-              {{ list.sections.length === 1 ? "section" : "sections" }}
+              {{ counts.sections }}
+              {{ counts.sections === 1 ? "section" : "sections" }}
               <span
                 v-if="list.apply_as_glossary"
                 class="ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] tracking-wider"
@@ -723,12 +744,13 @@ function sectionWordCount(section: VocabularySection): number {
               <input
                 v-else
                 v-model="sectionDraft"
+                aria-label="Section name"
                 type="text"
                 class="rounded-md border border-accent bg-bg-elevated px-2 py-0.5 text-lg font-medium text-fg focus:outline-none"
                 autofocus
                 @blur="commitSectionRename(section.name)"
                 @keydown.enter.prevent="commitSectionRename(section.name)"
-                @keydown.escape.prevent="renamingSection = null"
+                @keydown.escape.prevent="cancelSectionRename"
               />
               <span
                 class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"

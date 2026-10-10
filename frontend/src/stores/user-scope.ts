@@ -1,3 +1,4 @@
+import { forgetUserCaches } from "@/services/notifications";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useAudioPlayerStore } from "@/stores/audio-player";
 import { useReaderStore } from "@/stores/reader";
@@ -21,7 +22,10 @@ import { useVocabListsStore } from "@/stores/vocab-lists";
 export function resetUserScopedStores(options: { keepReading?: boolean } = {}) {
   useUserWordsStore().reset();
   useReviewStore().resetAll();
-  useVocabListsStore().invalidate();
+  useVocabListsStore().clear();
+  // Reminder caches (due count, streak, last active day) are per account;
+  // they are rewritten on the next review-stats refresh.
+  forgetUserCaches();
   if (!options.keepReading) {
     useAnalysisStore().reset();
     useReaderStore().reset();

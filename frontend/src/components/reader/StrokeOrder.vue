@@ -8,6 +8,10 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
+import { useSettingsStore } from "@/stores/settings";
+
+const settings = useSettingsStore();
+
 const props = withDefaults(
   defineProps<{
     chars: string;
@@ -45,6 +49,7 @@ async function ensureWriterFor(idx: number) {
     const HanziWriter = (await import("hanzi-writer")).default;
     // Wipe whatever was there for the previous character.
     containerRef.value.innerHTML = "";
+    const dark = settings.theme === "dark";
     const w = HanziWriter.create(containerRef.value, cjkChars.value[idx], {
       width: 140,
       height: 140,
@@ -52,7 +57,11 @@ async function ensureWriterFor(idx: number) {
       strokeAnimationSpeed: 1,
       delayBetweenStrokes: 90,
       showOutline: true,
-      strokeColor: "#1f2937", // resolved from --color-fg at light theme; OK for both via opacity
+      // hanzi-writer only parses hex/rgb, so the OKLCH theme tokens can't
+      // be passed through; use the same light/dark ink pair as WritingQuiz.
+      strokeColor: dark ? "#e5e7eb" : "#1f2937",
+      radicalColor: dark ? "#e5e7eb" : "#1f2937",
+      outlineColor: dark ? "#4b5563" : "#dddddd",
     });
     writer.value = w;
     w.animateCharacter({
@@ -104,6 +113,14 @@ watch(
   () => {
     activeIdx.value = 0;
     if (cjkChars.value.length) void ensureWriterFor(0);
+  },
+);
+
+// Redraw in the new ink when the theme flips.
+watch(
+  () => settings.theme,
+  () => {
+    if (cjkChars.value.length) void ensureWriterFor(activeIdx.value);
   },
 );
 

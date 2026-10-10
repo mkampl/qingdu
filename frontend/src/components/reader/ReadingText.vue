@@ -9,8 +9,11 @@ import { useUserWordsStore } from "@/stores/userWords";
 import SentenceTranslation from "./SentenceTranslation.vue";
 import {
   detectSections,
+  effectiveWordState,
   groupIntoSentences,
   hskCssVar,
+  isClickableWord,
+  isLearnableWord,
   levelForVersion,
   shouldShowPinyin,
   type Section,
@@ -42,7 +45,11 @@ const audioPlayer = useAudioPlayerStore();
  * before the store hydrated still colors correctly on first paint).
  */
 function userStateFor(word: WordInfo): string | null {
-  return userWords.stateOf(word.text) ?? word.user_state ?? null;
+  return effectiveWordState(
+    userWords.stateOf(word.text),
+    userWords.hydrated,
+    word.user_state,
+  );
 }
 
 /** Per-token grammar-span lookup. True if this absolute token index lives
@@ -58,15 +65,6 @@ const grammarSpanSet = computed<Set<number>>(() => {
   }
   return set;
 });
-
-/** True if this token is a learnable Chinese word — excludes punctuation,
- *  linebreaks, and other render-only tokens. */
-function isLearnableWord(word: WordInfo): boolean {
-  if (!word.text || word.text === "\n") return false;
-  if (word.translation_source === "linebreak") return false;
-  // Must contain at least one CJK character to be worth tracking.
-  return /[一-鿿]/.test(word.text);
-}
 
 const sentences = computed<Sentence[]>(() =>
   groupIntoSentences(props.analysis.words),
@@ -254,7 +252,7 @@ function isPunctOnly(word: WordInfo): boolean {
 
 function onWordClick(word: WordInfo, event: MouseEvent, sentence: Sentence) {
   // Treat punctuation and whitespace as transparent for word clicks.
-  if (!word.is_hsk && !word.meaning) return;
+  if (!isClickableWord(word)) return;
   event.stopPropagation();
   hapticTap(settings.hapticsEnabled);
   const target = event.currentTarget as HTMLElement;

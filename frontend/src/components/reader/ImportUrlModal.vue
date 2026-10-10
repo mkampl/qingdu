@@ -295,8 +295,14 @@ async function runOcr() {
         }
       },
     });
-    const { data } = await worker.recognize(scanFile.value);
-    await worker.terminate();
+    // Always terminate: a failed recognize() otherwise leaves the worker
+    // (and its ~20 MB model) alive for the rest of the session.
+    let data: Awaited<ReturnType<typeof worker.recognize>>["data"];
+    try {
+      ({ data } = await worker.recognize(scanFile.value));
+    } finally {
+      await worker.terminate().catch(() => undefined);
+    }
     const text = (data.text || "").trim();
     if (!text) {
       error.value =

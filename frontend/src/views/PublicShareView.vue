@@ -63,11 +63,15 @@ onMounted(async () => {
   }
 });
 
-// Clear the analysis store on unmount so that navigating back to the
-// regular reader (in the same tab) doesn't see leftover shared data.
+// The reader's own (possibly unsaved) analysis is stashed before the shared
+// text takes over the store and put back on unmount, so opening a share
+// link in the same tab doesn't destroy what the user was reading.
+const stashed = analysis.stash();
+
 onBeforeUnmount(() => {
-  analysis.reset();
-  reader.reset();
+  analysis.restore(stashed);
+  reader.clearWord();
+  reader.closeSentence();
 });
 </script>
 

@@ -416,6 +416,7 @@ function toggleExpanded(word: string) {
             ? 'border-accent bg-accent/10 text-accent'
             : 'border-border bg-bg-elevated text-fg-muted hover:text-fg',
         ]"
+        :aria-pressed="stateFilter === 'all'"
         @click="stateFilter = 'all'"
       >
         All
@@ -430,6 +431,7 @@ function toggleExpanded(word: string) {
             ? 'border-accent bg-accent/10 text-accent'
             : 'border-border bg-bg-elevated text-fg-muted hover:text-fg',
         ]"
+        :aria-pressed="stateFilter === s"
         @click="stateFilter = s"
       >
         {{ s }}
@@ -449,6 +451,7 @@ function toggleExpanded(word: string) {
             ? 'border-accent bg-accent/10 text-accent'
             : 'border-border bg-bg-elevated text-fg-muted hover:text-fg',
         ]"
+        :aria-pressed="dueFilter === d.key"
         @click="dueFilter = dueFilter === d.key ? 'all' : d.key"
       >
         {{ d.label }}
@@ -480,6 +483,8 @@ function toggleExpanded(word: string) {
             ? 'border-accent bg-accent/10 text-accent'
             : 'border-border bg-bg-elevated text-fg-muted hover:text-fg',
         ]"
+        :aria-pressed="hskFilter.has(n)"
+        :aria-label="`HSK ${n}`"
         @click="toggleHsk(n)"
       >
         {{ n }}

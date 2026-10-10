@@ -10,6 +10,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useToastStore } from "@/stores/toast";
 import { useVocabListsStore } from "@/stores/vocab-lists";
+import { listCounts } from "@/utils/vocab-lists";
 
 import Button from "@/components/ui/Button.vue";
 import Modal from "@/components/ui/Modal.vue";
@@ -66,15 +67,14 @@ const lists = computed<VocabularyListSummary[]>(() =>
   state.value.status === "ok" ? state.value.lists : [],
 );
 
+// Same counting as the detail page (empty sections count), so a card never
+// says "0 sections" for a list that opens with two.
 function wordCount(list: VocabularyListSummary): number {
-  return (list.sections ?? []).reduce(
-    (sum, s) => sum + (s.words?.length ?? 0),
-    0,
-  );
+  return listCounts(list).words;
 }
 
 function sectionCount(list: VocabularyListSummary): number {
-  return (list.sections ?? []).filter((s) => s.words?.length).length;
+  return listCounts(list).sections;
 }
 
 function openCreate() {

@@ -40,21 +40,40 @@ export const useReaderStore = defineStore("reader", () => {
     selectedWord.value = word;
     selectedSentenceKey.value = sentence?.key ?? null;
     selectedSentenceText.value = sentence?.text ?? null;
-    if (anchorEl) {
-      const rect = anchorEl.getBoundingClientRect();
-      selectedAnchor.value = {
-        top: rect.top,
-        left: rect.left,
-        bottom: rect.bottom,
-        right: rect.right,
-        width: rect.width,
-      };
-    } else {
-      selectedAnchor.value = null;
-    }
+    anchorElement = anchorEl ?? null;
+    selectedAnchor.value = anchorEl ? rectOf(anchorEl) : null;
+  }
+
+  // The clicked element, kept outside reactivity so the popover can follow
+  // it when the page scrolls instead of floating at a stale position.
+  let anchorElement: HTMLElement | null = null;
+
+  function rectOf(el: HTMLElement): AnchorRect {
+    const rect = el.getBoundingClientRect();
+    return {
+      top: rect.top,
+      left: rect.left,
+      bottom: rect.bottom,
+      right: rect.right,
+      width: rect.width,
+    };
+  }
+
+  /**
+   * Re-measure the anchor after a scroll/resize. Returns false when the
+   * anchor is gone (re-render) or entirely outside the viewport.
+   */
+  function refreshAnchor(): boolean {
+    const el = anchorElement;
+    if (!el || !el.isConnected) return false;
+    const rect = rectOf(el);
+    selectedAnchor.value = rect;
+    const vh = typeof window !== "undefined" ? window.innerHeight : Infinity;
+    return rect.bottom > 0 && rect.top < vh;
   }
 
   function clearWord() {
+    anchorElement = null;
     selectedWord.value = null;
     selectedAnchor.value = null;
     selectedSentenceKey.value = null;
@@ -106,6 +125,7 @@ export const useReaderStore = defineStore("reader", () => {
   }
 
   function reset() {
+    anchorElement = null;
     selectedWord.value = null;
     selectedAnchor.value = null;
     selectedSentenceKey.value = null;
@@ -123,6 +143,7 @@ export const useReaderStore = defineStore("reader", () => {
     openSentenceKey,
     selectWord,
     clearWord,
+    refreshAnchor,
     toggleSentence,
     closeSentence,
     translateSentence,
