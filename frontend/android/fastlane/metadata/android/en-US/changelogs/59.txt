@@ -1,0 +1,7 @@
+- Correct readings for common words (好 hǎo, 车 chē, 还 hái, 长 cháng...);
+  other readings are listed under the main meaning with an example word
+- Phrases like 我来 or 洗衣服 are split into real words instead of
+  showing glued meanings; non-words show their parts
+- Saved texts and vocab lists pick up dictionary fixes
+- Streaks, "due today" and daily new words follow your local day;
+  timezone can be changed in Settings
