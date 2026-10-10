@@ -296,7 +296,7 @@ def test_export_includes_glosses(owner_client, db_session):
 def test_delete_account_requires_correct_password(owner_client, db_session):
     client, owner = owner_client
     r = client.request("DELETE", "/api/auth/me", json={"password": "wrong"})
-    assert r.status_code == 401
+    assert r.status_code == 403
     assert db_session.query(User).filter(User.username == "owner").first() is not None
 
 

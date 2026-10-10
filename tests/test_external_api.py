@@ -75,7 +75,7 @@ def _mint_token(client, *, scopes: str) -> str:
 
 
 def _jwt(username="alice") -> str:
-    return create_access_token({"sub": username})
+    return create_access_token({"sub": username, "tv": 0})
 
 
 def test_pat_without_scope_is_rejected(ext_client):

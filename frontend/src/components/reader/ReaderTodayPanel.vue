@@ -1,19 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
 import type { LibraryForYouItem } from "@/api/client";
 import type { AnalysisResponse, SavedTextSummary } from "@/api/types";
+import { onAuthReady } from "@/composables/use-auth-ready";
 import { useAnalysisStore } from "@/stores/analysis";
-import { useAuthStore } from "@/stores/auth";
 import { useReaderStore } from "@/stores/reader";
 import { useReviewStore } from "@/stores/review";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 import { normalizeProgress, parseTags } from "@/utils/saved-text";
 
-const auth = useAuthStore();
 const userWords = useUserWordsStore();
 const review = useReviewStore();
 const analysis = useAnalysisStore();
@@ -27,10 +26,7 @@ const loading = ref(true);
 const openingSlug = ref<string | null>(null);
 const openingTextId = ref<number | null>(null);
 
-let fetched = false;
 async function fetchTodayHooks() {
-  if (fetched || !auth.isAuthed) return;
-  fetched = true;
   loading.value = true;
   try {
     const [texts, forYou] = await Promise.all([
@@ -56,29 +52,14 @@ async function fetchTodayHooks() {
   }
 }
 
-onMounted(() => {
-  // Try immediately — covers the "auth already hydrated" path. Also
-  // watch auth.isAuthed so we re-fire once hydrate finishes if we
-  // were premature on mount (the auth store hydrates async on App.vue
-  // boot; ReaderTodayPanel is in the Reader route which can render
-  // before that completes).
-  if (auth.isAuthed) {
-    void fetchTodayHooks();
-  } else {
+// The Reader route often renders before App.vue's auth.hydrate() has
+// finished; this waits for it, and clears the panel on logout.
+onAuthReady(
+  () => void fetchTodayHooks(),
+  () => {
+    recentText.value = null;
+    pick.value = null;
     loading.value = false;
-  }
-});
-watch(
-  () => auth.isAuthed,
-  (next) => {
-    if (next) void fetchTodayHooks();
-    else {
-      // Logged out: clear the panel.
-      fetched = false;
-      recentText.value = null;
-      pick.value = null;
-      loading.value = false;
-    }
   },
 );
 

@@ -4,11 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.auth import (
-    create_access_token,
+    bump_token_version,
+    create_session_token,
     get_current_user,
     get_password_hash,
     require_auth,
     require_auth_flexible,
+    validate_new_credentials,
     verify_password,
 )
 from app.core.constants import AUTH_RATE_LIMIT, MIN_PASSWORD_LENGTH
@@ -78,7 +80,7 @@ async def login(request: Request, data: LoginRequest, db: Session = Depends(get_
             detail="Invalid username or password",
         )
 
-    access_token = create_access_token(data={"sub": user.username})
+    access_token = create_session_token(user)
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -189,19 +191,11 @@ async def open_register(
             detail="Captcha answer is incorrect or expired. Try again.",
         )
 
-    username = (data.username or "").strip()
-    if not 3 <= len(username) <= 30 or not username.replace("_", "").replace("-", "").isalnum():
+    try:
+        username = validate_new_credentials(data.username, data.password)
+    except ValueError as exc:
         lifecycle.record_attempt(db, ip, successful=False)
-        raise HTTPException(
-            status_code=400,
-            detail="Username must be 3–30 characters, letters/digits/_/- only.",
-        )
-    if len(data.password or "") < MIN_PASSWORD_LENGTH:
-        lifecycle.record_attempt(db, ip, successful=False)
-        raise HTTPException(
-            status_code=400,
-            detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters.",
-        )
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if db.query(User).filter(User.username == username).first():
         lifecycle.record_attempt(db, ip, successful=False)
         raise HTTPException(status_code=400, detail="Username already taken.")
@@ -217,7 +211,7 @@ async def open_register(
     lifecycle.record_attempt(db, ip, successful=True)
     db.commit()
 
-    token = create_access_token(data={"sub": new_user.username})
+    token = create_session_token(new_user)
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -398,15 +392,15 @@ async def delete_my_account(
 ):
     """Self-service account deletion — immediate and irreversible.
 
-    Password re-entry guards against a left-open session. Admins must
+    Password re-entry guards against a left-open session. A wrong password
+    is 403, not 401: the session itself is fine, and the SPA treats 401 as
+    "logged out". Admins must
     demote themselves first (or use another admin), mirroring the
     admin-panel rule, so an instance can't delete its last admin by
     accident.
     """
     if not verify_password(data.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Password is incorrect"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Password is incorrect")
     if user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -423,17 +417,26 @@ async def change_password(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
+    """Change the caller's password. Every other session of this account is
+    signed out (token_version bump); the caller gets a fresh token back.
+    A wrong old password is 403 (not 401) so the SPA keeps the session."""
     if not verify_password(data.old_password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid old password")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid old password")
     if len(data.new_password) < MIN_PASSWORD_LENGTH:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters",
         )
+    user = db.merge(user)
     user.password_hash = get_password_hash(data.new_password)
     user.must_change_password = False
+    bump_token_version(user)
     db.commit()
-    return {"message": "Password changed successfully"}
+    return {
+        "message": "Password changed successfully",
+        "access_token": create_session_token(user),
+        "token_type": "bearer",
+    }
 
 
 @router.post("/api/auth/signup-with-invite")
@@ -450,13 +453,15 @@ async def signup_with_invite(
     if invitation.expires_at < datetime.utcnow():
         raise HTTPException(status_code=400, detail="Invitation expired")
 
-    if db.query(User).filter(User.username == data.username).first():
+    try:
+        username = validate_new_credentials(data.username, data.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if db.query(User).filter(User.username == username).first():
         raise HTTPException(status_code=400, detail="Username already taken")
-    if len(data.password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
 
     new_user = User(
-        username=data.username,
+        username=username,
         password_hash=get_password_hash(data.password),
         must_change_password=False,
         invite_quota=5,
@@ -468,7 +473,7 @@ async def signup_with_invite(
     invitation.claimed_at = datetime.utcnow()
     db.commit()
 
-    token = create_access_token(data={"sub": new_user.username})
+    token = create_session_token(new_user)
     return {
         "access_token": token,
         "token_type": "bearer",

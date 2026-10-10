@@ -152,6 +152,16 @@ interface RequestOptions {
 // optimistic UI kept accepting edits that rolled back one by one.
 let unauthorizedHandler: (() => void) | null = null;
 
+// A 401 from these means "wrong credentials", never "session died": login /
+// register take a password, and the re-check endpoints (change password,
+// delete account) answer 403 for a wrong one — listed anyway so an older
+// server that still sends 401 can't log the user out over a typo.
+function isCredentialCheck(path: string, method: string): boolean {
+  if (path.startsWith("/api/auth/login") || path.startsWith("/api/auth/register")) return true;
+  if (path.startsWith("/api/auth/change-password")) return true;
+  return path === "/api/auth/me" && method === "DELETE";
+}
+
 export function setUnauthorizedHandler(fn: (() => void) | null) {
   unauthorizedHandler = fn;
 }
@@ -166,22 +176,20 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
 
+  const method = opts.method ?? (opts.body !== undefined ? "POST" : "GET");
   const response = await fetch(apiUrl(path), {
-    method: opts.method ?? (opts.body !== undefined ? "POST" : "GET"),
+    method,
     headers,
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
     signal: opts.signal,
   });
 
   if (!response.ok) {
-    // Login/register 401s are "wrong credentials", not "session died" —
-    // they must not trigger the session-expired flow.
     if (
       response.status === 401 &&
       !opts.anonymous &&
       getToken() &&
-      !path.startsWith("/api/auth/login") &&
-      !path.startsWith("/api/auth/register")
+      !isCredentialCheck(path, method)
     ) {
       unauthorizedHandler?.();
     }
@@ -299,7 +307,9 @@ export const me = () => request<MeResponse | NotAuthedResponse>("/api/auth/me");
 export const logout = () => request<{ message: string }>("/api/auth/logout");
 
 export const changePassword = (old_password: string, new_password: string) =>
-  request<{ message: string }>("/api/auth/change-password", {
+  // access_token: the change revokes every existing session token, so the
+  // server returns a fresh one for the caller (absent on older servers).
+  request<{ message: string; access_token?: string }>("/api/auth/change-password", {
     body: { old_password, new_password },
   });
 

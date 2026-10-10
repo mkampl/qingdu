@@ -13,12 +13,11 @@ import * as api from "@/api/client";
 import type { LibraryManifestItem, LibraryProgressEntry } from "@/api/client";
 import type { AnalysisResponse } from "@/api/types";
 import { useAnalysisStore } from "@/stores/analysis";
-import { useAuthStore } from "@/stores/auth";
+import { onAuthReady } from "@/composables/use-auth-ready";
 import { useReaderStore } from "@/stores/reader";
 import { useToastStore } from "@/stores/toast";
 
 const analysis = useAnalysisStore();
-const auth = useAuthStore();
 const reader = useReaderStore();
 const toast = useToastStore();
 const router = useRouter();
@@ -42,16 +41,23 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+});
 
-  if (auth.isAuthed) {
+// Read/quiz badges are per-user: fetched once the session check settles
+// (a hard reload used to miss them), dropped on logout.
+onAuthReady(
+  async () => {
     try {
       const r = await api.getLibraryProgress();
       progress.value = r.items;
     } catch {
       // Non-critical — cards just render without a done badge.
     }
-  }
-});
+  },
+  () => {
+    progress.value = {};
+  },
+);
 
 function toggleLevel(n: number) {
   const next = new Set(selectedLevels.value);

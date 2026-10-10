@@ -14,11 +14,10 @@ import * as api from "@/api/client";
 import type { LibraryForYouItem, LibraryManifestItem } from "@/api/client";
 import type { AnalysisResponse } from "@/api/types";
 import { useAnalysisStore } from "@/stores/analysis";
-import { useAuthStore } from "@/stores/auth";
+import { onAuthReady } from "@/composables/use-auth-ready";
 import { useReaderStore } from "@/stores/reader";
 import { useToastStore } from "@/stores/toast";
 
-const auth = useAuthStore();
 const analysis = useAnalysisStore();
 const reader = useReaderStore();
 const toast = useToastStore();
@@ -48,9 +47,11 @@ onMounted(async () => {
   } catch {
     // silent — strip is optional
   }
+});
 
-  // For-You is auth-gated.
-  if (!auth.isAuthed) return;
+// For-You is auth-gated; it loads once the session check settles (and
+// again after a login on this page), and clears on logout.
+async function loadForYou() {
   forYouLoading.value = true;
   try {
     const r = await api.libraryForYou({ limit: 9 });
@@ -61,6 +62,11 @@ onMounted(async () => {
     forYouLoading.value = false;
     forYouLoaded.value = true;
   }
+}
+
+onAuthReady(loadForYou, () => {
+  forYou.value = [];
+  forYouLoaded.value = false;
 });
 
 async function openLibraryText(slug: string) {

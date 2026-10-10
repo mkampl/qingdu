@@ -87,7 +87,13 @@ def test_init_db_adds_missing_columns_to_legacy_table(db_file):
         )
     init_db()
     cols = _columns(engine, "users")
-    assert {"invite_quota", "streak_count", "review_window", "account_status"} <= cols
+    assert {
+        "invite_quota",
+        "streak_count",
+        "review_window",
+        "account_status",
+        "token_version",
+    } <= cols
     init_db()  # second boot: every column exists, nothing to do
 
 
@@ -107,3 +113,24 @@ def test_init_db_raises_when_a_migration_fails(db_file):
     db_file(read_only=True)  # the ALTER that re-adds the column will fail
     with pytest.raises(Exception, match="readonly"):
         init_db()
+
+
+def test_init_db_backfills_token_version_for_existing_users(db_file):
+    from sqlalchemy import text
+
+    from app.database import init_db
+
+    engine = db_file()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE users (id INTEGER PRIMARY KEY, username VARCHAR(50) UNIQUE "
+                "NOT NULL, password_hash VARCHAR(255) NOT NULL, is_admin BOOLEAN, "
+                "must_change_password BOOLEAN, last_active DATETIME, created_at DATETIME)"
+            )
+        )
+        conn.execute(text("INSERT INTO users (id, username, password_hash) VALUES (1, 'a', 'x')"))
+    init_db()
+    init_db()
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT token_version FROM users WHERE id = 1")).scalar() == 0

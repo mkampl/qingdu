@@ -1,37 +1,46 @@
 import { onBeforeUnmount, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { type Router, useRouter } from "vue-router";
 
 import { useAnalysisStore } from "@/stores/analysis";
 import { useAppModalsStore } from "@/stores/app-modals";
 import { useReaderStore } from "@/stores/reader";
 import { useShortcutsStore } from "@/stores/shortcuts";
 
+interface ShortcutDeps {
+  router: Pick<Router, "push">;
+  analysis: { reset: () => void };
+  reader: { reset: () => void };
+  shortcuts: { overlayOpen: boolean; toggleOverlay: () => void };
+  appModals: { openSettings: () => void };
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (target.isContentEditable) return true;
+  return false;
+}
+
+// Every open dialog (Modal.vue, the mobile nav drawer) marks itself
+// aria-modal. Global shortcuts must not fire behind it — `n` would wipe
+// the reader while e.g. Settings has focus on a button.
+function isModalOpen(): boolean {
+  return document.querySelector('[aria-modal="true"]') !== null;
+}
+
 /**
- * App-level keyboard shortcuts. Mounted from App.vue so the bindings exist
- * everywhere, not just when ReaderView is active. We're deliberately
- * conservative about what triggers the handler — if the user is typing into
- * an input/textarea/contenteditable, the only key we still consume is `?`
- * (which is gated to require Shift, not arrive from the IME).
+ * The keydown handler behind useKeyboardShortcuts, split out so it can be
+ * tested without mounting the app. Order matters: typing targets bail
+ * first (so `?`, `n`, `g` can be typed into any field), then open modals.
  */
-export function useKeyboardShortcuts() {
-  const router = useRouter();
-  const analysis = useAnalysisStore();
-  const reader = useReaderStore();
-  const shortcuts = useShortcutsStore();
-  const appModals = useAppModalsStore();
+export function createShortcutHandler(deps: ShortcutDeps) {
+  const { router, analysis, reader, shortcuts, appModals } = deps;
 
   // Two-key chord state for `g <something>` navigation. Cleared automatically
   // by a short timeout so a stray "g" doesn't trap subsequent input.
   let gPending = false;
   let gTimer: ReturnType<typeof setTimeout> | null = null;
-
-  function isTypingTarget(target: EventTarget | null): boolean {
-    if (!(target instanceof HTMLElement)) return false;
-    const tag = target.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
-    if (target.isContentEditable) return true;
-    return false;
-  }
 
   function clearGChord() {
     gPending = false;
@@ -42,9 +51,28 @@ export function useKeyboardShortcuts() {
   }
 
   function onKey(e: KeyboardEvent) {
-    // Always: ? opens the shortcuts overlay, even in inputs (it requires
-    // Shift+/, which won't be typed accidentally).
-    if (e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    // In an input? Leave every key to the field.
+    if (isTypingTarget(e.target)) {
+      clearGChord();
+      return;
+    }
+
+    const isHelpKey = e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey;
+
+    // `?` also closes the shortcuts overlay, which is itself a modal.
+    if (isHelpKey && shortcuts.overlayOpen) {
+      e.preventDefault();
+      shortcuts.toggleOverlay();
+      clearGChord();
+      return;
+    }
+
+    if (isModalOpen()) {
+      clearGChord();
+      return;
+    }
+
+    if (isHelpKey) {
       e.preventDefault();
       shortcuts.toggleOverlay();
       clearGChord();
@@ -55,12 +83,6 @@ export function useKeyboardShortcuts() {
     if (e.key === "," && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       appModals.openSettings();
-      clearGChord();
-      return;
-    }
-
-    // In an input? Don't consume normal letter keys.
-    if (isTypingTarget(e.target)) {
       clearGChord();
       return;
     }
@@ -103,6 +125,24 @@ export function useKeyboardShortcuts() {
       void router.push("/");
     }
   }
+
+  return { onKey, clearGChord };
+}
+
+/**
+ * App-level keyboard shortcuts. Mounted from App.vue so the bindings exist
+ * everywhere, not just when ReaderView is active. Deliberately
+ * conservative: nothing fires while typing into an input/textarea/
+ * contenteditable, or while a modal dialog is open.
+ */
+export function useKeyboardShortcuts() {
+  const { onKey, clearGChord } = createShortcutHandler({
+    router: useRouter(),
+    analysis: useAnalysisStore(),
+    reader: useReaderStore(),
+    shortcuts: useShortcutsStore(),
+    appModals: useAppModalsStore(),
+  });
 
   onMounted(() => document.addEventListener("keydown", onKey));
   onBeforeUnmount(() => {

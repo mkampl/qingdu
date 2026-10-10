@@ -58,8 +58,10 @@ All errors return JSON in FastAPI's default shape:
 Common status codes:
 
 - `400` invalid input (empty text, bad enum value, etc.)
-- `401` missing or expired token
-- `403` authorised but not permitted (admin-only endpoint)
+- `401` missing, expired or revoked token (a password change or admin reset signs out every
+  existing session; `change-password` returns a fresh `access_token` for the caller)
+- `403` authorised but not permitted (admin-only endpoint, or a wrong password on a
+  re-check such as change-password / account deletion — the session stays valid)
 - `404` resource not found
 - `409` conflict (duplicate vocabulary list, invitation already claimed)
 - `413` payload too large (audio uploads cap at 5 MB)

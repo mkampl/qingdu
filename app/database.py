@@ -77,6 +77,9 @@ class User(Base):
     # threshold) hard-deletes them. Self-hosters can disable the whole
     # mechanism via system_settings; defaults below leave it off.
     account_status = Column(String(16), default="active")
+    # Embedded as the `tv` claim in every session JWT. Bumping it (password
+    # change, admin reset) invalidates all tokens issued before.
+    token_version = Column(Integer, default=0, nullable=False, server_default="0")
 
     # Relationships
     texts = relationship("SavedText", back_populates="user", cascade="all, delete-orphan")
@@ -543,6 +546,13 @@ def init_db():
                         text(
                             "ALTER TABLE users ADD COLUMN account_status "
                             "VARCHAR(16) DEFAULT 'active'"
+                        )
+                    )
+                if "token_version" not in user_cols:
+                    logger.info("Adding token_version column to users")
+                    conn.execute(
+                        text(
+                            "ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0"
                         )
                     )
                 conn.commit()

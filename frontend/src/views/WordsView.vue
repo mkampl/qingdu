@@ -9,11 +9,12 @@
  * for jumping to a known word.
  */
 
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
 import type { WordsQueueItem, WordsQueueParams } from "@/api/client";
+import { onAuthReady } from "@/composables/use-auth-ready";
 import {
   createRequestSequence,
   mergePage,
@@ -25,6 +26,8 @@ import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReviewStore } from "@/stores/review";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
+
+import Spinner from "@/components/ui/Spinner.vue";
 
 const auth = useAuthStore();
 const authModals = useAuthModalsStore();
@@ -54,9 +57,7 @@ const items = ref<WordsQueueItem[]>([]);
 const total = ref(0);
 const loading = ref(false);
 // True after the first successful fetch. Until then the list shows the
-// loading state, never "Nothing matches" — on a fresh page load onMounted
-// fires before the auth store has hydrated, refresh() early-returns, and
-// without this flag the user's first paint claimed their words were gone.
+// loading state, never "Nothing matches".
 const loaded = ref(false);
 const error = ref<string | null>(null);
 
@@ -164,15 +165,13 @@ watch(search, () => {
   if (searchTimer) window.clearTimeout(searchTimer);
   searchTimer = window.setTimeout(() => refresh(), 200);
 });
-// Fresh page loads mount this view before the auth store finishes
-// hydrating; fetch as soon as the session materialises.
-watch(
-  () => auth.isAuthed,
-  (authed) => {
-    if (authed && !loaded.value) refresh();
-  },
-);
-onMounted(() => refresh());
+// Fetch once the boot-time session check settles (or after a login on
+// this page); drop the previous account's words on logout.
+onAuthReady(refresh, () => {
+  items.value = [];
+  total.value = 0;
+  loaded.value = false;
+});
 
 function toggleHsk(n: number) {
   const next = new Set(hskFilter.value);
@@ -284,7 +283,15 @@ function toggleExpanded(word: string) {
 </script>
 
 <template>
-  <section v-if="!auth.isAuthed" class="mx-auto max-w-prose px-5 py-20 text-center">
+  <section
+    v-if="!auth.hydrated"
+    class="mx-auto flex max-w-prose items-center justify-center gap-3 px-5 py-20 text-fg-muted"
+  >
+    <Spinner size="sm" />
+    <span class="font-display italic">Loading…</span>
+  </section>
+
+  <section v-else-if="!auth.isAuthed" class="mx-auto max-w-prose px-5 py-20 text-center">
     <p class="font-display text-base italic leading-relaxed text-fg-muted">
       Sign in to see the words you're learning.
     </p>

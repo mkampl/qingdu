@@ -4,7 +4,12 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.auth import get_password_hash, require_admin
+from app.auth import (
+    bump_token_version,
+    get_password_hash,
+    require_admin,
+    validate_new_credentials,
+)
 from app.core.constants import API_TIMEOUT, MIN_PASSWORD_LENGTH
 from app.database import User, get_db
 from app.schemas import (
@@ -102,19 +107,23 @@ async def create_user(
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    if db.query(User).filter(User.username == data.username).first():
+    try:
+        username = validate_new_credentials(data.username, data.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    if db.query(User).filter(User.username == username).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Username already exists"
         )
     user = User(
-        username=data.username,
+        username=username,
         password_hash=get_password_hash(data.password),
         is_admin=False,
         must_change_password=True,
     )
     db.add(user)
     db.commit()
-    return {"message": f"User {data.username} created successfully"}
+    return {"message": f"User {username} created successfully"}
 
 
 @router.delete("/api/admin/users/{user_id}")
@@ -154,6 +163,9 @@ async def reset_user_password(
         )
     user.password_hash = get_password_hash(new_password)
     user.must_change_password = True
+    # Sign the user out everywhere — the reset usually means the old
+    # password (and whoever held it) should lose access.
+    bump_token_version(user)
     db.commit()
     return {"message": f"Password reset for {user.username}"}
 

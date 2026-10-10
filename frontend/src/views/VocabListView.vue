@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
@@ -9,6 +9,7 @@ import type {
   VocabularySection,
   VocabularyWord,
 } from "@/api/types";
+import { onAuthReady } from "@/composables/use-auth-ready";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useToastStore } from "@/stores/toast";
@@ -44,10 +45,6 @@ const state = ref<LoadState>({ status: "idle" });
 const busy = ref(false);
 
 async function load() {
-  if (!auth.isAuthed) {
-    state.value = { status: "idle" };
-    return;
-  }
   state.value = { status: "loading" };
   try {
     const lists = await api.listVocabularyLists();
@@ -62,7 +59,11 @@ async function load() {
   }
 }
 
-onMounted(load);
+// Waits for the boot-time session check, so a hard reload of this page
+// doesn't flash the Sign-in state for a logged-in user.
+onAuthReady(load, () => {
+  state.value = { status: "idle" };
+});
 
 const list = computed(() =>
   state.value.status === "ok" ? state.value.list : null,
@@ -516,9 +517,18 @@ function sectionWordCount(section: VocabularySection): number {
       </RouterLink>
     </nav>
 
+    <!-- Session check still running -->
+    <div
+      v-if="!auth.hydrated"
+      class="flex items-center gap-3 text-fg-muted"
+    >
+      <Spinner size="sm" />
+      <span class="font-display italic">Loading…</span>
+    </div>
+
     <!-- Anonymous CTA -->
     <div
-      v-if="!auth.isAuthed"
+      v-else-if="!auth.isAuthed"
       class="rounded-lg border border-border-subtle bg-bg-elevated p-8 text-center"
     >
       <p class="font-display text-lg italic leading-relaxed text-fg-muted">

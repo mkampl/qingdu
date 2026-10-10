@@ -9,6 +9,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
+from app.core.constants import MIN_PASSWORD_LENGTH
 from app.database import ApiToken, User, get_db
 
 # Security
@@ -44,12 +45,57 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     return encoded_jwt
 
 
+def create_session_token(user: User) -> str:
+    """Session JWT for `user`. The `tv` claim pins the token to the user's
+    current token_version, so bumping that column revokes every older token."""
+    return create_access_token(data={"sub": user.username, "tv": user.token_version or 0})
+
+
+def bump_token_version(user: User) -> None:
+    """Invalidate every session token issued so far for `user`. The caller
+    commits (and hands out a fresh token if the current session should live)."""
+    user.token_version = (user.token_version or 0) + 1
+
+
+def validate_new_credentials(username: str, password: str) -> str:
+    """Shared username/password rules for every way an account gets created
+    (open registration, invite signup, admin create-user).
+
+    Returns the normalised username; raises ValueError with a user-facing
+    message otherwise.
+    """
+    username = (username or "").strip()
+    if not 3 <= len(username) <= 30 or not username.replace("_", "").replace("-", "").isalnum():
+        raise ValueError("Username must be 3–30 characters, letters/digits/_/- only.")
+    if len(password or "") < MIN_PASSWORD_LENGTH:
+        raise ValueError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.")
+    return username
+
+
 def decode_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
     except JWTError:
         return None
+
+
+def _user_from_payload(db: Session, payload: dict | None) -> User | None:
+    """Resolve a decoded session JWT to its user, or None.
+
+    Tokens without a `tv` claim (issued before token versioning) or with a
+    stale one (password changed / reset since) are rejected.
+    """
+    if not payload:
+        return None
+    username = payload.get("sub")
+    tv = payload.get("tv")
+    if not username or not isinstance(tv, int):
+        return None
+    user = db.query(User).filter(User.username == username).first()
+    if not user or (user.token_version or 0) != tv:
+        return None
+    return user
 
 
 def _touch_last_active(db: Session, user: User) -> None:
@@ -78,17 +124,7 @@ async def get_current_user(
     if not credentials:
         return None
 
-    token = credentials.credentials
-    payload = decode_token(token)
-
-    if not payload:
-        return None
-
-    username = payload.get("sub")
-    if not username:
-        return None
-
-    user = db.query(User).filter(User.username == username).first()
+    user = _user_from_payload(db, decode_token(credentials.credentials))
     if user:
         _touch_last_active(db, user)
 
@@ -152,13 +188,10 @@ def require_api_scope(scope: str):
             )
         token = credentials.credentials
 
-        payload = decode_token(token)
-        if payload:
-            username = payload.get("sub")
-            user = db.query(User).filter(User.username == username).first() if username else None
-            if user:
-                _touch_last_active(db, user)
-                return user
+        user = _user_from_payload(db, decode_token(token))
+        if user:
+            _touch_last_active(db, user)
+            return user
 
         row = (
             db.query(ApiToken)
@@ -202,15 +235,7 @@ async def get_user_from_token_or_query(
     if not token:
         return None
 
-    payload = decode_token(token)
-    if not payload:
-        return None
-
-    username = payload.get("sub")
-    if not username:
-        return None
-
-    user = db.query(User).filter(User.username == username).first()
+    user = _user_from_payload(db, decode_token(token))
     if user:
         _touch_last_active(db, user)
 

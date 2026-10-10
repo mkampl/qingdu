@@ -5,12 +5,21 @@ import * as api from "@/api/client";
 import { ApiError } from "@/api/client";
 import type { User } from "@/api/types";
 import { useReviewStore } from "@/stores/review";
+import { resetUserScopedStores } from "@/stores/user-scope";
 import { useUserWordsStore } from "@/stores/userWords";
 
 export const useAuthStore = defineStore("auth", () => {
   const user = ref<User | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  // False until the boot-time /api/auth/me check has settled (either way).
+  // Auth-gated views show a placeholder while false instead of flashing
+  // their "Sign in" state for a logged-in user on a hard reload.
+  const hydrated = ref(false);
+  // Username whose data the reader still holds after a session expiry
+  // (resetUserScopedStores({ keepReading: true })). A different account
+  // signing in next must not inherit that saved text.
+  let readingOwner: string | null = null;
 
   const isAuthed = computed(() => user.value !== null);
   const isAdmin = computed(() => user.value?.is_admin ?? false);
@@ -22,9 +31,9 @@ export const useAuthStore = defineStore("auth", () => {
   api.setUnauthorizedHandler(async () => {
     if (!api.getToken() && user.value === null) return; // already handled
     api.setToken(null);
+    readingOwner = user.value?.username ?? readingOwner;
     user.value = null;
-    useUserWordsStore().reset();
-    useReviewStore().resetAll();
+    resetUserScopedStores({ keepReading: true });
     // Dynamic imports keep this file free of new static store edges
     // (toast/auth-modals) that could form require cycles.
     const { useToastStore } = await import("@/stores/toast");
@@ -33,14 +42,41 @@ export const useAuthStore = defineStore("auth", () => {
     useAuthModalsStore().openLogin();
   });
 
+  // Every successful sign-in goes through here. A different account than
+  // the one whose reading state survived an expiry gets a clean reader.
+  function adoptUser(next: User) {
+    if (readingOwner !== null && readingOwner !== next.username) {
+      resetUserScopedStores();
+    }
+    readingOwner = null;
+    user.value = next;
+  }
+
   async function hydrate() {
+    try {
+      await hydrateSession();
+    } finally {
+      hydrated.value = true;
+    }
+  }
+
+  async function hydrateSession() {
     if (!api.getToken()) {
       user.value = null;
       return;
     }
     try {
       const me = await api.me();
-      user.value = me.authenticated ? me.user : null;
+      if (me.authenticated) {
+        adoptUser(me.user);
+      } else {
+        // The server no longer accepts this token (expired, or revoked by
+        // a password change elsewhere). Drop it quietly: this is a cold
+        // start, not a session dying under the user's hands, so no
+        // "session expired" modal — they simply land logged out.
+        api.setToken(null);
+        user.value = null;
+      }
     } catch (e) {
       // Only a server-side rejection means the token is bad. A network
       // failure (offline app start, server blip) must NOT clear it —
@@ -65,7 +101,7 @@ export const useAuthStore = defineStore("auth", () => {
     try {
       const result = await api.login(username, password);
       api.setToken(result.access_token);
-      user.value = result.user;
+      adoptUser(result.user);
       useUserWordsStore().hydrate(true);
       useReviewStore().refreshStats();
     } catch (e) {
@@ -86,7 +122,7 @@ export const useAuthStore = defineStore("auth", () => {
     try {
       const result = await api.signupWithInvite(token, username, password);
       api.setToken(result.access_token);
-      user.value = result.user;
+      adoptUser(result.user);
       useUserWordsStore().hydrate(true);
       useReviewStore().refreshStats();
     } catch (e) {
@@ -136,13 +172,16 @@ export const useAuthStore = defineStore("auth", () => {
     } finally {
       api.setToken(null);
       user.value = null;
-      useUserWordsStore().reset();
-      useReviewStore().resetAll();
+      readingOwner = null;
+      resetUserScopedStores();
     }
   }
 
   async function changePassword(oldPassword: string, newPassword: string) {
-    await api.changePassword(oldPassword, newPassword);
+    const result = await api.changePassword(oldPassword, newPassword);
+    // The change signs out every other session, this one included — the
+    // server hands back a fresh token for this device.
+    if (result.access_token) api.setToken(result.access_token);
     if (user.value) user.value = { ...user.value, must_change_password: false };
   }
 
@@ -167,6 +206,7 @@ export const useAuthStore = defineStore("auth", () => {
     user,
     loading,
     error,
+    hydrated,
     isAuthed,
     isAdmin,
     hydrate,

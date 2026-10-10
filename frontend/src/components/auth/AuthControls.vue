@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { useAuthStore } from "@/stores/auth";
@@ -19,23 +19,35 @@ const router = useRouter();
 
 // If the URL carries an invite token, auto-open the signup modal (mirrors the
 // legacy app's ?invite= flow) and strip the param so reloading doesn't re-open
-// the modal after the user has signed in.
-onMounted(async () => {
+// the modal after the user has signed in. Waits for the session check:
+// deciding on mount opened the signup form for already-signed-in users.
+async function handleInviteLink() {
+  await router.isReady();
   const token = route.query.invite;
-  if (typeof token === "string" && token.length > 0 && !auth.isAuthed) {
-    modals.openSignup(token);
-    const cleaned = { ...route.query };
-    delete cleaned.invite;
-    await router.replace({ path: route.path, query: cleaned });
-  }
-});
+  if (typeof token !== "string" || token.length === 0) return;
+  if (!auth.isAuthed) modals.openSignup(token);
+  const cleaned = { ...route.query };
+  delete cleaned.invite;
+  await router.replace({ path: route.path, query: cleaned });
+}
+
+const stopInviteWatch = watch(
+  () => auth.hydrated,
+  (hydrated) => {
+    if (!hydrated) return;
+    stopInviteWatch?.();
+    void handleInviteLink();
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
   <div class="flex items-center gap-2">
     <UserMenu v-if="auth.isAuthed" />
+    <!-- Nothing until the session check settles: no Sign-in flash on reload. -->
     <Button
-      v-else
+      v-else-if="auth.hydrated"
       variant="secondary"
       size="sm"
       @click="modals.openLogin()"
