@@ -67,7 +67,10 @@ export const useUserWordsStore = defineStore("userWords", () => {
       hydrated.value = true;
     } catch {
       // Anonymous calls hit 401; that's fine — leave the store empty.
-      hydrated.value = true;
+      // For a signed-in user a failed load must not count as hydrated:
+      // an empty map would make every word look new (callers fall back to
+      // the analysis token's user_state until a later hydrate succeeds).
+      hydrated.value = !api.getToken();
     } finally {
       loading.value = false;
     }
