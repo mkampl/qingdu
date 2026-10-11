@@ -278,17 +278,22 @@ export interface HskBrowseResponse {
   total: number;
   offset: number;
   limit: number;
+  /** How the level/search result splits across the caller's word states. */
+  state_counts?: { new: number; learning: number; known: number; ignored: number };
 }
 
 export const browseHsk = (params: {
   level?: string;
   q?: string;
+  /** Comma list of new / learning / known / ignored. */
+  state?: string;
   offset?: number;
   limit?: number;
 }) => {
   const search = new URLSearchParams();
   if (params.level) search.set("level", params.level);
   if (params.q) search.set("q", params.q);
+  if (params.state) search.set("state", params.state);
   if (params.offset !== undefined) search.set("offset", String(params.offset));
   if (params.limit !== undefined) search.set("limit", String(params.limit));
   const suffix = search.toString() ? `?${search.toString()}` : "";
