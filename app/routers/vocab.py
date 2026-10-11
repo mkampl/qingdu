@@ -8,6 +8,9 @@ from app.state import hsk_lists_original, hsk_vocab
 
 router = APIRouter(tags=["Vocabulary"])
 
+# Word states the Browse tab can filter on; "new" means no UserWord row.
+BROWSE_STATES = ("new", "learning", "known", "ignored")
+
 
 @router.get("/api/vocabulary-stats")
 async def vocabulary_stats():
@@ -47,6 +50,10 @@ async def get_hsk_lists_original():
 async def browse_hsk(
     level: str | None = Query(None, description="HSK level filter like 'new-3' or 'old-2'"),
     q: str | None = Query(None, description="Substring match on hanzi/pinyin/meaning"),
+    state: str | None = Query(
+        None,
+        description="Comma list of the caller's word states: new, learning, known, ignored",
+    ),
     offset: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     user: User | None = Depends(get_current_user),
@@ -56,10 +63,22 @@ async def browse_hsk(
 
     Joins the caller's per-word state (UserWord.state) when authenticated
     so the UI can render 'Add to learning' vs 'Already learning' without
-    a second round-trip per row.
+    a second round-trip per row. `state` filters on that state ('new' = no
+    row) before paging, and `state_counts` reports how the level/search
+    result splits across the states, so the UI can show "HSK 3 · 120 known".
     """
     if not hsk_vocab:
         raise HTTPException(status_code=503, detail="Vocabulary not loaded yet")
+
+    wanted_states: set[str] | None = None
+    if state:
+        wanted_states = {s.strip() for s in state.split(",") if s.strip()}
+        unknown = wanted_states - set(BROWSE_STATES)
+        if unknown:
+            raise HTTPException(
+                status_code=400,
+                detail=f"state must be among {', '.join(BROWSE_STATES)}",
+            )
 
     needle = q.strip().lower() if q else None
 
@@ -92,20 +111,25 @@ async def browse_hsk(
             n = 99
         return (n, _hanzi)
 
+    # The caller's states for the whole catalog: a few hundred to a few
+    # thousand rows, cheaper than an IN list over the matched words.
+    states: dict[str, str] = {}
+    if user is not None:
+        states = dict(
+            db.query(UserWord.word, UserWord.state).filter(UserWord.user_id == user.id).all()
+        )
+
+    state_counts = dict.fromkeys(BROWSE_STATES, 0)
+    for hanzi, _data in matched:
+        st = states.get(hanzi, "new")
+        if st in state_counts:
+            state_counts[st] += 1
+    if wanted_states is not None:
+        matched = [m for m in matched if states.get(m[0], "new") in wanted_states]
+
     matched.sort(key=_sort_key)
     total = len(matched)
     page = matched[offset : offset + limit]
-
-    # Join user state if authenticated.
-    states: dict[str, str] = {}
-    if user is not None and page:
-        words = [h for h, _ in page]
-        rows = (
-            db.query(UserWord.word, UserWord.state)
-            .filter(UserWord.user_id == user.id, UserWord.word.in_(words))
-            .all()
-        )
-        states = dict(rows)
 
     items = [
         {
@@ -122,7 +146,13 @@ async def browse_hsk(
         }
         for hanzi, data in page
     ]
-    return {"items": items, "total": total, "offset": offset, "limit": limit}
+    return {
+        "items": items,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "state_counts": state_counts,
+    }
 
 
 @router.get("/api/debug/vocab-sample")

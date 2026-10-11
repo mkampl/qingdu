@@ -111,4 +111,39 @@ describe("VocabBrowseView", () => {
     expect(clear).toHaveBeenCalledWith("一");
     expect(wrapper.findAll('li [role="group"] button')[2].attributes("aria-pressed")).toBe("false");
   });
+
+  it("filters by word state and shows the counts", async () => {
+    const auth = useAuthStore();
+    auth.user = { username: "alice", is_admin: false } as never;
+    auth.hydrated = true;
+
+    const wrapper = mount(VocabBrowseView);
+    calls[0].d.resolve({
+      ...page([item("一")], 10),
+      state_counts: { new: 5, learning: 2, known: 3, ignored: 0 },
+    });
+    await flushPromises();
+    expect(calls[0].params.state).toBeUndefined();
+
+    const chips = wrapper.findAll('[aria-label="Filter by word state"] button');
+    expect(chips.map((c) => c.text())).toEqual([
+      "All 10",
+      "New 5",
+      "Learning 2",
+      "Known 3",
+      "Ignored 0",
+    ]);
+    await chips[3].trigger("click");
+    await flushPromises();
+    expect(calls[1].params.state).toBe("known");
+    expect(calls[1].params.level).toBe("new-1");
+  });
+
+  it("hides the state filter and never sends it for anonymous users", async () => {
+    const wrapper = mount(VocabBrowseView);
+    calls[0].d.resolve(page([item("一")], 1));
+    await flushPromises();
+    expect(wrapper.find('[aria-label="Filter by word state"]').exists()).toBe(false);
+    expect(calls[0].params.state).toBeUndefined();
+  });
 });
