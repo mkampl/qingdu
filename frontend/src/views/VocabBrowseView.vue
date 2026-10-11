@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
 import type { HskBrowseItem, UserWordState } from "@/api/client";
@@ -8,7 +9,17 @@ import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useSettingsStore } from "@/stores/settings";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
-import { browseEmptyText, browseLevels, mapBrowseLevel } from "@/utils/browse";
+import {
+  BROWSE_STATES,
+  browseEmptyText,
+  browseLevels,
+  browseStateCount,
+  mapBrowseLevel,
+  parseBrowseState,
+  shiftBrowseCounts,
+  type BrowseState,
+  type BrowseStateCounts,
+} from "@/utils/browse";
 
 import HskChip from "@/components/reader/HskChip.vue";
 import { effectiveWordState } from "@/components/reader/utils";
@@ -18,13 +29,29 @@ const authModals = useAuthModalsStore();
 const settings = useSettingsStore();
 const toasts = useToastStore();
 const userWords = useUserWordsStore();
+// Optional: the view also renders without a router (unit tests).
+const route = useRoute() as ReturnType<typeof useRoute> | undefined;
+const router = useRouter() as ReturnType<typeof useRouter> | undefined;
 
 // Levels follow the HSK version picked in Settings (old HSK: 1–6).
 const levels = computed(() => browseLevels(settings.hskVersion));
 
 const PAGE = 60;
 
-const level = ref<string>(mapBrowseLevel("new-1", settings.hskVersion));
+// Level and state live in the URL (?tab=browse&level=new-3&state=known),
+// so a filtered view survives reloads and the back button.
+function initialLevel(): string {
+  const raw = route?.query.level;
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof v === "string" && (v === "all" || /^(new|old)-\d$/.test(v))) {
+    return mapBrowseLevel(v, settings.hskVersion);
+  }
+  return mapBrowseLevel("new-1", settings.hskVersion);
+}
+
+const level = ref<string>(initialLevel());
+const stateFilter = ref<BrowseState>(parseBrowseState(route?.query.state));
+const stateCounts = ref<BrowseStateCounts | null>(null);
 const search = ref("");
 const items = ref<HskBrowseItem[]>([]);
 const total = ref(0);
@@ -46,7 +73,13 @@ watch(search, () => {
   searchTimer = window.setTimeout(() => void load(true), 300);
 });
 
-watch(level, () => void load(true));
+watch([level, stateFilter], () => {
+  void load(true);
+  if (!router || !route) return;
+  const query = { ...route.query, level: level.value, state: stateFilter.value };
+  if (stateFilter.value === "all") delete (query as Record<string, unknown>).state;
+  void router.replace({ query });
+});
 
 // Every load gets a number; only the newest one may touch the list. A
 // "load more" still in flight when the level or search changes would
@@ -58,6 +91,7 @@ async function load(reset = false) {
   if (reset) {
     items.value = [];
     total.value = 0;
+    stateCounts.value = null;
   }
   const offset = items.value.length;
   loading.value = true;
@@ -69,10 +103,12 @@ async function load(reset = false) {
     };
     if (level.value !== "all") params.level = level.value;
     if (search.value.trim()) params.q = search.value.trim();
+    if (stateFilter.value !== "all" && auth.isAuthed) params.state = stateFilter.value;
     const r = await api.browseHsk(params);
     if (seq !== loadSeq) return;
     items.value = reset ? r.items : [...items.value, ...r.items];
     total.value = r.total;
+    if (r.state_counts) stateCounts.value = r.state_counts;
   } catch (e) {
     if (seq !== loadSeq) return;
     error.value = e instanceof Error ? e.message : "Couldn't load HSK vocabulary.";
@@ -86,7 +122,9 @@ async function loadMore() {
 }
 
 const hasMore = computed(() => items.value.length < total.value);
-const emptyText = computed(() => browseEmptyText(level.value, search.value));
+const emptyText = computed(() =>
+  browseEmptyText(level.value, search.value, stateFilter.value),
+);
 
 function stateOf(item: HskBrowseItem): UserWordState | null {
   return effectiveWordState(
@@ -115,12 +153,15 @@ async function toggleState(item: HskBrowseItem, state: UserWordState) {
   const current = stateOf(item);
   if (current === state && state !== "ignored") return;
   busy.value = item.hanzi;
+  const from = current ?? "new";
   try {
     if (current === state) {
       await userWords.clearState(item.hanzi);
       item.user_state = null;
+      if (stateCounts.value) stateCounts.value = shiftBrowseCounts(stateCounts.value, from, "new");
     } else {
       await userWords.setState(item.hanzi, state);
+      if (stateCounts.value) stateCounts.value = shiftBrowseCounts(stateCounts.value, from, state);
       // Keep the row in step for the pre-hydration fallback.
       item.user_state = state;
       toasts.success(STATE_DONE[state].replace("{w}", item.hanzi));
@@ -214,6 +255,35 @@ onMounted(() => void load(true));
       placeholder="Search hanzi, pinyin, or meaning"
       class="w-full rounded-md border border-border-subtle bg-bg px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none"
     />
+
+    <!-- State filter — "which HSK 3 words do I know?". Counts follow the
+         level and search above; only meaningful when signed in. -->
+    <div
+      v-if="auth.isAuthed"
+      role="group"
+      aria-label="Filter by word state"
+      class="flex flex-wrap items-center gap-1.5"
+    >
+      <button
+        v-for="st in BROWSE_STATES"
+        :key="st.key"
+        type="button"
+        :aria-pressed="stateFilter === st.key"
+        class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-wider transition-colors"
+        :class="
+          stateFilter === st.key
+            ? 'border-accent bg-accent/10 text-accent'
+            : 'border-border-subtle bg-bg-elevated text-fg-muted hover:border-border hover:text-fg'
+        "
+        @click="stateFilter = st.key"
+      >
+        {{ st.label }}
+        <span
+          v-if="browseStateCount(stateCounts, st.key) !== null"
+          class="tabular-nums opacity-70"
+        >{{ browseStateCount(stateCounts, st.key) }}</span>
+      </button>
+    </div>
 
     <p
       v-if="!loading && items.length === 0 && !error"
