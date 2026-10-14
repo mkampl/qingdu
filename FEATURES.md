@@ -20,9 +20,14 @@ A reading-and-study tool for Chinese learners, organised around the HSK vocabula
 - **Scan tab** — browser-side OCR via tesseract.js (chi_sim) for photos or screenshots.
 - **Pre-analysed packages** — drop-in JSON produced upstream (e.g. by an LLM) to skip segmentation entirely. A bundled Dao De Jing chapter ships as the reference sample.
 
+## Library
+
+- **Graded texts** — 180 bundled texts across HSK 1–9, each with a short comprehension quiz. Passing the quiz or marking a text as read records your progress.
+- **For you** — texts where you already know most of the words (the 85–98 % band) are suggested on Discover and on the reader's Today panel.
+
 ## Studying
 
-- **Per-user word states** — each word is `new` / `learning` / `known` / `ignored`, tracked across all texts. Clicking a word in the reader promotes it to `learning`.
+- **Per-user word states** — each word is `new` / `learning` / `known` / `ignored`, tracked across all texts. Set from the word popover; Settings can make a click in the reader promote a new word to `learning` automatically (off by default).
 - **Bulk shortcuts** — mark whole pages or whole HSK levels at once (the "I already know HSK 1–N" onboarding shortcut).
 - **Personal glossaries** — any vocabulary list can be flagged as a glossary; its entries override CC-CEDICT/HSK lookups during analysis. Useful for specialised corpora (classical Chinese, technical jargon).
 - **Public sharing** — mint a share token for any saved text; the public URL is read-only.
@@ -30,10 +35,10 @@ A reading-and-study tool for Chinese learners, organised around the HSK vocabula
 
 ## Spaced repetition
 
-`/review` runs FSRS-4.5 across four modes:
+`/review` runs FSRS (the `fsrs` 6 library). The default mixed session walks new words through an intro, a traced writing pass and later reviews; single modes are available too:
 
 - **Recognition** — see the character, recall meaning, grade Again / Hard / Good / Easy.
-- **Dictation** — listen to the TTS, type what you heard.
+- **Dictation** — listen to the TTS, type the hanzi or the pinyin with tones (marks or numbers, e.g. `ma3`).
 - **Writing** — draw each character on a 米字格 practice grid; hanzi-writer grades per-stroke accuracy.
 - **Cloze** — fill in a blanked word in a real sentence from one of your saved texts.
 
@@ -42,14 +47,14 @@ Optional **daily auto-enrolment** seeds new HSK words into the learning pool at 
 ## Settings
 
 - **Script** — auto / Simplified / Traditional. Applies to every Chinese surface (reader, saved texts, vocabulary lists, review cards). Internal data stays simp-canonical, conversion happens at the I/O boundary.
-- **HSK version** — new (9-level) or old (6-level); affects both colouring and bulk-mark shortcuts.
+- **HSK version** — new (9-level) or old (6-level); affects colouring, bulk-mark shortcuts and which list daily auto-enrolment draws from.
 - **Pinyin mode** — auto / on / off.
 - **Word colouring** — by HSK level / by your progress / off.
 - **Daily learning** — enable + target count.
 
 ## Accounts
 
-- **Invitation-only signup** — each user can mint a limited number of invites (admin-configurable quota).
+- **Signup** — open registration with captcha and rate limits, or invitation-only; the admin panel switches between them. Each user can mint a limited number of invites (admin-configurable quota).
 - **Admin panel** — at `/admin` for users with the flag set.
 - **Daily streak** — counted from any of: word-state change, bulk mark, review grade. Visible as a flame badge in the nav. Earns a streak freeze every 7 days (capped at 2 banked) that automatically covers a missed day instead of resetting the count.
 - **Weekly sparkline** — at the top of `/review`, stacked bars show reviews + words-marked over the last 7 days.
