@@ -35,7 +35,15 @@ A reading-and-study tool for Chinese learners, organised around the HSK vocabula
 
 ## Spaced repetition
 
-`/review` runs FSRS (the `fsrs` 6 library). The default mixed session walks new words through an intro, a traced writing pass and later reviews; single modes are available too:
+`/review` runs FSRS (the `fsrs` 6 library). The default mixed session:
+
+- **Intro** — a new word with its pinyin, meaning, audio and stroke animation, then one traced pass. That pass is copying, so it never grades Easy: the word comes back about ten minutes later in the same session to be written from memory.
+- **Read** — the hanzi alone; recall sound, tone and meaning (optionally type the pinyin), reveal, grade yourself.
+- **Produce** — once a word is established, write it from pinyin and meaning.
+- **Review focus** (Settings): *reading and writing* (default: read while a word is young, write once it is established), *reading* only, or *writing* only.
+- **Context** — every card shows the sentence you met the word in (else one from your saved texts or the library), with its source and sentence audio.
+
+Single modes are available too:
 
 - **Recognition** — see the character, recall meaning, grade Again / Hard / Good / Easy.
 - **Dictation** — listen to the TTS, type the hanzi or the pinyin with tones (marks or numbers, e.g. `ma3`).

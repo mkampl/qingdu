@@ -337,8 +337,12 @@ export interface UserSettingsPayload {
   display_script?: "auto" | "simp" | "trad";
   review_retention?: number;
   review_window?: "now" | "today" | "tomorrow";
+  review_focus?: ReviewFocus;
   timezone?: string;
 }
+
+/** What the mixed review trains between intro and produce. */
+export type ReviewFocus = "both" | "reading" | "writing";
 
 export const updateMySettings = (payload: UserSettingsPayload) =>
   request<{
@@ -347,6 +351,7 @@ export const updateMySettings = (payload: UserSettingsPayload) =>
     display_script: string;
     review_retention: number;
     review_window: string;
+    review_focus?: string;
     timezone?: string | null;
   }>("/api/auth/me/settings", { method: "PATCH", body: payload });
 
@@ -1144,7 +1149,7 @@ export type ReviewMode = "recognition" | "dictation" | "writing" | "cloze";
 export type QueueMode = ReviewMode | "mixed";
 /** Phase 1.3b — server-picked prompt stage based on FSRS stability.
  *  Drives which review surface the SPA renders for the card. */
-export type PromptStage = "intro" | "trace" | "produce";
+export type PromptStage = "intro" | "trace" | "produce" | "read";
 export type ReviewGrade = 1 | 2 | 3 | 4;
 
 export interface ReviewCard {

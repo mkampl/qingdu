@@ -174,24 +174,64 @@ def already_known_state(jitter_seed: int | None = None) -> dict:
 #              hanzi from cues alone, then reveal + self-grade. No
 #              default grade — deliberate grading on the hardest stage.
 #
+#   read     — the reading direction: only the hanzi is shown; the user
+#              recalls sound, tone and meaning, reveals and self-grades.
+#
+# The user's review focus decides how the stages split:
+#   both     — intro, then read until 10d, then produce. A card still in
+#              FSRS's learning steps (the pass ~10 min after the intro, or
+#              after a lapse) is written from memory (trace) instead.
+#   reading  — intro, then read throughout.
+#   writing  — intro, trace, produce (the original progression).
+#
 # The thresholds are tunable; we expose them as module constants so a
 # future Settings → Review challenge slider can shift them.
 
 INTRO_STABILITY_THRESHOLD_DAYS = 1.0
 PRODUCE_STABILITY_THRESHOLD_DAYS = 10.0
 
-PromptStage = str  # 'intro' | 'trace' | 'produce'
+PromptStage = str  # 'intro' | 'trace' | 'produce' | 'read'
+
+REVIEW_FOCUSES = ("both", "reading", "writing")
+DEFAULT_REVIEW_FOCUS = "both"
 
 
-def prompt_stage_for(stability: float | None) -> PromptStage:
-    """Pick the progressive prompt stage for a card based on its current
-    FSRS stability (in days). NULL stability means the card has never
-    been reviewed — treat as intro."""
+def in_learning_steps(state_json: str | None) -> bool:
+    """True while FSRS keeps the card in its short (minutes) learning or
+    relearning steps — the repeats inside one session."""
+    if not state_json:
+        return False
+    return card_from_state(state_json).state in (State.Learning, State.Relearning)
+
+
+def prompt_stage_for(
+    stability: float | None,
+    *,
+    focus: str | None = "writing",
+    learning_step: bool = False,
+) -> PromptStage:
+    """Pick the progressive prompt stage for a card from its FSRS
+    stability (in days) and the user's review focus. NULL stability means
+    the card has never been reviewed — treat as intro."""
     if stability is None or stability < INTRO_STABILITY_THRESHOLD_DAYS:
         return "intro"
-    if stability < PRODUCE_STABILITY_THRESHOLD_DAYS:
+    if focus == "reading":
+        return "read"
+    if focus == "writing":
+        return "trace" if stability < PRODUCE_STABILITY_THRESHOLD_DAYS else "produce"
+    # both (and anything unknown)
+    if learning_step:
         return "trace"
-    return "produce"
+    return "read" if stability < PRODUCE_STABILITY_THRESHOLD_DAYS else "produce"
+
+
+def stage_for_row(row, user) -> PromptStage:
+    """prompt_stage_for a UserWord row under the user's focus."""
+    return prompt_stage_for(
+        row.stability,
+        focus=getattr(user, "review_focus", None) or DEFAULT_REVIEW_FOCUS,
+        learning_step=in_learning_steps(row.fsrs_state),
+    )
 
 
 # Phase 1.3 cycle helpers were superseded by stage selection; the columns
@@ -207,5 +247,7 @@ __all__ = [
     "apply_grade",
     "card_from_state",
     "initial_state",
+    "in_learning_steps",
     "prompt_stage_for",
+    "stage_for_row",
 ]
