@@ -1,0 +1,8 @@
+- New words: the pass right after the stroke animation counts as a first
+  look; the word comes back later in the session to write from memory
+- Read stage: see only the hanzi, recall sound, tone and meaning, then
+  reveal (optional pinyin check with tones)
+- Review focus in Settings: reading and writing (default), reading, or
+  writing
+- Every card shows the sentence you met the word in, with its source and
+  sentence audio
