@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import * as api from "@/api/client";
 import { ApiError } from "@/api/client";
-import type { UserWordState, WordSnapshot } from "@/api/client";
+import type { UserWordState, WordContext, WordSnapshot } from "@/api/client";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useAuthStore } from "@/stores/auth";
 import { useReaderStore } from "@/stores/reader";
@@ -268,7 +268,7 @@ const wordParts = computed(() => word.value?.parts ?? []);
 async function learnPart(part: string) {
   if (userWords.stateOf(part)) return;
   try {
-    await userWords.setState(part, "learning", analysis.savedTextId ?? null);
+    await userWords.setState(part, "learning", analysis.savedTextId ?? null, null, wordContext());
   } catch {
     toasts.error("Couldn't update word state");
   }
@@ -325,6 +325,11 @@ function buildSnapshot(): WordSnapshot | null {
   };
 }
 
+/** The sentence the word was clicked in, kept as its review context. */
+function wordContext(): WordContext {
+  return { sentence: reader.selectedSentenceText, librarySlug: analysis.librarySlug };
+}
+
 watch(word, async (next) => {
   if (!next || !auth.isAuthed) return;
   // Skip linebreaks and other non-CJK tokens — we keep state for words only.
@@ -342,6 +347,7 @@ watch(word, async (next) => {
         "learning",
         analysis.savedTextId ?? null,
         buildSnapshot(),
+        wordContext(),
       );
     } catch {
       /* network error shouldn't block the popover */
@@ -366,6 +372,7 @@ async function setWordState(state: UserWordState) {
       state,
       analysis.savedTextId ?? null,
       buildSnapshot(),
+      wordContext(),
     );
   } catch (e) {
     toasts.error(

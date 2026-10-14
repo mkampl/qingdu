@@ -90,7 +90,8 @@ def test_populate_sample_sentence_pulls_from_users_saved_text(db_session):
 
 def test_populate_sample_sentence_returns_none_when_no_match(db_session):
     db_session.add(SavedText(user_id=1, title="t", content="我吃饭。", analysis_data="{}"))
-    row = UserWord(user_id=1, word="奇怪", state="learning")
+    # In no saved text and in no library text either.
+    row = UserWord(user_id=1, word="鸭嘴兽", state="learning")
     db_session.add(row)
     db_session.commit()
 
@@ -109,20 +110,20 @@ def test_populate_sample_sentence_is_idempotent(db_session):
 
 
 def test_populate_caches_misses_until_forgotten(db_session):
-    row = UserWord(user_id=1, word="中文", state="learning")
+    row = UserWord(user_id=1, word="鸭嘴兽", state="learning")
     db_session.add(row)
     db_session.commit()
     assert cloze.populate_sample_sentence(row, db_session) is None
 
     # A text arriving behind the cache's back stays invisible: the miss is
     # remembered, so the review queue doesn't rescan every session.
-    db_session.add(SavedText(user_id=1, title="t", content="我学中文。", analysis_data="{}"))
+    db_session.add(SavedText(user_id=1, title="t", content="我看鸭嘴兽。", analysis_data="{}"))
     db_session.commit()
     assert cloze.populate_sample_sentence(row, db_session) is None
 
     # Saving / editing a text forgets the user's misses.
     cloze.forget_misses(1)
-    assert cloze.populate_sample_sentence(row, db_session) == "我学中文。"
+    assert cloze.populate_sample_sentence(row, db_session) == "我看鸭嘴兽。"
 
 
 def test_populate_only_loads_matching_text(db_session):
@@ -153,3 +154,43 @@ def test_populate_only_loads_matching_text(db_session):
     text_queries = [s for s in statements if "saved_texts" in s]
     assert len(text_queries) == 1
     assert "LIKE" in text_queries[0] and "LIMIT" in text_queries[0]
+
+
+def test_populate_names_the_saved_text(db_session):
+    db_session.add(SavedText(user_id=1, title="Lesson 1", content="我学中文。", analysis_data="{}"))
+    row = UserWord(user_id=1, word="中文", state="learning")
+    db_session.add(row)
+    db_session.commit()
+    cloze.populate_sample_sentence(row, db_session)
+    assert row.sample_source == "Lesson 1"
+
+
+def test_populate_falls_back_to_a_library_sentence(db_session):
+    row = UserWord(user_id=1, word="感冒", state="learning")
+    db_session.add(row)
+    db_session.commit()
+    sentence = cloze.populate_sample_sentence(row, db_session)
+    assert sentence and "感冒" in sentence
+    assert row.sample_source  # the library text's title
+
+
+def test_library_sentences_match_whole_words_only():
+    from app.services import library
+
+    sentence, _ = library.example_sentence("会")
+    # The stored segmentation decides: 会 inside 社会 does not count.
+    assert "会" in sentence.replace("社会", "")
+
+
+def test_adopt_sentence_keeps_the_first_context():
+    row = UserWord(user_id=1, word="中文", state="learning")
+    assert cloze.adopt_sentence(row, "我在学中文。", "Lesson 1")
+    assert (row.sample_sentence, row.sample_source) == ("我在学中文。", "Lesson 1")
+    assert not cloze.adopt_sentence(row, "她也学中文。", "Lesson 2")
+    assert row.sample_sentence == "我在学中文。"
+
+
+def test_adopt_sentence_ignores_a_sentence_without_the_word():
+    row = UserWord(user_id=1, word="中文", state="learning")
+    assert not cloze.adopt_sentence(row, "我吃饭。", None)
+    assert row.sample_sentence is None

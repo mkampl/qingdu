@@ -152,6 +152,11 @@ class WordStateUpdate(BaseModel):
     # this gloss. Used as the source_tag on the resulting user_word_glosses
     # row so the UI can show "[Dao De Jing]" next to that meaning.
     package_source: str | None = None
+    # The sentence the word was met in, and the library text it came from
+    # (saved texts are named by source_text_id). Kept as the word's sample
+    # sentence when it has none yet.
+    sentence: str | None = Field(None, max_length=1000)
+    library_slug: str | None = Field(None, max_length=120)
 
 
 class WordSnapshot(BaseModel):

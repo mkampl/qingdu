@@ -97,6 +97,50 @@ def client_entry(slug: str) -> dict[str, Any] | None:
     return out
 
 
+# Sentence-final punctuation for the sentence index below.
+_SENTENCE_END = frozenset("。！？；…!?;")
+_MAX_EXAMPLE_CHARS = 60
+
+
+@lru_cache(maxsize=1)
+def _sentence_index() -> list[tuple[int, str, str, frozenset[str]]]:
+    """(hsk_level, title, sentence, word tokens) for every sentence of the
+    bundled texts, built from the stored segmentation so a word only
+    matches where it stands as a word (会 is not found inside 社会)."""
+    rows: list[tuple[int, str, str, frozenset[str]]] = []
+    for e in _all_entries():
+        words = (e.get("analyzed") or {}).get("words") or []
+        text, tokens = "", set()
+        for w in words:
+            token = w.get("text") or ""
+            if token == "\n":
+                token = ""
+            text += token
+            if token.strip():
+                tokens.add(token)
+            if token and token[-1] in _SENTENCE_END or not token:
+                if text.strip() and tokens:
+                    rows.append((e["hsk_level"], e["title"], text.strip(), frozenset(tokens)))
+                text, tokens = "", set()
+        if text.strip() and tokens:
+            rows.append((e["hsk_level"], e["title"], text.strip(), frozenset(tokens)))
+    return rows
+
+
+def example_sentence(word: str, max_level: int | None = None) -> tuple[str, str] | None:
+    """Shortest library sentence that uses `word` as a word, preferring
+    texts at or below `max_level`. Returns (sentence, text title)."""
+    best: tuple[int, int, str, str] | None = None
+    for level, title, sentence, tokens in _sentence_index():
+        if word not in tokens or len(sentence) > _MAX_EXAMPLE_CHARS:
+            continue
+        above = 1 if max_level is not None and level > max_level else 0
+        key = (above, len(sentence), sentence, title)
+        if best is None or key < best:
+            best = key
+    return (best[2], best[3]) if best else None
+
+
 def questions(slug: str) -> list[dict[str, Any]] | None:
     """Raw questions (including `answer_index`) — server-side grading only."""
     entry = get(slug)

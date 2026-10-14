@@ -153,19 +153,22 @@ def test_grade_rejects_untracked_word(review_client):
         db.close()
 
 
-def test_mixed_queue_does_not_scan_saved_texts(review_client, monkeypatch):
-    """Mixed mode never shows a cloze step, so building its queue must not
-    go looking for sample sentences."""
-    from app.services import cloze
+def test_mixed_queue_finds_and_stores_sample_sentences(review_client):
+    """Mixed cards show the word's sentence once the answer is out, so the
+    queue looks one up for rows without one and keeps it on the row."""
+    from app.database import SavedText
 
-    def _fail(row, db):
-        raise AssertionError("mixed queue scanned saved texts")
-
-    monkeypatch.setattr(cloze, "populate_sample_sentence", _fail)
-    client, _ = review_client
-    r = client.get("/api/review/queue?mode=mixed")
-    assert r.status_code == 200, r.text
-    assert r.json()["cards"]
+    client, Session = review_client
+    _add(Session, SavedText(user_id=1, title="Winter", content="二月很冷。", analysis_data="{}"))
+    cards = client.get("/api/review/queue?mode=mixed").json()["cards"]
+    card = next(c for c in cards if c["word"] == "二")
+    assert card["cloze_sentence"] == "二月很冷。"
+    assert card["sentence_source"] == "Winter"
+    db = Session()
+    try:
+        assert db.query(UserWord).filter(UserWord.word == "二").one().sample_sentence
+    finally:
+        db.close()
 
 
 def test_mixed_queue_keeps_cached_sample_sentence(review_client):
@@ -183,8 +186,12 @@ def test_mixed_queue_keeps_cached_sample_sentence(review_client):
     assert card["cloze_template"] == "___个人。"
 
 
-def test_cloze_queue_populates_sentences(review_client):
+def test_cloze_queue_populates_sentences(review_client, monkeypatch):
     from app.database import SavedText
+    from app.services import library
+
+    # Saved texts only: the library fallback would give 一 a sentence too.
+    monkeypatch.setattr(library, "example_sentence", lambda word, max_level=None: None)
 
     client, Session = review_client
     db = Session()
@@ -465,8 +472,11 @@ def test_hard_on_known_card_keeps_it_known(review_client):
 # --- M20: cloze fills up to the limit ---------------------------------------
 
 
-def test_cloze_queue_skips_sentence_less_rows_before_limit(review_client):
+def test_cloze_queue_skips_sentence_less_rows_before_limit(review_client, monkeypatch):
     from app.database import SavedText
+    from app.services import library
+
+    monkeypatch.setattr(library, "example_sentence", lambda word, max_level=None: None)
 
     client, Session = review_client
     old = datetime.utcnow() - timedelta(days=10)

@@ -22,7 +22,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth import require_auth
-from app.database import User, UserWord, UserWordEvent, UserWordGloss, get_db
+from app.database import SavedText, User, UserWord, UserWordEvent, UserWordGloss, get_db
 from app.schemas import (
     VALID_WORD_STATES,
     BulkMarkKnownRequest,
@@ -30,6 +30,7 @@ from app.schemas import (
     SnoozeRequest,
     WordStateUpdate,
 )
+from app.services import cloze, library
 from app.services.due import due_clause, end_of_day, utcnow
 from app.services.lexicon import is_lexical_word, user_word_sources
 from app.services.localday import user_tz
@@ -237,6 +238,26 @@ def _upsert(
     return row
 
 
+def _context_title(
+    db: Session, user_id: int, source_text_id: int | None, library_slug: str | None
+) -> str | None:
+    """Title of the text a word was marked in: one of the user's saved
+    texts, else a bundled library text."""
+    if source_text_id is not None:
+        title = (
+            db.query(SavedText.title)
+            .filter(SavedText.id == source_text_id, SavedText.user_id == user_id)
+            .scalar()
+        )
+        if title:
+            return title
+    if library_slug:
+        entry = library.get(library_slug)
+        if entry:
+            return entry.get("title")
+    return None
+
+
 @router.get("/api/words/state")
 async def list_word_states(
     user: User = Depends(require_auth),
@@ -277,6 +298,12 @@ async def set_word_state(
         pkg_translation_source=payload.translation_source,
         pkg_source_tag=payload.package_source,
     )
+    if payload.sentence:
+        cloze.adopt_sentence(
+            row,
+            to_canonical(payload.sentence, user),
+            _context_title(db, user.id, payload.source_text_id, payload.library_slug),
+        )
     record_activity(user, db)
     db.commit()
     # The scheduling fields let a list view patch its row with what the
