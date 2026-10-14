@@ -125,6 +125,7 @@ class UserSettingsUpdate(BaseModel):
     display_script: str | None = None  # "auto" | "simp" | "trad"
     review_retention: float | None = None  # 0.85..0.97 enforced server-side
     review_window: str | None = None  # "now" | "today" | "tomorrow"
+    review_focus: str | None = None  # "both" | "reading" | "writing"
     timezone: str | None = None  # IANA name, e.g. "Europe/Vienna"
 
 

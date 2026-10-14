@@ -222,3 +222,24 @@ def test_init_db_adds_sample_source_to_user_words(db_file):
     assert "sample_source" in _columns(engine, "user_words")
     with engine.connect() as conn:
         assert conn.execute(text("SELECT sample_source FROM user_words")).scalar() is None
+
+
+def test_init_db_adds_review_focus_to_users(db_file):
+    from sqlalchemy import text
+
+    from app.database import init_db
+
+    engine = db_file()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE users (id INTEGER PRIMARY KEY, username VARCHAR(64), "
+                "password_hash TEXT)"
+            )
+        )
+        conn.execute(text("INSERT INTO users (id, username, password_hash) VALUES (1, 'a', 'x')"))
+    init_db()
+    init_db()
+    assert "review_focus" in _columns(engine, "users")
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT review_focus FROM users")).scalar() == "both"

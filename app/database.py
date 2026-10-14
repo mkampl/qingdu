@@ -73,6 +73,9 @@ class User(Base):
     #   'tomorrow' → due_at < midnight day-after-tomorrow (pre-pull for
     #                "I won't be around tomorrow")
     review_window = Column(String(16), default="today")
+    # Which skill the mixed review trains between the intro and the produce
+    # stage: "both" (read, then write), "reading" or "writing".
+    review_focus = Column(String(16), default="both")
     # IANA zone name ("Europe/Vienna"). Day boundaries for streaks, due
     # today, reviewed today, auto-enrol and the sparkline follow it
     # (services.localday). NULL until the SPA sends the browser's zone;
@@ -575,6 +578,11 @@ def init_db():
                         text(
                             "ALTER TABLE users ADD COLUMN review_window VARCHAR(16) DEFAULT 'today'"
                         )
+                    )
+                if "review_focus" not in user_cols:
+                    logger.info("Adding review_focus column to users")
+                    conn.execute(
+                        text("ALTER TABLE users ADD COLUMN review_focus VARCHAR(16) DEFAULT 'both'")
                     )
                 if "timezone" not in user_cols:
                     logger.info("Adding timezone column to users")
