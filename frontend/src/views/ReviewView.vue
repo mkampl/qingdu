@@ -31,6 +31,7 @@ import { checkPinyin } from "@/utils/pinyin-answer";
 import {
   formatHskLevel,
   reviewShortcutBlocked,
+  autoGradeForWriting,
   suggestedGradeForMistakes,
 } from "@/utils/review";
 
@@ -138,6 +139,11 @@ function onWritingComplete(payload: {
 }
 
 const card = computed(() => review.current);
+// The writing pass straight after the intro animation (see autoGradeForWriting).
+const firstEncounter = computed(() => card.value?.prompt_stage === "intro");
+const writingAutoGrade = computed(() =>
+  autoGradeForWriting(writingMistakes.value, writingStrokes.value, firstEncounter.value),
+);
 const total = computed(() => review.queue.length);
 const idx = computed(() => Math.min(review.cursor + 1, total.value));
 
@@ -417,7 +423,11 @@ watch(
       (surface === "writing" || surface === "trace" || surface === "produce") &&
       done
     ) {
-      scheduleAutoGrade(suggestedGradeForMistakes(mistakes, strokes));
+      scheduleAutoGrade(
+        surface === "writing"
+          ? suggestedGradeForMistakes(mistakes, strokes)
+          : autoGradeForWriting(mistakes, strokes, firstEncounter.value),
+      );
     }
   },
   { immediate: false },
@@ -887,12 +897,14 @@ onMounted(() => {
             {{ writingMistakes }} mistake{{ writingMistakes === 1 ? "" : "s" }} over
             {{ writingStrokes }} strokes — auto-grading
             <span class="text-fg">
-              {{
-                ["", "Again", "Hard", "Good", "Easy"][
-                  suggestedGradeForMistakes(writingMistakes, writingStrokes)
-                ]
-              }}
+              {{ ["", "Again", "Hard", "Good", "Easy"][writingAutoGrade] }}
             </span>
+          </p>
+          <p
+            v-if="writingDone && firstEncounter && writingAutoGrade === 3"
+            class="mt-1 text-xs text-fg-muted"
+          >
+            First look — it comes back later in this session to write from memory.
           </p>
         </template>
 
@@ -924,11 +936,7 @@ onMounted(() => {
             {{ writingMistakes }} mistake{{ writingMistakes === 1 ? "" : "s" }} over
             {{ writingStrokes }} strokes — auto-grading
             <span class="text-fg">
-              {{
-                ["", "Again", "Hard", "Good", "Easy"][
-                  suggestedGradeForMistakes(writingMistakes, writingStrokes)
-                ]
-              }}
+              {{ ["", "Again", "Hard", "Good", "Easy"][writingAutoGrade] }}
             </span>
           </p>
         </template>

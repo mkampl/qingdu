@@ -2,6 +2,7 @@ process.env.TZ = "America/New_York";
 
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  autoGradeForWriting,
   dueCountForWindow,
   formatHskLevel,
   normalizeAutoGradeDelay,
@@ -122,5 +123,17 @@ describe("reviewShortcutBlocked", () => {
     const input = document.createElement("input");
     document.body.appendChild(input);
     expect(reviewShortcutBlocked(key("1", input))).toBe(true);
+  });
+});
+
+describe("autoGradeForWriting", () => {
+  it("never gives Easy for the pass right after the intro", () => {
+    expect(autoGradeForWriting(0, 8, true)).toBe(3);
+    expect(autoGradeForWriting(0, 8, false)).toBe(4);
+  });
+
+  it("keeps lower grades as they are", () => {
+    expect(autoGradeForWriting(2, 8, true)).toBe(2);
+    expect(autoGradeForWriting(5, 8, true)).toBe(1);
   });
 });
