@@ -5,6 +5,7 @@ import * as api from "@/api/client";
 import { ApiError } from "@/api/client";
 import type { User } from "@/api/types";
 import { useReviewStore } from "@/stores/review";
+import { useSettingsStore } from "@/stores/settings";
 import { resetUserScopedStores } from "@/stores/user-scope";
 import { useUserWordsStore } from "@/stores/userWords";
 import { browserTimeZone } from "@/utils/timezone";
@@ -94,6 +95,7 @@ export const useAuthStore = defineStore("auth", () => {
       useUserWordsStore().hydrate();
       useReviewStore().refreshStats();
       void syncTimezone();
+      void syncHskVersion();
     }
   }
 
@@ -113,6 +115,20 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
+  // The HSK version is picked in Settings and kept on the device; the
+  // server needs it too, because daily auto-enrol draws from that list.
+  // An older server omits the field and is left alone.
+  async function syncHskVersion() {
+    const server = user.value?.hsk_focus_version;
+    const local = useSettingsStore().hskVersion;
+    if (server === undefined || server === local) return;
+    try {
+      await updateSettings({ hsk_focus_version: local });
+    } catch {
+      // The next app start tries again.
+    }
+  }
+
   // /login and /signup answer with a bare identity; /me carries the
   // settings (timezone among them).
   async function loadProfile() {
@@ -121,6 +137,7 @@ export const useAuthStore = defineStore("auth", () => {
       if (me.authenticated && me.user.username === user.value?.username) {
         user.value = { ...user.value, ...me.user };
         await syncTimezone();
+        await syncHskVersion();
       }
     } catch {
       // The identity from the login response is enough to carry on.
@@ -238,6 +255,7 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   return {
+    syncHskVersion,
     user,
     loading,
     error,

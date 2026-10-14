@@ -33,7 +33,11 @@ const pinyinMode = computed<PinyinMode>({
 });
 const hskVersion = computed<HskVersion>({
   get: () => settings.hskVersion,
-  set: (v) => (settings.hskVersion = v),
+  set: (v) => {
+    settings.hskVersion = v;
+    // Daily auto-enrol on the server draws from this list.
+    if (auth.user) void auth.syncHskVersion();
+  },
 });
 const showLegend = computed<boolean>({
   get: () => settings.showLegend,
