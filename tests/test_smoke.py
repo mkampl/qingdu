@@ -30,8 +30,11 @@ def test_route_count(app_module):
     summaries and the full text is fetched when one is opened.
     +1 = 103/108 for GET /api/vocabulary-lists/{id}: the list detail page
     loads one list instead of every list with every word.
+    -3 = 100/105 for the 2026-10 removal of the unused public dictionary
+    dumps (GET /api/get-hsk-vocabulary, /api/get-hsk-lists-original) and
+    GET /api/debug/vocab-sample.
     """
-    assert len(app_module.routes) in (103, 108)
+    assert len(app_module.routes) in (100, 105)
 
 
 def test_router_tags_present(app_module):

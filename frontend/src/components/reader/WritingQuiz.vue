@@ -83,7 +83,7 @@ const cjkChars = computed(() =>
  * touchstart fire, causing hanzi-writer's mouse + touch handlers to
  * both run for the same input — which corrupts the quiz state and
  * silently swallows every stroke (verified on user's Firefox Android
- * via /static/hanzi-test.html).
+ * on a standalone test page).
  *
  * Desktop with a privacy mode that suppresses the legacy MouseEvent
  * compat layer (Firefox with strict tracking protection, etc.): the
@@ -213,7 +213,7 @@ async function startCharQuiz(idx: number) {
     const { signal } = inputListeners;
 
     // The shim MUST be attached BEFORE HanziWriter.create() — that's
-    // the order the working /static/hanzi-test.html canvas-2 uses, and
+    // the order that worked on the standalone test page, and
     // we mirror it here verbatim. Attaching after create() left the
     // quiz silently unresponsive on mobile despite identical-looking
     // code.
