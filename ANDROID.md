@@ -44,7 +44,7 @@ For server-only fixes (no SPA changes) no native rebuild is needed — the WebVi
 ## Permissions
 
 - `INTERNET` — backend traffic.
-- `RECORD_AUDIO` + `MODIFY_AUDIO_SETTINGS` — pronunciation check via the in-WebView MediaRecorder.
+- Plugin permissions merged at build time (e.g. notifications for the review reminder). The app does not use the microphone or Bluetooth.
 
 ## Project layout
 

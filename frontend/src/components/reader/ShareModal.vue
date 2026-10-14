@@ -7,6 +7,7 @@
 import { computed, ref, watch } from "vue";
 
 import * as api from "@/api/client";
+import { isNative, share } from "@/services/native";
 import { useToastStore } from "@/stores/toast";
 
 import Button from "@/components/ui/Button.vue";
@@ -31,8 +32,20 @@ const error = ref<string | null>(null);
 
 const shareUrl = computed(() => {
   if (!token.value || typeof window === "undefined") return "";
-  return `${window.location.origin}/s/${token.value}`;
+  // In the Android app the page origin is https://localhost; the link has
+  // to point at the server the app talks to.
+  const origin = api.getApiBase() || window.location.origin;
+  return `${origin}/s/${token.value}`;
 });
+
+const canShareSheet = isNative() || (typeof navigator !== "undefined" && "share" in navigator);
+
+async function shareSheet() {
+  if (!shareUrl.value) return;
+  const where = await share({ title: "Qingdu text", text: "Read this with Qingdu", url: shareUrl.value });
+  if (where === "clipboard") toasts.success("Link copied.");
+  else if (where === "failed") toasts.error("Couldn't share — copy the link instead.");
+}
 
 async function ensureToken() {
   if (!props.textId) return;
@@ -133,6 +146,9 @@ watch(
           />
           <Button variant="primary" size="sm" type="button" @click="copy">
             Copy
+          </Button>
+          <Button v-if="canShareSheet" variant="secondary" size="sm" type="button" @click="shareSheet">
+            Share…
           </Button>
         </div>
         <p class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
