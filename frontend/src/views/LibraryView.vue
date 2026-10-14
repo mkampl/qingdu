@@ -7,20 +7,12 @@
  */
 
 import { computed, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
 
 import * as api from "@/api/client";
 import type { LibraryManifestItem, LibraryProgressEntry } from "@/api/client";
-import type { AnalysisResponse } from "@/api/types";
-import { useAnalysisStore } from "@/stores/analysis";
 import { onAuthReady } from "@/composables/use-auth-ready";
-import { useReaderStore } from "@/stores/reader";
-import { useToastStore } from "@/stores/toast";
+import { useOpenLibraryText } from "@/composables/use-open-library-text";
 
-const analysis = useAnalysisStore();
-const reader = useReaderStore();
-const toast = useToastStore();
-const router = useRouter();
 
 const items = ref<LibraryManifestItem[]>([]);
 const loading = ref(false);
@@ -101,18 +93,10 @@ const countByLevel = computed(() => {
   return c;
 });
 
-async function open(item: LibraryManifestItem) {
-  try {
-    const entry = await api.getLibraryEntry(item.slug);
-    analysis.loadSaved(entry.text, entry.analyzed as AnalysisResponse, null, {
-      slug: item.slug,
-      hasQuiz: item.has_quiz,
-    });
-    reader.reset();
-    router.push("/");
-  } catch (e) {
-    toast.error(e instanceof Error ? e.message : "Couldn't open that text");
-  }
+const openLibraryText = useOpenLibraryText();
+
+function open(item: LibraryManifestItem) {
+  void openLibraryText(item.slug);
 }
 </script>
 
