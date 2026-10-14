@@ -1,5 +1,5 @@
 """
-FSRS-4.5 wrapper around the `fsrs` package. Keeps every direct call to
+FSRS wrapper around the `fsrs` package (v6). Keeps every direct call to
 `fsrs` in this one module so the rest of the codebase doesn't depend on
 the third-party API surface — if we ever swap algorithms (back to SM-2,
 forward to FSRS-5/6, custom), only this file changes.
