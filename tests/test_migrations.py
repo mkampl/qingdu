@@ -201,3 +201,24 @@ def test_init_db_adds_dict_version_to_vocabulary_lists(db_file):
     assert {"apply_as_glossary", "dict_version"} <= _columns(engine, "vocabulary_lists")
     with engine.connect() as conn:
         assert conn.execute(text("SELECT dict_version FROM vocabulary_lists")).scalar() is None
+
+
+def test_init_db_adds_sample_source_to_user_words(db_file):
+    from sqlalchemy import text
+
+    from app.database import init_db
+
+    engine = db_file()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE user_words (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, "
+                "word VARCHAR(64), state VARCHAR(16), sample_sentence TEXT)"
+            )
+        )
+        conn.execute(text("INSERT INTO user_words (id, user_id, word) VALUES (1, 1, '中文')"))
+    init_db()
+    init_db()
+    assert "sample_source" in _columns(engine, "user_words")
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT sample_source FROM user_words")).scalar() is None

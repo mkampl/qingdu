@@ -253,6 +253,9 @@ class UserWord(Base):
     # haven't found a containing sentence yet (or the user has no saved
     # text with this word — that's fine, the card just skips cloze).
     sample_sentence = Column(Text, nullable=True)
+    # Where sample_sentence came from: a saved text's or library text's
+    # title. NULL for sentences from unsaved reading or older rows.
+    sample_source = Column(String(160), nullable=True)
     # SM-2-style ease * 100. Legacy; FSRS uses stability/difficulty below.
     ease = Column(Integer, default=250)
     # FSRS-4.5 state. `fsrs_state` carries the full Card JSON for round-tripping
@@ -607,6 +610,7 @@ def init_db():
                 ("pinyin", "VARCHAR(128)"),
                 ("meaning", "TEXT"),
                 ("sample_sentence", "TEXT"),
+                ("sample_source", "VARCHAR(160)"),
                 # Phase #100 follow-up — provenance of the meaning snapshot
                 # so package-sourced glosses can be preserved against
                 # dictionary fallback on re-clicks. See UserWord model.
