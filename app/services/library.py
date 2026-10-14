@@ -7,13 +7,22 @@ DeepL token on bundled content.
 
 Loaded once at module import. ~21 MB across 180 files; iterating the
 manifest stays trivial.
+
+The stored analyses carry the glosses the dictionary had at build time.
+`client_entry()` re-resolves them against the current dictionary the first
+time a text is opened (see `gloss_refresh`), so pinyin and meaning fixes
+reach the library without regenerating the files.
 """
 
 import json
+import threading
 from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+
+from app.services import dict_data
+from app.services.gloss_refresh import refresh_analysis
 
 LIBRARY_ROOT = Path(__file__).resolve().parent.parent / "data" / "library"
 
@@ -67,6 +76,25 @@ def get(slug: str) -> dict[str, Any] | None:
         if e["slug"] == slug:
             return e
     return None
+
+
+_refresh_lock = threading.Lock()
+
+
+def client_entry(slug: str) -> dict[str, Any] | None:
+    """The text as the reader gets it: glosses brought up to the current
+    dictionary, quiz answer key left out (the quiz endpoint serves the
+    questions; grading stays server-side)."""
+    entry = get(slug)
+    if entry is None:
+        return None
+    analyzed = entry.get("analyzed")
+    if isinstance(analyzed, dict):
+        with _refresh_lock:
+            refresh_analysis(analyzed, dict_data.dict_version())
+    out = {k: v for k, v in entry.items() if k != "questions"}
+    out["has_quiz"] = bool(entry.get("questions"))
+    return out
 
 
 def questions(slug: str) -> list[dict[str, Any]] | None:
