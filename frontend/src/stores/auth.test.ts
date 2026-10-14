@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "@/api/client";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useAuthStore } from "@/stores/auth";
+import { useSettingsStore } from "@/stores/settings";
 import { useVocabListsStore } from "@/stores/vocab-lists";
 
 function stubFetch(handler: (url: string) => unknown) {
@@ -154,6 +155,26 @@ describe("auth store", () => {
     it("leaves an older server without the field alone", async () => {
       api.setToken("tok");
       const calls = recordFetch({ ...ME });
+      await useAuthStore().hydrate();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(patches(calls)).toHaveLength(0);
+    });
+
+    it("sends the HSK version picked on this device when the account differs", async () => {
+      api.setToken("tok");
+      useSettingsStore().hskVersion = "old";
+      const calls = recordFetch({ ...ME, timezone: "Europe/Vienna", hsk_focus_version: "new" });
+      const auth = useAuthStore();
+      await auth.hydrate();
+      await vi.waitFor(() => expect(patches(calls)).toHaveLength(1));
+      expect(patches(calls)[0].body).toEqual({ hsk_focus_version: "old" });
+      await vi.waitFor(() => expect(auth.user?.hsk_focus_version).toBe("old"));
+    });
+
+    it("leaves a matching HSK version alone", async () => {
+      api.setToken("tok");
+      useSettingsStore().hskVersion = "new";
+      const calls = recordFetch({ ...ME, timezone: "Europe/Vienna", hsk_focus_version: "new" });
       await useAuthStore().hydrate();
       await new Promise((r) => setTimeout(r, 0));
       expect(patches(calls)).toHaveLength(0);
