@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as api from "@/api/client";
+import type { WordInfo } from "@/api/types";
 import WordPopover from "@/components/reader/WordPopover.vue";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useAuthStore } from "@/stores/auth";
@@ -28,7 +29,7 @@ describe("WordPopover", () => {
 
     const wrapper = mount(WordPopover, { attachTo: document.body });
     useReaderStore().selectWord(
-      { text: "感冒", pinyin: "gǎn mào", meaning: "to catch cold" },
+      { text: "感冒", pinyin: "gǎn mào", meaning: "to catch cold" } as WordInfo,
       null,
       { key: "s1", text: "上个星期我感冒了。" },
     );
