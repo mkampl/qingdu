@@ -215,10 +215,10 @@ def review_queue(
     # through the due rows until `limit` cards survive the filter.
     rows = _cloze_candidates(base, limit, db) if mode == "cloze" else base.limit(limit).all()
     # Build payload and lazy-backfill the snapshot columns on rows that
-    # were inserted before Phase #96 introduced them. Cloze rows arrive
-    # with a sample sentence already filled in (_cloze_candidates); other
-    # modes (mixed included — it never renders a cloze step) only pass
-    # along a sentence that is already cached on the row.
+    # were inserted before Phase #96 introduced them. Every card carries
+    # its sample sentence (the context it was met in, else one from a saved
+    # or library text): cloze blanks it, the other surfaces show it once
+    # the answer is out.
     cards = []
     for r in rows:
         enriched = _enrich(r)
@@ -226,7 +226,7 @@ def review_queue(
             r.pinyin = enriched["pinyin"] or None
             r.meaning = enriched["meaning"] or None
 
-        sentence: str | None = r.sample_sentence
+        sentence = r.sample_sentence or cloze.populate_sample_sentence(r, db)
 
         # Phase 1.3b — progressive prompt stage picked from FSRS stability.
         # intro for fresh / unreviewed cards (full info + auto-pass),
@@ -249,6 +249,7 @@ def review_queue(
             displayed_word = to_user_script(r.word, user)
             card["cloze_template"] = cloze.make_cloze_template(displayed_sentence, displayed_word)
             card["cloze_sentence"] = displayed_sentence
+            card["sentence_source"] = r.sample_source
         cards.append(card)
     # Snapshot backfill and freshly found cloze sentences.
     if db.dirty:
@@ -293,6 +294,7 @@ def practice_card(
         displayed_word = to_user_script(row.word, user)
         card["cloze_template"] = cloze.make_cloze_template(displayed_sentence, displayed_word)
         card["cloze_sentence"] = displayed_sentence
+        card["sentence_source"] = row.sample_source
     # populate_sample_sentence may have written a new snapshot; commit that
     # so a follow-up practice call doesn't do the lookup again.
     db.commit()

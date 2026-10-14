@@ -91,6 +91,7 @@ export const useUserWordsStore = defineStore("userWords", () => {
     state: UserWordState,
     sourceTextId?: number | null,
     snapshot?: WordSnapshot | null,
+    context?: api.WordContext | null,
   ) {
     const prev = states.value[word];
     // Optimistic — reassign object to keep reactivity cheap & shallow.
@@ -99,7 +100,7 @@ export const useUserWordsStore = defineStore("userWords", () => {
     try {
       // The response carries the row's new schedule; list views use it
       // instead of guessing what the server did.
-      return await api.setUserWordState(word, state, sourceTextId, snapshot);
+      return await api.setUserWordState(word, state, sourceTextId, snapshot, context);
     } catch (err) {
       // Roll back on failure.
       const next = { ...states.value };

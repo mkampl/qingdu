@@ -984,17 +984,28 @@ export interface WordSnapshot {
   package_source?: string | null;
 }
 
+/** Where a word was met: its sentence and, for a bundled text, the slug.
+ *  The server keeps the sentence for review cards. */
+export interface WordContext {
+  sentence?: string | null;
+  librarySlug?: string | null;
+}
+
 export const setUserWordState = (
   word: string,
   state: UserWordState,
   source_text_id?: number | null,
   snapshot?: WordSnapshot | null,
+  context?: WordContext | null,
 ) =>
   request<{ word: string; state: UserWordState } & WordSchedule>("/api/words/state", {
     body: {
       word,
       state,
       source_text_id: source_text_id ?? null,
+      ...(context?.sentence
+        ? { sentence: context.sentence, library_slug: context.librarySlug ?? null }
+        : {}),
       ...(snapshot
         ? {
             meaning: snapshot.meaning ?? null,
@@ -1162,8 +1173,13 @@ export interface ReviewCard {
   }>;
   /** Cloze mode only — sentence with the target word replaced by "___". */
   cloze_template?: string;
-  /** Cloze mode only — the full sentence (revealed after answer). */
+  /** The word's sample sentence: the context it was marked in, else one
+   *  from a saved or library text. Cloze blanks it; the other surfaces
+   *  show it once the answer is out. */
   cloze_sentence?: string;
+  /** Title of the text cloze_sentence came from; null when unknown
+   *  (unsaved reading, older rows). */
+  sentence_source?: string | null;
   /** Phase 1.3b — server-picked progressive prompt stage. */
   prompt_stage?: PromptStage;
   /** Phase 1.3b — does this row have a sample sentence (for cloze

@@ -21,6 +21,7 @@ import type { QueueMode, ReviewGrade, ReviewMode } from "@/api/client";
 import WeeklySparkline from "@/components/reader/WeeklySparkline.vue";
 import StrokeOrder from "@/components/reader/StrokeOrder.vue";
 import WritingQuiz from "@/components/reader/WritingQuiz.vue";
+import ContextSentence from "@/components/review/ContextSentence.vue";
 import WordReadings from "@/components/reader/WordReadings.vue";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
@@ -837,6 +838,12 @@ onMounted(() => {
             :readings="card.readings"
             headline-class="font-display text-base leading-snug text-fg"
           />
+          <ContextSentence
+            v-if="card.cloze_sentence"
+            :sentence="card.cloze_sentence"
+            :word="card.word"
+            :source="card.sentence_source"
+          />
 
           <!-- Stroke animation: auto-replays each card via the :key bind
                so the animation restarts when the cursor advances. For
@@ -906,6 +913,12 @@ onMounted(() => {
           >
             First look — it comes back later in this session to write from memory.
           </p>
+          <ContextSentence
+            v-if="writingDone && card.cloze_sentence"
+            :sentence="card.cloze_sentence"
+            :word="card.word"
+            :source="card.sentence_source"
+          />
         </template>
 
         <!-- Phase 1.3b — produce stage (stability ≥ 10d). Established
@@ -939,6 +952,12 @@ onMounted(() => {
               {{ ["", "Again", "Hard", "Good", "Easy"][writingAutoGrade] }}
             </span>
           </p>
+          <ContextSentence
+            v-if="writingDone && card.cloze_sentence"
+            :sentence="card.cloze_sentence"
+            :word="card.word"
+            :source="card.sentence_source"
+          />
         </template>
 
         <!-- Recognition mode -->
@@ -986,6 +1005,12 @@ onMounted(() => {
               :readings="card.readings"
               headline-class="font-display text-xl text-fg"
               list-class="mt-1 space-y-0.5 text-sm text-fg-muted"
+            />
+            <ContextSentence
+              v-if="card.cloze_sentence"
+              :sentence="card.cloze_sentence"
+              :word="card.word"
+              :source="card.sentence_source"
             />
           </div>
 
@@ -1080,6 +1105,12 @@ onMounted(() => {
               :meaning-tags="card.meaning_tags"
               :readings="card.readings"
               headline-class="font-display text-base text-fg"
+            />
+            <ContextSentence
+              v-if="card.cloze_sentence"
+              :sentence="card.cloze_sentence"
+              :word="card.word"
+              :source="card.sentence_source"
             />
           </div>
         </template>

@@ -8,11 +8,13 @@ recalling vocabulary in the contexts you actually read.
 
 Pipeline:
 1. UserWord.sample_sentence is the cached sentence (Text, nullable).
-2. When a cloze review needs to render a card with no cached sentence,
+   The reader sends the sentence a word was marked in
+   (`adopt_sentence`), so most words carry the context they were met in.
+2. When a review needs a card with no cached sentence,
    `populate_sample_sentence` asks the database for the newest saved
-   text containing the word and stores the first hit. If nothing
-   matches, the card stays empty and the queue endpoint drops it from
-   the cloze rotation. Misses are remembered per user (in memory) until
+   text containing the word and stores the first hit, falling back to
+   the shortest sentence of the bundled library that uses the word. If
+   nothing matches, the card stays empty and the cloze queue drops it. Misses are remembered per user (in memory) until
    one of their texts is saved, edited or deleted — `forget_misses` —
    so a long tail of sentence-less cards doesn't rescan on every session.
 3. `make_cloze_template(sentence, word)` produces the visible "fill in
@@ -33,6 +35,8 @@ import time
 from sqlalchemy.orm import Session
 
 from app.database import SavedText, UserWord
+from app.services import library
+from app.state import hsk_vocab
 
 # Chinese / Western sentence-final punctuation. We keep the terminator
 # attached to the preceding sentence so the rendered cloze looks natural
@@ -133,7 +137,7 @@ def populate_sample_sentence(row: UserWord, db: Session) -> str | None:
     if not row.word or _is_known_miss(row.user_id, row.word):
         return None
     hit = (
-        db.query(SavedText.content)
+        db.query(SavedText.content, SavedText.title)
         .filter(
             SavedText.user_id == row.user_id,
             SavedText.content.contains(row.word, autoescape=True),
@@ -145,12 +149,45 @@ def populate_sample_sentence(row: UserWord, db: Session) -> str | None:
     sentence = find_sentence_for_word(hit[0], row.word) if hit else None
     if sentence:
         row.sample_sentence = sentence
+        row.sample_source = _source_label(hit[1])
         return sentence
+    example = library.example_sentence(row.word, _hsk_level_number(row.word))
+    if example:
+        row.sample_sentence, title = example
+        row.sample_source = _source_label(title)
+        return row.sample_sentence
     _remember_miss(row.user_id, row.word)
     return None
 
 
+def adopt_sentence(row: UserWord, sentence: str | None, source: str | None) -> bool:
+    """Keep the sentence a word was marked in as its sample sentence. The
+    first context wins: a row that already has one keeps it. The sentence
+    must contain the word; an overlong one is cut around it."""
+    if row.sample_sentence or not sentence or not row.word:
+        return False
+    picked = find_sentence_for_word(sentence.strip(), row.word)
+    if not picked:
+        return False
+    row.sample_sentence = picked
+    row.sample_source = _source_label(source)
+    return True
+
+
+def _source_label(title: str | None) -> str | None:
+    title = (title or "").strip()
+    return title[:160] or None
+
+
+def _hsk_level_number(word: str) -> int | None:
+    """3 for "new-3", 7 for "new-7-9"; None outside the HSK list."""
+    level = (hsk_vocab.get(word) or {}).get("level_new") or ""
+    m = re.match(r"new-(\d+)", level)
+    return int(m.group(1)) if m else None
+
+
 __all__ = [
+    "adopt_sentence",
     "find_sentence_for_word",
     "forget_misses",
     "make_cloze_template",
