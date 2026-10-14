@@ -1,0 +1,8 @@
+- Vocabulary browse: filter an HSK level by new / learning / known /
+  ignored, with counts
+- Library texts show corrected pinyin and meanings; quiz and "Mark as
+  read" also when opened from Discover or the Today panel
+- Share links work from the app and can use the system share sheet
+- Dictation checks tones (mǎ or ma3)
+- The old/new HSK choice now also drives daily new words
+- No more microphone or Bluetooth permission
