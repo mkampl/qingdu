@@ -1,7 +1,8 @@
 """Bundled HSK library endpoints.
 
 - `GET /api/library` — manifest of all bundled texts (metadata only)
-- `GET /api/library/{slug}` — full pre-analyzed text
+- `GET /api/library/{slug}` — full pre-analyzed text, glosses refreshed
+  against the current dictionary, quiz answer key stripped
 - `GET /api/library/for-you` — auth, filtered by the user's known-word set
   into the LingQ-style 85-98% comprehension band
 - `GET /api/library/progress` — auth, the caller's completion state for
@@ -173,7 +174,7 @@ def submit_quiz(
 
 @router.get("/api/library/{slug}")
 def get_one(slug: str) -> dict:
-    entry = library.get(slug)
+    entry = library.client_entry(slug)
     if entry is None:
         raise HTTPException(404, "library entry not found")
     return entry

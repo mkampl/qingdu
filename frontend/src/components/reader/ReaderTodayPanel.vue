@@ -4,8 +4,9 @@ import { RouterLink, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
 import type { LibraryForYouItem } from "@/api/client";
-import type { AnalysisResponse, SavedTextSummary } from "@/api/types";
+import type { SavedTextSummary } from "@/api/types";
 import { onAuthReady } from "@/composables/use-auth-ready";
+import { useOpenLibraryText } from "@/composables/use-open-library-text";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useReaderStore } from "@/stores/reader";
 import { useReviewStore } from "@/stores/review";
@@ -19,6 +20,7 @@ const analysis = useAnalysisStore();
 const reader = useReaderStore();
 const toasts = useToastStore();
 const router = useRouter();
+const openLibraryText = useOpenLibraryText();
 
 const recentText = ref<SavedTextSummary | null>(null);
 const pick = ref<LibraryForYouItem | null>(null);
@@ -112,12 +114,7 @@ async function openSavedText(text: SavedTextSummary) {
 async function openLibraryPick(slug: string) {
   openingSlug.value = slug;
   try {
-    const entry = await api.getLibraryEntry(slug);
-    analysis.loadSaved(entry.text, entry.analyzed as AnalysisResponse, null);
-    reader.reset();
-    void router.push("/");
-  } catch (e) {
-    toasts.error(e instanceof Error ? e.message : "Couldn't open that text");
+    await openLibraryText(slug);
   } finally {
     openingSlug.value = null;
   }
