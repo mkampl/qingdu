@@ -10,7 +10,7 @@ A web app for reading Chinese text against HSK 1–9 vocabulary. Paste or import
 - Click for word definitions; click sentences for translation (DeepL → Google → MyMemory)
 - Text-to-speech for words and full passages
 - Spaced-repetition review with four modes: Recognition, Dictation, Writing, Cloze
-- Pronunciation check with per-syllable tone scoring
+- Graded library of 180 bundled texts (HSK 1–9) with comprehension quizzes and level-matched picks
 - Import from URL, EPUB, PDF, or scanned image (browser OCR)
 - Personal glossaries and vocabulary lists with Anki / CSV export
 - Simplified ↔ Traditional toggle across the whole app
@@ -38,16 +38,16 @@ See [README_SETUP.md](README_SETUP.md) for optional API-key configuration (DeepL
 
 Run your own backend; point the official Android APK at it via **Settings → Server** (or the first-launch prompt). Two environment variables matter for cross-origin access:
 
-- `ALLOWED_ORIGINS` — comma-separated list of origins allowed by CORS. Set this if the SPA / Capacitor wrapper talks to your server from a different host. Example: `ALLOWED_ORIGINS=https://qingdu.example.com,capacitor://localhost,http://localhost`.
+- `ALLOWED_ORIGINS` — comma-separated list of origins allowed by CORS. Set this if the SPA / Capacitor wrapper talks to your server from a different host. Example: `ALLOWED_ORIGINS=https://qingdu.example.com,https://localhost`.
 - `SECRET_KEY` — JWT signing key; rotate per deployment.
 
 Behind a reverse proxy, also set `FORWARDED_ALLOW_IPS` to the proxy's address (see `.env.example`); otherwise every visitor shares one login/signup rate-limit budget.
 
-The web build at `/` is same-origin so CORS isn't needed for browser users. The Capacitor build hits the server cross-origin (its WebView loads from `capacitor://localhost`), so the wrapper origin must appear in `ALLOWED_ORIGINS` on the server.
+The web build at `/` is same-origin so CORS isn't needed for browser users. The Capacitor build hits the server cross-origin (its WebView loads from `https://localhost`), so the wrapper origin must appear in `ALLOWED_ORIGINS` on the server.
 
 ## Technology
 
-Backend: FastAPI, jieba, pypinyin, FSRS, faster-whisper, librosa, SQLite.
+Backend: FastAPI, jieba, pypinyin, FSRS, SQLite.
 Frontend: Vue 3, Vite, TypeScript, Pinia, Tailwind 4.
 
 ## License

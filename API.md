@@ -28,7 +28,7 @@ Anonymous callers can still hit `GET /api/vocabulary-stats`, `GET /health`, `POS
 | Vocabulary lists | `/api/vocabulary-lists/*`, `/api/vocabulary-stats` | CRUD on user lists; Anki / CSV exports |
 | Words | `/api/words/*` | Per-user word states (new / learning / known / ignored), bulk operations, stats, exports |
 | Review | `/api/review/*` | FSRS queue + grading; recognition / dictation / writing / cloze modes |
-| Pronounce | `/api/pronounce` | Upload audio for per-syllable tone scoring |
+| Library | `/api/library/*` | Bundled graded texts, level-matched picks, reading progress, quizzes |
 | Import | `/api/extract/file`, `/api/import/package/*` | EPUB / PDF / scan import; pre-analysed JSON package import |
 | Convert | `/api/convert`, `/api/convert/detect` | Trad ⇄ Simp conversion, script detection |
 | Stats | `/api/stats/weekly`, `/api/review/stats` | Activity sparkline + review queue counters |
