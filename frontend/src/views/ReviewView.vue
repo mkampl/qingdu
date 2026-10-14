@@ -27,6 +27,7 @@ import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReviewStore } from "@/stores/review";
 import { useSettingsStore } from "@/stores/settings";
 import { success as hapticSuccess, tap as hapticTap } from "@/services/native";
+import { checkPinyin } from "@/utils/pinyin-answer";
 import {
   formatHskLevel,
   reviewShortcutBlocked,
@@ -65,7 +66,14 @@ const settings = useSettingsStore();
 
 const revealed = ref(false);
 const dictationInput = ref("");
-const dictationFeedback = ref<"" | "correct" | "wrong">("");
+const dictationFeedback = ref<"" | "correct" | "toneless" | "tone" | "wrong">("");
+const DICTATION_VERDICT = {
+  correct: "Correct",
+  toneless: "Right sound — type the tones too (mǎ or ma3)",
+  tone: "Wrong tone",
+  wrong: "Not quite",
+  "": "",
+} as const;
 const ttsLoading = ref(false);
 
 const modes: {
@@ -471,56 +479,27 @@ function submitDictation() {
   if (!card.value || dictationFeedback.value !== "") return;
   const guess = dictationInput.value.trim();
   if (!guess) return;
-  const target = card.value.word.trim();
-  const pinyinTarget = (card.value.pinyin || "")
-    .replace(/\s+/g, "")
-    .toLowerCase();
-  const pinyinNoTones = pinyinTarget.replace(
-    /[āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü]/g,
-    (c) => {
-      return (
-        {
-          ā: "a",
-          á: "a",
-          ǎ: "a",
-          à: "a",
-          ē: "e",
-          é: "e",
-          ě: "e",
-          è: "e",
-          ī: "i",
-          í: "i",
-          ǐ: "i",
-          ì: "i",
-          ō: "o",
-          ó: "o",
-          ǒ: "o",
-          ò: "o",
-          ū: "u",
-          ú: "u",
-          ǔ: "u",
-          ù: "u",
-          ǖ: "u",
-          ǘ: "u",
-          ǚ: "u",
-          ǜ: "u",
-          ü: "u",
-        }[c] ?? c
-      );
-    },
-  );
-  const guessNorm = guess.replace(/\s+/g, "").toLowerCase();
-  const correct =
-    guess === target ||
-    guessNorm === pinyinTarget ||
-    guessNorm === pinyinNoTones;
-  dictationFeedback.value = correct ? "correct" : "wrong";
+  if (guess === card.value.word.trim()) {
+    dictationFeedback.value = "correct";
+    return;
+  }
+  const verdict = checkPinyin(guess, card.value.pinyin || "");
+  dictationFeedback.value =
+    verdict === "exact"
+      ? "correct"
+      : verdict === "toneless"
+        ? "toneless"
+        : verdict === "wrong-tone"
+          ? "tone"
+          : "wrong";
 }
 
 async function dictationContinue() {
-  // Correct → Good (3). Wrong → Again (1). The user can override with the
-  // explicit grade row after the answer is revealed.
-  await gradeAndAdvance(dictationFeedback.value === "correct" ? 3 : 1);
+  // Correct → Good (3). Right syllables typed without tones → Hard (2).
+  // A wrong tone or wrong word → Again (1). The user can override with
+  // the explicit grade row after the answer is revealed.
+  const grade = { correct: 3, toneless: 2, tone: 1, wrong: 1, "": 1 } as const;
+  await gradeAndAdvance(grade[dictationFeedback.value]);
 }
 
 onBeforeUnmount(() => {
@@ -1046,7 +1025,7 @@ onMounted(() => {
               v-model="dictationInput"
               :readonly="dictationFeedback !== ''"
               type="text"
-              placeholder="Type the hanzi or pinyin"
+              placeholder="Hanzi or pinyin with tones (mǎ / ma3)"
               autocomplete="off"
               autocapitalize="off"
               autocorrect="off"
@@ -1077,10 +1056,12 @@ onMounted(() => {
               :class="
                 dictationFeedback === 'correct'
                   ? 'text-emerald-600 dark:text-emerald-300'
-                  : 'text-red-700 dark:text-red-300'
+                  : dictationFeedback === 'toneless'
+                    ? 'text-amber-700 dark:text-amber-300'
+                    : 'text-red-700 dark:text-red-300'
               "
             >
-              {{ dictationFeedback === "correct" ? "Correct" : "Not quite" }}
+              {{ DICTATION_VERDICT[dictationFeedback] }}
             </p>
             <p class="font-cn-serif text-3xl text-fg">{{ card.word }}</p>
             <p class="font-sans text-sm text-fg-muted">{{ card.pinyin }}</p>
