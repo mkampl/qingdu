@@ -200,4 +200,65 @@ describe("ReviewView", () => {
       vi.useRealTimers();
     }
   });
+
+  it("grades a clean first pass after the intro Good, not Easy", async () => {
+    vi.useFakeTimers();
+    try {
+      useSettingsStore().autoGradeDelayMs = 1000;
+      vi.spyOn(api, "getReviewQueue").mockResolvedValue({
+        mode: "mixed",
+        cards: [card("一", "intro")],
+      });
+      const gradeSpy = vi
+        .spyOn(api, "gradeReviewCard")
+        .mockResolvedValue({ word: "一", due_at: null, stability: 2.3, difficulty: 5 } as never);
+      const review = useReviewStore();
+      const w = mountView();
+      await review.loadQueue("mixed");
+      await flushPromises();
+      await w.findAll("button").find((b) => b.text().startsWith("Got it"))!.trigger("click");
+      w.findComponent({ name: "WritingQuiz" }).vm.$emit("complete", {
+        totalMistakes: 0,
+        totalStrokes: 1,
+        skipped: false,
+      });
+      await flushPromises();
+      expect(w.text()).toContain("First look");
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(gradeSpy).toHaveBeenCalledWith("一", 3, "writing");
+      w.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("read stage: hanzi only, typed pinyin checked, audio after the reveal", async () => {
+    vi.spyOn(api, "getReviewQueue").mockResolvedValue({
+      mode: "mixed",
+      cards: [card("一", "read", { stability: 3 })],
+    });
+    const gradeSpy = vi
+      .spyOn(api, "gradeReviewCard")
+      .mockResolvedValue({ word: "一", due_at: null, stability: 9, difficulty: 5 } as never);
+    const review = useReviewStore();
+    const w = mountView();
+    await review.loadQueue("mixed");
+    await flushPromises();
+
+    expect(w.text()).toMatch(/Read · stability 3d/i);
+    expect(w.text()).not.toContain("yī");
+    expect(api.tts).not.toHaveBeenCalled();
+
+    const input = w.find('input[placeholder^="Pinyin"]');
+    await input.setValue("yi1");
+    await input.trigger("keydown", { key: "Enter" });
+    await flushPromises();
+    expect(w.text()).toContain("Right, tones too");
+    expect(w.text()).toContain("yī");
+    expect(api.tts).toHaveBeenCalledWith("一");
+
+    await w.findAll("button").find((b) => b.text().startsWith("Good"))!.trigger("click");
+    await flushPromises();
+    expect(gradeSpy).toHaveBeenCalledWith("一", 3, "recognition");
+  });
 });

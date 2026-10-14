@@ -28,7 +28,7 @@ import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReviewStore } from "@/stores/review";
 import { useSettingsStore } from "@/stores/settings";
 import { success as hapticSuccess, tap as hapticTap } from "@/services/native";
-import { checkPinyin } from "@/utils/pinyin-answer";
+import { checkPinyin, type PinyinVerdict } from "@/utils/pinyin-answer";
 import {
   formatHskLevel,
   reviewShortcutBlocked,
@@ -155,6 +155,7 @@ type Surface =
   | "intro"
   | "trace"
   | "produce"
+  | "read"
   | "recognition"
   | "dictation"
   | "writing"
@@ -182,6 +183,8 @@ const activeSurface = computed<Surface>(() => {
 function resetCardState() {
   cancelAutoGrade();
   revealed.value = false;
+  readInput.value = "";
+  readVerdict.value = "";
   dictationInput.value = "";
   dictationFeedback.value = "";
   writingMistakes.value = 0;
@@ -228,6 +231,26 @@ function switchToMixed() {
 
 function reveal() {
   revealed.value = true;
+}
+
+// Read stage: the hanzi alone; the learner recalls sound, tone and meaning,
+// optionally types the pinyin, then reveals and grades themselves. The
+// word's audio only plays once the answer is out.
+const readInput = ref("");
+const readVerdict = ref<"" | PinyinVerdict>("");
+const READ_VERDICT: Record<PinyinVerdict, string> = {
+  exact: "Right, tones too",
+  toneless: "Right sound — tones not typed",
+  "wrong-tone": "Wrong tone",
+  wrong: "Not this word",
+};
+
+function revealRead() {
+  if (!card.value || revealed.value) return;
+  const typed = readInput.value.trim();
+  readVerdict.value = typed ? checkPinyin(typed, card.value.pinyin || "") : "";
+  revealed.value = true;
+  void playTts();
 }
 
 // Hold a reference to the currently-playing TTS audio so back-to-back
@@ -301,6 +324,7 @@ async function playTts() {
 const gradeRowVisible = computed(
   () =>
     (activeSurface.value === "recognition" && revealed.value) ||
+    (activeSurface.value === "read" && revealed.value) ||
     (activeSurface.value === "dictation" && dictationFeedback.value !== "") ||
     (activeSurface.value === "writing" && writingDone.value) ||
     (activeSurface.value === "cloze" && clozeFeedback.value !== "") ||
@@ -319,6 +343,9 @@ function onReviewKeydown(e: KeyboardEvent) {
     if (activeSurface.value === "recognition" && !revealed.value) {
       e.preventDefault();
       reveal();
+    } else if (activeSurface.value === "read" && !revealed.value) {
+      e.preventDefault();
+      revealRead();
     }
     return;
   }
@@ -337,6 +364,7 @@ function onReviewKeydown(e: KeyboardEvent) {
 function surfaceMode(): ReviewMode {
   const s = activeSurface.value;
   if (s === "intro" || s === "trace" || s === "produce") return "writing";
+  if (s === "read") return "recognition";
   return s;
 }
 
@@ -958,6 +986,80 @@ onMounted(() => {
             :word="card.word"
             :source="card.sentence_source"
           />
+        </template>
+
+        <!-- Read stage: the reading direction. Only the hanzi; sound, tone
+             and meaning come from memory. Typing the pinyin is optional
+             and checked against the card; Show answer (space) reveals,
+             plays the word and the learner grades themselves. -->
+        <template v-else-if="activeSurface === 'read'">
+          <p
+            class="font-mono text-[10px] uppercase tracking-wider text-accent"
+          >
+            Read · stability {{ Math.round(card.stability ?? 0) }}d
+          </p>
+          <p class="mt-4 font-cn-serif text-6xl leading-none text-fg sm:text-7xl">
+            {{ card.word }}
+          </p>
+          <template v-if="!revealed">
+            <p class="mt-6 text-sm text-fg-muted">
+              Say it with its tone and meaning — then check.
+            </p>
+            <input
+              v-model="readInput"
+              type="text"
+              placeholder="Pinyin with tones (optional)"
+              autocomplete="off"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              class="mt-4 w-full max-w-xs rounded-lg border border-border bg-bg-elevated px-4 py-2 text-center text-base text-fg focus:border-accent focus:outline-none"
+              @keydown.enter.prevent="revealRead"
+            />
+            <div>
+              <button
+                type="button"
+                class="mt-5 inline-flex items-center gap-2 rounded-full border border-border bg-bg-elevated px-5 py-2 text-sm font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
+                @click="revealRead"
+              >
+                Show answer
+                <span class="font-mono text-[9px] uppercase tracking-wider opacity-70">
+                  (space)
+                </span>
+              </button>
+            </div>
+          </template>
+          <div v-else class="mt-6 space-y-1.5">
+            <p
+              v-if="readVerdict"
+              class="font-mono text-[11px] uppercase tracking-wider"
+              :class="
+                readVerdict === 'exact'
+                  ? 'text-emerald-600 dark:text-emerald-300'
+                  : readVerdict === 'toneless'
+                    ? 'text-amber-700 dark:text-amber-300'
+                    : 'text-red-700 dark:text-red-300'
+              "
+            >
+              {{ READ_VERDICT[readVerdict] }}
+            </p>
+            <p class="font-sans text-base text-fg-muted">{{ card.pinyin }}</p>
+            <WordReadings
+              class="mx-auto max-w-md"
+              :meaning="card.meaning"
+              :meanings="card.meanings"
+              :meaning-tags="card.meaning_tags"
+              :readings="card.readings"
+              headline-class="font-display text-xl text-fg"
+              list-class="mt-1 space-y-0.5 text-sm text-fg-muted"
+            />
+            <ContextSentence
+              v-if="card.cloze_sentence"
+              :sentence="card.cloze_sentence"
+              :word="card.word"
+              :source="card.sentence_source"
+            />
+          </div>
         </template>
 
         <!-- Recognition mode -->

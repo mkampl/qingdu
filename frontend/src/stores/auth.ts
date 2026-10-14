@@ -246,6 +246,9 @@ export const useAuthStore = defineStore("auth", () => {
         display_script: updated.display_script as "auto" | "simp" | "trad",
         review_retention: updated.review_retention,
         review_window: updated.review_window as "now" | "today" | "tomorrow",
+        ...(updated.review_focus !== undefined
+          ? { review_focus: updated.review_focus as api.ReviewFocus }
+          : {}),
         ...(updated.timezone !== undefined ? { timezone: updated.timezone } : {}),
       };
     }

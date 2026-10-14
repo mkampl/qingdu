@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 
 import * as api from "@/api/client";
 import { ApiError, getApiBase, getDefaultApiBase, setApiBase, setToken } from "@/api/client";
+import type { ReviewFocus } from "@/api/client";
 import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
 import {
@@ -312,6 +313,33 @@ const reviewWindow = computed<ReviewWindow>({
     });
   },
 });
+// --- Review focus: what the mixed session trains after the intro ---
+const reviewFocus = computed<ReviewFocus>({
+  get: () => auth.user?.review_focus ?? "both",
+  set: (v) => {
+    void auth.updateSettings({ review_focus: v }).catch(() => {
+      toasts.error("Couldn't save review focus.");
+    });
+  },
+});
+const reviewFocusOptions: { value: ReviewFocus; label: string; hint: string }[] = [
+  {
+    value: "both",
+    label: "Reading and writing",
+    hint: "Default — read the hanzi (sound, tone, meaning) while a word is young, write it from memory once it is established.",
+  },
+  {
+    value: "reading",
+    label: "Reading",
+    hint: "After the first encounter, always read: the hanzi alone, recall sound, tone and meaning.",
+  },
+  {
+    value: "writing",
+    label: "Writing",
+    hint: "Always write the hanzi from pinyin and meaning — trace while young, from memory once established.",
+  },
+];
+
 // --- Timezone: where "today" starts (streak, due today, new words) ---
 // Filled from the device on first load; changeable here, e.g. after a move.
 const deviceTimeZone = browserTimeZone();
@@ -624,6 +652,37 @@ function resetApiBase() {
           <svg class="size-3 text-fg-subtle transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </summary>
         <div class="mt-4 space-y-7 pl-1">
+      <fieldset v-if="auth.isAuthed">
+        <legend
+          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
+        >
+          Review focus
+        </legend>
+        <div class="space-y-2">
+          <label
+            v-for="opt in reviewFocusOptions"
+            :key="opt.value"
+            class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
+            :class="{
+              'border-accent bg-bg-sunken': reviewFocus === opt.value,
+            }"
+          >
+            <input
+              v-model="reviewFocus"
+              type="radio"
+              :value="opt.value"
+              class="mt-1 accent-accent"
+            />
+            <span class="flex-1">
+              <span class="block font-display text-base text-fg">
+                {{ opt.label }}
+              </span>
+              <span class="block text-xs text-fg-muted">{{ opt.hint }}</span>
+            </span>
+          </label>
+        </div>
+      </fieldset>
+
       <!-- Phase #119 — Review window -->
       <fieldset v-if="auth.isAuthed">
         <legend

@@ -228,12 +228,9 @@ def review_queue(
 
         sentence = r.sample_sentence or cloze.populate_sample_sentence(r, db)
 
-        # Phase 1.3b — progressive prompt stage picked from FSRS stability.
-        # intro for fresh / unreviewed cards (full info + auto-pass),
-        # trace once the card has any stability < 10d (hanzi-writer
-        # production with pinyin cues), produce once stability ≥ 10d
-        # (pinyin + meaning only, recall + reveal + self-grade).
-        stage = srs.prompt_stage_for(r.stability)
+        # Progressive prompt stage from FSRS stability and the user's
+        # review focus (intro / read / trace / produce; see srs.py).
+        stage = srs.stage_for_row(r, user)
 
         card = {
             "word": to_user_script(r.word, user),
@@ -279,7 +276,7 @@ def practice_card(
         raise HTTPException(status_code=404, detail="Not a tracked word")
     enriched = _enrich(row)
     sentence = row.sample_sentence or cloze.populate_sample_sentence(row, db)
-    stage = srs.prompt_stage_for(row.stability)
+    stage = srs.stage_for_row(row, user)
     card = {
         "word": to_user_script(row.word, user),
         "due_at": iso_utc(row.due_at),
@@ -308,8 +305,8 @@ def grade_card(
     db: Session = Depends(get_db),
 ) -> dict:
     """Grade one review card. Phase 1.3b — single FSRS advance per grade.
-    The card's prompt stage (intro / trace / produce) is picked by
-    `srs.prompt_stage_for(stability)` on the queue side, so the grade
+    The card's prompt stage (intro / read / trace / produce) is picked by
+    `srs.stage_for_row` on the queue side, so the grade
     endpoint stays simple: one grade, one FSRS step. The Mixed-mode
     cycle that Phase 1.3 introduced is gone; the schema columns remain
     for event telemetry only.
@@ -378,7 +375,7 @@ def grade_card(
         # The card's new prompt stage given the just-updated stability —
         # informational, the SPA uses it to pre-render the next-cards
         # surfaces without a second fetch.
-        "prompt_stage": srs.prompt_stage_for(row.stability),
+        "prompt_stage": srs.stage_for_row(row, user),
     }
 
 

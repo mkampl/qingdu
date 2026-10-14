@@ -169,6 +169,7 @@ export interface User {
   review_retention?: number;
   /** Phase #119 — look-ahead window for the review queue. */
   review_window?: "now" | "today" | "tomorrow";
+  review_focus?: "both" | "reading" | "writing";
   /** IANA zone whose midnight starts the user's "today" on the server.
    *  null until the SPA has sent the device's zone. */
   timezone?: string | null;

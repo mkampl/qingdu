@@ -32,7 +32,7 @@ from app.schemas import (
     SignupWithInviteRequest,
     UserSettingsUpdate,
 )
-from app.services import captcha, lifecycle, localday, streak
+from app.services import captcha, lifecycle, localday, srs, streak
 from app.services.timestamps import iso_utc
 
 router = APIRouter(tags=["Authentication"])
@@ -118,6 +118,7 @@ async def get_me(user: User = Depends(get_current_user), db: Session = Depends(g
                 user.review_retention if user.review_retention is not None else 0.95
             ),
             "review_window": user.review_window or "today",
+            "review_focus": user.review_focus or "both",
             # IANA zone for local-day boundaries; null until the SPA sends
             # the browser's zone on first load.
             "timezone": user.timezone,
@@ -258,6 +259,11 @@ async def update_my_settings(
             status_code=400,
             detail="review_window must be 'now', 'today', or 'tomorrow'",
         )
+    if payload.review_focus is not None and payload.review_focus not in srs.REVIEW_FOCUSES:
+        raise HTTPException(
+            status_code=400,
+            detail="review_focus must be 'both', 'reading', or 'writing'",
+        )
     if payload.timezone is not None and not localday.is_valid_timezone(payload.timezone):
         raise HTTPException(status_code=400, detail="timezone must be a known IANA zone name")
     user = db.merge(user)
@@ -271,6 +277,8 @@ async def update_my_settings(
         user.review_retention = payload.review_retention
     if payload.review_window is not None:
         user.review_window = payload.review_window
+    if payload.review_focus is not None:
+        user.review_focus = payload.review_focus
     if payload.timezone is not None and payload.timezone != user.timezone:
         # Day boundaries move with the zone; keep the streak whole across it.
         streak.rebase_for_timezone(
@@ -284,6 +292,7 @@ async def update_my_settings(
         "display_script": user.display_script,
         "review_retention": user.review_retention,
         "review_window": user.review_window,
+        "review_focus": user.review_focus,
         "timezone": user.timezone,
     }
 
@@ -324,6 +333,7 @@ async def export_my_data(
                 "display_script": user.display_script,
                 "review_retention": user.review_retention,
                 "review_window": user.review_window,
+                "review_focus": user.review_focus,
                 "timezone": user.timezone,
             },
         },
