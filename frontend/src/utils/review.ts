@@ -65,6 +65,22 @@ export function suggestedGradeForMistakes(mistakes: number, strokes: number): Re
   return 1; // Again — more than 1 in 4
 }
 
+/**
+ * Grade for a writing pass in the mixed session. The pass right after the
+ * intro animation is copying what was just shown, not recall, so it never
+ * earns Easy: Good keeps the word in FSRS's learning steps and the session
+ * brings it back about ten minutes later, to be written from memory. That
+ * second pass is graded normally.
+ */
+export function autoGradeForWriting(
+  mistakes: number,
+  strokes: number,
+  firstEncounter: boolean,
+): ReviewGrade {
+  const grade = suggestedGradeForMistakes(mistakes, strokes);
+  return firstEncounter && grade > 3 ? 3 : grade;
+}
+
 export type AutoGradeDelay = 0 | 1000 | 2000 | 3000;
 export const AUTO_GRADE_DELAYS: readonly AutoGradeDelay[] = [0, 1000, 2000, 3000];
 export const DEFAULT_AUTO_GRADE_DELAY: AutoGradeDelay = 2000;
