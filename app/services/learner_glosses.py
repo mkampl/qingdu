@@ -99,6 +99,15 @@ def apply_to_hsk_only(word: str, hsk_entry: dict, glosses: dict[str, dict]) -> b
     item = glosses.get(word)
     if not item:
         return False
+    if item.get("fixes_hsk_pinyin"):
+        # The list's own pinyin and English are broken for a few words
+        # ('bù yīhuǐr5', 'Take a short while'); with no CC-CEDICT entry
+        # to fall back on, the reviewed entry supplies both.
+        hsk_entry["pinyin"] = item["pinyin"]
+        hsk_entry["meaning"] = item["gloss"]
+        hsk_entry["meanings"] = [m.strip() for m in item["gloss"].split(";") if m.strip()]
+        hsk_entry["meaning_tags"] = []
+        return True
     if not matches_reading(item["pinyin"], hsk_entry.get("pinyin")):
         logger.warning(
             "Learner gloss for %s is for %s, HSK pinyin is %s; skipped",

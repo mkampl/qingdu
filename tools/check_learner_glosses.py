@@ -191,6 +191,7 @@ class Context:
     main_pinyin: dict[str, str]
     senses: dict[str, list[str]]  # main reading's CC-CEDICT senses
     hsk_english: dict[str, str]
+    in_cedict: set[str] = field(default_factory=set)
 
 
 def build_context(words) -> Context:
@@ -206,7 +207,8 @@ def build_context(words) -> Context:
             main_pinyin[word] = main["pinyin"]
             senses[word] = main["meanings"]
         english[word] = hsk_list_meaning(forms.get(word, []), main_pinyin.get(word))
-    return Context(hsk_words, main_pinyin, senses, english)
+    in_cedict = {w for w in words if w in state.cedict_vocab}
+    return Context(hsk_words, main_pinyin, senses, english, in_cedict)
 
 
 def check_entry(word: str, item: dict, ctx: Context) -> EntryResult:
@@ -224,6 +226,11 @@ def check_entry(word: str, item: dict, ctx: Context) -> EntryResult:
         res.errors.append(f"pinyin {pinyin!r} is not tone-marked pinyin")
     elif main is None:
         res.errors.append("no dictionary reading for this word")
+    elif item.get("fixes_hsk_pinyin"):
+        # Replaces a broken HSK-list pinyin; only allowed where CC-CEDICT
+        # has no entry to take the reading from.
+        if word in ctx.in_cedict:
+            res.errors.append("fixes_hsk_pinyin on a word CC-CEDICT has")
     elif not matches_reading(pinyin, main):
         res.errors.append(f"pinyin {pinyin!r} is not the main reading {main!r}")
 

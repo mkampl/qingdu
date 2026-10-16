@@ -10,7 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.auth import get_current_user, require_auth
+from app.auth import get_current_user, require_auth, require_auth_flexible
 from app.database import Base, SavedText, User, VocabularyList, get_db
 from app.services import dict_data
 from app.services.gloss_refresh import DICT_VERSION_KEY, refresh_analysis, resolve_token
@@ -181,6 +181,7 @@ def env(app_module, version):
     app_module.dependency_overrides[get_db] = _db
     app_module.dependency_overrides[require_auth] = _user
     app_module.dependency_overrides[get_current_user] = _user
+    app_module.dependency_overrides[require_auth_flexible] = _user
     try:
         with TestClient(app_module) as c:
             yield c, Session

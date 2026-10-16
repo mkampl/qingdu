@@ -237,3 +237,36 @@ def test_admin_create_user_enforces_credential_rules(auth_client, username, pass
         headers=_h(admin),
     )
     assert r.status_code == 400
+
+
+def _ticket(client, token: str, path: str):
+    return client.post("/api/auth/download-ticket", json={"path": path}, headers=_h(token))
+
+
+def test_download_ticket_opens_its_download_only(auth_client):
+    token = _login(auth_client)
+    r = _ticket(auth_client, token, "/api/words/export.csv")
+    assert r.status_code == 200
+    ticket = r.json()["ticket"]
+    assert auth_client.get(f"/api/words/export.csv?ticket={ticket}").status_code == 200
+    # Another download, or the ticket used as a session token, is refused.
+    assert auth_client.get(f"/api/auth/export?ticket={ticket}").status_code == 401
+    assert auth_client.get("/api/words/state", headers=_h(ticket)).status_code == 401
+
+
+def test_download_ticket_only_for_downloads(auth_client):
+    token = _login(auth_client)
+    assert _ticket(auth_client, token, "/api/auth/me").status_code == 400
+    assert _ticket(auth_client, token, "/api/vocabulary-lists/3/export").status_code == 200
+
+
+def test_download_ticket_dies_with_the_session(auth_client):
+    token = _login(auth_client)
+    ticket = _ticket(auth_client, token, "/api/words/export.csv").json()["ticket"]
+    r = auth_client.post(
+        "/api/auth/change-password",
+        json={"old_password": PASSWORD, "new_password": PASSWORD + "x"},
+        headers=_h(token),
+    )
+    assert r.status_code == 200
+    assert auth_client.get(f"/api/words/export.csv?ticket={ticket}").status_code == 401

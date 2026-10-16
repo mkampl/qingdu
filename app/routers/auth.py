@@ -1,10 +1,13 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.auth import (
+    DOWNLOAD_PATHS,
     bump_token_version,
+    create_download_ticket,
     create_session_token,
     get_current_user,
     get_password_hash,
@@ -301,6 +304,19 @@ async def update_my_settings(
 async def logout():
     """Client-side token removal — server-side this is a no-op."""
     return {"message": "Logged out successfully"}
+
+
+class DownloadTicketRequest(BaseModel):
+    path: str = Field(..., max_length=200)
+
+
+@router.post("/api/auth/download-ticket")
+async def download_ticket(payload: DownloadTicketRequest, user: User = Depends(require_auth)):
+    """A short-lived ticket that opens one download as a plain link
+    (`<path>?ticket=…`), so the session token never lands in a URL."""
+    if not DOWNLOAD_PATHS.match(payload.path):
+        raise HTTPException(status_code=400, detail="Not a download")
+    return {"ticket": create_download_ticket(user, payload.path)}
 
 
 @router.get("/api/auth/export")
