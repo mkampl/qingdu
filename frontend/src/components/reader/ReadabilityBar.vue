@@ -7,6 +7,7 @@
  * (POST /api/readability) and refreshed whenever a word state changes.
  */
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { RouterLink } from "vue-router";
 
 import * as api from "@/api/client";
 import type { ReadabilityResponse } from "@/api/client";
@@ -176,6 +177,13 @@ defineExpose({ refresh: load, data });
         {{ data.prelearned.total }} pre-learned for this text ·
         {{ data.prelearned.learned }} learned so far
       </p>
+      <RouterLink
+        v-if="data.prelearned && data.prelearned.total > data.prelearned.learned"
+        :to="{ path: '/review', query: { text: textKey } }"
+        class="font-mono text-[10px] uppercase tracking-wider text-accent hover:underline"
+      >
+        Review these words →
+      </RouterLink>
     </div>
     <PrelearnModal
       :open="prelearnOpen"

@@ -20,6 +20,7 @@ import type {
   TranslateResponse,
   VocabStatsResponse,
   VocabularyListSummary,
+  WordGloss,
   WordInfo,
   WordReading,
 } from "./types";
@@ -539,6 +540,13 @@ export const deleteVocabularyList = (id: number) =>
   request<{ message: string }>(`/api/vocabulary-lists/${id}`, {
     method: "DELETE",
   });
+
+/** Take a list's words (or one section's) into review. */
+export const learnVocabularyList = (id: number, sectionName: string | null = null) =>
+  request<{ added: string[]; already_tracked: number; skipped: string[] }>(
+    `/api/vocabulary-lists/${id}/learn`,
+    { method: "POST", body: { section_name: sectionName } },
+  );
 
 export const addWordToList = (
   id: number,
@@ -1236,12 +1244,10 @@ export interface ReviewCard {
   /** Phase #120 — every gloss this user has on the word, with
    *  provenance. Review card renders them as chips so the same
    *  character can carry CEDICT + multiple package meanings. */
-  glosses?: Array<{
-    source: "dictionary" | "package";
-    tag: string | null;
-    meaning: string;
-    pinyin: string | null;
-  }>;
+  glosses?: WordGloss[];
+  /** In a session focused on one text or list: that text's or list's own
+   *  meaning, which the card leads with. */
+  focus_gloss?: WordGloss | null;
   /** Cloze mode only — sentence with the target word replaced by "___". */
   cloze_template?: string;
   /** The word's sample sentence: the context it was marked in, else one
@@ -1261,6 +1267,14 @@ export interface ReviewCard {
 export interface ReviewQueueResponse {
   mode: QueueMode;
   cards: ReviewCard[];
+  /** Title of the text or list a focused session is about. */
+  scope_title?: string | null;
+}
+
+/** A review session focused on the words of one text or one vocab list. */
+export interface ReviewScope {
+  textKey?: string;
+  listId?: number;
 }
 
 export interface ReviewGradeResponse {
@@ -1286,10 +1300,24 @@ export interface ReviewStatsResponse {
   new_today: number;
   /** Phase #96 — user's daily target (mirror of User.daily_new_words). */
   daily_target: number;
+  /** Only when asked for a scope: its title, words in rotation and due. */
+  scope?: { title: string | null; due: number; total: number } | null;
 }
 
-export const getReviewQueue = (mode: QueueMode = "recognition", limit = 20) =>
-  request<ReviewQueueResponse>(`/api/review/queue?mode=${mode}&limit=${limit}`);
+function scopeQuery(scope: ReviewScope | null | undefined): string {
+  if (scope?.textKey) return `&text_key=${encodeURIComponent(scope.textKey)}`;
+  if (scope?.listId !== undefined) return `&list_id=${scope.listId}`;
+  return "";
+}
+
+export const getReviewQueue = (
+  mode: QueueMode = "recognition",
+  limit = 20,
+  scope: ReviewScope | null = null,
+) =>
+  request<ReviewQueueResponse>(
+    `/api/review/queue?mode=${mode}&limit=${limit}${scopeQuery(scope)}`,
+  );
 
 export const gradeReviewCard = (
   word: string,
@@ -1300,8 +1328,10 @@ export const gradeReviewCard = (
     body: { word, grade, mode },
   });
 
-export const getReviewStats = () =>
-  request<ReviewStatsResponse>("/api/review/stats");
+export const getReviewStats = (scope: ReviewScope | null = null) =>
+  request<ReviewStatsResponse>(
+    `/api/review/stats${scope ? `?${scopeQuery(scope).slice(1)}` : ""}`,
+  );
 
 // Practice mode — fetch a single card by word without any queue side
 // effects. The client cycles modes locally; no /grade call happens

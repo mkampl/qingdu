@@ -7,6 +7,7 @@ import type {
   ReviewCard,
   ReviewGrade,
   ReviewMode,
+  ReviewScope,
   ReviewStatsResponse,
 } from "@/api/client";
 import { useAuthStore } from "@/stores/auth";
@@ -55,6 +56,11 @@ export const useReviewStore = defineStore("review", () => {
   // Phase #119 — mobile focus-mode flag (collapses header/footer during
   // the result phase). Lives in the store so App.vue can read it.
   const inFocus = ref(false);
+  // A session focused on the words of one text or one vocab list (set
+  // from /review?text=…|list=…). Its title and due count come from
+  // /api/review/stats; no new words are enrolled in such a session.
+  const scope = ref<ReviewScope | null>(null);
+  const scopeInfo = ref<{ title: string | null; due: number; total: number } | null>(null);
   // Practice mode — session started from WordsView for a specific word.
   // When true, grade() short-circuits the server call so FSRS state,
   // streak, and stats stay untouched. ReviewView renders a persistent
@@ -105,7 +111,7 @@ export const useReviewStore = defineStore("review", () => {
     cursor.value = 0;
     sessionGraded.value = 0;
     try {
-      const r = await api.getReviewQueue(mode, 30);
+      const r = await api.getReviewQueue(mode, 30, scope.value);
       queue.value = r.cards;
       if (r.cards.length === 0) {
         // The Start gate said there was something due, but nothing came
@@ -115,7 +121,9 @@ export const useReviewStore = defineStore("review", () => {
         error.value =
           mode === "cloze"
             ? "None of your due words appear in a saved text yet, so there's nothing to fill in. Try another mode."
-            : "Nothing to review right now.";
+            : scope.value
+              ? "None of these words are due right now."
+              : "Nothing to review right now.";
       }
       // Phase #96 — fetching the queue triggers server-side auto-enrol,
       // which bumps `new_today` and may add to `due_now`. Refresh stats
@@ -260,9 +268,10 @@ export const useReviewStore = defineStore("review", () => {
   async function refreshStats() {
     const seq = ++statsSeq;
     try {
-      const fresh = await api.getReviewStats();
+      const fresh = await api.getReviewStats(scope.value);
       if (seq !== statsSeq) return;
       stats.value = { ...DEFAULT_STATS, ...fresh };
+      scopeInfo.value = scope.value ? (fresh.scope ?? null) : null;
       const notif = await import("@/services/notifications");
       // dueNow (not the raw stats field) so the reminder body matches
       // what /review actually opens with per the user's window setting.
@@ -279,6 +288,19 @@ export const useReviewStore = defineStore("review", () => {
     } catch {
       // Anonymous calls hit 401 — leave defaults in place.
     }
+  }
+
+  /** Focus the next sessions on one text's or list's words (null: all). */
+  async function setScope(next: ReviewScope | null) {
+    const same =
+      (next?.textKey ?? null) === (scope.value?.textKey ?? null) &&
+      (next?.listId ?? null) === (scope.value?.listId ?? null);
+    if (same) return;
+    scope.value = next;
+    scopeInfo.value = null;
+    queue.value = [];
+    cursor.value = 0;
+    await refreshStats();
   }
 
   function reset() {
@@ -319,6 +341,9 @@ export const useReviewStore = defineStore("review", () => {
     inFocus,
     practiceMode,
     practiceReturnTo,
+    scope,
+    scopeInfo,
+    setScope,
     loadQueue,
     startPractice,
     grade,

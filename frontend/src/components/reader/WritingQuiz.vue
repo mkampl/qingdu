@@ -13,6 +13,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import { useSettingsStore } from "@/stores/settings";
+import type { WordGloss } from "@/api/types";
+import GlossChip from "@/components/ui/GlossChip.vue";
 import { otherMeanings } from "@/utils/meanings";
 import {
   emptyScores,
@@ -40,6 +42,13 @@ const props = withDefaults(
      */
     meanings?: string[];
     /**
+     * Meanings of the word's own (package, vocab list), each with its
+     * provenance chip under the dictionary senses. `focus` replaces the
+     * dictionary meaning as the prompt (a session focused on one text).
+     */
+    glosses?: WordGloss[];
+    focus?: WordGloss | null;
+    /**
      * Show the faint outline of the character to trace over (helpful for
      * learners). When false, the canvas starts blank and the user has to
      * recall the character from pinyin + meaning alone — closer to an
@@ -47,10 +56,12 @@ const props = withDefaults(
      */
     showOutline?: boolean;
   }>(),
-  { showOutline: false, meanings: () => [] },
+  { showOutline: false, meanings: () => [], glosses: () => [], focus: null },
 );
 
-const secondaryMeanings = computed(() => otherMeanings(props.meaning, props.meanings));
+const secondaryMeanings = computed(() =>
+  props.focus ? [] : otherMeanings(props.meaning, props.meanings),
+);
 
 const emit = defineEmits<{
   /**
@@ -407,12 +418,23 @@ onBeforeUnmount(() => {
         Character {{ currentIdx + 1 }} of {{ cjkChars.length }}
       </p>
       <p class="font-display text-base text-fg-muted">{{ pinyin }}</p>
-      <p class="mt-1 font-display text-xl text-fg">{{ meaning }}</p>
+      <p v-if="focus" class="mt-1 font-display text-xl text-fg">
+        <GlossChip :gloss="focus" class="mr-1.5" />{{ focus.meaning }}
+      </p>
+      <p v-else class="mt-1 font-display text-xl text-fg">{{ meaning }}</p>
       <ul
         v-if="secondaryMeanings.length"
         class="mx-auto mt-1 max-w-xs space-y-0.5 text-xs text-fg-muted"
       >
         <li v-for="(m, i) in secondaryMeanings" :key="i">{{ m }}</li>
+      </ul>
+      <ul
+        v-if="glosses.length"
+        class="mx-auto mt-1.5 max-w-xs space-y-0.5 text-sm text-fg"
+      >
+        <li v-for="(g, i) in glosses" :key="i">
+          <GlossChip :gloss="g" class="mr-1.5" />{{ g.meaning }}
+        </li>
       </ul>
     </div>
 

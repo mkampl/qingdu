@@ -18,6 +18,7 @@ import { defaultSectionName, sectionContaining } from "@/utils/vocab-lists";
 import HskChip from "./HskChip.vue";
 import StrokeOrder from "./StrokeOrder.vue";
 import WordReadings from "./WordReadings.vue";
+import GlossChip from "@/components/ui/GlossChip.vue";
 import { effectiveWordState, levelForVersion, placePopover } from "./utils";
 
 const reader = useReaderStore();
@@ -514,21 +515,7 @@ async function setWordState(state: UserWordState) {
               :key="i"
               class="flex items-start gap-2"
             >
-              <span
-                :class="[
-                  'mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider',
-                  g.source === 'package'
-                    ? 'bg-accent/15 text-accent'
-                    : 'bg-bg-sunken text-fg-subtle',
-                ]"
-                :title="
-                  g.source === 'package' && g.tag
-                    ? `From package ${g.tag}`
-                    : 'Dictionary'
-                "
-              >
-                {{ g.source === 'package' ? g.tag || 'Package' : 'Dict' }}
-              </span>
+              <GlossChip :gloss="g" class="mt-0.5" />
               <p class="font-display text-[14px] leading-snug text-fg">
                 {{ g.meaning }}
               </p>
