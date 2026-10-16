@@ -1,0 +1,5 @@
+- Characters & measure word: the word popover and review cards show a
+  word's measure words (一本书) and what its characters are made of
+  (好 = 女 + 子, "a woman with a son")
+- Import subtitles (.srt, .vtt, .ass): one line per subtitle, Chinese
+  lines only
