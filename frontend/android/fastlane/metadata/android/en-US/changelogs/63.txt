@@ -1,0 +1,4 @@
+- Glossary terms stay whole in the reader (抱元守一, 三功九秘), with the
+  glossary's meaning
+- Learn one section of a vocabulary list at a time
+- A meaning that two lists share shows once on the review card
