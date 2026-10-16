@@ -306,6 +306,20 @@ export const browseHsk = (params: {
 export const tts = (text: string) =>
   fetch(apiUrl(`/api/tts/${encodeURIComponent(text)}`));
 
+/** One word of the tone practice (GET /api/review/tones). */
+export interface ToneDrillItem {
+  word: string;
+  pinyin: string;
+  meaning: string;
+  /** Pinyin choices differing only in tone; `word` names a real word with
+   *  those tones (a minimal pair), null for a made-up one or the answer. */
+  choices: { pinyin: string; word: string | null }[];
+  answer: number;
+}
+
+export const getToneDrill = (n = 12) =>
+  request<{ items: ToneDrillItem[] }>(`/api/review/tones?n=${n}`);
+
 /** Sentence TTS — body-based, so long sentences don't hit URL limits. */
 export const ttsSentence = (text: string) =>
   fetch(apiUrl("/api/tts/sentence"), {

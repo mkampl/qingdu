@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import User, UserWord, UserWordEvent, get_db
-from app.services import cloze, readability, review_scope, srs
+from app.services import cloze, readability, review_scope, srs, tone_drill
 from app.services.cedict_loader import cap_meanings
 from app.services.due import (
     ACTIVE_REVIEW_STATES,
@@ -471,3 +471,14 @@ def review_stats(
         "new_today": enrolled_today(user, db, now),
         "daily_target": user.daily_new_words or 0,
     }
+
+
+@router.get("/api/review/tones")
+def tone_practice(
+    n: int = Query(12, ge=1, le=tone_drill.MAX_ITEMS),
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Tone practice items: a word to hear and pinyin choices that differ
+    only in tone (services.tone_drill). Practice only, nothing is graded."""
+    return {"items": tone_drill.build(db, user.id, n)}
