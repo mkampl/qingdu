@@ -848,6 +848,19 @@ onMounted(() => {
         </div>
       </details>
 
+      <!-- Tone practice: hear a word, pick its tones (no grading). -->
+      <RouterLink
+        v-if="!review.scope"
+        to="/tones"
+        class="flex items-center justify-between rounded-lg border border-border-subtle bg-bg-elevated px-4 py-2.5 transition-colors hover:border-accent"
+      >
+        <span>
+          <span class="block font-display text-sm font-medium text-fg">Tone practice</span>
+          <span class="block text-xs text-fg-muted">Hear a word, pick its tones (mǎi or mài?)</span>
+        </span>
+        <span class="font-mono text-[10px] uppercase tracking-wider text-fg-muted">→</span>
+      </RouterLink>
+
       <div
         v-if="effectiveDueCount === 0 && review.stats.in_rotation > 0"
         class="mt-2 rounded-lg border border-border-subtle bg-bg-elevated px-5 py-4 text-center text-sm text-fg-muted"
