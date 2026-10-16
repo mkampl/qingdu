@@ -308,7 +308,7 @@ def export_vocabulary_list_anki(
 @router.get("/api/vocabulary-lists/{list_id}/export")
 def export_vocabulary_list_csv(
     list_id: int,
-    user: User = Depends(require_auth),
+    user: User = Depends(require_auth_flexible),
     db: Session = Depends(get_db),
 ):
     """Export a vocabulary list as CSV (`hanzi;pinyin;meaning;level`)."""

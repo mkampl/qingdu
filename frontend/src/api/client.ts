@@ -643,7 +643,7 @@ async function downloadBlob(url: string): Promise<{
   const headers: Record<string, string> = {};
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const response = await fetch(url, { headers });
+  const response = await fetch(apiUrl(url), { headers });
   if (!response.ok) {
     let detail: unknown = null;
     try {
@@ -1161,35 +1161,31 @@ export const fetchSharedText = (token: string) =>
   });
 
 /**
- * CSV / Anki downloads — surfaced via direct link with the token in a
- * query string (require_auth_flexible accepts ?token=…).
+ * Open a download as a plain link (`<path>?ticket=…`). The ticket is good
+ * for this one path for two minutes, so the session token never lands in a
+ * URL. A plain link is what works everywhere: the browser saves the file,
+ * and the Android app hands the link to the system browser.
  */
-export function wordsCsvUrl(): string {
-  const token = getToken();
-  const path = token
-    ? `/api/words/export.csv?token=${encodeURIComponent(token)}`
-    : "/api/words/export.csv";
-  return apiUrl(path);
+export async function openDownload(path: string): Promise<void> {
+  const { ticket } = await request<{ ticket: string }>("/api/auth/download-ticket", {
+    method: "POST",
+    body: { path },
+  });
+  const anchor = document.createElement("a");
+  anchor.href = apiUrl(`${path}?ticket=${encodeURIComponent(ticket)}`);
+  anchor.download = "";
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
 }
 
-export function wordsAnkiUrl(): string {
-  const token = getToken();
-  const path = token
-    ? `/api/words/export.apkg?token=${encodeURIComponent(token)}`
-    : "/api/words/export.apkg";
-  return apiUrl(path);
-}
-
+export const WORDS_CSV_PATH = "/api/words/export.csv";
+export const WORDS_ANKI_PATH = "/api/words/export.apkg";
 // Full-account JSON export — texts, word states + FSRS scheduling, vocab
 // lists, glosses, review log, settings. The escape hatch the demo server's
 // inactivity-deletion policy owes its users.
-export function fullExportUrl(): string {
-  const token = getToken();
-  const path = token
-    ? `/api/auth/export?token=${encodeURIComponent(token)}`
-    : "/api/auth/export";
-  return apiUrl(path);
-}
+export const FULL_EXPORT_PATH = "/api/auth/export";
 
 export const deleteAccount = (password: string) =>
   request<{ message: string }>("/api/auth/me", {

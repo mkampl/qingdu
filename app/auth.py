@@ -1,5 +1,6 @@
 import hashlib
 import os
+import re
 import secrets
 from datetime import datetime, timedelta
 
@@ -51,6 +52,29 @@ def create_session_token(user: User) -> str:
     return create_access_token(data={"sub": user.username, "tv": user.token_version or 0})
 
 
+# Downloads opened as a plain link (the Android app hands them to the
+# system browser, which has no Authorization header) carry a ticket in the
+# query instead of the session token: valid for one path, for two minutes.
+DOWNLOAD_TICKET_MINUTES = 2
+DOWNLOAD_PATHS = re.compile(
+    r"^/api/(?:words/export\.(?:csv|apkg)|auth/export|vocabulary-lists/\d+/export(?:-anki)?)$"
+)
+
+
+def create_download_ticket(user: User, path: str) -> str:
+    return create_access_token(
+        data={"sub": user.username, "tv": user.token_version or 0, "dl": path},
+        expires_delta=timedelta(minutes=DOWNLOAD_TICKET_MINUTES),
+    )
+
+
+def _user_from_ticket(db: Session, ticket: str, path: str) -> User | None:
+    payload = decode_token(ticket)
+    if not payload or payload.get("dl") != path:
+        return None
+    return _user_from_payload(db, {k: v for k, v in payload.items() if k != "dl"})
+
+
 def bump_token_version(user: User) -> None:
     """Invalidate every session token issued so far for `user`. The caller
     commits (and hands out a fresh token if the current session should live)."""
@@ -86,7 +110,8 @@ def _user_from_payload(db: Session, payload: dict | None) -> User | None:
     Tokens without a `tv` claim (issued before token versioning) or with a
     stale one (password changed / reset since) are rejected.
     """
-    if not payload:
+    if not payload or payload.get("dl"):
+        # A download ticket only opens the one download it was made for.
         return None
     username = payload.get("sub")
     tv = payload.get("tv")
@@ -228,7 +253,13 @@ async def get_user_from_token_or_query(
     # Try to get token from Authorization header first
     if credentials:
         token = credentials.credentials
-    # Fallback to query parameter (for iframe downloads)
+    elif "ticket" in request.query_params:
+        user = _user_from_ticket(db, request.query_params["ticket"], request.url.path)
+        if user:
+            _touch_last_active(db, user)
+        return user
+    # Session token in the query: still accepted from app versions that
+    # predate download tickets.
     elif "token" in request.query_params:
         token = request.query_params["token"]
 

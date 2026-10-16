@@ -134,6 +134,29 @@ def test_hsk_only_word_gets_gloss(glosses_file, saved_dicts):
     assert state.hsk_vocab["车上"]["meanings"] == ["Car"]
 
 
+def test_hsk_only_word_with_broken_list_pinyin_is_fixed(glosses_file, saved_dicts):
+    _write_glosses(
+        glosses_file,
+        {
+            "不一会儿": {
+                "pinyin": "bù yī huìr",
+                "gloss": "soon; in a moment",
+                "fixes_hsk_pinyin": True,
+            },
+            "车上": {"pinyin": "chē xià", "gloss": "not applied"},
+        },
+    )
+    state.cedict_vocab.clear()
+    state.hsk_vocab.clear()
+    state.hsk_vocab["不一会儿"] = {"pinyin": "bù yīhuǐr5", "meaning": "Take a short while"}
+    state.hsk_vocab["车上"] = {"pinyin": "chē shàng", "meaning": "Car"}
+    cedict_loader._merge_into_hsk_vocab()
+    assert state.hsk_vocab["不一会儿"]["pinyin"] == "bù yī huìr"
+    assert state.hsk_vocab["不一会儿"]["meanings"] == ["soon", "in a moment"]
+    # Without the flag a pinyin mismatch still skips the gloss.
+    assert state.hsk_vocab["车上"]["meaning"] == "Car"
+
+
 def test_merge_carries_gloss_into_hsk_vocab(glosses_file, saved_dicts):
     _write_glosses(glosses_file, {"太": {"pinyin": "tài", "gloss": "too; very"}})
     state.hsk_vocab.clear()

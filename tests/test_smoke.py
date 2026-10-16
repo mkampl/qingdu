@@ -40,8 +40,10 @@ def test_route_count(app_module):
     words into review).
     +1 = 104/109 for GET /api/library/readability (how readable each
     library text is for the caller).
+    +1 = 105/110 for POST /api/auth/download-ticket (open a download as a
+    plain link without the session token in the URL).
     """
-    assert len(app_module.routes) in (104, 109)
+    assert len(app_module.routes) in (105, 110)
 
 
 def test_router_tags_present(app_module):

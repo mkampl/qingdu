@@ -16521,6 +16521,18 @@
    "pinyin": "méi xiǎng dào",
    "gloss": "didn't expect; unexpectedly",
    "source": "reviewed"
+  },
+  "不一会儿": {
+   "pinyin": "bù yī huìr",
+   "gloss": "soon; in a moment; before long",
+   "source": "reviewed",
+   "fixes_hsk_pinyin": true
+  },
+  "有劲儿": {
+   "pinyin": "yǒu jìnr",
+   "gloss": "strong; energetic; interesting",
+   "source": "reviewed",
+   "fixes_hsk_pinyin": true
   }
  }
 }
