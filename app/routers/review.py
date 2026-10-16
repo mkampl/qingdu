@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import User, UserWord, UserWordEvent, get_db
-from app.services import cloze, review_scope, srs
+from app.services import cloze, readability, review_scope, srs
 from app.services.cedict_loader import cap_meanings
 from app.services.due import (
     ACTIVE_REVIEW_STATES,
@@ -406,8 +406,9 @@ def review_stats(
     - `reviewed_today`: reviews logged since local midnight.
 
     - `scope`: with `text_key` or `list_id`, the focused session's title,
-      its words in rotation (`total`) and how many of them are due under
-      the review window (`due`).
+      its words in rotation (`total`), how many of them are due under the
+      review window (`due`), now (`due_now`) and today (`due_today`), and
+      how many already count as learned (`learned`).
 
     "Today" is the user's local day (services.localday, users.timezone).
     """
@@ -436,15 +437,28 @@ def review_stats(
         .count()
     )
     scope = review_scope.resolve(db, user, text_key, list_id)
-    scope_counts = (
-        {
+    scope_counts = None
+    if scope is not None:
+        rows = (
+            db.query(UserWord.state, UserWord.stability)
+            .filter(
+                UserWord.user_id == user.id,
+                UserWord.state.in_(ACTIVE_REVIEW_STATES),
+                scope.clause,
+            )
+            .all()
+        )
+        scope_counts = {
             "title": scope.title,
             "due": count(review_window_clause(user.review_window, now, tz), scope.clause),
-            "total": count(UserWord.state.in_(ACTIVE_REVIEW_STATES), scope.clause),
+            "total": len(rows),
+            "due_now": count(review_window_clause("now", now), scope.clause),
+            "due_today": count(due_clause(end_of_day(now, 0, tz)), scope.clause),
+            # Learned = counts as known when reading (services.readability).
+            "learned": sum(
+                1 for state, stab in rows if readability.classify(state, stab) == "known"
+            ),
         }
-        if scope
-        else None
-    )
     return {
         "scope": scope_counts,
         "due_now": due_now,
