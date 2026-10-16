@@ -200,7 +200,8 @@ async function openLibraryPick(slug: string) {
         </span>
       </span>
       <span class="shrink-0 font-mono text-[10px] tabular-nums text-fg-muted group-hover:text-fg">
-        {{ scorePct(pick) }}% known
+        {{ scorePct(pick) }}% known<template v-if="pick.unlocked"> · readable</template
+        ><template v-else-if="pick.to_unlock"> · {{ pick.to_unlock }} to go</template>
       </span>
     </button>
 

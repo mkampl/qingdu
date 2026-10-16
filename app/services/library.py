@@ -21,7 +21,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from app.services import dict_data
+from app.services import dict_data, readability
 from app.services.gloss_refresh import refresh_analysis
 
 LIBRARY_ROOT = Path(__file__).resolve().parent.parent / "data" / "library"
@@ -159,8 +159,34 @@ def quiz_questions(slug: str) -> list[dict[str, Any]] | None:
     return [{"prompt": q["prompt"], "options": q["options"]} for q in qs]
 
 
+@lru_cache(maxsize=1)
+def _word_counts() -> dict[str, readability.WordCounts]:
+    """Running-word counts per library text, from the stored segmentation."""
+    return {
+        e["slug"]: readability.count_words(
+            w.get("text") or "" for w in (e.get("analyzed") or {}).get("words") or []
+        )
+        for e in _all_entries()
+    }
+
+
+def readability_for(status: dict[str, str]) -> dict[str, readability.Summary]:
+    """Readability of every library text for a user's word status
+    (readability.user_status)."""
+    return {slug: readability.summarize(c, status) for slug, c in _word_counts().items()}
+
+
+def readability_row(summary: readability.Summary) -> dict[str, Any]:
+    return {
+        "known_pct": round(summary.known_pct, 4),
+        "with_progress_pct": round(summary.with_progress_pct, 4),
+        "to_unlock": summary.to_unlock,
+        "unlocked": summary.unlocked,
+    }
+
+
 def for_user(
-    known_set: set[str],
+    status: dict[str, str],
     *,
     min_score: float = 0.85,
     max_score: float = 0.98,
@@ -169,21 +195,21 @@ def for_user(
 ) -> list[dict[str, Any]]:
     """Library entries in the user's i+1 comprehension zone.
 
-    Returns a list of slim recommendation rows (no full text / analyzed),
-    sorted by comprehension score descending so the easiest-feeling reads
-    show first. Includes a couple of `learning_word_count` hints so the
-    frontend can highlight "you'd encounter 7 new words" affordances.
+    The score is the share of running words the user knows (see
+    services/readability), so it matches what the reader shows for the
+    text. Sorted by score, easiest first; each row says how many unknown
+    words the text has and how many of them still stand between the user
+    and a readable text (`to_unlock`).
     """
+    summaries = readability_for(status)
     rows: list[dict[str, Any]] = []
     for e in _all_entries():
         if hsk_levels is not None and e["hsk_level"] not in hsk_levels:
             continue
-        unique = _unique_cjk_words(e.get("analyzed"))
-        total = len(unique)
-        if total == 0:
+        summary = summaries.get(e["slug"])
+        if summary is None or summary.total == 0:
             continue
-        known = sum(1 for w in unique if w in known_set)
-        score = round(known / total, 4)
+        score = round(summary.known_pct, 4)
         if not (min_score <= score <= max_score):
             continue
         rows.append(
@@ -193,10 +219,13 @@ def for_user(
                 "hsk_level": e["hsk_level"],
                 "topic": e["topic"],
                 "char_count": e["char_count"],
-                "total_unique_words": total,
-                "known_unique": known,
-                "new_words": total - known,
+                "total_unique_words": summary.unique,
+                "known_unique": summary.unique
+                - len(summary.missing)
+                - len(summary.in_progress_words),
+                "new_words": len(summary.missing),
                 "comprehension_score": score,
+                **readability_row(summary),
                 "preview": e["text"][:80],
             }
         )

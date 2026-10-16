@@ -226,8 +226,12 @@ export interface SavedTextSummary {
   known_unique: number;
   /** Unique CJK words in the text. */
   total_unique: number;
-  /** known_unique / total_unique. Null when total_unique === 0. */
+  /** Share of running words known (the reader's count). Null for a text
+   *  without Chinese words. */
   comprehension_score: number | null;
+  /** Missing words still needed to make the text readable (95 %). */
+  to_unlock?: number;
+  unlocked?: boolean;
   /** Public share token if this text has been shared (Phase G3). */
   share_token: string | null;
   /** Phase #99 — per-text glossary picker selection. null = use all
