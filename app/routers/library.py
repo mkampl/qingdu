@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from app.auth import require_auth
 from app.database import User, UserLibraryProgress, get_db
 from app.services import library, readability
+from app.services.streak import record_activity
 from app.services.timestamps import iso_utc
 
 router = APIRouter(tags=["Library"])
@@ -121,6 +122,8 @@ def mark_read(
     elif row.status != "quiz":
         row.status = "read"
         row.completed_at = datetime.utcnow()
+    # Reading a text is a day of practice too, not only reviewing.
+    record_activity(user, db)
     db.commit()
     return _progress_dict(row)
 
@@ -176,6 +179,7 @@ def submit_quiz(
             row.status = "quiz"
             row.score = len(qs)
             row.completed_at = datetime.utcnow()
+        record_activity(user, db)
         db.commit()
 
     return {

@@ -13,7 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.auth import get_current_user, require_auth
-from app.database import Base, User, UserLibraryProgress, get_db
+from app.database import Base, SavedText, User, UserLibraryProgress, get_db
 from app.services import library
 
 QUIZ_ENTRY = {
@@ -173,3 +173,41 @@ def test_quiz_wrong_answer_count_is_rejected(library_client):
     client, _ = library_client
     r = client.post(f"/api/library/{QUIZ_ENTRY['slug']}/quiz", json={"answers": [0]})
     assert r.status_code == 400
+
+
+def _streak(Session):
+    s = Session()
+    try:
+        return s.query(User).filter(User.id == 1).first().streak_count or 0
+    finally:
+        s.close()
+
+
+def test_marking_a_text_read_counts_for_the_streak(library_client):
+    client, Session = library_client
+    assert _streak(Session) == 0
+    client.post(f"/api/library/{PLAIN_ENTRY['slug']}/read")
+    assert _streak(Session) == 1
+    # Same day: still one.
+    client.post(f"/api/library/{QUIZ_ENTRY['slug']}/read")
+    assert _streak(Session) == 1
+
+
+def test_passing_a_quiz_counts_for_the_streak(library_client):
+    client, Session = library_client
+    client.post(f"/api/library/{QUIZ_ENTRY['slug']}/quiz", json={"answers": [1, 1]})
+    assert _streak(Session) == 0
+    client.post(f"/api/library/{QUIZ_ENTRY['slug']}/quiz", json={"answers": [0, 1]})
+    assert _streak(Session) == 1
+
+
+def test_reading_a_saved_text_to_the_end_counts_for_the_streak(library_client):
+    client, Session = library_client
+    s = Session()
+    s.add(SavedText(id=7, user_id=1, title="t", content="你好", analysis_data='{"words": []}'))
+    s.commit()
+    s.close()
+    client.patch("/api/texts/7", json={"reading_progress": 0.5})
+    assert _streak(Session) == 0
+    client.patch("/api/texts/7", json={"reading_progress": 1.0})
+    assert _streak(Session) == 1

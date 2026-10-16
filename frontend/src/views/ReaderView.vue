@@ -7,6 +7,7 @@ import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReaderStore } from "@/stores/reader";
 import { useToastStore } from "@/stores/toast";
 import { useVocabStatsStore } from "@/stores/vocab-stats";
+import { useUserWordsStore } from "@/stores/userWords";
 import {
   ApiError,
   getLibraryProgress,
@@ -46,6 +47,7 @@ const auth = useAuthStore();
 const authModals = useAuthModalsStore();
 const toasts = useToastStore();
 const audioPlayer = useAudioPlayerStore();
+const userWords = useUserWordsStore();
 
 const localInput = ref<string>(analysis.inputText);
 const showEditor = ref<boolean>(!analysis.hasResult);
@@ -125,6 +127,8 @@ async function markCurrentAsRead() {
   libraryProgressBusy.value = true;
   try {
     libraryProgress.value = await markLibraryRead(analysis.librarySlug);
+    // Reading counts for the streak: refresh the header chip.
+    void userWords.refreshStats();
   } catch (e) {
     toasts.error(e instanceof ApiError ? e.message : "Couldn't mark this as read.");
   } finally {
@@ -424,6 +428,8 @@ async function persistProgress(value: number) {
   if (!id) return;
   try {
     await updateText(id, { reading_progress: value });
+    // Reading a text to the end counts for the streak.
+    if (value >= 0.99 && (lastPersistedProgress ?? 0) < 0.99) void userWords.refreshStats();
     lastPersistedProgress = value;
   } catch {
     // Silent — the next scroll will retry on the same debounce window.
