@@ -1,26 +1,21 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { RouterLink, useRouter } from "vue-router";
+import { RouterLink } from "vue-router";
 
 import * as api from "@/api/client";
 import type { LibraryForYouItem } from "@/api/client";
 import type { SavedTextSummary } from "@/api/types";
 import { onAuthReady } from "@/composables/use-auth-ready";
 import { useOpenLibraryText } from "@/composables/use-open-library-text";
-import { useAnalysisStore } from "@/stores/analysis";
-import { useReaderStore } from "@/stores/reader";
+import { useOpenSavedText } from "@/composables/use-open-saved-text";
 import { useReviewStore } from "@/stores/review";
-import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
-import { normalizeProgress, parseTags } from "@/utils/saved-text";
+import { normalizeProgress } from "@/utils/saved-text";
 
 const userWords = useUserWordsStore();
 const review = useReviewStore();
-const analysis = useAnalysisStore();
-const reader = useReaderStore();
-const toasts = useToastStore();
-const router = useRouter();
 const openLibraryText = useOpenLibraryText();
+const openSaved = useOpenSavedText();
 
 const recentText = ref<SavedTextSummary | null>(null);
 const pick = ref<LibraryForYouItem | null>(null);
@@ -88,24 +83,9 @@ function scorePct(item: LibraryForYouItem): number {
 }
 
 async function openSavedText(text: SavedTextSummary) {
-  // Mirrors SavedTextsView.open — fetch the full text, hydrate the analysis
-  // store with the saved data and stay on / so the reader picks it up
-  // without a re-analyse trip.
   openingTextId.value = text.id;
   try {
-    const full = await api.getText(text.id);
-    analysis.loadSaved(full.content, full.analysisData, {
-      id: full.id,
-      progress: normalizeProgress(full.reading_progress),
-      title: full.title ?? "",
-      tags: parseTags(full.tags),
-      glossaryListIds: full.glossary_list_ids,
-    });
-    reader.reset();
-    // The Today panel sits inside ReaderView itself; we're already on / so
-    // a router.push("/") is a no-op. The store change drives the swap.
-  } catch (e) {
-    toasts.error(e instanceof Error ? e.message : "Couldn't open that text");
+    await openSaved(text.id);
   } finally {
     openingTextId.value = null;
   }

@@ -21,9 +21,14 @@ A reading-and-study tool for Chinese learners, organised around the HSK vocabula
 - **Scan tab** — browser-side OCR via tesseract.js (chi_sim) for photos or screenshots.
 - **Pre-analysed packages** — drop-in JSON produced upstream (e.g. by an LLM) to skip segmentation entirely. A bundled Dao De Jing chapter ships as the reference sample.
 
+## Saved texts
+
+- **Folders** — keep saved texts in nested folders (a book, a course, a teacher). Texts without a folder stay at the top level; move a text or a folder anywhere, and deleting a folder keeps its texts. Each folder says how many of its texts are readable. Search looks through every folder.
+- **Series** — inside a folder texts have an order you can change; each shows its number (2 / 6), and the reader leads from one to the next. A text saved from the reader goes into the folder you have open.
+
 ## Library
 
-- **Graded texts** — 180 bundled texts across HSK 1–9, each with a short comprehension quiz. Passing the quiz or marking a text as read records your progress.
+- **Graded texts** — 180 bundled texts across HSK 1–9, each with a short comprehension quiz. Passing the quiz or marking a text as read records your progress and counts for your streak, as does reading a saved text to the end.
 - **For you** — texts where you already know most of the words (the 85–98 % band) are suggested on Discover and on the reader's Today panel.
 - **Readable** — every library card, For-you pick and saved text shows whether it is readable for you yet or how many words are left; the library can sort by *almost readable*.
 

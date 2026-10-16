@@ -134,8 +134,26 @@ class SavedText(Base):
     # time. JSON array of int IDs. NULL means "use all the user's
     # glossary-flagged lists" (the default).
     glossary_list_ids = Column(Text, nullable=True)
+    # Folder the text lives in (text_folders); NULL = top level. Inside a
+    # folder the texts are read in `position` order (NULLs after, by date).
+    folder_id = Column(Integer, ForeignKey("text_folders.id"), nullable=True, index=True)
+    position = Column(Integer, nullable=True)
 
     user = relationship("User", back_populates="texts")
+
+
+class TextFolder(Base):
+    """A folder of saved texts. Folders nest (`parent_id`, NULL = top
+    level); a text lives in at most one folder."""
+
+    __tablename__ = "text_folders"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(120), nullable=False)
+    parent_id = Column(Integer, ForeignKey("text_folders.id"), nullable=True)
+    position = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class VocabularyList(Base):
@@ -558,6 +576,19 @@ def init_db():
                 logger.info("Adding glossary_list_ids column to saved_texts")
                 with engine.connect() as conn:
                     conn.execute(text("ALTER TABLE saved_texts ADD COLUMN glossary_list_ids TEXT"))
+                    conn.commit()
+            # Text folders: the folder a text lives in and its place there.
+            if "folder_id" not in st_cols:
+                logger.info("Adding folder_id and position columns to saved_texts")
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE saved_texts ADD COLUMN folder_id INTEGER"))
+                    conn.execute(text("ALTER TABLE saved_texts ADD COLUMN position INTEGER"))
+                    conn.execute(
+                        text(
+                            "CREATE INDEX IF NOT EXISTS ix_saved_texts_folder_id "
+                            "ON saved_texts(folder_id)"
+                        )
+                    )
                     conn.commit()
 
         # Phase F2 — streak columns on users (idempotent ALTER).

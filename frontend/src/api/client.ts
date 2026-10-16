@@ -17,6 +17,7 @@ import type {
   NotAuthedResponse,
   SavedText,
   SavedTextSummary,
+  TextFolder,
   TranslateResponse,
   VocabStatsResponse,
   VocabularyListSummary,
@@ -488,6 +489,7 @@ export const saveText = (input: {
   analysis_data: AnalysisResponse;
   tags?: string[];
   glossary_list_ids?: number[] | null;
+  folder_id?: number | null;
 }) =>
   request<{ id: number; message: string }>("/api/texts/save", { body: input });
 
@@ -500,6 +502,7 @@ export const updateText = (
     content: string;
     analysis_data: AnalysisResponse;
     glossary_list_ids: number[] | null;
+    folder_id: number | null;
   }>,
 ) =>
   request<{ id: number; title: string; message: string }>(`/api/texts/${id}`, {
@@ -509,6 +512,32 @@ export const updateText = (
 
 export const deleteText = (id: number) =>
   request<{ message: string }>(`/api/texts/${id}`, { method: "DELETE" });
+
+// --- Text folders ------------------------------------------------------------
+
+export const listFolders = () => request<TextFolder[]>("/api/folders");
+
+export const createFolder = (name: string, parentId: number | null) =>
+  request<TextFolder>("/api/folders", { body: { name, parent_id: parentId } });
+
+export const renameFolder = (id: number, name: string) =>
+  request<TextFolder>(`/api/folders/${id}`, { method: "PATCH", body: { name } });
+
+export const moveFolder = (id: number, parentId: number | null) =>
+  request<TextFolder>(`/api/folders/${id}`, {
+    method: "PATCH",
+    body: { move: true, parent_id: parentId },
+  });
+
+/** Delete a folder; its texts and subfolders move up one level. */
+export const deleteFolder = (id: number) =>
+  request<{ message: string }>(`/api/folders/${id}`, { method: "DELETE" });
+
+/** Set the reading order of every text in a folder. */
+export const orderTexts = (folderId: number, textIds: number[]) =>
+  request<{ message: string }>("/api/texts/order", {
+    body: { folder_id: folderId, text_ids: textIds },
+  });
 
 // --- Vocab lists -------------------------------------------------------------
 
