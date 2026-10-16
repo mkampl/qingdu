@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
  * Discover: two layers.
- *   1. "For You" — bundled library texts in the user's comprehension zone,
- *      sorted by adherence to 85-98% known-word ratio. Hidden when the user
+ *   1. "For You" — bundled library texts in the user's comprehension zone
+ *      (85-98 % of the running words known), easiest first, each saying
+ *      whether it is readable yet or how many words are left. Hidden when the user
  *      is unauthenticated or hasn't built any known-word state yet.
  *   2. Static external-source links — curation by hand.
  */
@@ -12,6 +13,7 @@ import { RouterLink } from "vue-router";
 
 import * as api from "@/api/client";
 import type { LibraryForYouItem, LibraryManifestItem } from "@/api/client";
+import ReadableBadge from "@/components/ui/ReadableBadge.vue";
 import { onAuthReady } from "@/composables/use-auth-ready";
 import { useOpenLibraryText } from "@/composables/use-open-library-text";
 
@@ -270,7 +272,8 @@ const groups: Group[] = [
         </h2>
         <p class="mt-1.5 max-w-prose text-sm leading-relaxed text-fg-muted sm:mt-2">
           Short bundled texts where you already know 85-98% of the words.
-          The sweet spot for reading without a dictionary on every line.
+          The sweet spot for reading without a dictionary on every line —
+          open one and pre-learn the few words that are still missing.
         </p>
       </header>
 
@@ -287,11 +290,12 @@ const groups: Group[] = [
               >
                 {{ item.title }}
               </p>
-              <span
-                class="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent"
-              >
-                {{ Math.round(item.comprehension_score * 100) }}%
-              </span>
+              <ReadableBadge
+                class="shrink-0"
+                :known="item.known_pct ?? item.comprehension_score"
+                :to-unlock="item.to_unlock ?? 0"
+                :unlocked="item.unlocked ?? false"
+              />
             </div>
             <p class="text-cn-serif text-sm leading-relaxed text-fg-muted">
               {{ item.preview }}…

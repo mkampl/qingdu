@@ -111,6 +111,17 @@ def word_status(db: Session, user_id: int, words: Collection[str]) -> dict[str, 
     return status
 
 
+def user_status(db: Session, user_id: int) -> dict[str, str]:
+    """word_status for every word the user has — for scoring many texts
+    at once (the library, the saved-text list)."""
+    rows = (
+        db.query(UserWord.word, UserWord.state, UserWord.stability)
+        .filter(UserWord.user_id == user_id)
+        .all()
+    )
+    return {word: classify(state, stability) for word, state, stability in rows}
+
+
 def classify(state: str | None, stability: float | None) -> str:
     if state in ("known", "ignored"):
         return "known"
@@ -261,5 +272,6 @@ __all__ = [
     "sentence_for",
     "sentences",
     "summarize",
+    "user_status",
     "word_status",
 ]

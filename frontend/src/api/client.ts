@@ -793,12 +793,27 @@ export interface LibraryManifestItem {
   has_quiz: boolean;
 }
 
-export interface LibraryForYouItem extends LibraryManifestItem {
+/** How readable a text is for the user (share of running words known). */
+export interface TextReadability {
+  known_pct: number;
+  with_progress_pct: number;
+  /** Missing words, most frequent first, still needed to reach 95 %. */
+  to_unlock: number;
+  unlocked: boolean;
+}
+
+export interface LibraryForYouItem extends LibraryManifestItem, TextReadability {
   known_unique: number;
   new_words: number;
+  /** Share of running words known (same as known_pct). */
   comprehension_score: number;
   preview: string;
 }
+
+export const getLibraryReadability = () =>
+  request<{ threshold: number; items: Record<string, TextReadability> }>(
+    "/api/library/readability",
+  );
 
 export interface LibraryEntry extends LibraryManifestItem {
   text: string;

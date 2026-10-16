@@ -38,8 +38,10 @@ def test_route_count(app_module):
     /api/readability/prelearn (take a text's missing words into review).
     +1 = 103/108 for POST /api/vocabulary-lists/{id}/learn (take a list's
     words into review).
+    +1 = 104/109 for GET /api/library/readability (how readable each
+    library text is for the caller).
     """
-    assert len(app_module.routes) in (103, 108)
+    assert len(app_module.routes) in (104, 109)
 
 
 def test_router_tags_present(app_module):

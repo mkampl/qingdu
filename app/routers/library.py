@@ -3,8 +3,10 @@
 - `GET /api/library` — manifest of all bundled texts (metadata only)
 - `GET /api/library/{slug}` — full pre-analyzed text, glosses refreshed
   against the current dictionary, quiz answer key stripped
-- `GET /api/library/for-you` — auth, filtered by the user's known-word set
-  into the LingQ-style 85-98% comprehension band
+- `GET /api/library/for-you` — auth, filtered by the share of running
+  words the user knows into the LingQ-style 85-98% comprehension band
+- `GET /api/library/readability` — auth, how readable every text is for
+  the caller (known share, words to learn to reach 95 %, readable or not)
 - `GET /api/library/progress` — auth, the caller's completion state for
   every started text
 - `POST/DELETE /api/library/{slug}/read` — self-reported "I read this"
@@ -21,8 +23,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.auth import require_auth
-from app.database import User, UserLibraryProgress, UserWord, get_db
-from app.services import library
+from app.database import User, UserLibraryProgress, get_db
+from app.services import library, readability
 from app.services.timestamps import iso_utc
 
 router = APIRouter(tags=["Library"])
@@ -42,27 +44,38 @@ def for_you(
     max_score: float = Query(0.98, ge=0.0, le=1.0),
     limit: int = Query(12, ge=1, le=50),
 ) -> dict:
-    """Library entries inside the user's comprehension zone.
+    """Library entries inside the user's comprehension zone, scored by the
+    share of running words the user knows (services/readability).
 
     Empty list (rather than 404) when the user has no known-word data yet —
     the frontend hides the rail in that case without erroring.
     """
-    known = {
-        w
-        for (w,) in db.query(UserWord.word)
-        .filter(UserWord.user_id == user.id, UserWord.state.in_(("known", "ignored")))
-        .all()
-    }
-    if not known:
+    status = readability.user_status(db, user.id)
+    if not any(s == "known" for s in status.values()):
         return {"items": [], "reason": "no_known_words"}
 
     items = library.for_user(
-        known,
+        status,
         min_score=min_score,
         max_score=max_score,
         limit=limit,
     )
     return {"items": items}
+
+
+@router.get("/api/library/readability")
+def library_readability(
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+) -> dict:
+    """How readable each library text is for the user: share of running
+    words known, with the words in review, how many missing words make it
+    readable, and whether it already is (95 %)."""
+    summaries = library.readability_for(readability.user_status(db, user.id))
+    return {
+        "threshold": readability.UNLOCK_THRESHOLD,
+        "items": {slug: library.readability_row(s) for slug, s in summaries.items()},
+    }
 
 
 class QuizSubmission(BaseModel):

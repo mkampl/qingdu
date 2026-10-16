@@ -107,7 +107,9 @@ function comprehensionChipClass(score: number | null): string {
 
 function comprehensionLabel(text: SavedTextSummary): string {
   if (text.comprehension_score === null) return "—";
-  return `${Math.round(text.comprehension_score * 100)}%`;
+  const pct = `${Math.floor(text.comprehension_score * 100)}% known`;
+  if (text.unlocked) return `${pct} · readable`;
+  return text.to_unlock ? `${pct} · ${text.to_unlock} to go` : pct;
 }
 
 async function open(text: SavedTextSummary) {
@@ -296,10 +298,11 @@ async function confirmDelete(text: SavedTextSummary) {
                 :title="
                   text.comprehension_score === null
                     ? 'No CJK words in this text yet'
-                    : `${text.known_unique.toLocaleString()} of ${text.total_unique.toLocaleString()} unique words known / ignored`
+                    : `Share of the running words you know. ${text.known_unique.toLocaleString()} of ${text.total_unique.toLocaleString()} different words known / ignored` +
+                      (text.to_unlock ? ` — learn ${text.to_unlock} more to read it comfortably (95%)` : '')
                 "
               >
-                {{ comprehensionLabel(text) }} known
+                {{ comprehensionLabel(text) }}
               </span>
             </div>
           </header>

@@ -11,6 +11,7 @@ A reading-and-study tool for Chinese learners, organised around the HSK vocabula
 - **Audio narration** — per-word TTS or a continuous play-bar across the whole passage with speed control.
 - **Grammar patterns** — common HSK 1–4 patterns (是…的, 把, 被, 越…越…, 一边…一边…, etc.) are detected and underlined; click for a popover explanation.
 - **Stroke order** — accordion in the word popover renders a hanzi-writer animation for each character.
+- **Make this text readable** — above every text: the share of its running words you know (every occurrence counts; words you ignore count as covered), the share once the words in review are learned, and how many missing words stand between you and 95 %, the point where a text reads without a dictionary. **Pre-learn missing words** lists them most frequent first; pick as many as you like and they go into review with their sentence from this text and, in a package or glossary text, the text's own meaning. The text remembers them, so you can add the rest another day, and **Review these words** runs a session on just that text.
 
 ## Importing
 
@@ -24,12 +25,14 @@ A reading-and-study tool for Chinese learners, organised around the HSK vocabula
 
 - **Graded texts** — 180 bundled texts across HSK 1–9, each with a short comprehension quiz. Passing the quiz or marking a text as read records your progress.
 - **For you** — texts where you already know most of the words (the 85–98 % band) are suggested on Discover and on the reader's Today panel.
+- **Readable** — every library card, For-you pick and saved text shows whether it is readable for you yet or how many words are left; the library can sort by *almost readable*.
 
 ## Studying
 
 - **Per-user word states** — each word is `new` / `learning` / `known` / `ignored`, tracked across all texts. Set from the word popover; Settings can make a click in the reader promote a new word to `learning` automatically (off by default).
 - **Bulk shortcuts** — mark whole pages or whole HSK levels at once (the "I already know HSK 1–N" onboarding shortcut).
 - **Personal glossaries** — any vocabulary list can be flagged as a glossary; its entries override CC-CEDICT/HSK lookups during analysis. Useful for specialised corpora (classical Chinese, technical jargon).
+- **Learn a list** — *Learn this list* takes a vocabulary list into review; meanings you gave its words are kept next to the dictionary's, tagged with the list name. *Review this list* runs a session on just its words.
 - **Public sharing** — mint a share token for any saved text; the public URL is read-only.
 - **Anki & CSV export** — vocabulary lists export to Anki `.apkg` (with TTS audio baked in) or CSV. Whole-history exports for your learning + known words too.
 
@@ -42,6 +45,7 @@ A reading-and-study tool for Chinese learners, organised around the HSK vocabula
 - **Produce** — once a word is established, write it from pinyin and meaning.
 - **Review focus** (Settings): *reading and writing* (default: read while a word is young, write once it is established), *reading* only, or *writing* only.
 - **Context** — every card shows the sentence you met the word in (else one from your saved texts or the library), with its source and sentence audio.
+- **Your own meanings** — meanings from packages (e.g. the Dao De Jing) and from your lists show on every card next to the dictionary's, each tagged with where it came from. A session focused on one text or list leads with that text's or list's meaning.
 
 Single modes are available too:
 
