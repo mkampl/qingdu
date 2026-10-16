@@ -876,13 +876,44 @@ export interface ReadabilityResponse {
   missing_count: number;
   missing: ReadabilityMissingWord[];
   in_progress_words: string[];
+  /** Words pre-learned for this text, and how many of them are learned by now. */
+  prelearned: { total: number; learned: number } | null;
 }
 
-export const getReadability = (tokens: string[], extra: string[] = []) =>
+export const getReadability = (
+  tokens: string[],
+  extra: string[] = [],
+  textKey: string | null = null,
+) =>
   request<ReadabilityResponse>("/api/readability", {
     method: "POST",
-    body: { tokens, extra },
+    body: { tokens, extra, text_key: textKey },
   });
+
+/** The text's own meaning for a word (package or glossary). */
+export interface TextGloss {
+  meaning: string;
+  pinyin?: string | null;
+  source: "package" | "glossary";
+  tag?: string | null;
+}
+
+export interface PrelearnRequest {
+  tokens: string[];
+  extra: string[];
+  words: string[];
+  text_key: string;
+  title?: string | null;
+  source_text_id?: number | null;
+  library_slug?: string | null;
+  glosses?: Record<string, TextGloss>;
+}
+
+export const prelearnWords = (body: PrelearnRequest) =>
+  request<ReadabilityResponse & { added: string[]; skipped: string[] }>(
+    "/api/readability/prelearn",
+    { method: "POST", body },
+  );
 
 // ----- Words queue ----------------------------------------------------------
 

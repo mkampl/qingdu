@@ -63,3 +63,101 @@ def test_classify_thresholds():
     assert readability.classify("learning", 1.0) == "known"
     assert readability.classify("learning", 0.99) == "in_progress"
     assert readability.classify("known", None) == "known"
+
+
+TOKENS = ["我", "喜欢", "看书", "。", "看书", "很", "有意思", "！"]
+
+
+def _prelearn(client, words, **extra):
+    body = {"tokens": TOKENS, "words": words, "text_key": "library:hsk1_01_school", **extra}
+    r = client.post("/api/readability/prelearn", json=body)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_prelearn_adds_words_with_the_sentence_from_the_text(words_client):
+    body = _prelearn(words_client, ["看书", "喜欢"], title="My text")
+    assert body["added"] == ["看书", "喜欢"]
+    assert body["in_progress"] == 3  # 看书 ×2 + 喜欢
+    assert body["prelearned"] == {"total": 2, "learned": 0}
+    s = words_client.session_factory()
+    row = s.query(UserWord).filter(UserWord.word == "看书").one()
+    assert row.state == "learning"
+    assert (row.sample_sentence, row.sample_source) == ("我喜欢看书。", "My text")
+    s.close()
+    # Coming back later: the progress for this text is still there.
+    again = _post(words_client, TOKENS, text_key="library:hsk1_01_school")
+    assert again["prelearned"] == {"total": 2, "learned": 0}
+    assert "看书" not in [m["word"] for m in again["missing"]]
+
+
+def test_prelearn_keeps_a_known_word_known_and_skips_nothing_twice(words_client):
+    _seed(words_client, 喜欢=("known", 90.0))
+    body = _prelearn(words_client, ["喜欢", "喜欢"])
+    assert body["added"] == []
+    s = words_client.session_factory()
+    assert s.query(UserWord).filter(UserWord.word == "喜欢").one().state == "known"
+    s.close()
+    assert body["prelearned"] == {"total": 1, "learned": 1}
+
+
+def test_prelearn_stores_the_texts_own_meaning(words_client):
+    from app.database import TextWord, UserWordGloss
+
+    _prelearn(
+        words_client,
+        ["有意思", "看书"],
+        glosses={
+            "有意思": {"meaning": "the Way of interest", "source": "package", "tag": "dao"},
+            "看书": {"meaning": "to study the classics", "source": "glossary", "tag": "Dao list"},
+        },
+    )
+    s = words_client.session_factory()
+    glosses = {(g.source, g.source_tag, g.meaning) for g in s.query(UserWordGloss).all()}
+    assert ("package", "dao", "the Way of interest") in glosses
+    assert ("list", "Dao list", "to study the classics") in glosses
+    links = {(t.word, t.gloss_source, t.gloss_tag) for t in s.query(TextWord).all()}
+    assert ("有意思", "package", "dao") in links
+    assert ("看书", "list", "Dao list") in links
+    s.close()
+
+
+def test_prelearn_rejects_a_bad_text_key(words_client):
+    r = words_client.post(
+        "/api/readability/prelearn",
+        json={"tokens": TOKENS, "words": ["看书"], "text_key": "../etc"},
+    )
+    assert r.status_code == 422
+
+
+def test_sentences_split_on_punctuation_and_line_breaks():
+    split = readability.sentences(["我", "好", "。", "你", "\n", "他", "好"])
+    assert [s for s, _ in split] == ["我好。", "你", "他好"]
+    assert readability.sentence_for(split, "他") == "他好"
+    assert readability.sentence_for(split, "好") == "我好。"
+
+
+def test_deleting_the_account_removes_the_text_links(words_client):
+    from app.database import TextWord, User
+    from app.services import lifecycle
+
+    _prelearn(words_client, ["看书"])
+    s = words_client.session_factory()
+    lifecycle.purge_user(s, s.query(User).filter(User.id == 1).one())
+    s.commit()
+    assert s.query(TextWord).count() == 0
+    s.close()
+
+
+def test_a_long_package_source_name_is_kept_as_the_tag(words_client):
+    from app.database import UserWordGloss
+
+    tag = "Qingdu reference package · hand-curated glosses, Wang Bi recension"
+    _prelearn(
+        words_client,
+        ["有意思"],
+        glosses={"有意思": {"meaning": "wondrous", "source": "package", "tag": tag}},
+    )
+    s = words_client.session_factory()
+    assert s.query(UserWordGloss).filter(UserWordGloss.source == "package").one().source_tag == tag
+    s.close()
