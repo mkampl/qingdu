@@ -50,6 +50,11 @@ export const router = createRouter({
       component: () => import("@/views/ReviewView.vue"),
     },
     {
+      path: "/tones",
+      name: "tones",
+      component: () => import("@/views/ToneDrillView.vue"),
+    },
+    {
       path: "/vocab/:id",
       name: "vocab",
       component: () => import("@/views/VocabListView.vue"),

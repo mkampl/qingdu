@@ -41,6 +41,8 @@ A reading-and-study tool for Chinese learners, organised around the HSK vocabula
 - **Public sharing** — mint a share token for any saved text; the public URL is read-only.
 - **Anki & CSV export** — vocabulary lists export to Anki `.apkg` (with TTS audio baked in) or CSV. Whole-history exports for your learning + known words too.
 
+- **Tone practice** — hear a word, pick its tones from choices that differ only in tone. Real minimal pairs come with their hanzi and can be played to compare (买 mǎi / 卖 mài). Uses your learning and known words, topped up with everyday ones; words whose spoken tones differ from the dictionary's (一, 不, two third tones) are left out. Practice only, nothing is graded.
+
 ## Spaced repetition
 
 `/review` runs FSRS (the `fsrs` 6 library). The default mixed session:

@@ -29,7 +29,7 @@ Anonymous callers can still hit `GET /api/vocabulary-stats`, `GET /health`, `POS
 | Readability | `/api/readability`, `/api/readability/prelearn` | How much of a text the user can read and which words are missing; take missing words into review |
 | Vocabulary lists | `/api/vocabulary-lists/*`, `/api/vocabulary-stats` | CRUD on user lists; take a list into review; Anki / CSV exports |
 | Words | `/api/words/*` | Per-user word states (new / learning / known / ignored), bulk operations, stats, exports |
-| Review | `/api/review/*` | FSRS queue + grading; recognition / dictation / writing / cloze modes; `text_key` / `list_id` focus a session on one text or list |
+| Review | `/api/review/*` | FSRS queue + grading; recognition / dictation / writing / cloze modes; `text_key` / `list_id` focus a session on one text or list; `GET /api/review/tones` serves tone practice |
 | Library | `/api/library/*` | Bundled graded texts, level-matched picks, how readable each is, reading progress, quizzes |
 | Import | `/api/extract/file`, `/api/import/package/*` | EPUB / PDF / scan import; pre-analysed JSON package import |
 | Convert | `/api/convert`, `/api/convert/detect` | Trad ⇄ Simp conversion, script detection |
