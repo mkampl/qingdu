@@ -17,4 +17,10 @@ describe("glosses", () => {
     expect(customGlosses([dict, pkg, list], { ...pkg })).toEqual([list]);
     expect(customGlosses(undefined)).toEqual([]);
   });
+
+  it("shows a meaning two sources share once", () => {
+    const other: WordGloss = { ...list, tag: "Dao glossary" };
+    expect(customGlosses([dict, list, other])).toEqual([list]);
+    expect(customGlosses([dict, list, other], { ...other })).toEqual([]);
+  });
 });

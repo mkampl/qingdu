@@ -79,6 +79,40 @@ def _refine_token(token: str, glossary: dict) -> list[str]:
     return split_into_known(token, glossary)
 
 
+# Longest glossary term (in tokens) that _join_glossary_terms puts back together.
+_GLOSSARY_JOIN_MAX_TOKENS = 8
+
+
+def _join_glossary_terms(tokens: list[str], glossary: dict) -> list[str]:
+    """Join runs of tokens that spell a term of the user's glossary.
+
+    jieba does not know a list's own terms (抱元守一, 三功九秘) and cuts
+    them up; a glossary term is one word for the user, so the reader
+    shows it whole with the list's meaning. The longest term starting at
+    a token wins. A term that would cut through a token is left alone."""
+    if not glossary:
+        return tokens
+    longest = max((len(k) for k in glossary), default=0)
+    out: list[str] = []
+    i = 0
+    while i < len(tokens):
+        best = None
+        joined = ""
+        for j in range(i, min(len(tokens), i + _GLOSSARY_JOIN_MAX_TOKENS)):
+            joined += tokens[j]
+            if len(joined) > longest:
+                break
+            if j > i and joined in glossary:
+                best = j
+        if best is None:
+            out.append(tokens[i])
+            i += 1
+        else:
+            out.append("".join(tokens[i : best + 1]))
+            i = best + 1
+    return out
+
+
 def segment_text(text: str, glossary: dict | None = None) -> list[str]:
     """Tokens of `text` in reading order, with "\n" for every line break.
 
@@ -87,14 +121,17 @@ def segment_text(text: str, glossary: dict | None = None) -> list[str]:
     what it invents is either a dictionary word jieba's own word list
     lacks (公钥, 食材, 点赞, 内卷: kept) or a non-word (我来, 太热, 我点:
     split again). With the HMM off those dictionary words came out as
-    single characters, and the non-words come out the same either way."""
+    single characters, and the non-words come out the same either way.
+    Terms of the user's glossary that jieba cut up are joined again."""
     glossary = glossary or {}
     lines = text.split("\n")
     segments: list[str] = []
     for i, line in enumerate(lines):
         if line.strip():
+            tokens: list[str] = []
             for token in jieba.cut(line):
-                segments.extend(_refine_token(token, glossary))
+                tokens.extend(_refine_token(token, glossary))
+            segments.extend(_join_glossary_terms(tokens, glossary))
         if i < len(lines) - 1:
             segments.append("\n")
     return segments
