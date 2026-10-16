@@ -423,12 +423,16 @@ async function confirmDeleteWord(sectionName: string, hanzi: string) {
 // --- Learn: take the list into review -------------------------------------
 
 const learning = ref(false);
+// Name of the section being taken into review, if one is.
+const learningSection = ref<string | null>(null);
 
-async function learnList() {
+/** Take the whole list, or one section of it, into review. */
+async function learnList(sectionName: string | null = null) {
   if (learning.value) return;
   learning.value = true;
+  learningSection.value = sectionName;
   try {
-    const r = await api.learnVocabularyList(listId.value);
+    const r = await api.learnVocabularyList(listId.value, sectionName);
     if (r.added.length) {
       const next = { ...userWords.states };
       for (const w of r.added) next[w] = "learning";
@@ -445,6 +449,7 @@ async function learnList() {
     toasts.error(e instanceof Error ? e.message : "Couldn't add the list");
   } finally {
     learning.value = false;
+    learningSection.value = null;
   }
 }
 
@@ -727,9 +732,9 @@ function sectionWordCount(section: VocabularySection): number {
               variant="primary"
               size="sm"
               :disabled="totalWords === 0 || learning"
-              :loading="learning"
+              :loading="learning && learningSection === null"
               title="Take every word of this list into review, with the list's own meanings"
-              @click="learnList"
+              @click="learnList()"
             >
               Learn this list
             </Button>
@@ -809,6 +814,17 @@ function sectionWordCount(section: VocabularySection): number {
               </span>
             </div>
             <div class="flex items-center gap-1">
+              <Button
+                v-if="sectionWordCount(section) > 0"
+                variant="ghost"
+                size="sm"
+                :loading="learningSection === section.name"
+                :disabled="learning"
+                :title="`Take the words of “${section.name}” into review`"
+                @click="learnList(section.name)"
+              >
+                Learn
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"

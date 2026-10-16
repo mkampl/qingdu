@@ -23,12 +23,21 @@ function same(a: WordGloss, b: WordGloss): boolean {
   return a.source === b.source && (a.tag ?? null) === (b.tag ?? null);
 }
 
-/** Meanings other than the dictionary's, without the focused one. */
+const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+
+/** Meanings other than the dictionary's, without the focused one. A
+ *  meaning two sources share (a text's glossary and a list built from
+ *  the same glossary) is shown once. */
 export function customGlosses(
   glosses: WordGloss[] | null | undefined,
   focus: WordGloss | null | undefined = null,
 ): WordGloss[] {
-  return (glosses ?? []).filter(
-    (g) => g.source !== "dictionary" && !(focus && same(g, focus)),
-  );
+  const seen = new Set<string>(focus ? [norm(focus.meaning)] : []);
+  return (glosses ?? []).filter((g) => {
+    if (g.source === "dictionary" || (focus && same(g, focus))) return false;
+    const key = norm(g.meaning);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }

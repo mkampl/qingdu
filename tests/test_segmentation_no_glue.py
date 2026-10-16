@@ -57,6 +57,23 @@ def test_glossary_word_stays_whole(segmenter):
     assert segment_text("我洗衣服", glossary) == ["我", "洗衣服"]
 
 
+def test_glossary_term_jieba_cuts_up_is_joined(segmenter):
+    glossary = {"抱元守一": {"meaning": "embracing the origin, guarding the One"}}
+    assert "抱元守一" not in segment_text("要抱元守一。")
+    assert segment_text("要抱元守一。", glossary) == ["要", "抱元守一", "。"]
+
+
+def test_longest_glossary_term_wins(segmenter):
+    glossary = {"三功": {"meaning": "a"}, "三功九秘": {"meaning": "b"}}
+    assert "三功九秘" in segment_text("修三功九秘。", glossary)
+
+
+def test_glossary_term_does_not_cut_through_a_token(segmenter):
+    # 我们 is one token; a glossary term 们修 must not split it.
+    glossary = {"们修": {"meaning": "x"}}
+    assert "我们" in segment_text("我们修道。", glossary)
+
+
 def test_line_breaks_are_kept(segmenter):
     assert segment_text("很多\n三个") == ["很", "多", "\n", "三", "个"]
 
