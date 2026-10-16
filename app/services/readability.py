@@ -194,6 +194,41 @@ def for_user(
     return summarize(counts, word_status(db, user_id, counts.counts.keys()))
 
 
+# Sentence-final punctuation for splitting a token stream into sentences.
+_SENTENCE_END = frozenset("。！？；…!?;")
+
+
+def sentences(tokens: Iterable[str]) -> list[tuple[str, frozenset[str]]]:
+    """(sentence, its tokens) for a token stream, split after sentence-final
+    punctuation and at line breaks."""
+    out: list[tuple[str, frozenset[str]]] = []
+    text, words = "", set()
+    for raw in tokens:
+        token = "" if raw == "\n" else (raw or "")
+        text += token
+        if token.strip():
+            words.add(token.strip())
+        if not token or token[-1] in _SENTENCE_END:
+            if text.strip() and words:
+                out.append((text.strip(), frozenset(words)))
+            text, words = "", set()
+    if text.strip() and words:
+        out.append((text.strip(), frozenset(words)))
+    return out
+
+
+def sentence_for(split: list[tuple[str, frozenset[str]]], word: str) -> str | None:
+    """The first sentence that uses `word` as a token, else the first that
+    contains it at all (a word counted as part of a longer token)."""
+    for sentence, words in split:
+        if word in words:
+            return sentence
+    for sentence, _words in split:
+        if word in sentence:
+            return sentence
+    return None
+
+
 def hsk_level_number(word: str) -> int | None:
     """3 for "new-3", 7 for "new-7-9"; None outside the HSK list."""
     level = (hsk_vocab.get(word) or {}).get("level_new") or ""
@@ -223,6 +258,8 @@ __all__ = [
     "count_words",
     "for_user",
     "missing_payload",
+    "sentence_for",
+    "sentences",
     "summarize",
     "word_status",
 ]

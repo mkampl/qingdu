@@ -33,6 +33,7 @@ import ReadingText from "@/components/reader/ReadingText.vue";
 import ShareModal from "@/components/reader/ShareModal.vue";
 import StatsPanel from "@/components/reader/StatsPanel.vue";
 import ReadabilityBar from "@/components/reader/ReadabilityBar.vue";
+import { textKeyFor } from "@/utils/text-key";
 import TocSidebar from "@/components/reader/TocSidebar.vue";
 import type { Section } from "@/components/reader/utils";
 import WordPopover from "@/components/reader/WordPopover.vue";
@@ -259,6 +260,15 @@ const derivedTitle = computed(() => {
 /** Title shown in the reader header — stored value if loaded, derived otherwise. */
 const displayTitle = computed(
   () => analysis.savedTextTitle ?? derivedTitle.value,
+);
+
+// Names the open text for its pre-learned words.
+const readabilityKey = computed(() =>
+  textKeyFor({
+    savedTextId: analysis.savedTextId,
+    librarySlug: analysis.librarySlug,
+    content: analysis.inputText,
+  }),
 );
 
 const onSave = async () => {
@@ -715,7 +725,11 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- How much of the text the user can read, and what's missing. -->
-        <ReadabilityBar v-if="analysis.result && !analysis.loading" />
+        <ReadabilityBar
+          v-if="analysis.result && !analysis.loading"
+          :text-key="readabilityKey"
+          :title="analysis.savedTextId !== null ? displayTitle : analysis.librarySlug ? null : displayTitle"
+        />
 
         <!-- The analysed reading text. -->
         <article ref="articleRef" class="relative">
