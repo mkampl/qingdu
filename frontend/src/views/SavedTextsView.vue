@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
 import { ApiError } from "@/api/client";
-import type { SavedTextSummary } from "@/api/types";
-import { useAnalysisStore } from "@/stores/analysis";
+import type { SavedTextSummary, TextFolder } from "@/api/types";
+import FolderNameModal from "@/components/texts/FolderNameModal.vue";
+import FolderPickerModal from "@/components/texts/FolderPickerModal.vue";
+import { useOpenSavedText } from "@/composables/use-open-saved-text";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
-import { useReaderStore } from "@/stores/reader";
+import { useTextFoldersStore } from "@/stores/text-folders";
 import { useToastStore } from "@/stores/toast";
 
 import Button from "@/components/ui/Button.vue";
@@ -23,13 +25,21 @@ import {
   parseTags,
   previewSnippet,
 } from "@/utils/saved-text";
+import {
+  childFolders,
+  folderCounts,
+  folderLabel,
+  folderPath,
+  textsIn,
+} from "@/utils/text-folders";
 
 const auth = useAuthStore();
 const authModals = useAuthModalsStore();
-const analysis = useAnalysisStore();
-const reader = useReaderStore();
+const folderStore = useTextFoldersStore();
 const toasts = useToastStore();
 const router = useRouter();
+const route = useRoute();
+const openSavedText = useOpenSavedText();
 
 type LoadState =
   | { status: "idle" }
@@ -53,7 +63,7 @@ async function load() {
   }
   state.value = { status: "loading" };
   try {
-    const texts = await api.listTexts();
+    const [texts] = await Promise.all([api.listTexts(), folderStore.load()]);
     state.value = { status: "ok", texts };
   } catch (e) {
     state.value = {
@@ -77,14 +87,43 @@ watch(
   },
 );
 
-const filtered = computed(() => {
-  if (state.value.status !== "ok") return [];
-  return state.value.texts.filter((t) => matchesSearch(t, search.value));
-});
+const allTexts = computed(() => (state.value.status === "ok" ? state.value.texts : []));
+const folders = computed(() => folderStore.folders);
 
-const total = computed(() =>
-  state.value.status === "ok" ? state.value.texts.length : 0,
+// The open folder lives in the URL (?folder=3) so back/forward and links
+// work; the store remembers it so a text saved from the reader lands here.
+const folderId = computed<number | null>(() => {
+  const raw = Number(route.query.folder);
+  return Number.isInteger(raw) && raw > 0 ? raw : null;
+});
+watch(
+  folderId,
+  (id) => {
+    folderStore.currentFolderId = id;
+  },
+  { immediate: true },
 );
+const crumbs = computed(() => folderPath(folders.value, folderId.value));
+const currentFolder = computed(() => crumbs.value[crumbs.value.length - 1] ?? null);
+
+function goFolder(id: number | null) {
+  search.value = "";
+  void router.push({ path: "/texts", query: id === null ? {} : { folder: String(id) } });
+}
+
+const searching = computed(() => search.value.trim() !== "");
+// Searching looks through every folder.
+const filtered = computed(() =>
+  searching.value
+    ? allTexts.value.filter((t) => matchesSearch(t, search.value))
+    : textsIn(allTexts.value, folderId.value),
+);
+const subfolders = computed(() =>
+  searching.value ? [] : childFolders(folders.value, folderId.value),
+);
+const inFolder = computed(() => !searching.value && folderId.value !== null);
+
+const total = computed(() => allTexts.value.length);
 
 /**
  * Comprehension-band colour for the chip. Matches the "comprehensible
@@ -114,29 +153,96 @@ function comprehensionLabel(text: SavedTextSummary): string {
 
 async function open(text: SavedTextSummary) {
   if (openingId.value !== null) return;
-  // The list only carries summaries; fetch the full text + saved analysis,
-  // hydrate the analysis store and jump to the reader so the user sees
-  // exactly what they saved — no re-analyse round-trip. Pass id +
-  // normalised progress + title + tags so the reader can persist updates,
-  // restore scroll position, and let the user rename/retag inline.
   openingId.value = text.id;
   try {
-    const full = await api.getText(text.id);
-    analysis.loadSaved(full.content, full.analysisData, {
-      id: full.id,
-      progress: normalizeProgress(full.reading_progress),
-      title: full.title ?? "",
-      tags: parseTags(full.tags),
-      glossaryListIds: full.glossary_list_ids,
-    });
-    reader.reset();
-    void router.push("/");
-  } catch (e) {
-    toasts.error(
-      e instanceof ApiError ? e.message : "Couldn't open that text.",
-    );
+    await openSavedText(text.id);
   } finally {
     openingId.value = null;
+  }
+}
+
+// --- Folders ---------------------------------------------------------------
+
+const nameModal = ref<{ mode: "new" } | { mode: "rename"; folder: TextFolder } | null>(null);
+const nameBusy = ref(false);
+
+async function submitName(name: string) {
+  if (!nameModal.value) return;
+  nameBusy.value = true;
+  try {
+    if (nameModal.value.mode === "new") {
+      await api.createFolder(name, folderId.value);
+    } else {
+      await api.renameFolder(nameModal.value.folder.id, name);
+    }
+    await folderStore.load();
+    nameModal.value = null;
+  } catch (e) {
+    toasts.error(e instanceof ApiError ? e.message : "Couldn't save the folder.");
+  } finally {
+    nameBusy.value = false;
+  }
+}
+
+const pendingFolderDelete = ref<number | null>(null);
+
+async function removeFolder(folder: TextFolder) {
+  try {
+    await api.deleteFolder(folder.id);
+    await load();
+    toasts.success(`Deleted folder "${folder.name}". Its texts moved up one level.`);
+  } catch (e) {
+    toasts.error(e instanceof ApiError ? e.message : "Couldn't delete the folder.");
+  } finally {
+    pendingFolderDelete.value = null;
+  }
+}
+
+// What the folder picker is moving: a text or a folder.
+const moving = ref<{ text: SavedTextSummary } | { folder: TextFolder } | null>(null);
+const movingCurrent = computed(() => {
+  const m = moving.value;
+  if (!m) return null;
+  return "text" in m ? (m.text.folder_id ?? null) : m.folder.parent_id;
+});
+
+async function moveTo(target: number | null) {
+  const m = moving.value;
+  moving.value = null;
+  if (!m) return;
+  try {
+    if ("text" in m) {
+      await api.updateText(m.text.id, { folder_id: target });
+    } else {
+      await api.moveFolder(m.folder.id, target);
+    }
+    await load();
+    const where = target === null ? "the top level" : folderLabel(folders.value, target);
+    toasts.success(`Moved to ${where}.`);
+  } catch (e) {
+    toasts.error(e instanceof ApiError ? e.message : "Couldn't move it.");
+  }
+}
+
+/** Move a text one place up or down in its folder. */
+async function shift(text: SavedTextSummary, by: -1 | 1) {
+  if (folderId.value === null || state.value.status !== "ok") return;
+  const ids = filtered.value.map((t) => t.id);
+  const i = ids.indexOf(text.id);
+  const j = i + by;
+  if (i < 0 || j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  // Optimistic: renumber locally, then save.
+  const pos = new Map(ids.map((id, k) => [id, k]));
+  state.value = {
+    status: "ok",
+    texts: state.value.texts.map((t) => (pos.has(t.id) ? { ...t, position: pos.get(t.id)! } : t)),
+  };
+  try {
+    await api.orderTexts(folderId.value, ids);
+  } catch (e) {
+    toasts.error(e instanceof ApiError ? e.message : "Couldn't save the order.");
+    void load();
   }
 }
 
@@ -183,7 +289,15 @@ async function confirmDelete(text: SavedTextSummary) {
         </span>
         <span class="h-px w-12 bg-border-subtle" aria-hidden="true" />
         <h1 class="font-display text-2xl font-medium tracking-tight text-fg">
-          Saved texts
+          <button
+            v-if="crumbs.length"
+            type="button"
+            class="hover:text-accent"
+            @click="goFolder(null)"
+          >
+            Saved texts
+          </button>
+          <template v-else>Saved texts</template>
         </h1>
       </div>
       <span
@@ -214,13 +328,60 @@ async function confirmDelete(text: SavedTextSummary) {
 
     <!-- Authenticated — main content. -->
     <template v-else>
-      <!-- Search bar (only useful when there is something to search). -->
-      <div v-if="state.status === 'ok' && total > 0" class="mb-6 max-w-sm">
-        <TextInput
-          v-model="search"
-          placeholder="Search by title or tag…"
-          autocomplete="off"
-        />
+      <!-- Folder path: Saved texts › TaiJiMen › 道德经 -->
+      <nav
+        v-if="crumbs.length && !searching"
+        class="-mt-4 mb-5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm"
+        aria-label="Folder path"
+      >
+        <button type="button" class="text-fg-muted hover:text-accent" @click="goFolder(null)">
+          All texts
+        </button>
+        <template v-for="(f, i) in crumbs" :key="f.id">
+          <span class="text-fg-subtle" aria-hidden="true">›</span>
+          <button
+            v-if="i < crumbs.length - 1"
+            type="button"
+            class="text-cn-serif text-fg-muted hover:text-accent"
+            @click="goFolder(f.id)"
+          >
+            {{ f.name }}
+          </button>
+          <span v-else class="text-cn-serif font-medium text-fg">{{ f.name }}</span>
+        </template>
+        <span v-if="currentFolder" class="ml-2 flex items-center gap-2">
+          <button
+            type="button"
+            class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle hover:text-fg"
+            @click="nameModal = { mode: 'rename', folder: currentFolder }"
+          >
+            Rename
+          </button>
+          <button
+            type="button"
+            class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle hover:text-fg"
+            @click="moving = { folder: currentFolder }"
+          >
+            Move
+          </button>
+        </span>
+      </nav>
+
+      <!-- Search + new folder. Search looks through every folder. -->
+      <div
+        v-if="state.status === 'ok' && (total > 0 || folders.length > 0)"
+        class="mb-6 flex flex-wrap items-center gap-3"
+      >
+        <div class="w-full max-w-sm">
+          <TextInput
+            v-model="search"
+            placeholder="Search all texts by title or tag…"
+            autocomplete="off"
+          />
+        </div>
+        <Button variant="ghost" size="sm" @click="nameModal = { mode: 'new' }">
+          + New folder
+        </Button>
       </div>
 
       <!-- States -->
@@ -263,16 +424,83 @@ async function confirmDelete(text: SavedTextSummary) {
 
       <!-- No search match -->
       <div
-        v-else-if="state.status === 'ok' && filtered.length === 0"
+        v-else-if="state.status === 'ok' && searching && filtered.length === 0"
         class="text-fg-muted"
       >
         <p class="font-display italic">No texts match “{{ search }}”.</p>
       </div>
 
-      <!-- The grid -->
-      <ul v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <template v-else-if="state.status === 'ok'">
+      <!-- Folders -->
+      <ul
+        v-if="subfolders.length"
+        class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+      >
         <li
-          v-for="text in filtered"
+          v-for="f in subfolders"
+          :key="f.id"
+          class="flex items-center gap-3 rounded-lg border border-border bg-bg-elevated px-4 py-3 transition-shadow hover:shadow-md"
+        >
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="none" aria-hidden="true" class="shrink-0 text-accent">
+            <path
+              d="M1.5 4V11.5h11V5H7L5.5 3h-4z"
+              stroke="currentColor"
+              stroke-width="1.1"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <button type="button" class="min-w-0 flex-1 text-left" @click="goFolder(f.id)">
+            <span class="text-cn-serif block truncate font-medium text-fg hover:text-accent">
+              {{ f.name }}
+            </span>
+            <span class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+              {{ folderCounts(folders, allTexts, f.id).total }} texts
+              <template v-if="folderCounts(folders, allTexts, f.id).total">
+                · {{ folderCounts(folders, allTexts, f.id).readable }} readable
+              </template>
+            </span>
+          </button>
+          <template v-if="pendingFolderDelete === f.id">
+            <button
+              type="button"
+              class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle hover:text-fg"
+              @click="pendingFolderDelete = null"
+            >
+              Cancel
+            </button>
+            <Button variant="danger" size="sm" @click="removeFolder(f)">Delete</Button>
+          </template>
+          <button
+            v-else
+            type="button"
+            class="rounded-md p-1.5 text-fg-subtle transition-colors hover:bg-bg-sunken hover:text-red-700 dark:hover:text-red-300"
+            :title="`Delete the folder ${f.name} (its texts move up one level)`"
+            @click="pendingFolderDelete = f.id"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path
+                d="M3 4h8M5 4V2.5h4V4M5 6.5v4M9 6.5v4M4 4l.5 8.5h5L10 4"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+        </li>
+      </ul>
+
+      <p
+        v-if="!searching && filtered.length === 0 && subfolders.length === 0"
+        class="font-display italic text-fg-muted"
+      >
+        This folder is empty. Use “Move” on a text to put it here.
+      </p>
+
+      <!-- The grid -->
+      <ul v-if="filtered.length" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <li
+          v-for="(text, idx) in filtered"
           :key="text.id"
           class="group flex flex-col rounded-lg border border-border bg-bg-elevated p-5 transition-shadow hover:shadow-md"
         >
@@ -306,6 +534,17 @@ async function confirmDelete(text: SavedTextSummary) {
               </span>
             </div>
           </header>
+
+          <!-- Place in the folder, or the folder when searching. -->
+          <p
+            v-if="inFolder || (searching && text.folder_id)"
+            class="mb-2 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+          >
+            <template v-if="inFolder">{{ idx + 1 }} / {{ filtered.length }}</template>
+            <span v-else class="text-cn-serif normal-case tracking-normal">
+              {{ folderLabel(folders, text.folder_id) }}
+            </span>
+          </p>
 
           <!-- Tags -->
           <div
@@ -363,6 +602,36 @@ async function confirmDelete(text: SavedTextSummary) {
                 </Button>
               </template>
               <template v-else>
+                <template v-if="inFolder">
+                  <button
+                    type="button"
+                    class="rounded-md p-1.5 text-fg-subtle transition-colors hover:bg-bg-sunken hover:text-fg disabled:opacity-30"
+                    :disabled="idx === 0"
+                    title="Move up"
+                    aria-label="Move up"
+                    @click="shift(text, -1)"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-md p-1.5 text-fg-subtle transition-colors hover:bg-bg-sunken hover:text-fg disabled:opacity-30"
+                    :disabled="idx === filtered.length - 1"
+                    title="Move down"
+                    aria-label="Move down"
+                    @click="shift(text, 1)"
+                  >
+                    ↓
+                  </button>
+                </template>
+                <button
+                  type="button"
+                  class="rounded-md px-1.5 py-1 font-mono text-[10px] uppercase tracking-wider text-fg-subtle transition-colors hover:bg-bg-sunken hover:text-fg"
+                  title="Move to another folder"
+                  @click="moving = { text }"
+                >
+                  Move
+                </button>
                 <button
                   type="button"
                   class="rounded-md p-1.5 text-fg-subtle transition-colors hover:bg-bg-sunken hover:text-red-700 dark:hover:text-red-300"
@@ -407,6 +676,25 @@ async function confirmDelete(text: SavedTextSummary) {
           </footer>
         </li>
       </ul>
+      </template>
     </template>
+
+    <FolderNameModal
+      :open="nameModal !== null"
+      :title="nameModal?.mode === 'rename' ? 'Rename folder' : 'New folder'"
+      :initial="nameModal?.mode === 'rename' ? nameModal.folder.name : ''"
+      :busy="nameBusy"
+      @close="nameModal = null"
+      @submit="submitName"
+    />
+    <FolderPickerModal
+      :open="moving !== null"
+      :title="moving && 'folder' in moving ? `Move “${moving.folder.name}” to…` : 'Move text to…'"
+      :folders="folders"
+      :current-id="movingCurrent"
+      :moving-folder-id="moving && 'folder' in moving ? moving.folder.id : null"
+      @close="moving = null"
+      @pick="moveTo"
+    />
   </section>
 </template>

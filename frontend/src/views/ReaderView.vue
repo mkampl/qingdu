@@ -7,6 +7,7 @@ import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReaderStore } from "@/stores/reader";
 import { useToastStore } from "@/stores/toast";
 import { useVocabStatsStore } from "@/stores/vocab-stats";
+import { useTextFoldersStore } from "@/stores/text-folders";
 import { useUserWordsStore } from "@/stores/userWords";
 import {
   ApiError,
@@ -34,6 +35,7 @@ import ReadingText from "@/components/reader/ReadingText.vue";
 import ShareModal from "@/components/reader/ShareModal.vue";
 import StatsPanel from "@/components/reader/StatsPanel.vue";
 import ReadabilityBar from "@/components/reader/ReadabilityBar.vue";
+import TextSeriesNav from "@/components/reader/TextSeriesNav.vue";
 import { textKeyFor } from "@/utils/text-key";
 import TocSidebar from "@/components/reader/TocSidebar.vue";
 import type { Section } from "@/components/reader/utils";
@@ -48,6 +50,7 @@ const authModals = useAuthModalsStore();
 const toasts = useToastStore();
 const audioPlayer = useAudioPlayerStore();
 const userWords = useUserWordsStore();
+const textFolders = useTextFoldersStore();
 
 const localInput = ref<string>(analysis.inputText);
 const showEditor = ref<boolean>(!analysis.hasResult);
@@ -59,6 +62,16 @@ const saving = ref(false);
 const justSaved = ref(false); // drives the chop-settle animation
 
 const placeholderSeeded = ref(false);
+
+// A text opened while the reader is already showing (previous / next in a
+// folder, the Today panel) replaces the analysis; keep the collapsed
+// editor's text, and with it the char count, in step.
+watch(
+  () => analysis.inputText,
+  (text) => {
+    if (!showEditor.value) localInput.value = text;
+  },
+);
 
 // Seed with a literary opening line on first mount if there's no input,
 // so the empty state is welcoming rather than blank.
@@ -296,14 +309,19 @@ const onSave = async () => {
       analysis.markSynced();
       toasts.success("Text updated.");
     } else {
+      // Saved into the folder open in Texts, else the top level.
+      const open = textFolders.currentFolderId;
+      const folderId = textFolders.folders.some((f) => f.id === open) ? open : null;
       const result = await saveText({
         title: derivedTitle.value,
         content: analysis.inputText,
         analysis_data: analysis.result,
         glossary_list_ids: analysis.glossaryListIds,
+        folder_id: folderId,
       });
       analysis.adoptSavedId(result.id, derivedTitle.value, []);
-      toasts.success("Text saved.");
+      const folder = textFolders.folders.find((f) => f.id === folderId);
+      toasts.success(folder ? `Text saved in “${folder.name}”.` : "Text saved.");
     }
     saved.value = true;
     justSaved.value = true;
@@ -730,6 +748,9 @@ onBeforeUnmount(() => {
           {{ analysis.error }}
         </div>
 
+        <!-- Folder and number of a saved text ("道德经 · 2 / 6"). -->
+        <TextSeriesNav v-if="analysis.result && !analysis.loading" placement="top" />
+
         <!-- How much of the text the user can read, and what's missing. -->
         <ReadabilityBar
           v-if="analysis.result && !analysis.loading"
@@ -752,6 +773,8 @@ onBeforeUnmount(() => {
             :analysis="analysis.result"
             @sections="(s) => (sections = s)"
           />
+          <!-- Previous / next text of the folder. -->
+          <TextSeriesNav v-if="analysis.result && !analysis.loading" placement="bottom" />
 
           <!-- Continuous narration player. Only shows once we have an
                analysed text — gates on .result so the empty state stays

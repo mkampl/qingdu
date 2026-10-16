@@ -42,8 +42,10 @@ def test_route_count(app_module):
     library text is for the caller).
     +1 = 105/110 for POST /api/auth/download-ticket (open a download as a
     plain link without the session token in the URL).
+    +5 = 110/115 for text folders: GET + POST /api/folders, PATCH + DELETE
+    /api/folders/{id}, POST /api/texts/order.
     """
-    assert len(app_module.routes) in (105, 110)
+    assert len(app_module.routes) in (110, 115)
 
 
 def test_router_tags_present(app_module):

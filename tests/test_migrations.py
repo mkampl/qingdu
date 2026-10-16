@@ -243,3 +243,24 @@ def test_init_db_adds_review_focus_to_users(db_file):
     assert "review_focus" in _columns(engine, "users")
     with engine.connect() as conn:
         assert conn.execute(text("SELECT review_focus FROM users")).scalar() == "both"
+
+
+def test_init_db_adds_folder_columns_to_saved_texts(db_file):
+    from sqlalchemy import text
+
+    from app.database import init_db
+
+    engine = db_file()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE saved_texts (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, "
+                "title VARCHAR(500), content TEXT, tags TEXT, reading_progress INTEGER, "
+                "analysis_data TEXT, created_at DATETIME, share_token VARCHAR(36), "
+                "glossary_list_ids TEXT)"
+            )
+        )
+    init_db()
+    assert {"folder_id", "position"} <= _columns(engine, "saved_texts")
+    assert "parent_id" in _columns(engine, "text_folders")
+    init_db()

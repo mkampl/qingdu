@@ -237,12 +237,36 @@ export interface SavedTextSummary {
   /** Phase #99 — per-text glossary picker selection. null = use all
    *  glossary-flagged lists, [] = none, [3,5] = only those. */
   glossary_list_ids: number[] | null;
+  /** Folder the text lives in; null = top level. */
+  folder_id?: number | null;
+  /** Reading order inside its folder. */
+  position?: number | null;
+}
+
+/** A folder of saved texts. Folders nest (`parent_id`, null = top level). */
+export interface TextFolder {
+  id: number;
+  name: string;
+  parent_id: number | null;
+  position: number | null;
+}
+
+/** Where a saved text stands in its folder ("2 / 6", previous / next). */
+export interface TextSeries {
+  folder_id: number;
+  /** The folder and its parents, top level first. */
+  path: { id: number; name: string }[];
+  index: number;
+  count: number;
+  prev_id: number | null;
+  next_id: number | null;
 }
 
 /** GET /api/texts/{id} — the summary fields plus the full text. */
 export interface SavedText extends SavedTextSummary {
   content: string;
   analysisData: AnalysisResponse;
+  series?: TextSeries | null;
 }
 
 export interface VocabularyListSummary {

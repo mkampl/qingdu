@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.auth import require_auth
 from app.core.rate_limit import limiter
 from app.database import SavedText, User, UserWord, get_db
-from app.services import cloze, dict_data, readability
+from app.services import cloze, dict_data, readability, text_folders
 from app.services.gloss_refresh import DICT_VERSION_KEY, refresh_analysis
 from app.services.migrations import migrate_analysis_data
 from app.services.script import convert_analysis_data, to_user_script
@@ -36,6 +36,8 @@ class SaveTextRequest(BaseModel):
     analysis_data: dict
     tags: list[str] = []
     glossary_list_ids: list[int] | None = None
+    # Folder to save into (appended at the end); None = top level.
+    folder_id: int | None = None
 
     @field_validator("analysis_data")
     @classmethod
@@ -178,7 +180,10 @@ async def save_text(
     """Save analyzed text to database."""
     tags = text_data.tags
     glossary_ids = text_data.glossary_list_ids
+    text_folders.owned(db, user.id, text_data.folder_id)
     saved_text = SavedText(
+        folder_id=text_data.folder_id,
+        position=text_folders.next_position(db, user.id, text_data.folder_id),
         user_id=user.id,
         title=text_data.title,
         content=text_data.content,
@@ -208,6 +213,8 @@ def _summary(text: SavedText, analysis_data: dict, status: dict[str, str], user:
         "reading_progress": text.reading_progress or 0,
         "share_token": text.share_token,
         "glossary_list_ids": _glossary_ids(text),
+        "folder_id": text.folder_id,
+        "position": text.position,
         **comp,
     }
 
@@ -267,6 +274,8 @@ def get_text(
         **summary,
         "content": to_user_script(text.content or "", user),
         "analysisData": migrated_data,
+        # Folder path, number and neighbours ("2 / 6", previous / next).
+        "series": text_folders.series(db, text),
     }
 
 
@@ -382,6 +391,15 @@ async def update_text(
     if "glossary_list_ids" in data:
         ids = data["glossary_list_ids"]
         text.glossary_list_ids = json.dumps(ids) if ids is not None else None
+    if "folder_id" in data:
+        folder_id = data["folder_id"]
+        if folder_id is not None and not isinstance(folder_id, int):
+            raise HTTPException(status_code=422, detail="folder_id must be a number or null")
+        text_folders.owned(db, user.id, folder_id)
+        if folder_id != text.folder_id:
+            # Moved: it goes to the end of its new folder.
+            text.position = text_folders.next_position(db, user.id, folder_id)
+            text.folder_id = folder_id
 
     db.commit()
     db.refresh(text)
