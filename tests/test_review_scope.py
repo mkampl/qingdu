@@ -74,8 +74,25 @@ def test_a_focused_session_enrols_no_new_words(words_client):
 def test_stats_count_the_scope(words_client):
     _prelearn(words_client, ["看书", "喜欢"])
     stats = words_client.get("/api/review/stats", params={"text_key": "text:abc-8"}).json()
-    assert stats["scope"] == {"title": "Dao 1", "due": 2, "total": 2}
+    assert stats["scope"] == {
+        "title": "Dao 1",
+        "due": 2,
+        "total": 2,
+        "due_now": 2,
+        "due_today": 2,
+        "learned": 0,
+    }
     assert words_client.get("/api/review/stats").json()["scope"] is None
+
+
+def test_stats_count_learned_words_of_the_scope(words_client):
+    _prelearn(words_client, ["看书", "喜欢"])
+    s = words_client.session_factory()
+    s.query(UserWord).filter(UserWord.word == "看书").update({"stability": 3.0})
+    s.commit()
+    s.close()
+    stats = words_client.get("/api/review/stats", params={"text_key": "text:abc-8"}).json()
+    assert stats["scope"]["learned"] == 1
 
 
 def _make_list(client):

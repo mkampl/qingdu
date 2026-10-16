@@ -1311,8 +1311,21 @@ export interface ReviewStatsResponse {
   new_today: number;
   /** Phase #96 — user's daily target (mirror of User.daily_new_words). */
   daily_target: number;
-  /** Only when asked for a scope: its title, words in rotation and due. */
-  scope?: { title: string | null; due: number; total: number } | null;
+  /** Only when asked for a scope: its title and counts. */
+  scope?: ReviewScopeInfo | null;
+}
+
+/** Counts of a focused session's words (one text or one list). */
+export interface ReviewScopeInfo {
+  title: string | null;
+  /** Due under the review window: what Start serves. */
+  due: number;
+  /** Words in rotation. */
+  total: number;
+  due_now: number;
+  due_today: number;
+  /** Words that already count as known when reading. */
+  learned: number;
 }
 
 function scopeQuery(scope: ReviewScope | null | undefined): string {
