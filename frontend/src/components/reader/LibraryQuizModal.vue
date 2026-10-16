@@ -7,6 +7,7 @@
 import { computed, ref, watch } from "vue";
 
 import * as api from "@/api/client";
+import { useUserWordsStore } from "@/stores/userWords";
 import { ApiError } from "@/api/client";
 import type { LibraryProgressEntry, LibraryQuizQuestion } from "@/api/client";
 
@@ -63,6 +64,8 @@ async function submit() {
     allCorrect.value = r.all_correct;
     if (r.all_correct && r.progress) {
       emit("passed", r.progress);
+      // A passed quiz counts for the streak: refresh the header chip.
+      void useUserWordsStore().refreshStats();
     }
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : "Couldn't submit the quiz.";
