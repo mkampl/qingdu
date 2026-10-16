@@ -9,7 +9,12 @@
 import { computed, onMounted, ref } from "vue";
 
 import * as api from "@/api/client";
-import type { LibraryManifestItem, LibraryProgressEntry } from "@/api/client";
+import type {
+  LibraryManifestItem,
+  LibraryProgressEntry,
+  TextReadability,
+} from "@/api/client";
+import ReadableBadge from "@/components/ui/ReadableBadge.vue";
 import { onAuthReady } from "@/composables/use-auth-ready";
 import { useOpenLibraryText } from "@/composables/use-open-library-text";
 
@@ -18,10 +23,12 @@ const items = ref<LibraryManifestItem[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const progress = ref<Record<string, LibraryProgressEntry>>({});
+// How readable each text is for the signed-in user.
+const readable = ref<Record<string, TextReadability>>({});
 
 const selectedLevels = ref<Set<number>>(new Set());
 const search = ref("");
-const sortKey = ref<"hsk" | "chars-asc" | "chars-desc">("hsk");
+const sortKey = ref<"hsk" | "chars-asc" | "chars-desc" | "almost">("hsk");
 
 onMounted(async () => {
   loading.value = true;
@@ -45,9 +52,16 @@ onAuthReady(
     } catch {
       // Non-critical — cards just render without a done badge.
     }
+    try {
+      readable.value = (await api.getLibraryReadability()).items;
+    } catch {
+      // Non-critical — cards just render without the readable badge.
+    }
   },
   () => {
     progress.value = {};
+    readable.value = {};
+    if (sortKey.value === "almost") sortKey.value = "hsk";
   },
 );
 
@@ -79,6 +93,20 @@ const filtered = computed(() => {
   });
   if (sortKey.value === "hsk") {
     list = list.slice().sort((a, b) => a.hsk_level - b.hsk_level || a.slug.localeCompare(b.slug));
+  } else if (sortKey.value === "almost") {
+    // Texts that are nearly readable first (fewest words to go), then the
+    // ones already readable, hardest of those last.
+    const r = readable.value;
+    const key = (it: LibraryManifestItem) => {
+      const x = r[it.slug];
+      if (!x) return [2, 0];
+      return x.unlocked ? [1, -x.known_pct] : [0, x.to_unlock];
+    };
+    list = list.slice().sort((a, b) => {
+      const ka = key(a);
+      const kb = key(b);
+      return ka[0] - kb[0] || ka[1] - kb[1] || a.hsk_level - b.hsk_level;
+    });
   } else if (sortKey.value === "chars-asc") {
     list = list.slice().sort((a, b) => a.char_count - b.char_count);
   } else {
@@ -179,6 +207,9 @@ function open(item: LibraryManifestItem) {
           <option value="hsk">Sort: HSK</option>
           <option value="chars-asc">Sort: shortest</option>
           <option value="chars-desc">Sort: longest</option>
+          <option v-if="Object.keys(readable).length" value="almost">
+            Sort: almost readable
+          </option>
         </select>
       </div>
     </div>
@@ -242,7 +273,13 @@ function open(item: LibraryManifestItem) {
           <p class="font-display text-[11px] italic text-fg-subtle">
             {{ item.topic.replace(/-/g, " ") }}
           </p>
-          <div class="mt-auto flex items-center gap-2 pt-2">
+          <div class="mt-auto flex flex-wrap items-center gap-2 pt-2">
+            <ReadableBadge
+              v-if="readable[item.slug]"
+              :known="readable[item.slug].known_pct"
+              :to-unlock="readable[item.slug].to_unlock"
+              :unlocked="readable[item.slug].unlocked"
+            />
             <span
               class="rounded-full bg-bg-sunken px-2 py-0.5 font-mono text-[10px] tracking-wider text-fg-muted"
             >

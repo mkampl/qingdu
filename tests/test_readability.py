@@ -161,3 +161,56 @@ def test_a_long_package_source_name_is_kept_as_the_tag(words_client):
     s = words_client.session_factory()
     assert s.query(UserWordGloss).filter(UserWordGloss.source == "package").one().source_tag == tag
     s.close()
+
+
+def test_library_readability_and_for_you_use_running_words(words_client):
+    from app.services import library
+
+    slug = library.manifest()[0]["slug"]
+    words = [w["text"] for w in library.get(slug)["analyzed"]["words"]]
+    counts = readability.count_words(words)
+    # Know every word of the first text except its least frequent one.
+    least = min(counts.counts, key=counts.counts.get)
+    s = words_client.session_factory()
+    for w in counts.counts:
+        if w != least:
+            s.add(UserWord(user_id=1, word=w, state="known", stability=90.0))
+    s.commit()
+    s.close()
+
+    body = words_client.get("/api/library/readability").json()
+    row = body["items"][slug]
+    assert row["to_unlock"] == 0 and row["unlocked"] is True
+    assert row["known_pct"] == round(1 - counts.counts[least] / counts.total, 4)
+
+    items = words_client.get("/api/library/for-you", params={"max_score": 1.0}).json()["items"]
+    mine = next(i for i in items if i["slug"] == slug)
+    assert mine["comprehension_score"] == row["known_pct"]
+    assert mine["new_words"] == 1 and mine["unlocked"] is True
+
+
+def test_saved_text_list_scores_running_words(words_client):
+    import json as _json
+
+    from app.database import SavedText
+
+    analysis = {"words": [{"text": t} for t in ["我", "喜欢", "我", "。", "中文"]]}
+    _seed(words_client, 我=("known", 90.0))
+    s = words_client.session_factory()
+    s.add(
+        SavedText(
+            id=3,
+            user_id=1,
+            title="t",
+            content="我喜欢我。中文",
+            analysis_data=_json.dumps(analysis),
+        )
+    )
+    s.commit()
+    s.close()
+    texts = words_client.get("/api/texts").json()
+    summary = texts[0] if isinstance(texts, list) else texts["texts"][0]
+    # 我 twice out of four words.
+    assert summary["comprehension_score"] == 0.5
+    assert (summary["known_unique"], summary["total_unique"]) == (1, 3)
+    assert summary["to_unlock"] == 2 and summary["unlocked"] is False

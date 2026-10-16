@@ -25,10 +25,11 @@ Anonymous callers can still hit `GET /api/vocabulary-stats`, `GET /health`, `POS
 | Authentication | `/api/auth/*` | Login, signup-with-invite, current-user, change-password, settings update |
 | Analysis | `/api/analyze`, `/api/translate`, `/api/tts/*` | Segment a text, translate a sentence, synthesise speech |
 | Saved texts | `/api/texts/*` | List, save, update, delete, share |
-| Vocabulary lists | `/api/vocabulary-lists/*`, `/api/vocabulary-stats` | CRUD on user lists; Anki / CSV exports |
+| Readability | `/api/readability`, `/api/readability/prelearn` | How much of a text the user can read and which words are missing; take missing words into review |
+| Vocabulary lists | `/api/vocabulary-lists/*`, `/api/vocabulary-stats` | CRUD on user lists; take a list into review; Anki / CSV exports |
 | Words | `/api/words/*` | Per-user word states (new / learning / known / ignored), bulk operations, stats, exports |
-| Review | `/api/review/*` | FSRS queue + grading; recognition / dictation / writing / cloze modes |
-| Library | `/api/library/*` | Bundled graded texts, level-matched picks, reading progress, quizzes |
+| Review | `/api/review/*` | FSRS queue + grading; recognition / dictation / writing / cloze modes; `text_key` / `list_id` focus a session on one text or list |
+| Library | `/api/library/*` | Bundled graded texts, level-matched picks, how readable each is, reading progress, quizzes |
 | Import | `/api/extract/file`, `/api/import/package/*` | EPUB / PDF / scan import; pre-analysed JSON package import |
 | Convert | `/api/convert`, `/api/convert/detect` | Trad ⇄ Simp conversion, script detection |
 | Stats | `/api/stats/weekly`, `/api/review/stats` | Activity sparkline + review queue counters |

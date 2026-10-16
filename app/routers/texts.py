@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -10,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.auth import require_auth
 from app.core.rate_limit import limiter
 from app.database import SavedText, User, UserWord, get_db
-from app.services import cloze, dict_data
+from app.services import cloze, dict_data, readability
 from app.services.gloss_refresh import DICT_VERSION_KEY, refresh_analysis
 from app.services.migrations import migrate_analysis_data
 from app.services.script import convert_analysis_data, to_user_script
@@ -19,7 +18,6 @@ from app.services.timestamps import iso_utc
 router = APIRouter(tags=["Saved Texts"])
 logger = logging.getLogger(__name__)
 
-_CJK_RE = re.compile(r"[一-鿿]")
 # Length of the content snippet in the list payload (the /texts cards show
 # ~120 chars; the rest of the text comes from GET /api/texts/{id}).
 _PREVIEW_CHARS = 200
@@ -84,51 +82,34 @@ def _glossary_ids(text: SavedText) -> list[int] | None:
         return None
 
 
-def _unique_cjk_words(analysis_data: dict) -> set[str]:
-    """
-    Extract the set of distinct learnable words from an analysed text —
-    same definition the SPA uses (must contain CJK; linebreaks excluded).
-    """
-    out: set[str] = set()
-    for w in analysis_data.get("words", []) or []:
-        text = w.get("text") or ""
-        if not text or text == "\n":
-            continue
-        if w.get("translation_source") == "linebreak":
-            continue
-        if not _CJK_RE.search(text):
-            continue
-        out.add(text)
-    return out
-
-
-def _comprehension(analysis_data: dict, known_set: set[str]) -> dict:
-    """
-    Per-text comprehension fraction. Counts a word as "comprehensible" if
-    the user has marked it known or ignored — both states mean "no lookup
-    needed while reading". Ratio uses unique words (not occurrences) so
-    repeated words in long texts don't skew the score.
-    """
-    unique = _unique_cjk_words(analysis_data)
-    total = len(unique)
-    if total == 0:
-        return {"known_unique": 0, "total_unique": 0, "comprehension_score": None}
-    known = sum(1 for w in unique if w in known_set)
-    return {
-        "known_unique": known,
-        "total_unique": total,
-        "comprehension_score": round(known / total, 4),
+def _comprehension(analysis_data: dict, status: dict[str, str]) -> dict:
+    """How readable a saved text is for the user — the same count the
+    reader shows (services/readability): the share of running words known,
+    and how many missing words would make it readable. `known_unique` and
+    `total_unique` count distinct words for the tooltip."""
+    words = analysis_data.get("words", []) or []
+    tokens = [w.get("text") or "" for w in words]
+    extra = {
+        w.get("text")
+        for w in words
+        if w.get("translation_source") in ("package", "glossary") and w.get("text")
     }
-
-
-def _known_set_for(db: Session, user_id: int) -> set[str]:
-    """Single query: the user's full known+ignored word set, as a Python set."""
-    rows = (
-        db.query(UserWord.word)
-        .filter(UserWord.user_id == user_id, UserWord.state.in_(("known", "ignored")))
-        .all()
-    )
-    return {word for (word,) in rows}
+    summary = readability.summarize(readability.count_words(tokens, extra=extra), status)
+    if summary.total == 0:
+        return {
+            "known_unique": 0,
+            "total_unique": 0,
+            "comprehension_score": None,
+            "to_unlock": 0,
+            "unlocked": False,
+        }
+    return {
+        "known_unique": summary.unique - len(summary.missing) - len(summary.in_progress_words),
+        "total_unique": summary.unique,
+        "comprehension_score": round(summary.known_pct, 4),
+        "to_unlock": summary.to_unlock,
+        "unlocked": summary.unlocked,
+    }
 
 
 def _user_glosses_map(db: Session, user_id: int) -> dict[str, list[dict]]:
@@ -198,12 +179,12 @@ async def save_text(
     return {"id": saved_text.id, "message": "Text saved"}
 
 
-def _summary(text: SavedText, analysis_data: dict, known_set: set[str], user: User) -> dict:
+def _summary(text: SavedText, analysis_data: dict, status: dict[str, str], user: User) -> dict:
     """Fields the /texts list and the reader's Today panel need — no
     analysis payload, just a content preview."""
-    # Comprehension runs on the canonical (simp) words — known_set is keyed
-    # by simp UserWord rows.
-    comp = _comprehension(analysis_data, known_set)
+    # Comprehension runs on the canonical (simp) words — the status map is
+    # keyed by simp UserWord rows.
+    comp = _comprehension(analysis_data, status)
     return {
         "id": text.id,
         "title": to_user_script(text.title or "", user),
@@ -231,16 +212,15 @@ def get_texts(
         .all()
     )
 
-    # Pull the user's known/ignored word set once and reuse for every text;
-    # the per-text comprehension calc is then pure-Python set intersection.
-    known_set = _known_set_for(db, user.id)
+    # Pull the user's word status once and reuse it for every text.
+    status = readability.user_status(db, user.id)
 
     result = []
     for text in texts:
         analysis_data = _load_analysis(text)
         if analysis_data is None:
             continue
-        result.append(_summary(text, analysis_data, known_set, user))
+        result.append(_summary(text, analysis_data, status, user))
     return result
 
 
@@ -259,7 +239,7 @@ def get_text(
         raise HTTPException(status_code=422, detail="This saved text's analysis is damaged")
 
     migrated_data = migrate_analysis_data(analysis_data)
-    summary = _summary(text, migrated_data, _known_set_for(db, user.id), user)
+    summary = _summary(text, migrated_data, readability.user_status(db, user.id), user)
     # Phase #120 — attach the user's tagged glosses to each word so
     # the popover shows package + dictionary side by side. Also runs
     # against the canonical (pre-conversion) text since UserWord
