@@ -132,6 +132,10 @@
     "划": {
       "pinyin": "huá",
       "why": "anchor: huà 'to draw (a line)'; HSK 4 teaches huá 'to row; to paddle' (huà stays as the other reading, as in 计划)"
+    },
+    "转动": {
+      "pinyin": "zhuǎn dòng",
+      "why": "scorer: zhuàn dòng 'to rotate (about an axis)' on some pypinyin versions; the HSK list gives zhuǎndòng 'to turn; to swivel' (zhuàn stays as the other reading)"
     }
   }
 }
