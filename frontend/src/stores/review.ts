@@ -60,7 +60,7 @@ export const useReviewStore = defineStore("review", () => {
   // from /review?text=…|list=…). Its title and due count come from
   // /api/review/stats; no new words are enrolled in such a session.
   const scope = ref<ReviewScope | null>(null);
-  const scopeInfo = ref<{ title: string | null; due: number; total: number } | null>(null);
+  const scopeInfo = ref<api.ReviewScopeInfo | null>(null);
   // Practice mode — session started from WordsView for a specific word.
   // When true, grade() short-circuits the server call so FSRS state,
   // streak, and stats stay untouched. ReviewView renders a persistent

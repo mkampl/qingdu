@@ -522,6 +522,26 @@ const focusMode = computed(() => review.current !== null);
 const effectiveDueCount = computed(() =>
   review.scope ? (review.scopeInfo?.due ?? 0) : review.dueNow,
 );
+// The counter strip: a focused session counts only its own words.
+const statTiles = computed((): Record<string, number> => {
+  const info = review.scopeInfo;
+  if (review.scope) {
+    const tiles: Record<string, number> = {
+      "Due now": info?.due_now ?? 0,
+      "Due today": info?.due_today ?? 0,
+      "In review": info?.total ?? 0,
+      Learned: info?.learned ?? 0,
+    };
+    return tiles;
+  }
+  const tiles: Record<string, number> = {
+    "Due now": review.stats.due_now,
+    "Due today": review.stats.due_today,
+    Learning: review.stats.learning,
+    "Reviewed today": review.stats.reviewed_today,
+  };
+  return tiles;
+});
 watch(focusMode, (v) => {
   review.inFocus = v;
 });
@@ -713,7 +733,7 @@ onMounted(() => {
 
     <!-- 7-day activity sparkline — only when authed; lives above the
          counter strip so the "how's the habit going?" view lands first. -->
-    <WeeklySparkline v-if="auth.isAuthed && !focusMode" class="mb-4" />
+    <WeeklySparkline v-if="auth.isAuthed && !focusMode && !review.scope" class="mb-4" />
 
     <!-- Stats strip — denser typography on mobile where four 60px-wide cards
          used to wear text-2xl numbers. -->
@@ -722,12 +742,7 @@ onMounted(() => {
       class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3"
     >
       <div
-        v-for="(stat, key) in {
-          'Due now': review.stats.due_now,
-          'Due today': review.stats.due_today,
-          Learning: review.stats.learning,
-          'Reviewed today': review.stats.reviewed_today,
-        }"
+        v-for="(stat, key) in statTiles"
         :key="key"
         class="rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 sm:px-4 sm:py-3"
       >
@@ -746,7 +761,7 @@ onMounted(() => {
          (auto-enrol disabled in Settings) so the chrome stays clean for
          users who want full control over their learning pool. -->
     <p
-      v-if="auth.isAuthed && review.stats.daily_target > 0 && !focusMode"
+      v-if="auth.isAuthed && review.stats.daily_target > 0 && !focusMode && !review.scope"
       class="-mt-2 mb-6 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
     >
       New today:
@@ -783,7 +798,10 @@ onMounted(() => {
         @click="startMixed"
       >
         <span class="font-display text-lg font-medium text-fg">
-          Start review
+          <template v-if="review.scope">
+            Start these {{ effectiveDueCount }}
+          </template>
+          <template v-else>Start review</template>
         </span>
         <span class="font-mono text-[10px] uppercase tracking-wider text-fg-muted group-hover:text-fg">
           →
@@ -794,6 +812,7 @@ onMounted(() => {
            when the user previously chose single-mode (so they can find
            it and either continue or switch back). -->
       <details
+        v-if="!review.scope"
         :open="settings.reviewSingleMode || advancedOpen"
         class="group rounded-lg border border-border-subtle bg-bg-elevated"
         @toggle="advancedOpen = ($event.target as HTMLDetailsElement).open"
