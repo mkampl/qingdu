@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
+import { isNative } from "@/services/native";
 import { ApiError } from "@/api/client";
 import type {
   VocabularyListSummary,
@@ -489,8 +490,14 @@ async function exportCsv() {
   if (!list.value) return;
   busy.value = true;
   try {
-    const { blob, filename } = await api.exportVocabularyListCsv(list.value.id);
-    triggerDownload(blob, filename || `${list.value.name}.csv`);
+    if (isNative()) {
+      // The app's web view can't save a blob; the system browser opens
+      // the download link instead.
+      await api.openDownload(`/api/vocabulary-lists/${list.value.id}/export`);
+    } else {
+      const { blob, filename } = await api.exportVocabularyListCsv(list.value.id);
+      triggerDownload(blob, filename || `${list.value.name}.csv`);
+    }
     toasts.success("CSV downloaded.");
   } catch (e) {
     toasts.error(
@@ -528,10 +535,14 @@ async function exportAnki() {
       };
     }
     exportPhase.value = "downloading";
-    const { blob, filename, rateLimited } = await api.exportVocabularyListAnki(
-      list.value.id,
-    );
-    triggerDownload(blob, filename || `${list.value.name}.apkg`);
+    let rateLimited = false;
+    if (isNative()) {
+      await api.openDownload(`/api/vocabulary-lists/${list.value.id}/export-anki`);
+    } else {
+      const r = await api.exportVocabularyListAnki(list.value.id);
+      rateLimited = !!r.rateLimited;
+      triggerDownload(r.blob, r.filename || `${list.value.name}.apkg`);
+    }
     exportPhase.value = "done";
     if (rateLimited) {
       toasts.info("Anki package downloaded — some cards lack audio (rate limit).");

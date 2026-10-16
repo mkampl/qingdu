@@ -140,9 +140,13 @@ const roughTotal = computed(() => {
   return n;
 });
 
-const csvUrl = computed(() => api.wordsCsvUrl());
-const ankiUrl = computed(() => api.wordsAnkiUrl());
-const fullExportUrl = computed(() => api.fullExportUrl());
+async function download(path: string) {
+  try {
+    await api.openDownload(path);
+  } catch (e) {
+    toasts.error(e instanceof Error ? e.message : "Couldn't start the download");
+  }
+}
 
 // --- Account deletion (audit trust item) ---
 // Two-step inline confirm + password re-entry; irreversible.
@@ -1143,9 +1147,10 @@ function resetApiBase() {
           <svg class="size-3 text-fg-subtle transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </summary>
         <div class="mt-4 space-y-7 pl-1">
-      <!-- Phase G4 — data export. Two anchors download via the
-           require_auth_flexible token-in-query pattern so the browser
-           handles the file download natively. -->
+      <!-- Phase G4 — data export. Each button opens the download as a
+           plain link with a short-lived ticket (api.openDownload), so the
+           browser handles the file natively and no session token lands in
+           a URL. -->
       <fieldset v-if="auth.isAuthed">
         <legend
           class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
@@ -1158,10 +1163,10 @@ function resetApiBase() {
           as one JSON file. CSV and Anki cover just your words.
         </p>
         <div class="flex flex-wrap gap-2">
-          <a
-            :href="fullExportUrl"
+          <button
+            type="button"
+            @click="download(api.FULL_EXPORT_PATH)"
             class="inline-flex items-center gap-1.5 rounded-md border border-accent/40 bg-bg-elevated px-3 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-bg-sunken"
-            download
           >
             <svg
               width="11"
@@ -1179,11 +1184,11 @@ function resetApiBase() {
               />
             </svg>
             everything.json
-          </a>
-          <a
-            :href="csvUrl"
+          </button>
+          <button
+            type="button"
+            @click="download(api.WORDS_CSV_PATH)"
             class="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
-            download
           >
             <svg
               width="11"
@@ -1201,11 +1206,11 @@ function resetApiBase() {
               />
             </svg>
             words.csv
-          </a>
-          <a
-            :href="ankiUrl"
+          </button>
+          <button
+            type="button"
+            @click="download(api.WORDS_ANKI_PATH)"
             class="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
-            download
           >
             <svg
               width="11"
@@ -1223,7 +1228,7 @@ function resetApiBase() {
               />
             </svg>
             words.apkg
-          </a>
+          </button>
         </div>
       </fieldset>
 

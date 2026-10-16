@@ -59,7 +59,9 @@ Work one batch of levels at a time (HSK 1-2 first, then 3-4):
 
 5. **Merge** the accepted entries into `app/data/learner_glosses.json`
    (`"glosses": {word: {"pinyin", "gloss", "source": "reviewed"}}`) and run
-   the checker on the merged file; it must pass.
+   the checker on the merged file; it must pass. For an HSK word CC-CEDICT
+   lacks and whose list pinyin is broken (`bù yīhuǐr5`), add
+   `"fixes_hsk_pinyin": true`: the entry then supplies the pinyin too.
 
 6. **Diff and test.** Snapshot before and after the merge and review the
    headline changes, then run the golden set (it resolves headlines after
