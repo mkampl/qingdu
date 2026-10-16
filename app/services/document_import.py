@@ -1,5 +1,5 @@
 """
-EPUB / PDF text extraction. The output mirrors the trafilatura-extracted
+EPUB / PDF / subtitle text extraction. The output mirrors the trafilatura-extracted
 URL shape so the reader can treat all imports uniformly: a single body
 string plus optional title and byline.
 
@@ -31,7 +31,7 @@ class ExtractedDocument:
     byline: str | None
     content: str
     char_count: int
-    source_kind: str  # "epub" | "pdf"
+    source_kind: str  # "epub" | "pdf" | "subtitles"
 
 
 class DocumentImportError(Exception):
@@ -48,7 +48,83 @@ def extract_document(filename: str, data: bytes) -> ExtractedDocument:
         return _extract_epub(data)
     if lower.endswith(".pdf"):
         return _extract_pdf(data)
-    raise DocumentImportError(f"Unsupported file type: {filename!r}. Use .epub or .pdf.")
+    if lower.endswith(SUBTITLE_SUFFIXES):
+        return _extract_subtitles(filename, data)
+    raise DocumentImportError(
+        f"Unsupported file type: {filename!r}. Use .epub, .pdf, .srt, .vtt or .ass."
+    )
+
+
+# --- Subtitles (SRT / WebVTT / ASS) ------------------------------------------
+
+SUBTITLE_SUFFIXES = (".srt", ".vtt", ".ass", ".ssa")
+_CJK_RE = re.compile(r"[\u3400-\u9fff]")
+_TIMING_RE = re.compile(r"\d+:\d+[:.,]\d+.*-->")
+_TAG_RE = re.compile(r"<[^>]+>|\{[^}]*\}")
+
+
+def _decode_text(data: bytes) -> str:
+    """UTF-8 (with or without BOM) or UTF-16 with BOM, else GB18030, the
+    usual encodings of Chinese subtitle files."""
+    if data.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return data.decode("utf-16")
+    for enc in ("utf-8-sig", "gb18030"):
+        try:
+            return data.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return data.decode("utf-8", errors="replace")
+
+
+def _subtitle_lines(text: str, ass: bool) -> list[str]:
+    """The spoken lines of a subtitle file, one per cue line."""
+    out: list[str] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if ass:
+            if not line.startswith("Dialogue:"):
+                continue
+            # Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
+            line = line.split(",", 9)[-1].replace("\\N", "\n").replace("\\n", "\n")
+        elif (
+            not line
+            or line.isdigit()
+            or _TIMING_RE.search(line)
+            or line.startswith(("WEBVTT", "NOTE", "STYLE", "REGION"))
+        ):
+            continue
+        for part in _TAG_RE.sub("", line).splitlines():
+            part = part.strip()
+            out.append(part)
+    return out
+
+
+def _extract_subtitles(filename: str, data: bytes) -> ExtractedDocument:
+    """Chinese lines of a subtitle file as a text, one line per subtitle
+    line. Lines without Chinese (the English half of bilingual subtitles,
+    sound cues) are dropped, and so are immediate repeats (subtitles that
+    stay on screen across two cues)."""
+    text = _decode_text(data)
+    lines: list[str] = []
+    for line in _subtitle_lines(text, ass=filename.lower().endswith((".ass", ".ssa"))):
+        if not _CJK_RE.search(line):
+            continue
+        if lines and lines[-1] == line:
+            continue
+        lines.append(line)
+    if not lines:
+        raise DocumentImportError("No Chinese lines found in these subtitles.")
+    content = "\n".join(lines)
+    if len(content) > _MAX_CHARS:
+        content = content[:_MAX_CHARS].rsplit("\n", 1)[0]
+    title = re.sub(r"\.(srt|vtt|ass|ssa)$", "", filename.rsplit("/", 1)[-1], flags=re.I)
+    return ExtractedDocument(
+        title=title or None,
+        byline=None,
+        content=content,
+        char_count=len(content),
+        source_kind="subtitles",
+    )
 
 
 # --- EPUB ------------------------------------------------------------------

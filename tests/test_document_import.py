@@ -62,3 +62,43 @@ def test_empty_pdf_raises_with_hint():
 def test_malformed_pdf_raises():
     with pytest.raises(DocumentImportError):
         extract_document("oops.pdf", b"not a pdf")
+
+
+# --- Subtitles ----------------------------------------------------------------
+
+SRT = """1
+00:00:01,000 --> 00:00:03,000
+<i>你好，我是小明。</i>
+Hello, I am Xiaoming.
+
+2
+00:00:03,500 --> 00:00:05,000
+你好，我是小明。
+
+3
+00:00:05,500 --> 00:00:07,000
+{\\an8}今天天气很好
+[music]
+"""
+
+
+def test_srt_keeps_the_chinese_lines_once():
+    doc = extract_document("Episode 1.srt", SRT.encode("utf-8-sig"))
+    assert doc.content == "你好，我是小明。\n今天天气很好"
+    assert doc.title == "Episode 1"
+    assert doc.source_kind == "subtitles"
+
+
+def test_vtt_and_gb18030_ass():
+    vtt = "WEBVTT\n\n00:01.000 --> 00:02.000\n谢谢你\n"
+    assert extract_document("b.vtt", vtt.encode()).content == "谢谢你"
+    ass = (
+        "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+        "Dialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,{\\b1}我们走吧\\N Let us go\n"
+    )
+    assert extract_document("a.ass", ass.encode("gb18030")).content == "我们走吧"
+
+
+def test_subtitles_without_chinese_are_refused():
+    with pytest.raises(DocumentImportError):
+        extract_document("en.srt", b"1\n00:00:01,000 --> 00:00:02,000\nHello\n")
