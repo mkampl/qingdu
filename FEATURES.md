@@ -19,6 +19,7 @@ A reading-and-study tool for Chinese learners, organised around the HSK vocabula
 - **Paste** — the textarea handles arbitrarily long passages.
 - **From URL** — server-side article extraction strips ads and chrome.
 - **EPUB / PDF** — chunked by chapter; scanned PDFs are flagged.
+- **Subtitles** — .srt, .vtt and .ass files of a series or film come in as one line per subtitle; only the Chinese lines are kept (bilingual subtitles lose their English half) and repeats are dropped. Saved into a folder, the episodes read in order.
 - **Scan tab** — browser-side OCR via tesseract.js (chi_sim) for photos or screenshots.
 - **Pre-analysed packages** — drop-in JSON produced upstream (e.g. by an LLM) to skip segmentation entirely. A bundled Dao De Jing chapter ships as the reference sample.
 

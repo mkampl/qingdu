@@ -343,7 +343,7 @@ async function runOcr() {
         <span
           class="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-subtle"
         >
-          URL · EPUB · PDF
+          URL · EPUB · PDF · SRT
         </span>
       </div>
     </template>
@@ -381,7 +381,7 @@ async function runOcr() {
         "
         @click="mode = 'file'; error = null"
       >
-        EPUB / PDF
+        EPUB / PDF / SRT
       </button>
       <button
         type="button"
@@ -465,7 +465,8 @@ async function runOcr() {
       <p class="font-display text-sm italic leading-relaxed text-fg-muted">
         Drop an EPUB or PDF — we'll pull out the text body, drop images and
         page furniture, and import the first ~50 000 characters. Scanned
-        PDFs need OCR (coming soon).
+        PDFs need OCR (coming soon). Subtitles (.srt, .vtt, .ass) come in
+        as one line per subtitle, keeping only the Chinese lines.
       </p>
 
       <label
@@ -473,7 +474,7 @@ async function runOcr() {
       >
         <input
           type="file"
-          accept=".epub,.pdf,application/epub+zip,application/pdf"
+          accept=".epub,.pdf,.srt,.vtt,.ass,.ssa,application/epub+zip,application/pdf,text/vtt"
           class="sr-only"
           @change="onFilePick"
         />
@@ -502,7 +503,7 @@ async function runOcr() {
         <p v-else class="font-display text-sm text-fg-muted">
           Click to pick a file
           <span class="block mt-0.5 font-mono text-[10px] text-fg-subtle">
-            .epub, .pdf · max 10 MB
+            .epub, .pdf, .srt, .vtt, .ass · max 10 MB
           </span>
         </p>
       </label>
