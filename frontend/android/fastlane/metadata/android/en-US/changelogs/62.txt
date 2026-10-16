@@ -1,0 +1,9 @@
+- Make a text readable: every text shows how much of it you know and how
+  many words are missing to read it comfortably (95 %)
+- Pre-learn missing words: pick the words of a text, they go into review
+  with their sentence from that text; come back later to add the rest
+- Review just one text's or one list's words; "Learn this list" takes a
+  vocabulary list into review with its own meanings
+- Package and list meanings show on every review card
+- Library, For you and saved texts say which texts are readable; sort the
+  library by "almost readable"
