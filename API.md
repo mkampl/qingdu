@@ -28,6 +28,7 @@ Anonymous callers can still hit `GET /api/vocabulary-stats`, `GET /health`, `POS
 | Text folders | `/api/folders/*` | Nested folders for saved texts: list, create, rename, move, delete (texts move up one level) |
 | Readability | `/api/readability`, `/api/readability/prelearn` | How much of a text the user can read and which words are missing; take missing words into review |
 | Vocabulary lists | `/api/vocabulary-lists/*`, `/api/vocabulary-stats` | CRUD on user lists; take a list into review; Anki / CSV exports |
+| Word details | `/api/vocab/details/{word}` | Measure words and character components (public) |
 | Words | `/api/words/*` | Per-user word states (new / learning / known / ignored), bulk operations, stats, exports |
 | Review | `/api/review/*` | FSRS queue + grading; recognition / dictation / writing / cloze modes; `text_key` / `list_id` focus a session on one text or list; `GET /api/review/tones` serves tone practice |
 | Library | `/api/library/*` | Bundled graded texts, level-matched picks, how readable each is, reading progress, quizzes |

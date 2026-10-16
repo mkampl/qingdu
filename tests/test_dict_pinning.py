@@ -86,7 +86,7 @@ def saved_state():
 def test_vendored_files_match_version_json():
     info = dict_data.read_version_info()
     assert info["hsk"]["commit"], "HSK source must be pinned to a commit"
-    for source in ("hsk", "cedict"):
+    for source in ("hsk", "cedict", "makemeahanzi"):
         found = dict_data.read_vendored(source)
         assert found is not None, f"{source} file missing from app/data/dict"
         _data, digest = found

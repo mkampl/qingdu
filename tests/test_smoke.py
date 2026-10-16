@@ -45,8 +45,10 @@ def test_route_count(app_module):
     +5 = 110/115 for text folders: GET + POST /api/folders, PATCH + DELETE
     /api/folders/{id}, POST /api/texts/order.
     +1 = 111/116 for GET /api/review/tones (tone practice).
+    +1 = 112/117 for GET /api/vocab/details/{word} (measure words and
+    character components).
     """
-    assert len(app_module.routes) in (111, 116)
+    assert len(app_module.routes) in (112, 117)
 
 
 def test_router_tags_present(app_module):
