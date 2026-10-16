@@ -849,6 +849,41 @@ export const submitLibraryQuiz = (slug: string, answers: number[]) =>
     { method: "POST", body: { answers } },
   );
 
+// ----- Readability ("make this text readable") ------------------------------
+
+export interface ReadabilityMissingWord {
+  word: string;
+  /** Occurrences in the text. */
+  count: number;
+  pinyin: string;
+  meaning: string;
+  hsk_level: number | null;
+}
+
+export interface ReadabilityResponse {
+  /** Share of running words that makes a text readable (0.95). */
+  threshold: number;
+  total: number;
+  unique: number;
+  known: number;
+  in_progress: number;
+  known_pct: number;
+  /** Known plus words in review that are not learned yet. */
+  with_progress_pct: number;
+  /** Missing words (most frequent first) still to learn to reach the threshold. */
+  to_unlock: number;
+  unlocked: boolean;
+  missing_count: number;
+  missing: ReadabilityMissingWord[];
+  in_progress_words: string[];
+}
+
+export const getReadability = (tokens: string[], extra: string[] = []) =>
+  request<ReadabilityResponse>("/api/readability", {
+    method: "POST",
+    body: { tokens, extra },
+  });
+
 // ----- Words queue ----------------------------------------------------------
 
 export interface WordsQueueItem {

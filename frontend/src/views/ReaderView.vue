@@ -32,6 +32,7 @@ import ReadingProgress from "@/components/reader/ReadingProgress.vue";
 import ReadingText from "@/components/reader/ReadingText.vue";
 import ShareModal from "@/components/reader/ShareModal.vue";
 import StatsPanel from "@/components/reader/StatsPanel.vue";
+import ReadabilityBar from "@/components/reader/ReadabilityBar.vue";
 import TocSidebar from "@/components/reader/TocSidebar.vue";
 import type { Section } from "@/components/reader/utils";
 import WordPopover from "@/components/reader/WordPopover.vue";
@@ -712,6 +713,9 @@ onBeforeUnmount(() => {
         >
           {{ analysis.error }}
         </div>
+
+        <!-- How much of the text the user can read, and what's missing. -->
+        <ReadabilityBar v-if="analysis.result && !analysis.loading" />
 
         <!-- The analysed reading text. -->
         <article ref="articleRef" class="relative">
