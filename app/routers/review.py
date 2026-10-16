@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import User, UserWord, UserWordEvent, get_db
-from app.services import cloze, srs
+from app.services import cloze, review_scope, srs
 from app.services.cedict_loader import cap_meanings
 from app.services.due import (
     ACTIVE_REVIEW_STATES,
@@ -180,6 +180,8 @@ def _cloze_candidates(query, limit: int, db: Session) -> list[UserWord]:
 def review_queue(
     mode: QueueMode = "recognition",
     limit: int = Query(20, ge=1, le=100),
+    text_key: str | None = Query(None, max_length=200),
+    list_id: int | None = None,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -192,24 +194,30 @@ def review_queue(
     to `daily_new_words` fresh HSK entries before reading the queue, so
     the queue never goes empty while there are HSK words left to learn.
 
+    `text_key` or `list_id` focus the session on the words pre-learned for
+    one text or the words of one vocab list (services.review_scope). Such
+    a session enrols no new words, and each card names the text's or
+    list's own meaning as `focus_gloss`.
+
     Plain `def`: everything in here is sync DB work, so FastAPI runs it
     in the threadpool instead of blocking the event loop.
     """
     now = utcnow()
     tz = user_tz(user)
-    enrolled = enroll_daily_words(user, db, now)
-    if enrolled:
+    scope = review_scope.resolve(db, user, text_key, list_id)
+    if scope is None and enroll_daily_words(user, db, now):
         db.commit()
     # Phase #119 — look-ahead window. People review once a day, not every
     # 30 minutes; widening the cutoff to "today" covers the typical session
     # without forcing the user to wait for each card to flip due. Strict
     # FSRS-conformant pull is still available via review_window='now'.
     # services.due owns the definition; /api/review/stats counts with it.
-    base = (
-        db.query(UserWord)
-        .filter(UserWord.user_id == user.id, review_window_clause(user.review_window, now, tz))
-        .order_by(UserWord.due_at.is_(None).desc(), UserWord.due_at.asc(), UserWord.id.asc())
+    base = db.query(UserWord).filter(
+        UserWord.user_id == user.id, review_window_clause(user.review_window, now, tz)
     )
+    if scope is not None:
+        base = base.filter(scope.clause)
+    base = base.order_by(UserWord.due_at.is_(None).desc(), UserWord.due_at.asc(), UserWord.id.asc())
     # Cloze drops rows without a sentence, so a plain LIMIT could hand
     # back an empty queue while eligible cards sit further down. Page
     # through the due rows until `limit` cards survive the filter.
@@ -240,6 +248,7 @@ def review_queue(
             "prompt_stage": stage,
             "has_sample_sentence": bool(sentence),
             **enriched,
+            "focus_gloss": review_scope.focus_gloss(scope, r),
         }
         if sentence:
             displayed_sentence = to_user_script(sentence, user)
@@ -251,7 +260,7 @@ def review_queue(
     # Snapshot backfill and freshly found cloze sentences.
     if db.dirty:
         db.commit()
-    return {"mode": mode, "cards": cards}
+    return {"mode": mode, "cards": cards, "scope_title": scope.title if scope else None}
 
 
 @router.get("/api/review/practice/{word}")
@@ -381,6 +390,8 @@ def grade_card(
 
 @router.get("/api/review/stats")
 def review_stats(
+    text_key: str | None = Query(None, max_length=200),
+    list_id: int | None = None,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -393,6 +404,10 @@ def review_stats(
     - `learning`: total cards in the 'learning' state.
     - `in_rotation`: learning + known cards (everything that can come due).
     - `reviewed_today`: reviews logged since local midnight.
+
+    - `scope`: with `text_key` or `list_id`, the focused session's title,
+      its words in rotation (`total`) and how many of them are due under
+      the review window (`due`).
 
     "Today" is the user's local day (services.localday, users.timezone).
     """
@@ -420,7 +435,18 @@ def review_stats(
         )
         .count()
     )
+    scope = review_scope.resolve(db, user, text_key, list_id)
+    scope_counts = (
+        {
+            "title": scope.title,
+            "due": count(review_window_clause(user.review_window, now, tz), scope.clause),
+            "total": count(UserWord.state.in_(ACTIVE_REVIEW_STATES), scope.clause),
+        }
+        if scope
+        else None
+    )
     return {
+        "scope": scope_counts,
         "due_now": due_now,
         "due_today": due_today,
         "due_in_window": due_in_window,

@@ -4,16 +4,19 @@ import random
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from pypinyin import Style, lazy_pinyin
 from sqlalchemy.orm import Session
 
 from app.auth import require_auth
-from app.database import User, VocabularyList, get_db
+from app.database import User, UserWord, VocabularyList, get_db
+from app.routers.words import _ensure_gloss, _upsert, may_create_word
 from app.services import dict_data
 from app.services.gloss_refresh import is_user_meaning, refresh_vocab_list
 from app.services.migrations import migrate_vocabulary_sections
-from app.services.script import convert_vocab_sections, to_user_script
+from app.services.review_scope import list_words
+from app.services.script import convert_vocab_sections, to_canonical, to_user_script
+from app.services.streak import record_activity
 
 router = APIRouter(tags=["Vocabulary Lists"])
 logger = logging.getLogger(__name__)
@@ -415,3 +418,68 @@ async def delete_word_from_list(
     vocab_list.sections = json.dumps(sections)
     db.commit()
     return {"message": "Word deleted"}
+
+
+class LearnListRequest(BaseModel):
+    # Only this section; all sections when omitted.
+    section_name: str | None = Field(None, max_length=200)
+
+
+@router.post("/api/vocabulary-lists/{list_id}/learn")
+def learn_list(
+    list_id: int,
+    payload: LearnListRequest | None = None,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Take a list's words into review.
+
+    New words become learning words. A meaning the list gives that differs
+    from the dictionary is stored as an extra gloss tagged with the list
+    name, on new and already tracked words alike, so the review card shows
+    it (first, in a session focused on this list). Words the user already
+    has keep their state.
+    """
+    vocab_list = _owned_list(db, user, list_id)
+    section_name = payload.section_name if payload else None
+    entries = list_words(vocab_list)
+    if section_name:
+        sections = _load_sections(vocab_list)
+        section = next((s for s in sections if s["name"] == section_name), None)
+        if section is None:
+            raise HTTPException(status_code=404, detail="Section not found")
+        entries = [w for w in section["words"] if (w.get("hanzi") or "").strip()]
+
+    added: list[str] = []
+    tracked = 0
+    skipped: list[str] = []
+    seen: set[str] = set()
+    for entry in entries:
+        word = to_canonical(entry["hanzi"].strip(), user)
+        if not word or word in seen:
+            continue
+        seen.add(word)
+        row = db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.word == word).first()
+        if row is None:
+            # List words count as words even outside the dictionary.
+            if not may_create_word(db, user.id, word, is_pkg=True):
+                skipped.append(to_user_script(word, user))
+                continue
+            row = _upsert(db, user.id, word, "learning", None)
+            added.append(to_user_script(word, user))
+        else:
+            tracked += 1
+        meaning = (entry.get("meaning") or "").strip()
+        if is_user_meaning(word, meaning):
+            _ensure_gloss(
+                db,
+                row,
+                pinyin=entry.get("pinyin") or None,
+                meaning=meaning,
+                source="list",
+                source_tag=vocab_list.name,
+            )
+    if added:
+        record_activity(user, db)
+    db.commit()
+    return {"added": added, "already_tracked": tracked, "skipped": skipped}

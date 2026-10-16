@@ -14,7 +14,7 @@
  *   4. store applies the grade, advances the cursor, optimistic stats tick
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
 import type { QueueMode, ReviewGrade, ReviewMode } from "@/api/client";
@@ -23,6 +23,7 @@ import StrokeOrder from "@/components/reader/StrokeOrder.vue";
 import WritingQuiz from "@/components/reader/WritingQuiz.vue";
 import ContextSentence from "@/components/review/ContextSentence.vue";
 import WordReadings from "@/components/reader/WordReadings.vue";
+import { customGlosses } from "@/utils/glosses";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReviewStore } from "@/stores/review";
@@ -38,6 +39,28 @@ import {
 
 const review = useReviewStore();
 const router = useRouter();
+const route = useRoute();
+
+// /review?text=<text key> or ?list=<id> focuses the session on one
+// text's pre-learned words or one vocab list (stores/review scope).
+watch(
+  () => [route.query.text, route.query.list] as const,
+  ([text, list]) => {
+    const listId = Number(list);
+    void review.setScope(
+      typeof text === "string" && text
+        ? { textKey: text }
+        : typeof list === "string" && Number.isInteger(listId)
+          ? { listId }
+          : null,
+    );
+  },
+  { immediate: true },
+);
+
+function clearScope() {
+  void router.replace({ path: "/review" });
+}
 
 function endPractice() {
   const to = review.practiceReturnTo || "/words";
@@ -496,7 +519,9 @@ const focusMode = computed(() => review.current !== null);
 // window=today doesn't lock the user out of starting a session.
 // review.dueNow already resolves this the same way (see stores/review.ts)
 // so the home-screen badge and this view can't disagree.
-const effectiveDueCount = computed(() => review.dueNow);
+const effectiveDueCount = computed(() =>
+  review.scope ? (review.scopeInfo?.due ?? 0) : review.dueNow,
+);
 watch(focusMode, (v) => {
   review.inFocus = v;
 });
@@ -660,6 +685,29 @@ onMounted(() => {
         @click="authModals.openLogin()"
       >
         Sign in
+      </button>
+    </div>
+
+    <!-- Focused session: only the words of one text or vocab list. -->
+    <div
+      v-if="auth.isAuthed && review.scope"
+      class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/40 bg-accent/5 px-4 py-2.5"
+    >
+      <p class="text-sm text-fg">
+        <span class="font-mono text-[10px] uppercase tracking-wider text-accent">
+          {{ review.scope.listId !== undefined ? "List" : "Text" }}
+        </span>
+        <span class="ml-2 font-medium">{{ review.scopeInfo?.title || "Focused review" }}</span>
+        <span v-if="review.scopeInfo" class="ml-2 text-xs text-fg-muted">
+          {{ review.scopeInfo.due }} due · {{ review.scopeInfo.total }} words
+        </span>
+      </p>
+      <button
+        type="button"
+        class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle hover:text-fg"
+        @click="clearScope"
+      >
+        All reviews
       </button>
     </div>
 
@@ -864,6 +912,8 @@ onMounted(() => {
             :meanings="card.meanings"
             :meaning-tags="card.meaning_tags"
             :readings="card.readings"
+              :glosses="card.glosses"
+              :focus="card.focus_gloss"
             headline-class="font-display text-base leading-snug text-fg"
           />
           <ContextSentence
@@ -921,6 +971,8 @@ onMounted(() => {
               :pinyin="card.pinyin"
               :meaning="card.meaning"
               :meanings="card.meanings"
+              :glosses="customGlosses(card.glosses, card.focus_gloss)"
+              :focus="card.focus_gloss ?? null"
               :show-outline="settings.writingShowOutline"
               @complete="onWritingComplete"
             />
@@ -966,6 +1018,8 @@ onMounted(() => {
               :pinyin="card.pinyin"
               :meaning="card.meaning"
               :meanings="card.meanings"
+              :glosses="customGlosses(card.glosses, card.focus_gloss)"
+              :focus="card.focus_gloss ?? null"
               :show-outline="false"
               @complete="onWritingComplete"
             />
@@ -1050,6 +1104,8 @@ onMounted(() => {
               :meanings="card.meanings"
               :meaning-tags="card.meaning_tags"
               :readings="card.readings"
+              :glosses="card.glosses"
+              :focus="card.focus_gloss"
               headline-class="font-display text-xl text-fg"
               list-class="mt-1 space-y-0.5 text-sm text-fg-muted"
             />
@@ -1075,36 +1131,14 @@ onMounted(() => {
           </p>
           <div v-if="revealed" class="mt-6 space-y-1.5">
             <p class="font-sans text-base text-fg-muted">{{ card.pinyin }}</p>
-            <!-- Phase #120 — tagged glosses if any, fallback to flat meaning -->
-            <div
-              v-if="card.glosses && card.glosses.length"
-              class="mt-1 space-y-1.5 text-left max-w-md mx-auto"
-            >
-              <div
-                v-for="(g, i) in card.glosses"
-                :key="i"
-                class="flex items-start gap-2"
-              >
-                <span
-                  :class="[
-                    'mt-1 shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider',
-                    g.source === 'package'
-                      ? 'bg-accent/15 text-accent'
-                      : 'bg-bg-sunken text-fg-subtle',
-                  ]"
-                >
-                  {{ g.source === 'package' ? g.tag || 'Pkg' : 'Dict' }}
-                </span>
-                <p class="font-display text-lg text-fg">{{ g.meaning }}</p>
-              </div>
-            </div>
             <WordReadings
-              v-else
               class="mx-auto max-w-md"
               :meaning="card.meaning"
               :meanings="card.meanings"
               :meaning-tags="card.meaning_tags"
               :readings="card.readings"
+              :glosses="card.glosses"
+              :focus="card.focus_gloss"
               headline-class="font-display text-xl text-fg"
               list-class="mt-1 space-y-0.5 text-sm text-fg-muted"
             />
@@ -1206,6 +1240,8 @@ onMounted(() => {
               :meanings="card.meanings"
               :meaning-tags="card.meaning_tags"
               :readings="card.readings"
+              :glosses="card.glosses"
+              :focus="card.focus_gloss"
               headline-class="font-display text-base text-fg"
             />
             <ContextSentence
@@ -1237,6 +1273,8 @@ onMounted(() => {
             :pinyin="card.pinyin"
             :meaning="card.meaning"
             :meanings="card.meanings"
+            :glosses="customGlosses(card.glosses, card.focus_gloss)"
+            :focus="card.focus_gloss ?? null"
             :show-outline="settings.writingShowOutline"
             @complete="onWritingComplete"
           />
@@ -1319,6 +1357,8 @@ onMounted(() => {
               :meanings="card.meanings"
               :meaning-tags="card.meaning_tags"
               :readings="card.readings"
+              :glosses="card.glosses"
+              :focus="card.focus_gloss"
               headline-class="font-display text-base text-fg"
             />
             <p
