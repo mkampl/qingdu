@@ -22,7 +22,15 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal, SignupAttempt, SystemSetting, User, UserWordEvent
+from app.database import (
+    SessionLocal,
+    SignupAttempt,
+    SystemSetting,
+    TextWord,
+    User,
+    UserLibraryProgress,
+    UserWordEvent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -181,15 +189,15 @@ def purge_user(db: Session, user: User) -> None:
 
     Texts, vocab lists, word states, and created invitations go via ORM
     cascades; claimed invitations get their claimer nulled. The word-event
-    log has no ORM relationship (it can be thousands of rows — loading them
-    into the session just to delete them would be wasteful), so it is bulk-
-    deleted here. SQLite runs without FK enforcement, so forgetting a table
+    log, the pre-learned text words and the library progress have no ORM
+    relationship (the event log can be thousands of rows — loading them
+    into the session just to delete them would be wasteful), so they are
+    bulk-deleted here. SQLite runs without FK enforcement, so forgetting a table
     here leaks orphaned rows silently — keep this the single deletion path
     (admin delete + lifecycle sweep both call it). Caller commits.
     """
-    db.query(UserWordEvent).filter(UserWordEvent.user_id == user.id).delete(
-        synchronize_session=False
-    )
+    for table in (UserWordEvent, TextWord, UserLibraryProgress):
+        db.query(table).filter(table.user_id == user.id).delete(synchronize_session=False)
     db.delete(user)
 
 

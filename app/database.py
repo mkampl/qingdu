@@ -314,6 +314,9 @@ class UserWordGloss(Base):
     - source='package': a curated gloss from a pre-analyzed JSON
       package. `source_tag` carries the package name so the popover /
       review-card can show e.g. "[Dao De Jing]".
+    - source='list': a vocab list's own meaning for the word (the list was
+      learned, or used as glossary in a text the user pre-learned);
+      `source_tag` is the list name.
     """
 
     __tablename__ = "user_word_glosses"
@@ -322,7 +325,7 @@ class UserWordGloss(Base):
     user_word_id = Column(Integer, ForeignKey("user_words.id", ondelete="CASCADE"), nullable=False)
     pinyin = Column(String(128), nullable=True)
     meaning = Column(Text, nullable=False)
-    # 'dictionary' | 'package'
+    # 'dictionary' | 'package' | 'list'
     source = Column(String(32), nullable=False)
     # NULL for dictionary; the package name (e.g. "dao_de_jing_ch1") for
     # package-sourced glosses. Used as the human-facing tag in the UI.
@@ -334,6 +337,34 @@ class UserWordGloss(Base):
     __table_args__ = (
         UniqueConstraint("user_word_id", "source", "source_tag", name="uq_userword_gloss"),
         Index("ix_userword_gloss_userword", "user_word_id"),
+    )
+
+
+class TextWord(Base):
+    """A word the user pre-learned for a text ("make this text readable").
+
+    `text_key` names the text: "saved:<id>", "library:<slug>", or
+    "text:<hash>" for unsaved reading. The rows let the reader show how
+    many of a text's words are already on their way, and let a review
+    session focus on one text's words. `gloss_source`/`gloss_tag` name the
+    text's own meaning for the word (a package or glossary gloss) so that
+    session can lead with it.
+    """
+
+    __tablename__ = "text_words"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    text_key = Column(String(200), nullable=False)
+    word = Column(String(64), nullable=False)
+    title = Column(String(160), nullable=True)
+    gloss_source = Column(String(32), nullable=True)
+    gloss_tag = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "text_key", "word", name="uq_text_word"),
+        Index("ix_text_words_user_key", "user_id", "text_key"),
     )
 
 

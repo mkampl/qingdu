@@ -33,10 +33,11 @@ def test_route_count(app_module):
     -3 = 100/105 for the 2026-10 removal of the unused public dictionary
     dumps (GET /api/get-hsk-vocabulary, /api/get-hsk-lists-original) and
     GET /api/debug/vocab-sample.
-    +1 = 101/106 for POST /api/readability (how much of a text the user
-    can read, and which words are missing).
+    +2 = 102/107 for POST /api/readability (how much of a text the user
+    can read, and which words are missing) and POST
+    /api/readability/prelearn (take a text's missing words into review).
     """
-    assert len(app_module.routes) in (101, 106)
+    assert len(app_module.routes) in (102, 107)
 
 
 def test_router_tags_present(app_module):
