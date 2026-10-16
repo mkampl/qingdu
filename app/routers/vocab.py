@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user, require_admin
 from app.database import User, UserWord, get_db
+from app.services import word_details
 from app.services.readings import readings_payload
 from app.state import hsk_vocab
 
@@ -137,6 +138,17 @@ async def browse_hsk(
         "limit": limit,
         "state_counts": state_counts,
     }
+
+
+@router.get("/api/vocab/details/{word}")
+def word_details_endpoint(word: str) -> dict:
+    """A word's measure words and its characters' components (with the
+    parts' meanings and how the character is built). Shown in the word
+    popover and on review cards; anonymous readers get it too."""
+    word = word.strip()
+    if not word or len(word) > 12:
+        raise HTTPException(status_code=400, detail="One word of up to 12 characters")
+    return word_details.details(word)
 
 
 @router.get("/api/debug/vocab-lookup/{word}")

@@ -17,6 +17,7 @@ import { defaultSectionName, sectionContaining } from "@/utils/vocab-lists";
 
 import HskChip from "./HskChip.vue";
 import StrokeOrder from "./StrokeOrder.vue";
+import WordDetails from "./WordDetails.vue";
 import WordReadings from "./WordReadings.vue";
 import GlossChip from "@/components/ui/GlossChip.vue";
 import { effectiveWordState, levelForVersion, placePopover } from "./utils";
@@ -280,6 +281,9 @@ const wordLevel = computed(() =>
 );
 
 const strokeOrderOpen = ref(false);
+// Stays open from word to word once the user wants it (unlike stroke
+// order, it is small).
+const detailsOpen = ref(false);
 const wordHasCjk = computed(
   () => !!word.value && /[一-鿿]/.test(word.value.text),
 );
@@ -626,6 +630,41 @@ async function setWordState(state: UserWordState) {
             <span v-if="word.radical_pinyin" class="text-fg-muted">
               {{ word.radical_pinyin }}
             </span>
+          </div>
+
+          <!-- Measure words and what the characters are made of. -->
+          <div
+            v-if="wordHasCjk"
+            class="mt-4 border-t border-border-subtle pt-3"
+          >
+            <button
+              type="button"
+              class="flex w-full items-center justify-between text-fg-muted transition-colors hover:text-fg"
+              :aria-expanded="detailsOpen"
+              @click="detailsOpen = !detailsOpen"
+            >
+              <span class="font-mono text-[10px] uppercase tracking-wider">
+                Characters &amp; measure word
+              </span>
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                fill="none"
+                class="transition-transform"
+                :class="{ 'rotate-90': detailsOpen }"
+                aria-hidden="true"
+              >
+                <path
+                  d="M3.5 2l3 3-3 3"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+            <WordDetails v-if="detailsOpen" :word="word.text" class="mt-3" />
           </div>
 
           <!-- Stroke order — collapsed by default to keep the popover small;

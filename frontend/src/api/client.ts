@@ -306,6 +306,26 @@ export const browseHsk = (params: {
 export const tts = (text: string) =>
   fetch(apiUrl(`/api/tts/${encodeURIComponent(text)}`));
 
+/** A word's measure words and its characters' parts (GET /api/vocab/details). */
+export interface WordDetails {
+  word: string;
+  classifiers: { hanzi: string; pinyin: string }[];
+  characters: {
+    char: string;
+    pinyin: string | null;
+    definition: string | null;
+    decomposition: string | null;
+    parts: { char: string; pinyin: string | null; definition: string | null }[];
+    radical: string | null;
+    /** How the character is built ("A woman 女 with a son 子"). */
+    hint: string | null;
+    kind: string | null;
+  }[];
+}
+
+export const getWordDetails = (word: string) =>
+  request<WordDetails>(`/api/vocab/details/${encodeURIComponent(word)}`, { anonymous: true });
+
 /** One word of the tone practice (GET /api/review/tones). */
 export interface ToneDrillItem {
   word: string;
