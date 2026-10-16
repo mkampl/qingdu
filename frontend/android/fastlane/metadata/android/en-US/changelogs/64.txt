@@ -1,0 +1,10 @@
+- Folders for saved texts: nest them, move texts and folders, set the
+  reading order; each text shows its number and the reader leads to the
+  previous and next text
+- Tone practice: hear a word, pick its tones (mǎi or mài?)
+- Reviewing one text or list shows that text's or list's own counts
+- Reading a text to the end, marking a library text read or passing its
+  quiz counts for the streak
+- Exports open without putting your login in the link; list exports work
+  in the app
+- Fixed pinyin and meaning of 转动, 不一会儿 and 有劲儿
