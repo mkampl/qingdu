@@ -8,7 +8,10 @@ import { useAuthStore } from "@/stores/auth";
 import { useReviewStore } from "@/stores/review";
 import { useSettingsStore } from "@/stores/settings";
 
-vi.mock("vue-router", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("vue-router", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRoute: () => ({ query: {} }),
+}));
 vi.mock("@/services/notifications", () => ({
   rememberDueCount: vi.fn(),
   rememberStreak: vi.fn(),

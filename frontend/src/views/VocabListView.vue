@@ -13,6 +13,7 @@ import { onAuthReady } from "@/composables/use-auth-ready";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useToastStore } from "@/stores/toast";
+import { useUserWordsStore } from "@/stores/userWords";
 import { useVocabListsStore } from "@/stores/vocab-lists";
 import { createEditGate, listCounts } from "@/utils/vocab-lists";
 
@@ -27,6 +28,7 @@ const props = defineProps<{ id: string }>();
 const auth = useAuthStore();
 const authModals = useAuthModalsStore();
 const toasts = useToastStore();
+const userWords = useUserWordsStore();
 // The reader's WordPopover / GlossaryPicker read the cached vocab-lists
 // store, not this view's local state — invalidate it after any mutation
 // so the pickers don't serve stale lists until a full page reload.
@@ -418,6 +420,34 @@ async function confirmDeleteWord(sectionName: string, hanzi: string) {
   }
 }
 
+// --- Learn: take the list into review -------------------------------------
+
+const learning = ref(false);
+
+async function learnList() {
+  if (learning.value) return;
+  learning.value = true;
+  try {
+    const r = await api.learnVocabularyList(listId.value);
+    if (r.added.length) {
+      const next = { ...userWords.states };
+      for (const w of r.added) next[w] = "learning";
+      userWords.states = next;
+    }
+    const n = r.added.length;
+    toasts.success(
+      n
+        ? `Added ${n} word${n === 1 ? "" : "s"} to your review` +
+            (r.already_tracked ? ` (${r.already_tracked} already there).` : ".")
+        : "Every word of this list is already in your review.",
+    );
+  } catch (e) {
+    toasts.error(e instanceof Error ? e.message : "Couldn't add the list");
+  } finally {
+    learning.value = false;
+  }
+}
+
 // --- Export flows --------------------------------------------------------
 
 type ExportPhase =
@@ -691,8 +721,27 @@ function sectionWordCount(section: VocabularySection): number {
             </label>
           </div>
 
-          <!-- Export / delete actions -->
-          <div class="flex items-center gap-2">
+          <!-- Learn / review / export / delete actions -->
+          <div class="flex flex-wrap items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              :disabled="totalWords === 0 || learning"
+              :loading="learning"
+              title="Take every word of this list into review, with the list's own meanings"
+              @click="learnList"
+            >
+              Learn this list
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              :disabled="totalWords === 0"
+              title="Review only the words of this list"
+              @click="router.push({ path: '/review', query: { list: String(listId) } })"
+            >
+              Review this list
+            </Button>
             <Button
               variant="secondary"
               size="sm"
