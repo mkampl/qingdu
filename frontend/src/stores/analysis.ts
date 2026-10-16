@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 
 import * as api from "@/api/client";
-import type { AnalysisResponse } from "@/api/types";
+import type { AnalysisResponse, TextSeries } from "@/api/types";
 
 export interface AnalysisStash {
   inputText: string;
@@ -16,6 +16,7 @@ export interface AnalysisStash {
   glossaryListIds: number[] | null;
   librarySlug: string | null;
   libraryHasQuiz: boolean;
+  savedTextSeries: TextSeries | null;
 }
 
 export const useAnalysisStore = defineStore("analysis", () => {
@@ -56,6 +57,8 @@ export const useAnalysisStore = defineStore("analysis", () => {
    * Persisted on the saved_text record via /save and /update.
    */
   const glossaryListIds = ref<number[] | null>(null);
+  /** Folder, number and neighbours of the loaded saved text (null at top level). */
+  const savedTextSeries = ref<TextSeries | null>(null);
   let activeRequest: AbortController | null = null;
   let requestSeq = 0;
 
@@ -139,6 +142,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
       glossaryListIds: glossaryListIds.value,
       librarySlug: librarySlug.value,
       libraryHasQuiz: libraryHasQuiz.value,
+      savedTextSeries: savedTextSeries.value,
     };
   }
 
@@ -155,6 +159,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
     glossaryListIds.value = s.glossaryListIds;
     librarySlug.value = s.librarySlug;
     libraryHasQuiz.value = s.libraryHasQuiz;
+    savedTextSeries.value = s.savedTextSeries;
   }
 
   function reset() {
@@ -170,6 +175,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
     glossaryListIds.value = null;
     librarySlug.value = null;
     libraryHasQuiz.value = false;
+    savedTextSeries.value = null;
   }
 
   /**
@@ -186,6 +192,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
       title?: string;
       tags?: string[];
       glossaryListIds?: number[] | null;
+      series?: TextSeries | null;
     } | null = null,
     libraryEntry: { slug: string; hasQuiz: boolean } | null = null,
   ) {
@@ -202,6 +209,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
       options?.glossaryListIds === undefined ? null : options.glossaryListIds;
     librarySlug.value = libraryEntry?.slug ?? null;
     libraryHasQuiz.value = libraryEntry?.hasQuiz ?? false;
+    savedTextSeries.value = options?.series ?? null;
   }
 
   /**
@@ -240,6 +248,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
     glossaryListIds,
     librarySlug,
     libraryHasQuiz,
+    savedTextSeries,
     hasResult,
     isEdited,
     analyze,

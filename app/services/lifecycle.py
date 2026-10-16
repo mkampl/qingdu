@@ -26,6 +26,7 @@ from app.database import (
     SessionLocal,
     SignupAttempt,
     SystemSetting,
+    TextFolder,
     TextWord,
     User,
     UserLibraryProgress,
@@ -196,7 +197,7 @@ def purge_user(db: Session, user: User) -> None:
     here leaks orphaned rows silently — keep this the single deletion path
     (admin delete + lifecycle sweep both call it). Caller commits.
     """
-    for table in (UserWordEvent, TextWord, UserLibraryProgress):
+    for table in (UserWordEvent, TextWord, UserLibraryProgress, TextFolder):
         db.query(table).filter(table.user_id == user.id).delete(synchronize_session=False)
     db.delete(user)
 

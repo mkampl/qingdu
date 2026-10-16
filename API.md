@@ -24,7 +24,8 @@ Anonymous callers can still hit `GET /api/vocabulary-stats`, `GET /health`, `POS
 |---|---|---|
 | Authentication | `/api/auth/*` | Login, signup-with-invite, current-user, change-password, settings update |
 | Analysis | `/api/analyze`, `/api/translate`, `/api/tts/*` | Segment a text, translate a sentence, synthesise speech |
-| Saved texts | `/api/texts/*` | List, save, update, delete, share |
+| Saved texts | `/api/texts/*` | List, save, update, delete, share; move a text with `folder_id`; `POST /api/texts/order` sets a folder's reading order |
+| Text folders | `/api/folders/*` | Nested folders for saved texts: list, create, rename, move, delete (texts move up one level) |
 | Readability | `/api/readability`, `/api/readability/prelearn` | How much of a text the user can read and which words are missing; take missing words into review |
 | Vocabulary lists | `/api/vocabulary-lists/*`, `/api/vocabulary-stats` | CRUD on user lists; take a list into review; Anki / CSV exports |
 | Words | `/api/words/*` | Per-user word states (new / learning / known / ignored), bulk operations, stats, exports |

@@ -21,6 +21,7 @@ from app.core.rate_limit import client_ip, limiter
 from app.database import (
     InvitationToken,
     SavedText,
+    TextFolder,
     User,
     UserWord,
     UserWordEvent,
@@ -360,8 +361,14 @@ async def export_my_data(
                 "tags": t.tags,
                 "reading_progress": t.reading_progress,
                 "created_at": iso_utc(t.created_at),
+                "folder_id": t.folder_id,
+                "position": t.position,
             }
             for t in db.query(SavedText).filter(SavedText.user_id == user.id).all()
+        ],
+        "text_folders": [
+            {"id": f.id, "name": f.name, "parent_id": f.parent_id, "position": f.position}
+            for f in db.query(TextFolder).filter(TextFolder.user_id == user.id).all()
         ],
         "vocabulary_lists": [
             {
