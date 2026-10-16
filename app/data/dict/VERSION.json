@@ -16,5 +16,14 @@
     "entries": 124962,
     "sha256": "c478b26ac8e14caa665c0b7b528e9ebce1142feb8b3efc6f94c3a2600e1915d0",
     "license": "CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/); published by MDBG, based on CEDICT (C) 1997, 1998 Paul Andrew Denisowski"
+  },
+  "makemeahanzi": {
+    "file": "makemeahanzi-dictionary.txt.gz",
+    "source": "https://github.com/skishore/makemeahanzi",
+    "upstream_file": "dictionary.txt",
+    "commit": "bddc96d41bef78427ed0e034e9f7e31d71fd1b92",
+    "commit_date": "2026-03-08T18:32:20Z",
+    "sha256": "744bb05d5b0742e9ee35c37791f94d56a173349b3367569e7ca11e510364d203",
+    "license": "LGPL-3.0-or-later (see LICENSE-makemeahanzi-dictionary.txt); derived from Unihan and CJKlib"
   }
 }

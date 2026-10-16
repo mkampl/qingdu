@@ -101,6 +101,12 @@ QingDu uses self-hosted Latin display fonts via `@fontsource-variable` and CJK f
 - **Description**: Chinese-to-English dictionary used as the primary meaning source. Attribution: <https://www.mdbg.net/chinese/dictionary>; based on CEDICT, Copyright (C) 1997, 1998 Paul Andrew Denisowski.
 - **Bundled file**: `app/data/dict/cedict_ts.u8.gz` — a dated mdbg export (`cedict_1_0_ts_utf-8_mdbg.txt.gz`, date and sha256 in `app/data/dict/VERSION.json`), unmodified apart from gzip compression; the licence header is kept inside the file. It is shipped as a separate data file under its own CC BY-SA 4.0 licence; QingDu's MIT licence does not apply to it, and any redistributed copy or adaptation of the file itself stays under CC BY-SA 4.0. Updated only by hand with `tools/refresh_dictionaries.py` after reviewing the gloss diff.
 
+### Make Me a Hanzi character dictionary
+- **Source**: [skishore/makemeahanzi](https://github.com/skishore/makemeahanzi) (`dictionary.txt`, derived from Unihan and CJKlib)
+- **License**: [LGPL-3.0-or-later](https://www.gnu.org/licenses/lgpl-3.0.html)
+- **Description**: Per-character decomposition into components, short definitions and etymology hints; used for the "Characters & measure word" details.
+- **Bundled file**: `app/data/dict/makemeahanzi-dictionary.txt.gz` — upstream `dictionary.txt` at the commit recorded in `app/data/dict/VERSION.json`, gzip-compressed, unmodified. The licence notice and the LGPL/GPL texts ship next to it as `app/data/dict/LICENSE-makemeahanzi-dictionary.txt`. It is a separate data file under its own licence; QingDu's MIT licence does not apply to it, and it can be replaced with a modified version.
+
 ### Learner glosses
 - **Bundled file**: `app/data/learner_glosses.json` — short learner headlines for HSK words, each tied to one CC-CEDICT reading. They are new short texts that paraphrase CC-CEDICT senses (and the HSK list's English), written with an automatic pass, checked against CC-CEDICT by a second independent pass and by `tools/check_learner_glosses.py`, and reviewed by hand where the passes disagreed plus a random sample. As an adaptation of CC-CEDICT the file is distributed under **CC BY-SA 4.0**, with the CC-CEDICT attribution above; QingDu's MIT licence does not apply to it.
 

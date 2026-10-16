@@ -22,6 +22,7 @@ import WeeklySparkline from "@/components/reader/WeeklySparkline.vue";
 import StrokeOrder from "@/components/reader/StrokeOrder.vue";
 import WritingQuiz from "@/components/reader/WritingQuiz.vue";
 import ContextSentence from "@/components/review/ContextSentence.vue";
+import WordDetails from "@/components/reader/WordDetails.vue";
 import WordReadings from "@/components/reader/WordReadings.vue";
 import { customGlosses } from "@/utils/glosses";
 import { useAuthStore } from "@/stores/auth";
@@ -948,6 +949,7 @@ onMounted(() => {
               :focus="card.focus_gloss"
             headline-class="font-display text-base leading-snug text-fg"
           />
+          <WordDetails :word="card.word" class="mx-auto mt-3 max-w-md" />
           <ContextSentence
             v-if="card.cloze_sentence"
             :sentence="card.cloze_sentence"
@@ -1141,6 +1143,7 @@ onMounted(() => {
               headline-class="font-display text-xl text-fg"
               list-class="mt-1 space-y-0.5 text-sm text-fg-muted"
             />
+            <WordDetails :word="card.word" class="mx-auto max-w-md pt-2" />
             <ContextSentence
               v-if="card.cloze_sentence"
               :sentence="card.cloze_sentence"
@@ -1174,6 +1177,7 @@ onMounted(() => {
               headline-class="font-display text-xl text-fg"
               list-class="mt-1 space-y-0.5 text-sm text-fg-muted"
             />
+            <WordDetails :word="card.word" class="mx-auto max-w-md pt-2" />
             <ContextSentence
               v-if="card.cloze_sentence"
               :sentence="card.cloze_sentence"

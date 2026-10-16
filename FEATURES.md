@@ -11,6 +11,7 @@ A reading-and-study tool for Chinese learners, organised around the HSK vocabula
 - **Audio narration** — per-word TTS or a continuous play-bar across the whole passage with speed control.
 - **Grammar patterns** — common HSK 1–4 patterns (是…的, 把, 被, 越…越…, 一边…一边…, etc.) are detected and underlined; click for a popover explanation.
 - **Stroke order** — accordion in the word popover renders a hanzi-writer animation for each character.
+- **Characters & measure word** — the word popover and review cards show the word's measure words (一本书, 一张桌子) and what each character is made of, with the parts' meanings and how it is built (好 = 女 woman + 子 son).
 - **Make this text readable** — above every text: the share of its running words you know (every occurrence counts; words you ignore count as covered), the share once the words in review are learned, and how many missing words stand between you and 95 %, the point where a text reads without a dictionary. **Pre-learn missing words** lists them most frequent first; pick as many as you like and they go into review with their sentence from this text and, in a package or glossary text, the text's own meaning. The text remembers them, so you can add the rest another day, and **Review these words** runs a session on just that text.
 
 ## Importing
