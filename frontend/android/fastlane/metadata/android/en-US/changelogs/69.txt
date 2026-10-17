@@ -1,0 +1,4 @@
+- Photos: the Scan import reads Chinese from a picture or the camera on
+  the server (servers with AI help), also traditional and vertical text
+- Sentence translations by the server's AI first, keeping the terms of
+  the text's glossary
