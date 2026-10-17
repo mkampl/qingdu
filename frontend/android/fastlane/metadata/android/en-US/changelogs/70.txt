@@ -1,0 +1,3 @@
+- Glossaries per text: a list offered as glossary is picked per text in
+  the reader; no glossary is applied to every text any more
+- Editing and re-analysing a saved text keeps its sentence translations
