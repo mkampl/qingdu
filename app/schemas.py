@@ -3,10 +3,9 @@ from pydantic import BaseModel, Field
 
 class TextAnalysisRequest(BaseModel):
     text: str
-    # Phase #99 — optional glossary picker.
-    # None / omitted -> use all the user's glossary-flagged vocabulary lists.
-    # []             -> explicitly use no glossary (even if lists are flagged).
-    # [3, 5]         -> use only those lists.
+    # The text's glossaries (the reader's picker): [3, 5] uses those lists;
+    # None / omitted / [] = no glossary. A list's glossary flag only offers
+    # it in the picker; nothing is applied to every text.
     glossary_list_ids: list[int] | None = None
 
 
@@ -14,7 +13,7 @@ class TranslationRequest(BaseModel):
     text: str
     target_lang: str = "en"
     # The text's glossary lists (as for /api/analyze): their terms in the
-    # sentence go to the LLM translator. None = the user's flagged lists.
+    # sentence go to the LLM translator. None = no glossary.
     glossary_list_ids: list[int] | None = None
 
 

@@ -238,8 +238,8 @@ export interface SavedTextSummary {
   unlocked?: boolean;
   /** Public share token if this text has been shared (Phase G3). */
   share_token: string | null;
-  /** Phase #99 — per-text glossary picker selection. null = use all
-   *  glossary-flagged lists, [] = none, [3,5] = only those. */
+  /** The text's glossaries (reader picker): [3,5] = those lists;
+   *  null / [] = none. */
   glossary_list_ids: number[] | null;
   /** Folder the text lives in; null = top level. */
   folder_id?: number | null;

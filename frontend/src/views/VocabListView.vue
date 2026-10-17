@@ -148,8 +148,8 @@ async function toggleGlossary() {
     syncList((l) => ({ ...l, apply_as_glossary: next }));
     toasts.success(
       next
-        ? "Now available as a glossary for analysis."
-        : "No longer used as a glossary.",
+        ? "Offered as a glossary: pick it per text in the reader."
+        : "No longer offered as a glossary (texts using it keep it).",
     );
   } catch (e) {
     toasts.error(
@@ -700,7 +700,7 @@ function sectionWordCount(section: VocabularySection): number {
                   color: 'var(--color-glossary)',
                 }"
               >
-                · Active glossary
+                · Glossary
               </span>
             </p>
 
@@ -720,17 +720,18 @@ function sectionWordCount(section: VocabularySection): number {
               />
               <span class="min-w-0 flex-1">
                 <span class="block font-display text-sm font-medium text-fg">
-                  Use as glossary
+                  Offer as glossary
                 </span>
                 <!-- Short hint on mobile; full explanation only shows
                      above sm so the row doesn't dominate a phone column. -->
                 <span class="block text-xs text-fg-muted leading-relaxed">
-                  <span class="sm:hidden">Overrides HSK meanings during analysis.</span>
+                  <span class="sm:hidden">Pick it per text in the reader's Glossaries.</span>
                   <span class="hidden sm:inline">
-                    Words in this list will override HSK meanings when analysing
-                    text. Useful for specialised corpora (Daoist, Buddhist,
-                    business jargon) where the default glosses don't fit.
-                    Toggle per-text from the reader's <em>Glossaries</em> picker.
+                    Lets you pick this list for a text in the reader's
+                    <em>Glossaries</em>; for that text its meanings replace the
+                    dictionary's, and translations keep its terms. Useful for
+                    specialised texts (Daoist, Buddhist, business jargon); other
+                    texts are not touched.
                   </span>
                 </span>
               </span>

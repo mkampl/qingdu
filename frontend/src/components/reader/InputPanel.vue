@@ -263,8 +263,8 @@ async function convert(direction: ConvertDirection) {
             </svg>
             Import
           </button>
-          <!-- Phase #99 — Glossary picker. Hides itself when the user has no
-               glossary-flagged lists yet. -->
+          <!-- Glossaries for this text. Hides itself when the user offers
+               no list as a glossary. -->
           <GlossaryPicker />
           <!-- Script converters. Hidden on the narrowest screens to keep
                the row from wrapping; the auto-detect banner covers the
