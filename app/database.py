@@ -146,6 +146,25 @@ class SavedText(Base):
     user = relationship("User", back_populates="texts")
 
 
+class GrammarProgress(Base):
+    """How the user is doing with one grammar pattern (services/grammar_book):
+    a box that a good practice round raises, and when it is due again."""
+
+    __tablename__ = "grammar_progress"
+    __table_args__ = (
+        UniqueConstraint("user_id", "pattern_id", name="uq_grammar_progress_user_pattern"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    pattern_id = Column(String(64), nullable=False)
+    box = Column(Integer, nullable=False, default=0)
+    due_at = Column(DateTime, nullable=True)
+    last_at = Column(DateTime, nullable=True)
+    correct = Column(Integer, nullable=False, default=0)
+    total = Column(Integer, nullable=False, default=0)
+
+
 class LlmUsage(Base):
     """LLM requests a user made on one day (services/llm daily limit)."""
 

@@ -10,8 +10,10 @@
  * saved texts pre-Phase D) or no matches were found.
  */
 import { computed, nextTick, ref } from "vue";
+import { RouterLink } from "vue-router";
 
 import type { GrammarPayload } from "@/api/types";
+import { useAuthStore } from "@/stores/auth";
 
 const props = defineProps<{ grammar: GrammarPayload | undefined }>();
 
@@ -51,6 +53,7 @@ async function jumpToFirstMatch(patternId: string) {
   span.classList.add("grammar-pulse");
   setTimeout(() => span.classList.remove("grammar-pulse"), 1800);
 }
+const auth = useAuthStore();
 </script>
 
 <template>
@@ -124,6 +127,13 @@ async function jumpToFirstMatch(patternId: string) {
           <p class="mt-1 text-[11px] italic text-fg-muted">
             {{ p.example_translation }}
           </p>
+          <RouterLink
+            v-if="auth.isAuthed"
+            :to="`/grammar/${p.id}`"
+            class="mt-2 block font-mono text-[10px] uppercase tracking-wider text-accent hover:underline"
+          >
+            All my sentences &amp; practice →
+          </RouterLink>
           <button
             type="button"
             class="mt-3 inline-flex items-center gap-1 rounded-full border border-border bg-bg-elevated px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"

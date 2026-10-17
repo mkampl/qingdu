@@ -49,8 +49,10 @@ def test_route_count(app_module):
     character components).
     +2 = 114/119 for GET /api/capabilities (what the server offers, e.g.
     an LLM) and POST /api/admin/llm/probe.
+    +4 = 118/123 for the grammar section: GET /api/grammar, GET
+    /api/grammar/{id}, GET + POST /api/grammar/{id}/practice.
     """
-    assert len(app_module.routes) in (114, 119)
+    assert len(app_module.routes) in (118, 123)
 
 
 def test_router_tags_present(app_module):

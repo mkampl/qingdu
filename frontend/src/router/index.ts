@@ -50,6 +50,16 @@ export const router = createRouter({
       component: () => import("@/views/ReviewView.vue"),
     },
     {
+      path: "/grammar",
+      name: "grammar",
+      component: () => import("@/views/GrammarView.vue"),
+    },
+    {
+      path: "/grammar/:id",
+      name: "grammar-pattern",
+      component: () => import("@/views/GrammarPatternView.vue"),
+    },
+    {
       path: "/tones",
       name: "tones",
       component: () => import("@/views/ToneDrillView.vue"),
