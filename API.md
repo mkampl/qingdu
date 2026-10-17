@@ -29,6 +29,7 @@ Anonymous callers can still hit `GET /api/vocabulary-stats`, `GET /health`, `POS
 | Readability | `/api/readability`, `/api/readability/prelearn` | How much of a text the user can read and which words are missing; take missing words into review |
 | Vocabulary lists | `/api/vocabulary-lists/*`, `/api/vocabulary-stats` | CRUD on user lists; take a list into review; Anki / CSV exports |
 | Word details | `/api/vocab/details/{word}` | Measure words and character components (public) |
+| Placement | `/api/placement/*` | Placement test questions per HSK level; mark the passed levels as known |
 | Words | `/api/words/*` | Per-user word states (new / learning / known / ignored), bulk operations, stats, exports |
 | Review | `/api/review/*` | FSRS queue + grading; recognition / dictation / writing / cloze modes; `text_key` / `list_id` focus a session on one text or list; `GET /api/review/tones` serves tone practice |
 | Grammar | `/api/grammar/*` | Grammar points (HSK 3.0 catalog) met in what the user read, their sentences, practice rounds and schedule; with an LLM, `POST /api/grammar/explain` and `POST /api/grammar/{id}/text` |

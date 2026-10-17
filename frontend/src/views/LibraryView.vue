@@ -7,6 +7,7 @@
  */
 
 import { computed, onMounted, ref } from "vue";
+import { useRoute } from "vue-router";
 
 import * as api from "@/api/client";
 import type {
@@ -26,7 +27,11 @@ const progress = ref<Record<string, LibraryProgressEntry>>({});
 // How readable each text is for the signed-in user.
 const readable = ref<Record<string, TextReadability>>({});
 
-const selectedLevels = ref<Set<number>>(new Set());
+// ?level=3 (from the placement result) opens the library on that level.
+const startLevel = Number(useRoute().query.level);
+const selectedLevels = ref<Set<number>>(
+  new Set(Number.isInteger(startLevel) && startLevel >= 1 && startLevel <= 9 ? [startLevel] : []),
+);
 const search = ref("");
 const sortKey = ref<"hsk" | "chars-asc" | "chars-desc" | "almost">("hsk");
 

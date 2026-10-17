@@ -50,6 +50,11 @@ export const router = createRouter({
       component: () => import("@/views/ReviewView.vue"),
     },
     {
+      path: "/welcome",
+      name: "welcome",
+      component: () => import("@/views/WelcomeView.vue"),
+    },
+    {
       path: "/grammar",
       name: "grammar",
       component: () => import("@/views/GrammarView.vue"),

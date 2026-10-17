@@ -1067,7 +1067,11 @@ function resetApiBase() {
           Onboarding shortcuts
         </legend>
         <p class="mb-3 text-xs text-fg-muted">
-          Bulk-mark every word up to a level as known.
+          Bulk-mark every word up to a level as known — or
+          <RouterLink to="/welcome" class="text-accent hover:underline" @click="modals.settingsOpen = false">
+            take the placement test
+          </RouterLink>
+          to find your level.
         </p>
         <div class="flex flex-wrap items-end gap-3">
           <label class="flex flex-col gap-1">

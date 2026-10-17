@@ -38,6 +38,7 @@ from app.routers import (
     library,
     media,
     package,
+    placement,
     readability,
     review,
     spa,
@@ -156,6 +157,7 @@ app.include_router(tts.router)
 app.include_router(vocab.router)
 app.include_router(folders.router)
 app.include_router(grammar.router)
+app.include_router(placement.router)
 app.include_router(texts.router)
 app.include_router(auth.router)
 app.include_router(invitations.router)
