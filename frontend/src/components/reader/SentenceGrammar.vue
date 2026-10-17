@@ -54,7 +54,16 @@ async function explain() {
     </button>
     <p v-if="error" class="text-xs text-red-700 dark:text-red-300">{{ error }}</p>
     <div v-if="data" class="space-y-2 rounded-md bg-bg-sunken/60 px-3 py-2 text-sm">
-      <p class="text-fg">{{ data.breakdown }}</p>
+      <!-- Pinyin over every Chinese word the explanation quotes. -->
+      <p v-if="data.breakdown_parts?.length" class="leading-[2.1] text-fg">
+        <template v-for="(part, i) in data.breakdown_parts" :key="i">
+          <ruby v-if="part.pinyin" class="text-cn-serif">
+            {{ part.text }}<rt class="text-[10px] font-sans text-fg-muted">{{ part.pinyin }}</rt>
+          </ruby>
+          <template v-else>{{ part.text }}</template>
+        </template>
+      </p>
+      <p v-else class="text-fg">{{ data.breakdown }}</p>
       <p v-if="data.literal" class="text-xs italic text-fg-muted">{{ data.literal }}</p>
       <ul v-if="data.points.length" class="flex flex-wrap gap-1.5">
         <li v-for="p in data.points" :key="p.id">
