@@ -50,6 +50,9 @@ def test_explain_keeps_only_offered_points_with_real_spans(fake_llm):
     out = asyncio.run(grammar_ai.explain("他把书放在桌子上了。"))
     assert [p["id"] for p in out["points"]] == ["hsk30-184"]
     assert out["breakdown"].startswith("他")
+    # Every quoted Chinese word comes with its pinyin.
+    assert {"text": "他", "pinyin": "tā"} in out["breakdown_parts"]
+    assert "".join(p["text"] for p in out["breakdown_parts"]) == out["breakdown"]
     # Cached: no second request needed.
     assert asyncio.run(grammar_ai.explain("他把书放在桌子上了。")) is out
 

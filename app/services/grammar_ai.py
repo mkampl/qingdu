@@ -11,13 +11,16 @@
 
 from __future__ import annotations
 
+import re
 from collections import OrderedDict
 
+from pypinyin import Style, lazy_pinyin
 from sqlalchemy.orm import Session
 
 from app.database import UserWord
 from app.services import grammar_catalog, llm, readability
 from app.services.segmentation import segment_text
+from app.services.word_info import lookup_pinyin_meaning
 from app.state import hsk_vocab
 
 EXPLAIN = "explain_sentence"
@@ -116,16 +119,37 @@ async def explain(sentence: str) -> dict:
         if pid in allowed and span and span in sentence and pid not in {x["id"] for x in points}:
             e = grammar_catalog.by_id()[pid]
             points.append({"id": pid, "span": span, "title": e["title_en"], "level": e["level"]})
+    breakdown = str(reply.get("breakdown") or "").strip()
     out = {
         "sentence": sentence,
         "points": points,
-        "breakdown": str(reply.get("breakdown") or "").strip(),
+        "breakdown": breakdown,
+        "breakdown_parts": with_pinyin(breakdown),
         "literal": str(reply.get("literal") or "").strip(),
     }
     _explained[sentence] = out
     if len(_explained) > _EXPLAIN_CACHE:
         _explained.popitem(last=False)
     return out
+
+
+_CJK_RUN = re.compile(r"([\u3400-\u9fff]+)")
+
+
+def with_pinyin(text: str) -> list[dict]:
+    """The text in pieces, each Chinese word with its pinyin, so the
+    explanation can show pinyin over the hanzi it quotes."""
+    parts: list[dict] = []
+    for chunk in _CJK_RUN.split(text):
+        if not chunk:
+            continue
+        if not _CJK_RUN.fullmatch(chunk):
+            parts.append({"text": chunk})
+            continue
+        for word in segment_text(chunk):
+            pinyin = lookup_pinyin_meaning(word)[0] or " ".join(lazy_pinyin(word, style=Style.TONE))
+            parts.append({"text": word, "pinyin": pinyin})
+    return parts
 
 
 def _level_number(level: str) -> int:
