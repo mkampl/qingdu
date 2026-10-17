@@ -1119,6 +1119,35 @@ export const submitLibraryQuiz = (slug: string, answers: number[]) =>
     { method: "POST", body: { answers } },
   );
 
+// ----- Questions on a saved text, written by the LLM -------------------------
+
+/** The text's questions (none until written); the answer key stays on the server. */
+export const getTextQuiz = (id: number) =>
+  request<{ questions: LibraryQuizQuestion[] }>(`/api/texts/${id}/quiz`);
+
+export const writeTextQuiz = (id: number) =>
+  request<{ questions: LibraryQuizQuestion[] }>(`/api/texts/${id}/quiz/write`, { method: "POST" });
+
+export const submitTextQuiz = (id: number, answers: number[]) =>
+  request<{ results: boolean[]; all_correct: boolean }>(`/api/texts/${id}/quiz`, {
+    method: "POST",
+    body: { answers },
+  });
+
+// ----- What a word means in its sentence (LLM) -------------------------------
+
+export interface WordSense {
+  word: string;
+  meaning: string;
+  pinyin: string | null;
+  /** The dictionary (or list) sense it matches, if any. */
+  dictionary_sense: string | null;
+  note: string | null;
+}
+
+export const getWordSense = (word: string, sentence: string, glosses: string[] = []) =>
+  request<WordSense>("/api/words/sense", { body: { word, sentence, glosses } });
+
 // ----- Readability ("make this text readable") ------------------------------
 
 export interface ReadabilityMissingWord {

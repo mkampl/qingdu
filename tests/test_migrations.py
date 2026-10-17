@@ -262,6 +262,6 @@ def test_init_db_adds_folder_columns_to_saved_texts(db_file):
             )
         )
     init_db()
-    assert {"folder_id", "position"} <= _columns(engine, "saved_texts")
+    assert {"folder_id", "position", "quiz"} <= _columns(engine, "saved_texts")
     assert "parent_id" in _columns(engine, "text_folders")
     init_db()

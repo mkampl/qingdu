@@ -142,6 +142,9 @@ class SavedText(Base):
     # folder the texts are read in `position` order (NULLs after, by date).
     folder_id = Column(Integer, ForeignKey("text_folders.id"), nullable=True, index=True)
     position = Column(Integer, nullable=True)
+    # Comprehension questions the LLM wrote for the text (services/text_quiz),
+    # JSON with the answer key; never sent to the browser as is.
+    quiz = Column(Text, nullable=True)
 
     user = relationship("User", back_populates="texts")
 
@@ -656,6 +659,12 @@ def init_db():
                             "ON saved_texts(folder_id)"
                         )
                     )
+                    conn.commit()
+            # Comprehension questions for the text (services/text_quiz).
+            if "quiz" not in st_cols:
+                logger.info("Adding quiz column to saved_texts")
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE saved_texts ADD COLUMN quiz TEXT"))
                     conn.commit()
 
         # Phase F2 — streak columns on users (idempotent ALTER).

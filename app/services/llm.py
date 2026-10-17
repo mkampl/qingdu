@@ -44,7 +44,14 @@ logger = logging.getLogger(__name__)
 
 # Every LLM feature the app knows; LLM_FEATURES picks from these. Features
 # add their name here when they are built.
-FEATURES: tuple[str, ...] = ("grammar", "explain_sentence", "practice_text", "series")
+FEATURES: tuple[str, ...] = (
+    "grammar",
+    "explain_sentence",
+    "practice_text",
+    "series",
+    "quiz",
+    "word_sense",
+)
 PROBE_INTERVAL_S = 300
 _THINK_RE = re.compile(r"<think>.*?</think>", re.S)
 
