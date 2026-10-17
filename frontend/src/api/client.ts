@@ -235,8 +235,17 @@ export const analyze = (
     signal: options.signal,
   });
 
-export const translate = (text: string, signal?: AbortSignal) =>
-  request<TranslateResponse>("/api/translate", { body: { text }, signal });
+/** `glossaryListIds`: the text's glossary lists (as for analyze); with an
+ *  LLM translator their terms in the sentence are kept. */
+export const translate = (
+  text: string,
+  signal?: AbortSignal,
+  glossaryListIds: number[] | null = null,
+) =>
+  request<TranslateResponse>("/api/translate", {
+    body: { text, glossary_list_ids: glossaryListIds },
+    signal,
+  });
 
 export const vocabularyStats = () =>
   request<VocabStatsResponse>("/api/vocabulary-stats", { anonymous: true });
@@ -1289,13 +1298,18 @@ export const reviewNow = (word: string) =>
     body: { word },
   });
 
-export async function extractFile(file: File): Promise<ExtractedArticle> {
+export const extractFile = (file: File) => uploadForExtract("/api/extract/file", file);
+
+/** Chinese text from a photo, read by the server's LLM (capability "ocr"). */
+export const extractImage = (file: File) => uploadForExtract("/api/extract/image", file);
+
+async function uploadForExtract(path: string, file: File): Promise<ExtractedArticle> {
   const form = new FormData();
   form.append("file", file);
   const token = getToken();
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const r = await fetch(apiUrl("/api/extract/file"), {
+  const r = await fetch(apiUrl(path), {
     method: "POST",
     headers,
     body: form,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 
 import * as api from "@/api/client";
 import { ApiError } from "@/api/client";
@@ -7,6 +7,7 @@ import type { PackageSampleSummary } from "@/api/client";
 import type { AnalysisResponse } from "@/api/types";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
+import { useCapabilitiesStore } from "@/stores/capabilities";
 import { useToastStore } from "@/stores/toast";
 
 import Button from "@/components/ui/Button.vue";
@@ -34,6 +35,10 @@ const emit = defineEmits<{
 const auth = useAuthStore();
 const authModals = useAuthModalsStore();
 const toasts = useToastStore();
+const capabilities = useCapabilitiesStore();
+// With an LLM that reads images the server does the OCR: far better on
+// photos than tesseract in the browser, which stays the fallback.
+const serverOcr = computed(() => capabilities.llmFeature("ocr") && auth.isAuthed);
 
 type Mode = "url" | "file" | "scan" | "package";
 
@@ -277,6 +282,16 @@ async function runOcr() {
   ocrRunning.value = true;
   error.value = null;
   ocrProgress.value = 0;
+  if (serverOcr.value) {
+    try {
+      preview.value = await api.extractImage(scanFile.value);
+    } catch (e) {
+      error.value = e instanceof ApiError ? e.message : "Couldn't read the image.";
+    } finally {
+      ocrRunning.value = false;
+    }
+    return;
+  }
   try {
     // Dynamic import keeps tesseract out of the main bundle. All three
     // heavy assets (worker script, WASM core, chi_sim model) are served
@@ -535,7 +550,12 @@ async function runOcr() {
 
     <!-- Step 1c: scan an image -->
     <div v-if="!preview && mode === 'scan'" class="space-y-4">
-      <p class="font-display text-sm italic leading-relaxed text-fg-muted">
+      <p v-if="serverOcr" class="font-display text-sm italic leading-relaxed text-fg-muted">
+        Snap a page of a textbook, sign, or menu — the server reads the
+        Chinese (simplified or traditional, also vertical) in a few
+        seconds. A misread character can be fixed with Edit text.
+      </p>
+      <p v-else class="font-display text-sm italic leading-relaxed text-fg-muted">
         Snap a page of a textbook, sign, or menu — we'll OCR Simplified
         Chinese in your browser (no upload). First scan downloads the
         language model (~5 MB); subsequent scans are instant.
@@ -603,11 +623,11 @@ async function runOcr() {
           >
             Reading…
           </p>
-          <p class="font-mono text-[10px] tabular-nums text-fg-subtle">
+          <p v-if="!serverOcr" class="font-mono text-[10px] tabular-nums text-fg-subtle">
             {{ Math.round(ocrProgress * 100) }}%
           </p>
         </div>
-        <div class="h-[3px] w-full overflow-hidden rounded-full bg-bg-sunken">
+        <div v-if="!serverOcr" class="h-[3px] w-full overflow-hidden rounded-full bg-bg-sunken">
           <div
             class="h-full rounded-full bg-accent transition-[width] duration-150"
             :style="{ width: `${ocrProgress * 100}%` }"

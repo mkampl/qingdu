@@ -26,10 +26,11 @@ import logging
 import trafilatura
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from app.auth import require_auth
-from app.database import User
-from app.services import safe_fetch
+from app.database import User, get_db
+from app.services import image_ocr, llm, safe_fetch
 from app.services.document_import import (
     DocumentImportError,
     extract_document,
@@ -176,4 +177,41 @@ async def extract_uploaded_file(
         excerpt=doc.content[:300] or None,
         content=doc.content,
         char_count=doc.char_count,
+    )
+
+
+@router.post("/api/extract/image", response_model=ExtractResponse)
+async def extract_image(
+    file: UploadFile = File(...),
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+) -> ExtractResponse:
+    """Chinese text from a photo (a page, a sign, a menu), read by the
+    server's LLM. Same shape as the other extractors; the SPA shows it in
+    the preview to check before reading."""
+    llm.require(image_ocr.FEATURE)
+    data = await file.read(image_ocr.MAX_BYTES + 1)
+    if len(data) > image_ocr.MAX_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Image too large — cap is {image_ocr.MAX_BYTES // (1024 * 1024)} MB.",
+        )
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file.")
+    llm.charge(db, user.id)
+    try:
+        text = await image_ocr.read_text(data)
+    except image_ocr.OcrError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except llm.LlmError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    name = file.filename or "photo.jpg"
+    logger.info("Read %d chars from image %s", len(text), name)
+    return ExtractResponse(
+        url=f"scan://{name}",
+        title=None,
+        byline=None,
+        excerpt=text[:300] or None,
+        content=text,
+        char_count=len(text),
     )

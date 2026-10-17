@@ -13,6 +13,9 @@ class TextAnalysisRequest(BaseModel):
 class TranslationRequest(BaseModel):
     text: str
     target_lang: str = "en"
+    # The text's glossary lists (as for /api/analyze): their terms in the
+    # sentence go to the LLM translator. None = the user's flagged lists.
+    glossary_list_ids: list[int] | None = None
 
 
 class WordInfo(BaseModel):
