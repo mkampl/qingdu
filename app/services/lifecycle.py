@@ -23,6 +23,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.database import (
+    GrammarProgress,
     LlmUsage,
     SessionLocal,
     SignupAttempt,
@@ -198,7 +199,14 @@ def purge_user(db: Session, user: User) -> None:
     here leaks orphaned rows silently — keep this the single deletion path
     (admin delete + lifecycle sweep both call it). Caller commits.
     """
-    for table in (UserWordEvent, TextWord, UserLibraryProgress, TextFolder, LlmUsage):
+    for table in (
+        UserWordEvent,
+        TextWord,
+        UserLibraryProgress,
+        TextFolder,
+        LlmUsage,
+        GrammarProgress,
+    ):
         db.query(table).filter(table.user_id == user.id).delete(synchronize_session=False)
     db.delete(user)
 

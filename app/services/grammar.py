@@ -24,6 +24,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.services.lexicon import dictionaries_loaded, in_dictionary
+
 
 @dataclass
 class Sentence:
@@ -55,6 +57,18 @@ class PatternDef:
     # Regex applied to Sentence.text. The pattern's full match span (group 0)
     # is what gets highlighted; named subgroups are ignored.
     regex: re.Pattern[str]
+    # Token check against the segmentation, for patterns whose marker is
+    # also part of ordinary words: the marker (first of `solo` found in the
+    # match) must stand as its own token (把, not 一把 or 把握) or, with
+    # `suffix`, follow the start of a token (看过, 吃了饭; not 过去);
+    # `not_tokens` lists tokens with it that are not the pattern (不过), `not_prev` / `not_next`
+    # neighbouring tokens that rule it out (classical 得之: `not_next`
+    # holds first characters of the next token).
+    solo: tuple[str, ...] = ()
+    suffix: bool = False
+    not_tokens: frozenset[str] = frozenset()
+    not_prev: frozenset[str] = frozenset()
+    not_next: frozenset[str] = frozenset()
 
 
 # Patterns ordered roughly by HSK level so the "first to match" semantics
@@ -90,6 +104,7 @@ PATTERNS: list[PatternDef] = [
         # 把 + at least one follow-up character. False positives on idioms
         # like 一把 are tolerable — better to highlight than to miss.
         regex=re.compile(r"把[一-鿿]{1,8}"),
+        solo=("把",),
     ),
     PatternDef(
         id="bei",
@@ -103,6 +118,7 @@ PATTERNS: list[PatternDef] = [
         example="苹果被吃了。",
         example_translation="The apple was eaten.",
         regex=re.compile(r"被[一-鿿]{1,8}"),
+        solo=("被",),
     ),
     PatternDef(
         id="yue-yue",
@@ -197,6 +213,9 @@ PATTERNS: list[PatternDef] = [
         # Highlight a verb + 了 cluster. We bound to 1 preceding CJK char to
         # keep the span tight; only the first occurrence per sentence fires.
         regex=re.compile(r"[一-鿿]了"),
+        solo=("了",),
+        suffix=True,
+        not_tokens=frozenset({"为了", "除了", "受不了", "了不起", "罢了", "算了", "得了", "极了"}),
     ),
     # --- Phase 1.7 expansion: HSK 2–5 patterns -------------------------------
     PatternDef(
@@ -237,6 +256,25 @@ PATTERNS: list[PatternDef] = [
         example="我去过中国。",
         example_translation="I have been to China (before).",
         regex=re.compile(r"[一-鿿]过"),
+        solo=("过",),
+        suffix=True,
+        not_tokens=frozenset(
+            {
+                "不过",
+                "难过",
+                "经过",
+                "通过",
+                "超过",
+                "错过",
+                "度过",
+                "越过",
+                "穿过",
+                "路过",
+                "太过",
+                "只不过",
+                "过过",
+            }
+        ),
     ),
     PatternDef(
         id="bi-comparison",
@@ -250,6 +288,7 @@ PATTERNS: list[PatternDef] = [
         example="他比我还高。",
         example_translation="He's even taller than me.",
         regex=re.compile(r"比[一-鿿]{1,8}?(?:还|更)?[一-鿿]"),
+        solo=("比",),
     ),
     PatternDef(
         id="zhe-durative",
@@ -263,6 +302,29 @@ PATTERNS: list[PatternDef] = [
         example="他笑着说话。",
         example_translation="He spoke while smiling.",
         regex=re.compile(r"[一-鿿]着[一-鿿]"),
+        solo=("着",),
+        suffix=True,
+        not_tokens=frozenset(
+            {
+                "着急",
+                "接着",
+                "随着",
+                "沿着",
+                "顺着",
+                "意味着",
+                "朝着",
+                "向着",
+                "为着",
+                "本着",
+                "睡着",
+                "着想",
+                "着手",
+                "着重",
+                "着凉",
+                "看不着",
+                "找着",
+            }
+        ),
     ),
     PatternDef(
         id="de-resultative",
@@ -277,6 +339,9 @@ PATTERNS: list[PatternDef] = [
         example="他跑得很快。",
         example_translation="He runs very fast.",
         regex=re.compile(r"[一-鿿]得[一-鿿]{1,8}"),
+        solo=("得",),
+        not_prev=frozenset("亦必不可所难皆而乃则能何岂但若如方始未须"),
+        not_next=frozenset("之其也矣于焉道一以此"),
     ),
     PatternDef(
         id="you-you",
@@ -303,6 +368,7 @@ PATTERNS: list[PatternDef] = [
         example="妈妈让我学习。",
         example_translation="Mom has me study.",
         regex=re.compile(r"(?:让|叫)[一-鿿]{1,6}?[一-鿿]"),
+        solo=("让", "叫"),
     ),
     PatternDef(
         id="gei-benefactive",
@@ -316,6 +382,7 @@ PATTERNS: list[PatternDef] = [
         example="我给你打电话。",
         example_translation="I'll call you (for you).",
         regex=re.compile(r"给[一-鿿]{1,5}?(?:打|写|做|发|买|带|寄|讲|说)"),
+        solo=("给",),
     ),
     PatternDef(
         id="jiuyao-le",
@@ -507,6 +574,41 @@ def _token_range_for_char_span(
     return first, last
 
 
+def _glued(token: str, marker: str) -> bool:
+    """A segmentation leftover that starts with the marker and is no word
+    (让我学 from older analyses), unlike 把握 or 被子."""
+    return token.startswith(marker) and dictionaries_loaded() and not in_dictionary(token)
+
+
+def _marker_token_ok(pattern: PatternDef, words: list[str], m: re.Match[str]) -> bool:
+    """Whether the pattern's marker in this match stands as the grammar
+    word in the segmentation (see PatternDef.solo)."""
+    marker = next((x for x in pattern.solo if x in m.group(0)), None)
+    if marker is None:
+        return False
+    char = m.start() + m.group(0).index(marker)
+    pos = 0
+    for i, w in enumerate(words):
+        if pos <= char < pos + len(w):
+            # With `suffix` the marker may sit inside a phrase token
+            # (吃了饭, 看过) but not start it (了解, 过去, 着急).
+            ok = (
+                w == marker
+                or _glued(w, marker)
+                or pattern.suffix
+                and marker in w[1:]
+                and not any(t in w for t in pattern.not_tokens)
+            )
+            if not ok:
+                return False
+            prev = words[i - 1] if i > 0 else ""
+            nxt = words[i + 1] if i + 1 < len(words) else ""
+            # The next token's first character decides (得之, 得一元神).
+            return prev not in pattern.not_prev and nxt[:1] not in pattern.not_next
+        pos += len(w)
+    return False
+
+
 def detect_patterns(
     sentences: list[tuple[int, Sentence]],
 ) -> tuple[list[PatternMatch], list[dict]]:
@@ -537,6 +639,8 @@ def detect_patterns(
                     le_seen_this_sentence = True
                 token_range = _token_range_for_char_span(sentence.words, m.start(), m.end())
                 if token_range is None:
+                    continue
+                if pattern.solo and not _marker_token_ok(pattern, sentence.words, m):
                     continue
                 first, last = token_range
                 matches.append(

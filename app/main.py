@@ -31,6 +31,7 @@ from app.routers import (
     external,
     extract,
     folders,
+    grammar,
     health,
     invitations,
     legal,
@@ -154,6 +155,7 @@ app.include_router(translate.router)
 app.include_router(tts.router)
 app.include_router(vocab.router)
 app.include_router(folders.router)
+app.include_router(grammar.router)
 app.include_router(texts.router)
 app.include_router(auth.router)
 app.include_router(invitations.router)
