@@ -18,6 +18,7 @@ looked at again.
 from __future__ import annotations
 
 import json
+import logging
 import random
 import re
 import time
@@ -27,9 +28,11 @@ from datetime import datetime, timedelta
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.database import GrammarProgress, SavedText, UserLibraryProgress
+from app.database import GrammarProgress, SavedText, SessionLocal, UserLibraryProgress
 from app.services import grammar, grammar_catalog, grammar_tagging, library
 from app.services.segmentation import _group_sentences
+
+logger = logging.getLogger(__name__)
 
 READ_THROUGH = 0.99
 MAX_SENTENCES = 60
@@ -145,6 +148,20 @@ def _sources(db: Session, user_id: int) -> list[tuple[str, str, bool, int | None
         )
         out.append((key, entry["title"], entry["slug"] in read_slugs, entry["hsk_level"], tg))
     return out
+
+
+def prewarm(session_factory=SessionLocal) -> int:
+    """Look at every saved text and the library once, at startup, so the
+    first visit to the grammar section after a restart is quick (reading
+    the stored analyses is the slow part). Returns the texts cached."""
+    db = session_factory()
+    try:
+        user_ids = [u for (u,) in db.query(SavedText.user_id).distinct()]
+        for user_id in user_ids or [0]:
+            _sources(db, user_id)
+    finally:
+        db.close()
+    return len(_texts)
 
 
 # LLM tags looked up recently: hash -> tags (absent = not tagged yet).

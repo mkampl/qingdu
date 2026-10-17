@@ -94,3 +94,11 @@ def test_the_llm_overrules_a_regex_hit_it_turned_down(words_client, monkeypatch)
     ids = {h.point_id for h in grammar_book.all_hits(s, 1) if h.sentence == sentence}
     s.close()
     assert "hsk30-184" not in ids  # offered to the LLM, not confirmed
+
+
+def test_prewarm_caches_every_saved_text_and_the_library(words_client):
+    _save(words_client, READ, 1.0, 1)
+    grammar_book._texts.clear()
+    n = grammar_book.prewarm(words_client.session_factory)
+    assert "saved:1" in grammar_book._texts
+    assert n == len(grammar_book._texts) > 1  # the library came along
