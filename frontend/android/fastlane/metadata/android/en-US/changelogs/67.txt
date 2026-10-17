@@ -1,0 +1,5 @@
+- Welcome and placement test: a three-minute word test finds your HSK
+  level, marks the words you know and suggests texts that fit
+- Topic series (servers with AI help): pick a topic, a level and how many
+  new words per text; texts are written one after another for your
+  words, each building on the last
