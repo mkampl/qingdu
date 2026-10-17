@@ -5,13 +5,15 @@
  * and a practice round of gap and word-order exercises built from them.
  */
 import { computed, ref, watch } from "vue";
-import { RouterLink, useRoute } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
 import type { GrammarExercise, GrammarSentence } from "@/api/client";
 import Button from "@/components/ui/Button.vue";
 import { useOpenLibraryText } from "@/composables/use-open-library-text";
 import { useOpenSavedText } from "@/composables/use-open-saved-text";
+import { useAnalysisStore } from "@/stores/analysis";
+import { useCapabilitiesStore } from "@/stores/capabilities";
 import { useUserWordsStore } from "@/stores/userWords";
 
 type Detail = Awaited<ReturnType<typeof api.getGrammarPoint>>;
@@ -20,6 +22,32 @@ const route = useRoute();
 const openSaved = useOpenSavedText();
 const openLibrary = useOpenLibraryText();
 const userWords = useUserWordsStore();
+const analysis = useAnalysisStore();
+const capabilities = useCapabilitiesStore();
+const router = useRouter();
+
+// --- A practice text written by the LLM -------------------------------------
+
+const textBusy = ref(false);
+const textError = ref<string | null>(null);
+
+async function practiceText() {
+  if (textBusy.value) return;
+  textBusy.value = true;
+  textError.value = null;
+  try {
+    const r = await api.getPracticeText(id.value);
+    // Into the reader like a pasted text; Save keeps it.
+    analysis.reset();
+    analysis.inputText = `${r.title}\n${r.text}`;
+    void router.push("/");
+    void analysis.analyze(analysis.inputText);
+  } catch (e) {
+    textError.value = e instanceof Error ? e.message : "Couldn't write a practice text.";
+  } finally {
+    textBusy.value = false;
+  }
+}
 
 const detail = ref<Detail | null>(null);
 const error = ref<string | null>(null);
@@ -186,8 +214,24 @@ watch(id, load, { immediate: true });
               </template>
               <template v-else>Fill gaps and put sentences in order, with your own sentences.</template>
             </p>
-            <Button variant="primary" size="sm" @click="startPractice">Practise</Button>
+            <div class="flex flex-wrap gap-2">
+              <Button
+                v-if="capabilities.llmFeature('practice_text')"
+                variant="ghost"
+                size="sm"
+                :loading="textBusy"
+                title="A short text at your level that uses this point several times"
+                @click="practiceText"
+              >
+                Practice text
+              </Button>
+              <Button variant="primary" size="sm" @click="startPractice">Practise</Button>
+            </div>
           </div>
+          <p v-if="textBusy" class="mt-2 text-xs text-fg-muted">
+            Writing a text with your words… this takes a few seconds.
+          </p>
+          <p v-if="textError" class="mt-2 text-sm text-red-700 dark:text-red-300">{{ textError }}</p>
           <p v-if="practiceError" class="mt-2 text-sm text-fg-muted">{{ practiceError }}</p>
         </template>
 

@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 
 import * as api from "@/api/client";
+import SentenceGrammar from "@/components/reader/SentenceGrammar.vue";
 import { useReaderStore } from "@/stores/reader";
 
 const props = defineProps<{ text: string }>();
@@ -125,6 +126,7 @@ async function playSentence() {
           cached
         </span>
       </div>
+      <SentenceGrammar :text="props.text" />
     </template>
   </div>
 </template>
