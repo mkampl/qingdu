@@ -29,6 +29,7 @@ from app.database import (
     SignupAttempt,
     SystemSetting,
     TextFolder,
+    TextSeries,
     TextWord,
     User,
     UserLibraryProgress,
@@ -206,6 +207,7 @@ def purge_user(db: Session, user: User) -> None:
         TextFolder,
         LlmUsage,
         GrammarProgress,
+        TextSeries,
     ):
         db.query(table).filter(table.user_id == user.id).delete(synchronize_session=False)
     db.delete(user)

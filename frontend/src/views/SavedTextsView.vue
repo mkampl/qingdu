@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
@@ -7,9 +7,11 @@ import { ApiError } from "@/api/client";
 import type { SavedTextSummary, TextFolder } from "@/api/types";
 import FolderNameModal from "@/components/texts/FolderNameModal.vue";
 import FolderPickerModal from "@/components/texts/FolderPickerModal.vue";
+import SeriesCreateModal from "@/components/texts/SeriesCreateModal.vue";
 import { useOpenSavedText } from "@/composables/use-open-saved-text";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
+import { useCapabilitiesStore } from "@/stores/capabilities";
 import { useTextFoldersStore } from "@/stores/text-folders";
 import { useToastStore } from "@/stores/toast";
 
@@ -40,6 +42,7 @@ const toasts = useToastStore();
 const router = useRouter();
 const route = useRoute();
 const openSavedText = useOpenSavedText();
+const capabilities = useCapabilitiesStore();
 
 type LoadState =
   | { status: "idle" }
@@ -63,7 +66,7 @@ async function load() {
   }
   state.value = { status: "loading" };
   try {
-    const [texts] = await Promise.all([api.listTexts(), folderStore.load()]);
+    const [texts] = await Promise.all([api.listTexts(), folderStore.load(), loadSeries()]);
     state.value = { status: "ok", texts };
   } catch (e) {
     state.value = {
@@ -159,6 +162,84 @@ async function open(text: SavedTextSummary) {
   } finally {
     openingId.value = null;
   }
+}
+
+// --- Topic series ------------------------------------------------------------
+
+const seriesList = ref<api.TextSeriesInfo[]>([]);
+const seriesHere = computed(
+  () => seriesList.value.find((x) => x.folder_id === folderId.value) ?? null,
+);
+const seriesModal = ref(false);
+const seriesBusy = ref(false);
+let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function loadSeries() {
+  try {
+    seriesList.value = await api.listSeries();
+  } catch {
+    seriesList.value = []; // an older server has no series
+  }
+  schedulePoll();
+}
+
+/** While a text is being written, look again every few seconds. */
+function schedulePoll() {
+  if (pollTimer) clearTimeout(pollTimer);
+  const busy = seriesList.value.filter((x) => x.generating);
+  if (!busy.length) return;
+  pollTimer = setTimeout(async () => {
+    const before = new Map(seriesList.value.map((x) => [x.id, x.texts]));
+    const fresh = await Promise.all(busy.map((x) => api.getSeries(x.id).catch(() => x)));
+    seriesList.value = seriesList.value.map((x) => fresh.find((f) => f.id === x.id) ?? x);
+    if (fresh.some((f) => !f.generating || f.texts !== before.get(f.id))) {
+      state.value = { status: "ok", texts: await api.listTexts() };
+    }
+    schedulePoll();
+  }, 4000);
+}
+onBeforeUnmount(() => {
+  if (pollTimer) clearTimeout(pollTimer);
+});
+
+async function createSeries(input: {
+  topic: string;
+  level: number;
+  new_words: number;
+  length: api.SeriesLength;
+}) {
+  seriesBusy.value = true;
+  try {
+    const created = await api.createSeries(input);
+    seriesModal.value = false;
+    await folderStore.load();
+    seriesList.value = [...seriesList.value, created];
+    goFolder(created.folder_id);
+    schedulePoll();
+  } catch (e) {
+    toasts.error(e instanceof ApiError ? e.message : "Couldn't start the series.");
+  } finally {
+    seriesBusy.value = false;
+  }
+}
+
+async function nextInSeries() {
+  const here = seriesHere.value;
+  if (!here) return;
+  try {
+    const updated = await api.nextSeriesText(here.id);
+    seriesList.value = seriesList.value.map((x) => (x.id === updated.id ? updated : x));
+    schedulePoll();
+  } catch (e) {
+    toasts.error(e instanceof ApiError ? e.message : "Couldn't start the next text.");
+  }
+}
+
+async function changeSeries(patch: Partial<{ level: number; new_words: number }>) {
+  const here = seriesHere.value;
+  if (!here) return;
+  const updated = await api.updateSeries(here.id, patch);
+  seriesList.value = seriesList.value.map((x) => (x.id === updated.id ? updated : x));
 }
 
 // --- Folders ---------------------------------------------------------------
@@ -368,11 +449,8 @@ async function confirmDelete(text: SavedTextSummary) {
       </nav>
 
       <!-- Search + new folder. Search looks through every folder. -->
-      <div
-        v-if="state.status === 'ok' && (total > 0 || folders.length > 0)"
-        class="mb-6 flex flex-wrap items-center gap-3"
-      >
-        <div class="w-full max-w-sm">
+      <div v-if="state.status === 'ok'" class="mb-6 flex flex-wrap items-center gap-3">
+        <div v-if="total > 0 || folders.length > 0" class="w-full max-w-sm">
           <TextInput
             v-model="search"
             placeholder="Search all texts by title or tag…"
@@ -382,6 +460,67 @@ async function confirmDelete(text: SavedTextSummary) {
         <Button variant="ghost" size="sm" @click="nameModal = { mode: 'new' }">
           + New folder
         </Button>
+        <Button
+          v-if="capabilities.llmFeature('series')"
+          variant="ghost"
+          size="sm"
+          title="Texts on a topic of your choice, written for your words"
+          @click="seriesModal = true"
+        >
+          + New topic series
+        </Button>
+      </div>
+
+      <!-- A topic series' folder: write the next text, change its settings. -->
+      <div
+        v-if="seriesHere && !searching"
+        class="mb-6 rounded-lg border border-accent/40 bg-accent/5 px-4 py-3"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="text-sm text-fg">
+            <span class="font-mono text-[10px] uppercase tracking-wider text-accent">Topic series</span>
+            <span class="ml-2">{{ seriesHere.texts }} text{{ seriesHere.texts === 1 ? "" : "s" }}</span>
+          </p>
+          <Button
+            v-if="capabilities.llmFeature('series')"
+            variant="primary"
+            size="sm"
+            :loading="seriesHere.generating"
+            :disabled="seriesHere.generating"
+            @click="nextInSeries"
+          >
+            {{ seriesHere.texts ? "Write the next text" : "Write the first text" }}
+          </Button>
+        </div>
+        <p v-if="seriesHere.generating" class="mt-2 text-xs text-fg-muted">
+          Writing a text for your words… about a minute. You can keep reading meanwhile.
+        </p>
+        <p v-else-if="seriesHere.last_error" class="mt-2 text-xs text-red-700 dark:text-red-300">
+          {{ seriesHere.last_error }}
+        </p>
+        <div class="mt-2 flex flex-wrap items-center gap-3 text-xs text-fg-muted">
+          <label>
+            Level
+            <select
+              :value="seriesHere.level"
+              class="ml-1 rounded border border-border-subtle bg-bg px-1 py-0.5"
+              @change="changeSeries({ level: Number(($event.target as HTMLSelectElement).value) })"
+            >
+              <option v-for="l in 7" :key="l" :value="l">HSK {{ l === 7 ? "7–9" : l }}</option>
+            </select>
+          </label>
+          <label>
+            New words per text
+            <select
+              :value="seriesHere.new_words"
+              class="ml-1 rounded border border-border-subtle bg-bg px-1 py-0.5"
+              @change="changeSeries({ new_words: Number(($event.target as HTMLSelectElement).value) })"
+            >
+              <option v-for="n in [5, 10, 15, 20, 30, 40, 50]" :key="n" :value="n">{{ n }}</option>
+            </select>
+          </label>
+          <span v-if="seriesHere.new_words >= 20">Tip: pre-learn the missing words before reading.</span>
+        </div>
       </div>
 
       <!-- States -->
@@ -679,6 +818,12 @@ async function confirmDelete(text: SavedTextSummary) {
       </template>
     </template>
 
+    <SeriesCreateModal
+      :open="seriesModal"
+      :busy="seriesBusy"
+      @close="seriesModal = false"
+      @create="createSeries"
+    />
     <FolderNameModal
       :open="nameModal !== null"
       :title="nameModal?.mode === 'rename' ? 'Rename folder' : 'New folder'"

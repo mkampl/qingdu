@@ -41,6 +41,7 @@ from app.routers import (
     placement,
     readability,
     review,
+    series,
     spa,
     stats,
     texts,
@@ -158,6 +159,7 @@ app.include_router(vocab.router)
 app.include_router(folders.router)
 app.include_router(grammar.router)
 app.include_router(placement.router)
+app.include_router(series.router)
 app.include_router(texts.router)
 app.include_router(auth.router)
 app.include_router(invitations.router)
