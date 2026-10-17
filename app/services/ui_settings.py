@@ -16,7 +16,14 @@ _CHOICES: dict[str, set] = {
     "hskVersion": {"new", "old"},
     "colorMode": {"progress", "hsk", "off"},
 }
-_BOOLS = {"showLegend", "writingShowOutline", "autoLearnOnClick", "reviewSingleMode"}
+_BOOLS = {
+    "showLegend",
+    "writingShowOutline",
+    "autoLearnOnClick",
+    "reviewSingleMode",
+    # The welcome / placement flow has been seen (shown once per account).
+    "onboarded",
+}
 _INTS = {"autoGradeDelayMs": (0, 10_000)}
 KEYS = frozenset(_CHOICES) | _BOOLS | frozenset(_INTS)
 

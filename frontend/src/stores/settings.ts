@@ -47,6 +47,8 @@ interface Persisted {
   // How long the suggested grade waits before firing after a writing
   // quiz (ms). 0 turns auto-grading off; the user then always picks.
   autoGradeDelayMs: AutoGradeDelay;
+  // The welcome / placement flow has been seen (kept on the account).
+  onboarded: boolean;
 }
 
 function loadFromStorage(): Persisted {
@@ -85,6 +87,7 @@ function defaults(): Persisted {
     autoLearnOnClick: false,
     reviewSingleMode: false,
     autoGradeDelayMs: DEFAULT_AUTO_GRADE_DELAY,
+    onboarded: false,
   };
 }
 
@@ -99,6 +102,7 @@ export const SYNCED_KEYS = [
   "autoLearnOnClick",
   "reviewSingleMode",
   "autoGradeDelayMs",
+  "onboarded",
 ] as const;
 export type SyncedSettings = Pick<Persisted, (typeof SYNCED_KEYS)[number]>;
 
@@ -118,6 +122,7 @@ export const useSettingsStore = defineStore("settings", () => {
   const autoLearnOnClick = ref(false);
   const reviewSingleMode = ref(false);
   const autoGradeDelayMs = ref<AutoGradeDelay>(DEFAULT_AUTO_GRADE_DELAY);
+  const onboarded = ref(false);
   let hydrated = false;
 
   function applyTheme(value: Theme) {
@@ -140,6 +145,7 @@ export const useSettingsStore = defineStore("settings", () => {
     autoLearnOnClick.value = persisted.autoLearnOnClick;
     reviewSingleMode.value = persisted.reviewSingleMode;
     autoGradeDelayMs.value = persisted.autoGradeDelayMs;
+    onboarded.value = !!persisted.onboarded;
     applyTheme(theme.value);
     hydrated = true;
   }
@@ -159,6 +165,7 @@ export const useSettingsStore = defineStore("settings", () => {
       autoLearnOnClick: autoLearnOnClick.value,
       reviewSingleMode: reviewSingleMode.value,
       autoGradeDelayMs: autoGradeDelayMs.value,
+      onboarded: onboarded.value,
     };
     storageSet(STORAGE_KEY, JSON.stringify(payload));
   }
@@ -166,7 +173,7 @@ export const useSettingsStore = defineStore("settings", () => {
   watch(
     [theme, pinyinMode, hskVersion, showLegend, colorMode, writingShowOutline,
      reminderEnabled, reminderTime, hapticsEnabled, autoLearnOnClick,
-     reviewSingleMode, autoGradeDelayMs],
+     reviewSingleMode, autoGradeDelayMs, onboarded],
     () => {
       if (hydrated) persist();
     },
@@ -185,6 +192,7 @@ export const useSettingsStore = defineStore("settings", () => {
       autoLearnOnClick: autoLearnOnClick.value,
       reviewSingleMode: reviewSingleMode.value,
       autoGradeDelayMs: autoGradeDelayMs.value,
+      onboarded: onboarded.value,
     };
   }
 
@@ -202,6 +210,7 @@ export const useSettingsStore = defineStore("settings", () => {
     if (remote.autoGradeDelayMs !== undefined) {
       autoGradeDelayMs.value = normalizeAutoGradeDelay(remote.autoGradeDelayMs);
     }
+    if (remote.onboarded !== undefined) onboarded.value = remote.onboarded;
   }
 
   function toggleTheme() {
@@ -221,6 +230,7 @@ export const useSettingsStore = defineStore("settings", () => {
     autoLearnOnClick,
     reviewSingleMode,
     autoGradeDelayMs,
+    onboarded,
     hydrate,
     toggleTheme,
     syncedSnapshot,

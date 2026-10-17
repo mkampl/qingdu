@@ -412,6 +412,28 @@ export const saveGrammarPractice = (id: string, correct: number, total: number) 
     body: { correct, total },
   });
 
+// --- Placement test -------------------------------------------------------------
+
+export interface PlacementItem {
+  word: string;
+  pinyin: string;
+  level: number;
+  choices: string[];
+  answer: number;
+}
+
+export const getPlacementItems = (level: number, n: number, exclude: string[]) =>
+  request<{ items: PlacementItem[] }>(
+    `/api/placement/items?level=${level}&n=${n}&exclude=${encodeURIComponent(exclude.join(","))}`,
+  );
+
+/** Mark the words of the passed levels as known (0 = beginner, 7 = HSK 7-9). */
+export const finishPlacement = (level: number) =>
+  request<{ inserted: number; skipped: number; total_eligible: number }>(
+    "/api/placement/finish",
+    { body: { level } },
+  );
+
 /** What a server offers beyond the basics (GET /api/capabilities). */
 export interface Capabilities {
   llm: {

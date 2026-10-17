@@ -2,6 +2,10 @@
 
 A reading-and-study tool for Chinese learners, organised around the HSK vocabulary list and a built-in spaced-repetition loop.
 
+## Getting started
+
+- **Welcome and placement test** — a new account starts with a three-minute word test: the meaning of six words per level, moving up a level after a good round and stopping after a poor one. The words of the levels you passed can be marked as known in one step; you choose how many new words a day, and get texts that fit your level. Settings can open the test again.
+
 ## Reading
 
 - **HSK-coloured analysis** — paste or import any Chinese text and every word is coloured by its HSK level. Mode can be set to colour by HSK level, by your personal progress (new / learning / known), or off.

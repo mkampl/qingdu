@@ -131,6 +131,17 @@ watch(mobileNavOpen, (open) => {
   }
 });
 
+// A new account (no words yet, welcome not seen) starts with the welcome
+// and placement test instead of an empty reader.
+watch(
+  () => [auth.isAuthed, userWords.hydrated, userWords.total, settings.onboarded] as const,
+  ([authed, hydrated, total, onboarded]) => {
+    if (authed && hydrated && total === 0 && !onboarded && route.path === "/") {
+      void router.replace("/welcome");
+    }
+  },
+);
+
 onMounted(async () => {
   settings.hydrate();
   void useCapabilitiesStore().load();
