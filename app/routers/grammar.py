@@ -9,10 +9,14 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import User, get_db
-from app.services import grammar_book
+from app.services import grammar_ai, grammar_book, grammar_catalog, llm
 from app.services.streak import record_activity
 
 router = APIRouter(tags=["Grammar"])
+
+
+class ExplainRequest(BaseModel):
+    sentence: str = Field(..., min_length=1, max_length=300)
 
 
 class PracticeResult(BaseModel):
@@ -63,3 +67,33 @@ def grammar_practice_done(
     return grammar_book.record(
         db, user.id, pattern_id, min(result.correct, result.total), result.total
     )
+
+
+@router.post("/api/grammar/explain")
+async def explain_sentence(
+    body: ExplainRequest, user: User = Depends(require_auth), db: Session = Depends(get_db)
+) -> dict:
+    """The grammar of one sentence, from the LLM (catalog points it uses,
+    how it is built, a word-by-word gloss)."""
+    llm.require(grammar_ai.EXPLAIN)
+    llm.charge(db, user.id)
+    try:
+        return await grammar_ai.explain(body.sentence)
+    except llm.LlmError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+@router.post("/api/grammar/{pattern_id}/text")
+async def grammar_practice_text(
+    pattern_id: str, user: User = Depends(require_auth), db: Session = Depends(get_db)
+) -> dict:
+    """A short reading text that uses the point several times, written for
+    the user's words by the LLM and checked."""
+    llm.require(grammar_ai.PRACTICE)
+    if grammar_catalog.get(pattern_id) is None:
+        raise HTTPException(status_code=404, detail="Unknown grammar point")
+    llm.charge(db, user.id)
+    try:
+        return await grammar_ai.practice_text(db, user.id, pattern_id)
+    except llm.LlmError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e

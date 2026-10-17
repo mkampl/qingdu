@@ -87,11 +87,18 @@ def level_rank(level: str) -> int:
     return LEVELS.index(level) if level in LEVELS else len(LEVELS)
 
 
-def candidates(sentence: str, limit: int = 24) -> list[dict]:
+# Kinds of points offered first: sentence patterns say more about a
+# sentence than the word-class lists (pronouns, adverbs …) that match
+# almost every sentence.
+_PATTERN_GROUPS = ("句子的类型", "固定格式", "口语格式", "动作的态", "强调的方法", "特殊表达法")
+
+
+def candidates(sentence: str, limit: int = 32) -> list[dict]:
     """Points whose words occur in the sentence: what the LLM may choose
-    from. Points without words (sentence structures) are never candidates."""
+    from, sentence patterns first, then by level. Points without words
+    (sentence structures) are never candidates."""
     out = [e for e in entries() if any(m in sentence for m in e.get("markers") or [])]
-    out.sort(key=lambda e: (level_rank(e["level"]), e["no"]))
+    out.sort(key=lambda e: (e["group"] not in _PATTERN_GROUPS, level_rank(e["level"]), e["no"]))
     return out[:limit]
 
 
