@@ -114,7 +114,7 @@ export const useReaderStore = defineStore("reader", () => {
     }
     sentenceTranslations.value.set(text, { status: "loading" });
     try {
-      const data = await api.translate(text);
+      const data = await api.translate(text, undefined, useAnalysisStore().glossaryListIds);
       sentenceTranslations.value.set(text, { status: "ok", data });
     } catch (e) {
       sentenceTranslations.value.set(text, {

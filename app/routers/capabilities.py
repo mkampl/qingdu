@@ -23,6 +23,8 @@ def get_capabilities() -> dict:
         for name, var in (("deepl", "DEEPL_API_KEY"), ("google", "GOOGLE_TRANSLATE_API_KEY"))
         if os.getenv(var)
     ] + ["mymemory"]
+    if llm.enabled("translate"):
+        translation.insert(0, "llm")
     return {"llm": llm.capabilities(), "translation": translation}
 
 

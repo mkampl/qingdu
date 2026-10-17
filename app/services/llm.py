@@ -51,6 +51,8 @@ FEATURES: tuple[str, ...] = (
     "series",
     "quiz",
     "word_sense",
+    "translate",
+    "ocr",
 )
 PROBE_INTERVAL_S = 300
 _THINK_RE = re.compile(r"<think>.*?</think>", re.S)

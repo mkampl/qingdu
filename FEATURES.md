@@ -11,7 +11,7 @@ A reading-and-study tool for Chinese learners, organised around the HSK vocabula
 - **HSK-coloured analysis** — paste or import any Chinese text and every word is coloured by its HSK level. Mode can be set to colour by HSK level, by your personal progress (new / learning / known), or off.
 - **Pinyin overlay** — three modes: auto (only above your estimated reading level), always-on, off.
 - **Word definitions** — click any word for pinyin, primary meaning, full sense list, HSK level, and the radical breakdown. CC-CEDICT is the primary dictionary; HSK-only words fall back to the HSK list.
-- **Sentence translation** — click any sentence for an English gloss, with provider attribution (DeepL → Google → MyMemory fallback chain).
+- **Sentence translation** — click any sentence for an English translation, with provider attribution. On a server with an LLM that comes first: close to the Chinese, and it keeps the terms of the text's glossary lists (a school's 守窍 "guarding an aperture"); then DeepL → Google → MyMemory.
 - **Audio narration** — per-word TTS or a continuous play-bar across the whole passage with speed control.
 - **Grammar patterns** — common HSK 1–4 patterns (是…的, 把, 被, 越…越…, 一边…一边…, etc.) are detected and underlined; click for a popover explanation.
 - **Grammar section** — all 573 points of the HSK 3.0 grammar syllabus, by level and kind, each with an English title, explanation, structure and examples. For every point: how often you met it in texts you read to the end, your own sentences that show it (then sentences from your other texts and the library), and practice: fill the gap and put the pieces in order. A good round moves the next practice further out; practice counts for the streak. With an LLM configured, the server finds the points in your sentences in the background (it only confirms points whose words occur, and checks every match); without one, 30 common patterns are found by rule.
@@ -26,6 +26,7 @@ A reading-and-study tool for Chinese learners, organised around the HSK vocabula
 - **From URL** — server-side article extraction strips ads and chrome.
 - **EPUB / PDF** — chunked by chapter; scanned PDFs are flagged.
 - **Subtitles** — .srt, .vtt and .ass files of a series or film come in as one line per subtitle; only the Chinese lines are kept (bilingual subtitles lose their English half) and repeats are dropped. Saved into a folder, the episodes read in order.
+- **Photos** — the import's *Scan* tab takes a picture (or the camera on a phone). On a server with an LLM that reads images the server reads the Chinese, simplified or traditional, also vertical text, in a few seconds; otherwise tesseract.js reads simplified Chinese in the browser.
 - **Scan tab** — browser-side OCR via tesseract.js (chi_sim) for photos or screenshots.
 - **Pre-analysed packages** — drop-in JSON produced upstream (e.g. by an LLM) to skip segmentation entirely. A bundled Dao De Jing chapter ships as the reference sample.
 
