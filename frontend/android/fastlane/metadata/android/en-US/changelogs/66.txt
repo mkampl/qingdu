@@ -1,0 +1,7 @@
+- Grammar section: all 573 HSK 3.0 grammar points by level, which ones
+  you met in texts you finished, your own sentences that show them, and
+  practice (fill the gap, put the pieces in order) with a schedule
+- On servers with AI help: "Explain grammar" under a sentence (with
+  pinyin), and practice texts at your level for a grammar point
+- Reading and review settings follow your account to every device
+- Settings show what the server you use offers
