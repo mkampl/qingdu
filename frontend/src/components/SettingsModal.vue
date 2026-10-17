@@ -13,6 +13,7 @@ import {
   type PinyinMode,
 } from "@/stores/settings";
 import { isNative } from "@/services/native";
+import { useCapabilitiesStore } from "@/stores/capabilities";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 import { formatUtcDate } from "@/utils/time";
@@ -25,6 +26,7 @@ const modals = useAppModalsStore();
 const settings = useSettingsStore();
 const auth = useAuthStore();
 const toasts = useToastStore();
+const capabilities = useCapabilitiesStore();
 const userWords = useUserWordsStore();
 
 // Use computed setters so the radios/select bind directly to the store.
@@ -1152,6 +1154,19 @@ function resetApiBase() {
           <svg class="size-3 text-fg-subtle transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </summary>
         <div class="mt-4 space-y-7 pl-1">
+      <!-- What the server this app talks to offers (GET /api/capabilities). -->
+      <p v-if="capabilities.caps" class="text-xs text-fg-muted">
+        <span class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">This server</span>
+        ·
+        <template v-if="capabilities.llm?.available">
+          AI help available ({{ capabilities.llm.model }})
+        </template>
+        <template v-else-if="capabilities.llm?.configured">
+          AI help configured but not reachable right now
+        </template>
+        <template v-else>No AI help configured</template>
+        · translation via {{ capabilities.caps.translation.join(", ") }}
+      </p>
       <!-- Phase G4 — data export. Each button opens the download as a
            plain link with a short-lived ticket (api.openDownload), so the
            browser handles the file natively and no session token lands in

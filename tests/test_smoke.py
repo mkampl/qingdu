@@ -47,8 +47,10 @@ def test_route_count(app_module):
     +1 = 111/116 for GET /api/review/tones (tone practice).
     +1 = 112/117 for GET /api/vocab/details/{word} (measure words and
     character components).
+    +2 = 114/119 for GET /api/capabilities (what the server offers, e.g.
+    an LLM) and POST /api/admin/llm/probe.
     """
-    assert len(app_module.routes) in (112, 117)
+    assert len(app_module.routes) in (114, 119)
 
 
 def test_router_tags_present(app_module):

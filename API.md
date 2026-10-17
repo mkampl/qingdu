@@ -37,6 +37,7 @@ Anonymous callers can still hit `GET /api/vocabulary-stats`, `GET /health`, `POS
 | Stats | `/api/stats/weekly`, `/api/review/stats` | Activity sparkline + review queue counters |
 | Admin | `/api/admin/users/*` | User management, invite quotas (admin only) |
 | Invitations | `/api/invitations/*` | Mint + claim signup invitations |
+| Capabilities | `/api/capabilities` | What the server offers beyond the basics (an LLM: available, model, features; translation providers) |
 | Health | `/health` | Liveness probe — also reports `vocab_count` + `cedict_count` |
 
 ## Rate limits
