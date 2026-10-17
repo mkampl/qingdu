@@ -1,0 +1,6 @@
+1.1.0 — AI help, on servers that offer it:
+- Grammar section with the HSK 3.0 syllabus, your own sentences, explanations and practice texts
+- Topic series: texts written for your words, each building on the last
+- Questions on any text; the meaning of a word in its sentence
+- Photo import from the camera; sentence translations that keep a text's glossary
+Also: placement test, text folders, tone practice, settings on your account
