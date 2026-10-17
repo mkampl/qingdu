@@ -31,6 +31,7 @@ A reading-and-study tool for Chinese learners, organised around the HSK vocabula
 
 ## Saved texts
 
+- **Questions on any text** (servers with an LLM) — *Questions* in the reader has the LLM write five multiple-choice questions in English on what a saved text says, like the library quizzes. They are graded on the server; all right and the text counts as read (streak, grammar). An edited text gets new ones.
 - **Topic series** (servers with an LLM) — pick a topic, a level, how many new words each text should bring (5–50, default 10) and a length; a folder fills with texts written one after another for your words. Each text continues the ones before, uses the last text's new words again and brings new ones, each at least twice; every sentence comes with its translation. The server counts what is really new for you and writes a text again when it is far off. With many new words, pre-learn them before reading.
 
 - **Folders** — keep saved texts in nested folders (a book, a course, a teacher). Texts without a folder stay at the top level; move a text or a folder anywhere, and deleting a folder keeps its texts. Each folder says how many of its texts are readable. Search looks through every folder.
@@ -46,6 +47,7 @@ A reading-and-study tool for Chinese learners, organised around the HSK vocabula
 
 - **Per-user word states** — each word is `new` / `learning` / `known` / `ignored`, tracked across all texts. Set from the word popover; Settings can make a click in the reader promote a new word to `learning` automatically (off by default).
 - **Bulk shortcuts** — mark whole pages or whole HSK levels at once (the "I already know HSK 1–N" onboarding shortcut).
+- **Meaning in this sentence** (servers with an LLM) — for a word with several senses or readings, the popover can ask which one the sentence uses (行 háng "line of business" in 这一行, xíng "OK" in 行不行). Meanings from your lists count as senses, so a school glossary's 自然 "so-of-itself" wins in 道法自然 but not in 他说话很自然.
 - **Personal glossaries** — any vocabulary list can be flagged as a glossary; its entries override CC-CEDICT/HSK lookups during analysis. Useful for specialised corpora (classical Chinese, technical jargon).
 - **Learn a list** — *Learn this list* takes a vocabulary list into review; meanings you gave its words are kept next to the dictionary's, tagged with the list name. *Review this list* runs a session on just its words.
 - **Public sharing** — mint a share token for any saved text; the public URL is read-only.

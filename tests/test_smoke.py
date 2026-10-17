@@ -58,7 +58,7 @@ def test_route_count(app_module):
     +5 = 127/132 for topic series: GET + POST /api/series, GET + PATCH
     /api/series/{id}, POST /api/series/{id}/next.
     """
-    assert len(app_module.routes) in (127, 132)
+    assert len(app_module.routes) in (131, 136)
 
 
 def test_router_tags_present(app_module):

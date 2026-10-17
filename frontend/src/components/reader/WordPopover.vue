@@ -6,6 +6,7 @@ import { ApiError } from "@/api/client";
 import type { UserWordState, WordContext, WordSnapshot } from "@/api/client";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useAuthStore } from "@/stores/auth";
+import { useCapabilitiesStore } from "@/stores/capabilities";
 import { useReaderStore } from "@/stores/reader";
 import { useSettingsStore } from "@/stores/settings";
 import { useToastStore } from "@/stores/toast";
@@ -29,6 +30,7 @@ const auth = useAuthStore();
 const userWords = useUserWordsStore();
 const vocabLists = useVocabListsStore();
 const toasts = useToastStore();
+const capabilities = useCapabilitiesStore();
 
 const word = computed(() => reader.selectedWord);
 const anchor = computed(() => reader.selectedAnchor);
@@ -266,6 +268,50 @@ function translateSentenceFromWord() {
 // split, or leftovers) carry their dictionary parts instead of a meaning.
 // They can't be saved as words; the learner saves the parts instead.
 const wordParts = computed(() => word.value?.parts ?? []);
+
+// What the word means in the sentence it was clicked in (LLM, on request).
+const sense = ref<api.WordSense | null>(null);
+const senseLoading = ref(false);
+const senseError = ref<string | null>(null);
+const canAskSense = computed(
+  () =>
+    capabilities.llmFeature("word_sense") &&
+    auth.isAuthed &&
+    !!word.value?.text &&
+    !wordParts.value.length &&
+    !!reader.selectedSentenceText?.includes(word.value.text) &&
+    // Only where there is something to choose: several senses or readings,
+    // or a meaning from the user's lists next to the dictionary's.
+    ((word.value.meanings?.length ?? 0) > 1 ||
+      (word.value.readings?.length ?? 0) > 1 ||
+      !!word.value.glossary_source ||
+      (word.value.user_glosses ?? []).some((g) => g.source !== "dictionary")),
+);
+watch(
+  () => [word.value?.text, reader.selectedSentenceText],
+  () => {
+    sense.value = null;
+    senseError.value = null;
+  },
+);
+
+async function askSense() {
+  const w = word.value;
+  const sentence = reader.selectedSentenceText;
+  if (!w || !sentence || senseLoading.value) return;
+  // Meanings the user's lists or a glossary give the word.
+  const glosses = (w.user_glosses ?? []).filter((g) => g.source !== "dictionary").map((g) => g.meaning);
+  if (w.glossary_source && w.meaning) glosses.push(w.meaning);
+  senseLoading.value = true;
+  senseError.value = null;
+  try {
+    sense.value = await api.getWordSense(w.text, sentence, [...new Set(glosses)].slice(0, 5));
+  } catch (e) {
+    senseError.value = e instanceof ApiError ? e.message : "Couldn't ask.";
+  } finally {
+    senseLoading.value = false;
+  }
+}
 
 async function learnPart(part: string) {
   if (userWords.stateOf(part)) return;
@@ -534,6 +580,30 @@ async function setWordState(state: UserWordState) {
             :readings="word.readings"
             list-class="mt-1 list-inside space-y-0.5 text-xs text-fg-muted"
           />
+
+          <!-- The meaning in this sentence (LLM). -->
+          <div v-if="canAskSense" class="mt-3">
+            <div
+              v-if="sense"
+              class="rounded-md border border-accent/40 bg-accent/5 px-3 py-2"
+            >
+              <p class="font-mono text-[10px] uppercase tracking-wider text-accent">
+                In this sentence<template v-if="sense.pinyin"> · {{ sense.pinyin }}</template>
+              </p>
+              <p class="mt-0.5 font-display text-[14px] leading-snug text-fg">{{ sense.meaning }}</p>
+              <p v-if="sense.note" class="mt-1 text-xs text-fg-muted">{{ sense.note }}</p>
+            </div>
+            <button
+              v-else
+              type="button"
+              class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle hover:text-accent disabled:opacity-60"
+              :disabled="senseLoading"
+              @click="askSense"
+            >
+              {{ senseLoading ? "Looking…" : "Meaning in this sentence" }}
+            </button>
+            <p v-if="senseError" class="mt-1 text-xs text-red-700 dark:text-red-300">{{ senseError }}</p>
+          </div>
 
           <!-- Parts of a token that is not a dictionary word. It has no
                meaning or state of its own; each part can be saved. -->
