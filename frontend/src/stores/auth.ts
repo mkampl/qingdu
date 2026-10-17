@@ -1,11 +1,11 @@
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 
 import * as api from "@/api/client";
 import { ApiError } from "@/api/client";
 import type { User } from "@/api/types";
 import { useReviewStore } from "@/stores/review";
-import { useSettingsStore } from "@/stores/settings";
+import { useSettingsStore, type SyncedSettings } from "@/stores/settings";
 import { resetUserScopedStores } from "@/stores/user-scope";
 import { useUserWordsStore } from "@/stores/userWords";
 import { browserTimeZone } from "@/utils/timezone";
@@ -95,9 +95,52 @@ export const useAuthStore = defineStore("auth", () => {
       useUserWordsStore().hydrate();
       useReviewStore().refreshStats();
       void syncTimezone();
-      void syncHskVersion();
+      void syncUiSettings().then(syncHskVersion);
     }
   }
+
+  // --- Preferences on the account ------------------------------------------
+  // The account's copy wins when the user signs in; the first device to
+  // sign in after the update sends its own. After that every change is
+  // sent (debounced), so the other devices get it on their next start.
+  let applyingRemote = false;
+  let sendTimer: ReturnType<typeof setTimeout> | null = null;
+
+  async function syncUiSettings() {
+    const settings = useSettingsStore();
+    const remote = user.value?.ui_settings;
+    if (remote === undefined) return; // older server
+    if (remote && Object.keys(remote).length) {
+      applyingRemote = true;
+      settings.applySynced(remote as Partial<SyncedSettings>);
+      // Let the watcher see the applied values before re-arming it.
+      await Promise.resolve();
+      applyingRemote = false;
+    } else {
+      await sendUiSettings();
+    }
+  }
+
+  async function sendUiSettings() {
+    if (!user.value) return;
+    try {
+      const updated = await api.updateMySettings({
+        ui_settings: { ...useSettingsStore().syncedSnapshot() },
+      });
+      if (user.value) user.value = { ...user.value, ui_settings: updated.ui_settings ?? null };
+    } catch {
+      // Kept on the device; the next change or app start tries again.
+    }
+  }
+
+  watch(
+    () => JSON.stringify(useSettingsStore().syncedSnapshot()),
+    () => {
+      if (applyingRemote || !user.value) return;
+      if (sendTimer) clearTimeout(sendTimer);
+      sendTimer = setTimeout(() => void sendUiSettings(), 800);
+    },
+  );
 
   // The server counts "today" in the zone stored on the account. Until
   // one is stored (null), send this device's zone — once; after that the
@@ -137,6 +180,7 @@ export const useAuthStore = defineStore("auth", () => {
       if (me.authenticated && me.user.username === user.value?.username) {
         user.value = { ...user.value, ...me.user };
         await syncTimezone();
+        await syncUiSettings();
         await syncHskVersion();
       }
     } catch {

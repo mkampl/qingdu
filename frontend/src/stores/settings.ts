@@ -88,6 +88,20 @@ function defaults(): Persisted {
   };
 }
 
+/** Preferences kept on the account (users.ui_settings) so every device
+ *  shows the same; theme, reminder and haptics stay per device. */
+export const SYNCED_KEYS = [
+  "pinyinMode",
+  "hskVersion",
+  "colorMode",
+  "showLegend",
+  "writingShowOutline",
+  "autoLearnOnClick",
+  "reviewSingleMode",
+  "autoGradeDelayMs",
+] as const;
+export type SyncedSettings = Pick<Persisted, (typeof SYNCED_KEYS)[number]>;
+
 export const useSettingsStore = defineStore("settings", () => {
   const theme = ref<Theme>("light");
   const pinyinMode = ref<PinyinMode>("auto");
@@ -160,6 +174,36 @@ export const useSettingsStore = defineStore("settings", () => {
 
   watch(theme, applyTheme);
 
+  /** The account-wide preferences as they are now. */
+  function syncedSnapshot(): SyncedSettings {
+    return {
+      pinyinMode: pinyinMode.value,
+      hskVersion: hskVersion.value,
+      colorMode: colorMode.value,
+      showLegend: showLegend.value,
+      writingShowOutline: writingShowOutline.value,
+      autoLearnOnClick: autoLearnOnClick.value,
+      reviewSingleMode: reviewSingleMode.value,
+      autoGradeDelayMs: autoGradeDelayMs.value,
+    };
+  }
+
+  /** Take the account's preferences (the server checked every value). */
+  function applySynced(remote: Partial<SyncedSettings>) {
+    if (remote.pinyinMode !== undefined) pinyinMode.value = remote.pinyinMode;
+    if (remote.hskVersion !== undefined) hskVersion.value = remote.hskVersion;
+    if (remote.colorMode !== undefined) colorMode.value = remote.colorMode;
+    if (remote.showLegend !== undefined) showLegend.value = remote.showLegend;
+    if (remote.writingShowOutline !== undefined) {
+      writingShowOutline.value = remote.writingShowOutline;
+    }
+    if (remote.autoLearnOnClick !== undefined) autoLearnOnClick.value = remote.autoLearnOnClick;
+    if (remote.reviewSingleMode !== undefined) reviewSingleMode.value = remote.reviewSingleMode;
+    if (remote.autoGradeDelayMs !== undefined) {
+      autoGradeDelayMs.value = normalizeAutoGradeDelay(remote.autoGradeDelayMs);
+    }
+  }
+
   function toggleTheme() {
     theme.value = theme.value === "dark" ? "light" : "dark";
   }
@@ -179,5 +223,7 @@ export const useSettingsStore = defineStore("settings", () => {
     autoGradeDelayMs,
     hydrate,
     toggleTheme,
+    syncedSnapshot,
+    applySynced,
   };
 });

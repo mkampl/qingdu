@@ -534,8 +534,13 @@ function resetApiBase() {
         </h2>
         <span
           class="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-subtle"
+          :title="
+            auth.isAuthed
+              ? 'Reading and review settings follow your account to every device; theme, reminders and vibration stay on this device.'
+              : undefined
+          "
         >
-          Saved on this device
+          {{ auth.isAuthed ? "Saved to your account" : "Saved on this device" }}
         </span>
       </div>
     </template>
