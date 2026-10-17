@@ -165,6 +165,19 @@ class GrammarProgress(Base):
     total = Column(Integer, nullable=False, default=0)
 
 
+class GrammarSentenceTag(Base):
+    """Grammar points the LLM found in one sentence (services/grammar_tagging),
+    shared by everyone who reads it; re-done when the catalog changes."""
+
+    __tablename__ = "grammar_sentence_tags"
+
+    sentence_hash = Column(String(40), primary_key=True)
+    catalog_version = Column(Integer, nullable=False, default=0)
+    tags = Column(Text, nullable=False, default="[]")
+    model = Column(String(120), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class LlmUsage(Base):
     """LLM requests a user made on one day (services/llm daily limit)."""
 
