@@ -387,6 +387,24 @@ export const getGrammarPractice = (id: string) =>
     `/api/grammar/${encodeURIComponent(id)}/practice`,
   );
 
+/** The grammar of one sentence, from the server's LLM. */
+export interface SentenceGrammar {
+  sentence: string;
+  points: { id: string; span: string; title: string; level: string }[];
+  breakdown: string;
+  literal: string;
+}
+
+export const explainSentence = (sentence: string) =>
+  request<SentenceGrammar>("/api/grammar/explain", { body: { sentence } });
+
+/** A short reading text that practises a point, written by the LLM. */
+export const getPracticeText = (id: string) =>
+  request<{ title: string; text: string; known_pct: number; point: GrammarPointSummary }>(
+    `/api/grammar/${encodeURIComponent(id)}/text`,
+    { method: "POST" },
+  );
+
 export const saveGrammarPractice = (id: string, correct: number, total: number) =>
   request<GrammarProgress>(`/api/grammar/${encodeURIComponent(id)}/practice`, {
     body: { correct, total },

@@ -31,7 +31,7 @@ Anonymous callers can still hit `GET /api/vocabulary-stats`, `GET /health`, `POS
 | Word details | `/api/vocab/details/{word}` | Measure words and character components (public) |
 | Words | `/api/words/*` | Per-user word states (new / learning / known / ignored), bulk operations, stats, exports |
 | Review | `/api/review/*` | FSRS queue + grading; recognition / dictation / writing / cloze modes; `text_key` / `list_id` focus a session on one text or list; `GET /api/review/tones` serves tone practice |
-| Grammar | `/api/grammar/*` | Patterns met in what the user read, their sentences, practice rounds and schedule |
+| Grammar | `/api/grammar/*` | Grammar points (HSK 3.0 catalog) met in what the user read, their sentences, practice rounds and schedule; with an LLM, `POST /api/grammar/explain` and `POST /api/grammar/{id}/text` |
 | Library | `/api/library/*` | Bundled graded texts, level-matched picks, how readable each is, reading progress, quizzes |
 | Import | `/api/extract/file`, `/api/import/package/*` | EPUB / PDF / scan import; pre-analysed JSON package import |
 | Convert | `/api/convert`, `/api/convert/detect` | Trad ⇄ Simp conversion, script detection |
