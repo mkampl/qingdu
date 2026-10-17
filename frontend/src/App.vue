@@ -4,6 +4,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 
 import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
+import { useCapabilitiesStore } from "@/stores/capabilities";
 import { useLegalStore } from "@/stores/legal";
 import { useReviewStore } from "@/stores/review";
 import { useSettingsStore } from "@/stores/settings";
@@ -132,6 +133,7 @@ watch(mobileNavOpen, (open) => {
 
 onMounted(async () => {
   settings.hydrate();
+  void useCapabilitiesStore().load();
   legal.load();
   await auth.hydrate();
   // Native hooks — all are no-ops on web.

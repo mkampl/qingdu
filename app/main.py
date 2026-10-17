@@ -25,6 +25,7 @@ from app.routers import (
     analyze,
     anki,
     auth,
+    capabilities,
     convert,
     export,
     external,
@@ -146,6 +147,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 # Routers — order matters: specific API routes first, SPA fallback last.
 app.include_router(health.router)
+app.include_router(capabilities.router)
 app.include_router(legal.router)
 app.include_router(analyze.router)
 app.include_router(translate.router)
@@ -357,6 +359,22 @@ async def startup_event() -> None:
         app.state.lifecycle_task = task
         logger.info("Lifecycle scheduler started (interval=%ds)", LIFECYCLE_INTERVAL_S)
 
+        # Optional LLM: check the endpoint now and every few minutes, so
+        # features appear when it comes up and vanish when it goes away.
+        from app.services import llm
+
+        if llm.config() is not None:
+
+            async def _llm_probe_loop() -> None:
+                while True:
+                    try:
+                        await llm.probe()
+                    except Exception:
+                        logger.exception("LLM probe failed")
+                    await asyncio.sleep(llm.PROBE_INTERVAL_S)
+
+            app.state.llm_probe_task = asyncio.create_task(_llm_probe_loop())
+
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
@@ -367,12 +385,13 @@ async def shutdown_event() -> None:
     import asyncio
     import contextlib
 
-    task = getattr(app.state, "lifecycle_task", None)
-    if task is None or task.done():
-        return
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError, Exception):
-        await task
+    for name in ("lifecycle_task", "llm_probe_task"):
+        task = getattr(app.state, name, None)
+        if task is None or task.done():
+            continue
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await task
 
 
 if __name__ == "__main__":
