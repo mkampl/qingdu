@@ -146,6 +146,18 @@ class SavedText(Base):
     user = relationship("User", back_populates="texts")
 
 
+class LlmUsage(Base):
+    """LLM requests a user made on one day (services/llm daily limit)."""
+
+    __tablename__ = "llm_usage"
+    __table_args__ = (UniqueConstraint("user_id", "day", name="uq_llm_usage_user_day"),)
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    day = Column(Date, nullable=False)
+    count = Column(Integer, nullable=False, default=0)
+
+
 class TextFolder(Base):
     """A folder of saved texts. Folders nest (`parent_id`, NULL = top
     level); a text lives in at most one folder."""

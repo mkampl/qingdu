@@ -306,6 +306,21 @@ export const browseHsk = (params: {
 export const tts = (text: string) =>
   fetch(apiUrl(`/api/tts/${encodeURIComponent(text)}`));
 
+/** What a server offers beyond the basics (GET /api/capabilities). */
+export interface Capabilities {
+  llm: {
+    configured: boolean;
+    available: boolean;
+    model: string | null;
+    features: string[];
+    daily_limit: number;
+  };
+  translation: string[];
+}
+
+export const getCapabilities = () =>
+  request<Capabilities>("/api/capabilities", { anonymous: true });
+
 /** A word's measure words and its characters' parts (GET /api/vocab/details). */
 export interface WordDetails {
   word: string;
