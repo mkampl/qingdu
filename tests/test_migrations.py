@@ -94,6 +94,7 @@ def test_init_db_adds_missing_columns_to_legacy_table(db_file):
         "timezone",
         "account_status",
         "token_version",
+        "ui_settings",
     } <= cols
     init_db()  # second boot: every column exists, nothing to do
 

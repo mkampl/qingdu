@@ -174,6 +174,9 @@ export interface User {
   /** IANA zone whose midnight starts the user's "today" on the server.
    *  null until the SPA has sent the device's zone. */
   timezone?: string | null;
+  /** Reader/review preferences kept on the account (stores/settings
+   *  SYNCED_KEYS); null until a device has sent its own. */
+  ui_settings?: Record<string, unknown> | null;
   /** Phase 2.7 — lifecycle. `dormant` accounts get the in-app banner
    *  prompting reactivation; `active` is the everyday case. */
   account_status?: "active" | "dormant";

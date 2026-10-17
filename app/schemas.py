@@ -127,6 +127,9 @@ class UserSettingsUpdate(BaseModel):
     review_window: str | None = None  # "now" | "today" | "tomorrow"
     review_focus: str | None = None  # "both" | "reading" | "writing"
     timezone: str | None = None  # IANA name, e.g. "Europe/Vienna"
+    # Reader/review preferences (services/ui_settings); merged key by key,
+    # unknown keys and invalid values are dropped.
+    ui_settings: dict | None = None
 
 
 # --- User word state (Phase A) ---

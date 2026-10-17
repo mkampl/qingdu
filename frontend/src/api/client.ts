@@ -375,6 +375,8 @@ export interface UserSettingsPayload {
   review_window?: "now" | "today" | "tomorrow";
   review_focus?: ReviewFocus;
   timezone?: string;
+  /** Reader/review preferences shared by every device; merged by key. */
+  ui_settings?: Record<string, unknown>;
 }
 
 /** What the mixed review trains between intro and produce. */
@@ -389,6 +391,7 @@ export const updateMySettings = (payload: UserSettingsPayload) =>
     review_window: string;
     review_focus?: string;
     timezone?: string | null;
+    ui_settings?: Record<string, unknown> | null;
   }>("/api/auth/me/settings", { method: "PATCH", body: payload });
 
 export const signupWithInvite = (

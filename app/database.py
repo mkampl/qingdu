@@ -81,6 +81,10 @@ class User(Base):
     # (services.localday). NULL until the SPA sends the browser's zone;
     # treated as UTC meanwhile.
     timezone = Column(String(64), nullable=True)
+    # Reader and review preferences the SPA keeps per account (JSON; see
+    # services/ui_settings), so every device shows the same. NULL until
+    # the first device sends its own.
+    ui_settings = Column(Text, nullable=True)
     # Phase 2.7 — account lifecycle. `active` is the default; the lifecycle
     # scheduler flips dormant accounts to `dormant` and (after the hard
     # threshold) hard-deletes them. Self-hosters can disable the whole
@@ -649,6 +653,9 @@ def init_db():
                 if "timezone" not in user_cols:
                     logger.info("Adding timezone column to users")
                     conn.execute(text("ALTER TABLE users ADD COLUMN timezone VARCHAR(64)"))
+                if "ui_settings" not in user_cols:
+                    logger.info("Adding ui_settings column to users")
+                    conn.execute(text("ALTER TABLE users ADD COLUMN ui_settings TEXT"))
                 # Phase 2.7 — account lifecycle status.
                 if "account_status" not in user_cols:
                     logger.info("Adding account_status column to users")
