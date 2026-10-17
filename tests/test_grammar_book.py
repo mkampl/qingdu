@@ -37,17 +37,20 @@ def test_met_counts_only_texts_read_to_the_end(words_client):
     _save(words_client, READ, 1.0, 1)
     _save(words_client, UNREAD, 0.3, 2)
     body = words_client.get("/api/grammar").json()
-    by_id = {p["id"]: p for p in body["patterns"]}
-    assert by_id["ba"]["met_texts"] == 1
-    assert by_id["bei"]["met_sentences"] == 1  # the unread text's 被 doesn't count
-    assert by_id["yue-yue"]["met_texts"] == 0
+    by_id = {p["id"]: p for p in body["points"]}
+    assert by_id["hsk30-184"]["met_texts"] == 1  # 把 sentence
+    assert by_id["hsk30-185"]["met_sentences"] == 1  # the unread text's 被 doesn't count
+    assert by_id["hsk30-172"]["met_texts"] == 0  # 越……越……
     assert body["read_texts"] == 1
+    assert body["analysing"] == 0  # no LLM in the tests
 
 
 def test_pattern_sentences_come_from_read_texts_first(words_client):
     _save(words_client, READ, 1.0, 1)
     _save(words_client, UNREAD, 0.3, 2)
+    # The reader's pattern id leads to its catalog point.
     detail = words_client.get("/api/grammar/bei").json()
+    assert detail["id"] == "hsk30-185"
     assert detail["sentences"]["read"][0]["sentence"] == "他被老师批评了。"
     assert detail["sentences"]["saved"][0]["sentence"] == "苹果被他吃了。"
     assert words_client.get("/api/grammar/nope").status_code == 404
@@ -56,7 +59,7 @@ def test_pattern_sentences_come_from_read_texts_first(words_client):
 def test_practice_builds_gap_and_order_items(words_client):
     _save(words_client, READ, 1.0, 1)
     s = words_client.session_factory()
-    body = grammar_book.practice(s, 1, "ba", random.Random(2))
+    body = grammar_book.practice(s, 1, "hsk30-184", random.Random(2))
     s.close()
     first = body["items"][0]
     assert first["type"] == "cloze"
@@ -69,12 +72,25 @@ def test_practice_builds_gap_and_order_items(words_client):
 def test_practice_rounds_move_the_due_date(words_client):
     now = datetime(2026, 10, 17, 12)
     s = words_client.session_factory()
-    p = grammar_book.record(s, 1, "ba", 4, 5, now)
+    p = grammar_book.record(s, 1, "hsk30-184", 4, 5, now)
     assert p["box"] == 1 and p["due_at"].startswith((now + timedelta(days=2)).date().isoformat())
-    p = grammar_book.record(s, 1, "ba", 5, 5, now)
+    p = grammar_book.record(s, 1, "ba", 5, 5, now)  # old pattern id: same point
     assert p["box"] == 2
-    p = grammar_book.record(s, 1, "ba", 1, 5, now)
+    p = grammar_book.record(s, 1, "hsk30-184", 1, 5, now)
     assert p["box"] == 1
     s.close()
     r = words_client.post("/api/grammar/ba/practice", json={"correct": 3, "total": 4})
     assert r.status_code == 200
+
+
+def test_the_llm_overrules_a_regex_hit_it_turned_down(words_client, monkeypatch):
+    from app.services import grammar_tagging
+
+    _save(words_client, "他把书放在桌子上了。", 1.0, 1)
+    sentence = "他把书放在桌子上了。"
+    monkeypatch.setattr(grammar_book, "_tags", {grammar_tagging.sentence_hash(sentence): []})
+    monkeypatch.setattr(grammar_book, "_tags_checked", 1e18)
+    s = words_client.session_factory()
+    ids = {h.point_id for h in grammar_book.all_hits(s, 1) if h.sentence == sentence}
+    s.close()
+    assert "hsk30-184" not in ids  # offered to the LLM, not confirmed

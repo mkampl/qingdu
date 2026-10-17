@@ -14,7 +14,7 @@ import { useOpenLibraryText } from "@/composables/use-open-library-text";
 import { useOpenSavedText } from "@/composables/use-open-saved-text";
 import { useUserWordsStore } from "@/stores/userWords";
 
-type Detail = Awaited<ReturnType<typeof api.getGrammarPattern>>;
+type Detail = Awaited<ReturnType<typeof api.getGrammarPoint>>;
 
 const route = useRoute();
 const openSaved = useOpenSavedText();
@@ -30,7 +30,7 @@ async function load() {
   detail.value = null;
   practice.value = null;
   try {
-    detail.value = await api.getGrammarPattern(id.value);
+    detail.value = await api.getGrammarPoint(id.value);
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Couldn't load this pattern.";
   }
@@ -158,13 +158,20 @@ watch(id, load, { immediate: true });
 
     <template v-else>
       <header class="mt-2 mb-6">
-        <p class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">HSK {{ detail.hsk_level }}</p>
-        <h1 class="text-cn-serif text-3xl text-fg">{{ detail.title }}</h1>
-        <p class="text-sm text-fg-muted">{{ detail.pinyin }}</p>
+        <p class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
+          HSK {{ detail.level }} · {{ detail.group }}
+        </p>
+        <h1 class="font-display text-2xl font-medium tracking-tight text-fg">{{ detail.title }}</h1>
+        <p class="text-cn-serif mt-1 text-lg text-fg">{{ detail.forms }}</p>
+        <p class="mt-2 font-mono text-xs text-fg-muted">{{ detail.structure }}</p>
         <p class="mt-3 text-sm leading-relaxed text-fg">{{ detail.explanation }}</p>
-        <div class="mt-3 rounded-md bg-bg-sunken/60 px-3 py-2">
-          <p class="text-cn-serif text-lg text-fg">{{ detail.example }}</p>
-          <p class="text-xs italic text-fg-muted">{{ detail.example_translation }}</p>
+        <div
+          v-for="x in detail.examples"
+          :key="x.zh"
+          class="mt-2 rounded-md bg-bg-sunken/60 px-3 py-2"
+        >
+          <p class="text-cn-serif text-lg text-fg">{{ x.zh }}</p>
+          <p class="text-xs italic text-fg-muted">{{ x.en }}</p>
         </div>
       </header>
 

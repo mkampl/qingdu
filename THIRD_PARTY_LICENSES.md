@@ -107,6 +107,11 @@ QingDu uses self-hosted Latin display fonts via `@fontsource-variable` and CJK f
 - **Description**: Per-character decomposition into components, short definitions and etymology hints; used for the "Characters & measure word" details.
 - **Bundled file**: `app/data/dict/makemeahanzi-dictionary.txt.gz` — upstream `dictionary.txt` at the commit recorded in `app/data/dict/VERSION.json`, gzip-compressed, unmodified. The licence notice and the LGPL/GPL texts ship next to it as `app/data/dict/LICENSE-makemeahanzi-dictionary.txt`. It is a separate data file under its own licence; QingDu's MIT licence does not apply to it, and it can be replaced with a modified version.
 
+### HSK 3.0 grammar syllabus list
+- **Source**: [ivankra/hsk30](https://github.com/ivankra/hsk30) (`hsk30-grammar.csv`, commit 4ff9e3915ce87baaecd7ebe263085573a4ea3192), derived from the grammar list of the official HSK 3.0 standard (GF 0025-2021)
+- **License**: MIT (see `app/data/grammar/LICENSE-hsk30-grammar.txt`)
+- **Bundled files**: `app/data/grammar/hsk30-grammar.csv` (unmodified) and `app/data/grammar/catalog.json`, which adds English titles, explanations, structures, example sentences and exercise words to each point, drafted with `tools/build_grammar_catalog.py` and checked by it.
+
 ### Learner glosses
 - **Bundled file**: `app/data/learner_glosses.json` — short learner headlines for HSK words, each tied to one CC-CEDICT reading. They are new short texts that paraphrase CC-CEDICT senses (and the HSK list's English), written with an automatic pass, checked against CC-CEDICT by a second independent pass and by `tools/check_learner_glosses.py`, and reviewed by hand where the passes disagreed plus a random sample. As an adaptation of CC-CEDICT the file is distributed under **CC BY-SA 4.0**, with the CC-CEDICT attribution above; QingDu's MIT licence does not apply to it.
 
