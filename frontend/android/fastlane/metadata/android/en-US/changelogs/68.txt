@@ -1,0 +1,4 @@
+- Questions on any saved text (servers with AI help): five questions on
+  what the text says; all right and the text counts as read
+- Meaning in this sentence: for words with several meanings, the word
+  card can say which one the sentence uses
