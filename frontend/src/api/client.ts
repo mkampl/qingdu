@@ -392,6 +392,8 @@ export interface SentenceGrammar {
   sentence: string;
   points: { id: string; span: string; title: string; level: string }[];
   breakdown: string;
+  /** The breakdown in pieces; Chinese words carry their pinyin. */
+  breakdown_parts?: { text: string; pinyin?: string }[];
   literal: string;
 }
 
