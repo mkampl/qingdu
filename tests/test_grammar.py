@@ -5,6 +5,7 @@ correct absolute word indexes across multi-sentence inputs.
 """
 
 import jieba
+import pytest
 
 from app.services.grammar import (
     PATTERNS,
@@ -12,12 +13,15 @@ from app.services.grammar import (
     detect_patterns,
     pattern_meta,
 )
+from app.services.segmentation import _group_sentences, segment_text
+
+# A private tokenizer: other tests add words to jieba's global one.
+_TOKENIZER = jieba.Tokenizer()
 
 
 def _sentence(text: str) -> Sentence:
-    """Build a Sentence from raw text, using the same jieba cut the
-    analyser pipeline uses."""
-    return Sentence(words=list(jieba.cut(text)), text=text)
+    """Build a Sentence from raw text, cut by jieba's default dictionary."""
+    return Sentence(words=_TOKENIZER.lcut(text), text=text)
 
 
 def _detect_one(text: str) -> set[str]:
@@ -92,3 +96,37 @@ def test_metas_returned_once_per_unique_pattern():
     assert len(yue_metas) == 1
     yue_matches = [m for m in matches if m.pattern_id == "yue-yue"]
     assert len(yue_matches) == 2
+
+
+# --- Markers that are also parts of ordinary words ------------------------------
+
+
+def _ids(text: str) -> list[str]:
+    matches, _ = detect_patterns(_group_sentences(segment_text(text)))
+    return [m.pattern_id for m in matches]
+
+
+@pytest.mark.parametrize(
+    ("text", "pattern", "expected"),
+    [
+        ("他跑得很快。", "de-resultative", True),
+        ("我觉得很好。", "de-resultative", False),
+        ("道亦得之。", "de-resultative", False),
+        ("但得一元神。", "de-resultative", False),
+        ("我把书放下了。", "ba", True),
+        ("一把椅子。", "ba", False),
+        ("我把握机会。", "ba", False),
+        ("他被打了。", "bei", True),
+        ("被子很暖和。", "bei", False),
+        ("他比我高。", "bi-comparison", True),
+        ("比较好。", "bi-comparison", False),
+        ("我去过北京。", "guo-experiential", True),
+        ("过去的事。", "guo-experiential", False),
+        ("他看着我。", "zhe-durative", True),
+        ("我很着急。", "zhe-durative", False),
+        ("他吃了饭。", "le-aspect", True),
+        ("我了解他。", "le-aspect", False),
+    ],
+)
+def test_marker_must_be_the_grammar_word(text, pattern, expected):
+    assert (pattern in _ids(text)) is expected

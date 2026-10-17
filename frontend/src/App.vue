@@ -294,6 +294,14 @@ if (isNative()) {
             </span>
           </RouterLink>
           <RouterLink
+            v-if="auth.isAuthed"
+            to="/grammar"
+            class="rounded-md px-3 py-1.5 text-sm text-fg-muted hover:text-fg hover:bg-bg-sunken"
+            active-class="text-fg bg-bg-sunken"
+          >
+            Grammar
+          </RouterLink>
+          <RouterLink
             to="/library"
             class="rounded-md px-3 py-1.5 text-sm text-fg-muted hover:text-fg hover:bg-bg-sunken"
             active-class="text-fg bg-bg-sunken"
@@ -639,6 +647,7 @@ if (isNative()) {
                         ? userWords.stats.learning : 0,
                       gated: true,
                     },
+                    { to: '/grammar', label: 'Grammar', badge: 0, gated: true },
                     { to: '/library', label: 'Library', badge: 0 },
                     { to: '/discover', label: 'Discover', badge: 0 },
                   ].filter((l) => !l.gated || auth.isAuthed)"

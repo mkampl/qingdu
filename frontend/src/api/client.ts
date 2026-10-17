@@ -306,6 +306,84 @@ export const browseHsk = (params: {
 export const tts = (text: string) =>
   fetch(apiUrl(`/api/tts/${encodeURIComponent(text)}`));
 
+// --- Grammar section -----------------------------------------------------------
+
+export interface GrammarPatternMeta {
+  id: string;
+  title: string;
+  pinyin: string;
+  hsk_level: number;
+  explanation: string;
+  example: string;
+  example_translation: string;
+}
+
+export interface GrammarProgress {
+  box: number;
+  due: boolean;
+  due_at: string | null;
+  last_at: string | null;
+  correct: number;
+  total: number;
+}
+
+export interface GrammarSentence {
+  sentence: string;
+  span: string;
+  translation: string | null;
+  source_key: string;
+  source_title: string;
+  read: boolean;
+}
+
+export type GrammarExercise =
+  | {
+      type: "cloze";
+      before: string;
+      after: string;
+      choices: string[];
+      answer: number;
+      sentence: string;
+      translation: string | null;
+      source_title: string;
+    }
+  | {
+      type: "order";
+      pieces: string[];
+      answer: string[];
+      sentence: string;
+      translation: string | null;
+      source_title: string;
+    };
+
+export const getGrammar = () =>
+  request<{
+    patterns: (GrammarPatternMeta & {
+      met_texts: number;
+      met_sentences: number;
+      progress: GrammarProgress | null;
+    })[];
+    read_texts: number;
+  }>("/api/grammar");
+
+export const getGrammarPattern = (id: string) =>
+  request<
+    GrammarPatternMeta & {
+      sentences: { read: GrammarSentence[]; saved: GrammarSentence[]; library: GrammarSentence[] };
+      progress: GrammarProgress | null;
+    }
+  >(`/api/grammar/${encodeURIComponent(id)}`);
+
+export const getGrammarPractice = (id: string) =>
+  request<{ pattern: GrammarPatternMeta; items: GrammarExercise[] }>(
+    `/api/grammar/${encodeURIComponent(id)}/practice`,
+  );
+
+export const saveGrammarPractice = (id: string, correct: number, total: number) =>
+  request<GrammarProgress>(`/api/grammar/${encodeURIComponent(id)}/practice`, {
+    body: { correct, total },
+  });
+
 /** What a server offers beyond the basics (GET /api/capabilities). */
 export interface Capabilities {
   llm: {
