@@ -53,8 +53,10 @@ def test_route_count(app_module):
     /api/grammar/{id}, GET + POST /api/grammar/{id}/practice.
     +2 = 120/125 for POST /api/grammar/explain and POST
     /api/grammar/{id}/text (LLM).
+    +2 = 122/127 for the placement test: GET /api/placement/items, POST
+    /api/placement/finish.
     """
-    assert len(app_module.routes) in (120, 125)
+    assert len(app_module.routes) in (122, 127)
 
 
 def test_router_tags_present(app_module):
