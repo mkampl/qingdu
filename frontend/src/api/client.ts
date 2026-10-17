@@ -308,16 +308,6 @@ export const tts = (text: string) =>
 
 // --- Grammar section -----------------------------------------------------------
 
-export interface GrammarPatternMeta {
-  id: string;
-  title: string;
-  pinyin: string;
-  hsk_level: number;
-  explanation: string;
-  example: string;
-  example_translation: string;
-}
-
 export interface GrammarProgress {
   box: number;
   due: boolean;
@@ -325,6 +315,16 @@ export interface GrammarProgress {
   last_at: string | null;
   correct: number;
   total: number;
+}
+
+/** A point of the grammar catalog (HSK 3.0 syllabus) as lists show it. */
+export interface GrammarPointSummary {
+  id: string;
+  level: string;
+  group: string;
+  forms: string;
+  title: string;
+  structure: string;
 }
 
 export interface GrammarSentence {
@@ -358,24 +358,32 @@ export type GrammarExercise =
 
 export const getGrammar = () =>
   request<{
-    patterns: (GrammarPatternMeta & {
+    points: (GrammarPointSummary & {
       met_texts: number;
       met_sentences: number;
       progress: GrammarProgress | null;
     })[];
     read_texts: number;
+    /** Sentences of the user's reading still waiting for the LLM. */
+    analysing: number;
+    llm: boolean;
   }>("/api/grammar");
 
-export const getGrammarPattern = (id: string) =>
+export const getGrammarPoint = (id: string) =>
   request<
-    GrammarPatternMeta & {
+    GrammarPointSummary & {
+      category: string;
+      details: string;
+      explanation: string;
+      markers: string[];
+      examples: { zh: string; en: string }[];
       sentences: { read: GrammarSentence[]; saved: GrammarSentence[]; library: GrammarSentence[] };
       progress: GrammarProgress | null;
     }
   >(`/api/grammar/${encodeURIComponent(id)}`);
 
 export const getGrammarPractice = (id: string) =>
-  request<{ pattern: GrammarPatternMeta; items: GrammarExercise[] }>(
+  request<{ point: GrammarPointSummary; items: GrammarExercise[] }>(
     `/api/grammar/${encodeURIComponent(id)}/practice`,
   );
 

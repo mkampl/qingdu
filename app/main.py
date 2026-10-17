@@ -377,6 +377,12 @@ async def startup_event() -> None:
 
             app.state.llm_probe_task = asyncio.create_task(_llm_probe_loop())
 
+            # Grammar points of the users' sentences, worked off in the
+            # background while the LLM is up (services/grammar_tagging).
+            from app.services import grammar_tagging
+
+            app.state.grammar_tagging_task = asyncio.create_task(grammar_tagging.worker())
+
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
@@ -387,7 +393,7 @@ async def shutdown_event() -> None:
     import asyncio
     import contextlib
 
-    for name in ("lifecycle_task", "llm_probe_task"):
+    for name in ("lifecycle_task", "llm_probe_task", "grammar_tagging_task"):
         task = getattr(app.state, name, None)
         if task is None or task.done():
             continue

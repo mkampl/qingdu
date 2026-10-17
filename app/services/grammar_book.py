@@ -1,6 +1,6 @@
-"""The user's grammar: which patterns they have met in what they read, the
-sentences that show them, practice built from those sentences, and when
-each pattern is due again.
+"""The user's grammar: which points of the grammar catalog they have met in
+what they read, the sentences that show them, practice built from those
+sentences, and when each point is due again.
 
 Sources:
 - texts read to the end: saved texts at 99 % reading progress, library
@@ -8,10 +8,11 @@ Sources:
 - the user's other saved texts and the bundled library texts, for more
   example and practice sentences.
 
-Sentences are found with the same detector the reader uses
-(services/grammar), run on each text's stored segmentation. Per-text
-results are cached in memory, keyed by the analysis' length, so an
-edited text is looked at again.
+A sentence shows a point when the reader's regex patterns find it
+(services/grammar, mapped to catalog points) or when the LLM tagged it
+(services/grammar_tagging). Each text's sentences and regex hits are
+cached in memory, keyed by the analysis' length, so an edited text is
+looked at again.
 """
 
 from __future__ import annotations
@@ -19,29 +20,41 @@ from __future__ import annotations
 import json
 import random
 import re
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import GrammarProgress, SavedText, UserLibraryProgress
-from app.services import grammar, library
+from app.services import grammar, grammar_catalog, grammar_tagging, library
 from app.services.segmentation import _group_sentences
 
 READ_THROUGH = 0.99
 MAX_SENTENCES = 60
 MAX_SENTENCE_CHARS = 80
-# Days until a pattern is due again, by box (raised by a good practice
-# round, lowered by a poor one).
+# Days until a point is due again, by box (raised by a good practice round,
+# lowered by a poor one).
 INTERVALS = (1, 2, 4, 8, 16, 32, 64)
 GOOD_ROUND = 0.8
+PRACTICE_ITEMS = 8
 CJK = re.compile(r"[㐀-鿿]")
+
+
+@dataclass
+class TextGrammar:
+    """What one text holds: its sentences and the regex hits in them."""
+
+    size: int
+    sentences: list[str]
+    regex: list[tuple[str, str, str]]  # (catalog id, sentence, span)
+    translations: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class Hit:
-    pattern_id: str
+    point_id: str
     sentence: str
     span: str
     translation: str | None
@@ -51,29 +64,32 @@ class Hit:
     level: int | None = None  # HSK level of a library text
 
 
-_cache: dict[str, tuple[int, list[tuple[str, str, str, str | None]]]] = {}
+_texts: dict[str, TextGrammar] = {}
 
 
-def _hits_in_words(
-    key: str, size: int, words: list[dict], translations: dict
-) -> list[tuple[str, str, str, str | None]]:
-    """(pattern_id, sentence, span, translation) for one text, cached."""
+def _analyse(key: str, size: int, words: list[dict], translations: dict) -> TextGrammar:
     tokens = [(w.get("text") or "") for w in words if isinstance(w, dict)]
-    sentences = _group_sentences(tokens)
-    matches, _metas = grammar.detect_patterns(sentences)
-    out: list[tuple[str, str, str, str | None]] = []
+    grouped = _group_sentences(tokens)
+    matches, _metas = grammar.detect_patterns(grouped)
+    sentences = [
+        s.text.strip()
+        for _offset, s in grouped
+        if CJK.search(s.text) and len(s.text.strip()) <= MAX_SENTENCE_CHARS
+    ]
+    regex = []
     for m in matches:
-        sentence = sentences[m.sentence_idx][1].text.strip()
-        if not sentence or len(sentence) > MAX_SENTENCE_CHARS:
-            continue
-        out.append((m.pattern_id, sentence, m.span_text, translations.get(sentence)))
-    _cache[key] = (size, out)
-    return out
+        point = grammar_catalog.REGEX_POINT.get(m.pattern_id)
+        sentence = grouped[m.sentence_idx][1].text.strip()
+        if point and sentence in sentences:
+            regex.append((point, sentence, m.span_text))
+    tg = TextGrammar(size, sentences, regex, translations)
+    _texts[key] = tg
+    return tg
 
 
-def _cached(key: str, size: int) -> list[tuple[str, str, str, str | None]] | None:
-    hit = _cache.get(key)
-    return hit[1] if hit and hit[0] == size else None
+def _cached(key: str, size: int) -> TextGrammar | None:
+    tg = _texts.get(key)
+    return tg if tg and tg.size == size else None
 
 
 def _progress_fraction(raw) -> float:
@@ -84,10 +100,10 @@ def _progress_fraction(raw) -> float:
     return value / 100 if value > 1 else value
 
 
-def _saved_hits(db: Session, user_id: int) -> list[Hit]:
-    out: list[Hit] = []
-    # The analysis length tells whether a text changed; only new or changed
-    # texts are read and parsed.
+def _sources(db: Session, user_id: int) -> list[tuple[str, str, bool, int | None, TextGrammar]]:
+    """(key, title, read, library level, grammar) for every text the user
+    can learn from: their saved texts, then the library."""
+    out = []
     rows = db.query(
         SavedText.id,
         SavedText.title,
@@ -96,56 +112,119 @@ def _saved_hits(db: Session, user_id: int) -> list[Hit]:
     ).filter(SavedText.user_id == user_id)
     for text_id, title, progress, size in rows:
         key = f"saved:{text_id}"
-        hits = _cached(key, size or 0)
-        if hits is None:
+        tg = _cached(key, size or 0)
+        if tg is None:
             raw = db.query(SavedText.analysis_data).filter(SavedText.id == text_id).scalar() or ""
             try:
                 data = json.loads(raw) if raw else {}
             except ValueError:
                 data = {}
-            words = data.get("words") if isinstance(data, dict) else None
-            if not isinstance(words, list):
-                _cache[key] = (size or 0, [])
-                continue
-            hits = _hits_in_words(key, size or 0, words, data.get("sentence_translations") or {})
+            if not isinstance(data, dict):
+                data = {}
+            words = data.get("words")
+            tg = _analyse(
+                key,
+                size or 0,
+                words if isinstance(words, list) else [],
+                data.get("sentence_translations") or {},
+            )
         read = _progress_fraction(progress) >= READ_THROUGH
-        for pid, sentence, span, tr in hits:
-            out.append(Hit(pid, sentence, span, tr, key, title or "", read))
-    return out
+        out.append((key, title or "", read, None, tg))
 
-
-def _library_hits(db: Session, user_id: int) -> list[Hit]:
-    read = {
+    read_slugs = {
         slug
         for (slug,) in db.query(UserLibraryProgress.slug).filter(
             UserLibraryProgress.user_id == user_id,
             UserLibraryProgress.status.in_(("read", "quiz")),
         )
     }
-    out: list[Hit] = []
     for entry in library._all_entries():
-        slug = entry["slug"]
-        key = f"library:{slug}"
-        hits = _cached(key, 0)
-        if hits is None:
-            words = (entry.get("analyzed") or {}).get("words") or []
-            hits = _hits_in_words(key, 0, words, {})
-        for pid, sentence, span, tr in hits:
-            out.append(
-                Hit(pid, sentence, span, tr, key, entry["title"], slug in read, entry["hsk_level"])
-            )
+        key = f"library:{entry['slug']}"
+        tg = _cached(key, 0) or _analyse(
+            key, 0, (entry.get("analyzed") or {}).get("words") or [], {}
+        )
+        out.append((key, entry["title"], entry["slug"] in read_slugs, entry["hsk_level"], tg))
     return out
 
 
+# LLM tags looked up recently: hash -> tags (absent = not tagged yet).
+_tags: dict[str, list[dict]] = {}
+_tags_checked = 0.0
+TAGS_RECHECK_S = 30
+
+
+def _llm_tags(sentences: list[str]) -> dict[str, list[dict]]:
+    """Stored LLM tags by sentence; untagged sentences are looked up again
+    at most every TAGS_RECHECK_S seconds."""
+    global _tags_checked
+    hashes = {s: grammar_tagging.sentence_hash(s) for s in sentences}
+    if time.monotonic() - _tags_checked > TAGS_RECHECK_S:
+        missing = [h for h in hashes.values() if h not in _tags]
+        _tags.update(grammar_tagging.known(missing))
+        _tags_checked = time.monotonic()
+    return {s: _tags[h] for s, h in hashes.items() if h in _tags}
+
+
 def all_hits(db: Session, user_id: int) -> list[Hit]:
-    return _saved_hits(db, user_id) + _library_hits(db, user_id)
+    sources = _sources(db, user_id)
+    tags = _llm_tags([s for *_rest, tg in sources for s in tg.sentences])
+    out: list[Hit] = []
+    for key, title, read, level, tg in sources:
+        seen: set[tuple[str, str]] = set()
+        for point, sentence, span in tg.regex:
+            # Once the LLM looked at a sentence, a regex hit it was offered
+            # and turned down is a false one (classical 得悟, 得之).
+            turned_down = (
+                sentence in tags
+                and point not in {t["id"] for t in tags[sentence]}
+                and point in {c["id"] for c in grammar_catalog.candidates(sentence)}
+            )
+            if turned_down:
+                continue
+            seen.add((point, sentence))
+            out.append(
+                Hit(point, sentence, span, tg.translations.get(sentence), key, title, read, level)
+            )
+        for sentence in tg.sentences:
+            for t in tags.get(sentence, []):
+                if (t["id"], sentence) in seen:
+                    continue
+                seen.add((t["id"], sentence))
+                out.append(
+                    Hit(
+                        t["id"],
+                        sentence,
+                        t["span"],
+                        tg.translations.get(sentence),
+                        key,
+                        title,
+                        read,
+                        level,
+                    )
+                )
+    return out
+
+
+def queue_for_tagging(db: Session, user_id: int) -> int:
+    """Queue the sentences of the user's texts for the LLM: texts they read
+    first, then the library, then their other texts. Returns how many
+    sentences are waiting."""
+    if not grammar_tagging.enabled():
+        return 0
+    sources = _sources(db, user_id)
+    ordered = (
+        [tg for _k, _t, read, _l, tg in sources if read]
+        + [tg for k, _t, read, _l, tg in sources if not read and k.startswith("library:")]
+        + [tg for k, _t, read, _l, tg in sources if not read and k.startswith("saved:")]
+    )
+    return grammar_tagging.enqueue([s for tg in ordered for s in tg.sentences])
 
 
 def _progress(db: Session, user_id: int) -> dict[str, GrammarProgress]:
-    return {
-        p.pattern_id: p
-        for p in db.query(GrammarProgress).filter(GrammarProgress.user_id == user_id)
-    }
+    out: dict[str, GrammarProgress] = {}
+    for p in db.query(GrammarProgress).filter(GrammarProgress.user_id == user_id):
+        out[grammar_catalog.REGEX_POINT.get(p.pattern_id, p.pattern_id)] = p
+    return out
 
 
 def _progress_payload(p: GrammarProgress | None, now: datetime) -> dict | None:
@@ -162,23 +241,35 @@ def _progress_payload(p: GrammarProgress | None, now: datetime) -> dict | None:
 
 
 def overview(db: Session, user_id: int, now: datetime | None = None) -> dict:
-    """Every pattern with what the user has met and practised."""
+    """Every catalog point with what the user has met and practised."""
     now = now or datetime.utcnow()
     hits = [h for h in all_hits(db, user_id) if h.read]
+    texts: dict[str, set[str]] = {}
+    sentences: dict[str, set[str]] = {}
+    for h in hits:
+        texts.setdefault(h.point_id, set()).add(h.source_key)
+        sentences.setdefault(h.point_id, set()).add(h.sentence)
     progress = _progress(db, user_id)
-    patterns = []
-    for p in grammar.PATTERNS:
-        mine = [h for h in hits if h.pattern_id == p.id]
-        patterns.append(
-            {
-                **grammar.pattern_meta(p.id),
-                "met_texts": len({h.source_key for h in mine}),
-                "met_sentences": len({h.sentence for h in mine}),
-                "progress": _progress_payload(progress.get(p.id), now),
-            }
-        )
-    read_texts = len({h.source_key for h in hits})
-    return {"patterns": patterns, "read_texts": read_texts}
+    points = [
+        {
+            "id": e["id"],
+            "level": e["level"],
+            "group": e["group"],
+            "forms": e["forms"],
+            "title": e["title_en"],
+            "structure": e["structure"],
+            "met_texts": len(texts.get(e["id"], ())),
+            "met_sentences": len(sentences.get(e["id"], ())),
+            "progress": _progress_payload(progress.get(e["id"]), now),
+        }
+        for e in grammar_catalog.entries()
+    ]
+    return {
+        "points": points,
+        "read_texts": len({h.source_key for h in hits}),
+        "analysing": queue_for_tagging(db, user_id),
+        "llm": grammar_tagging.enabled(),
+    }
 
 
 def _hit_payload(h: Hit) -> dict:
@@ -192,15 +283,15 @@ def _hit_payload(h: Hit) -> dict:
     }
 
 
-def pattern_detail(db: Session, user_id: int, pattern_id: str) -> dict | None:
-    """A pattern with the sentences that show it: from texts the user has
+def point_detail(db: Session, user_id: int, point_id: str) -> dict | None:
+    """A point with the sentences that show it: from texts the user has
     read first, then their other texts, then the library (easiest first)."""
-    if pattern_id not in {p.id for p in grammar.PATTERNS}:
+    e = grammar_catalog.get(point_id)
+    if e is None:
         return None
-    meta = grammar.pattern_meta(pattern_id)
     seen: set[str] = set()
     groups: dict[str, list[dict]] = {"read": [], "saved": [], "library": []}
-    hits = [h for h in all_hits(db, user_id) if h.pattern_id == pattern_id]
+    hits = [h for h in all_hits(db, user_id) if h.point_id == e["id"]]
     hits.sort(key=lambda h: (not h.read, h.source_key.startswith("library:"), h.level or 0))
     for h in hits:
         if h.sentence in seen:
@@ -211,9 +302,10 @@ def pattern_detail(db: Session, user_id: int, pattern_id: str) -> dict | None:
         )
         if len(groups[group]) < MAX_SENTENCES:
             groups[group].append(_hit_payload(h))
-    progress = _progress(db, user_id).get(pattern_id)
+    progress = _progress(db, user_id).get(e["id"])
     return {
-        **meta,
+        **{k: v for k, v in e.items() if k != "no"},
+        "title": e["title_en"],
         "sentences": groups,
         "progress": _progress_payload(progress, datetime.utcnow()),
     }
@@ -221,93 +313,45 @@ def pattern_detail(db: Session, user_id: int, pattern_id: str) -> dict | None:
 
 # --- Practice ------------------------------------------------------------------
 
-# The words of each pattern that a gap exercise can blank, and words that
-# are easily confused with them (the wrong choices).
-MARKERS: dict[str, list[str]] = {
-    "shi-de": ["是"],
-    "ba": ["把"],
-    "bei": ["被"],
-    "yue-yue": ["越"],
-    "yibian-yibian": ["一边"],
-    "yinwei-suoyi": ["所以", "因为"],
-    "suiran-danshi": ["但是", "虽然", "可是"],
-    "budan-erqie": ["而且", "不但", "不仅"],
-    "ruguo-jiu": ["如果", "要是", "就"],
-    "le-aspect": ["了"],
-    "cong-dao": ["从", "到"],
-    "gen-yiqi": ["一起"],
-    "guo-experiential": ["过"],
-    "bi-comparison": ["比"],
-    "zhe-durative": ["着"],
-    "de-resultative": ["得"],
-    "you-you": ["又"],
-    "rang-jiao": ["让", "叫"],
-    "gei-benefactive": ["给"],
-    "jiuyao-le": ["就要", "快要"],
-    "yi-jiu": ["就"],
-    "gang-jiu": ["刚"],
-    "chule-yiwai": ["除了", "以外"],
-    "lian-ye": ["连"],
-    "zhiyao-jiu": ["只要"],
-    "zhiyou-cai": ["只有", "才"],
-    "bushi-ershi": ["而是"],
-    "yaome-yaome": ["要么"],
-    "dehua-jiu": ["的话"],
-    "kenenghui": ["可能"],
-}
+# Words easily confused with a point's word, for the wrong choices of a gap
+# exercise when the catalog has too few of its own.
 CONFUSABLE: dict[str, list[str]] = {
     "把": ["被", "给", "让"],
     "被": ["把", "给", "让"],
     "给": ["把", "被", "对"],
     "让": ["被", "把", "给"],
-    "叫": ["被", "把", "给"],
     "所以": ["但是", "而且", "可是"],
     "因为": ["虽然", "如果", "只要"],
     "但是": ["所以", "而且", "因为"],
-    "可是": ["所以", "而且", "因为"],
     "虽然": ["因为", "如果", "只要"],
     "而且": ["但是", "所以", "可是"],
-    "不但": ["虽然", "因为", "如果"],
-    "不仅": ["虽然", "因为", "如果"],
     "如果": ["因为", "虽然", "只有"],
-    "要是": ["因为", "虽然", "只有"],
     "就": ["才", "都", "也"],
     "才": ["就", "都", "也"],
     "了": ["过", "着", "的"],
     "过": ["了", "着", "的"],
     "着": ["了", "过", "的"],
     "得": ["的", "地", "了"],
-    "是": ["在", "有", "要"],
-    "越": ["又", "也", "更"],
-    "又": ["也", "越", "还"],
-    "一边": ["一起", "一下", "一直"],
-    "从": ["到", "在", "离"],
-    "到": ["从", "在", "离"],
-    "一起": ["一边", "一样", "一直"],
+    "的": ["得", "地", "了"],
+    "地": ["的", "得", "了"],
     "比": ["跟", "和", "像"],
-    "就要": ["正在", "已经", "刚才"],
-    "快要": ["正在", "已经", "刚才"],
-    "刚": ["才", "就", "都"],
-    "除了": ["除非", "为了", "关于"],
-    "以外": ["以后", "以前", "之间"],
-    "连": ["就", "才", "也"],
     "只要": ["只有", "虽然", "因为"],
     "只有": ["只要", "虽然", "因为"],
-    "而是": ["但是", "所以", "而且"],
-    "要么": ["或者", "还是", "不是"],
-    "的话": ["以后", "时候", "以前"],
-    "可能": ["应该", "一定", "已经"],
 }
-PRACTICE_ITEMS = 8
 
 
-def _cloze(pattern_id: str, h: Hit, rng: random.Random) -> dict | None:
-    for marker in MARKERS.get(pattern_id, []):
-        start = h.sentence.find(h.span)
+def _cloze(e: dict, h: Hit, rng: random.Random) -> dict | None:
+    start = h.sentence.find(h.span)
+    for marker in sorted(e.get("markers") or [], key=lambda m: -len(m)):
         at = h.sentence.find(marker, max(start, 0)) if start >= 0 else h.sentence.find(marker)
-        if at < 0:
+        if at < 0 or (start >= 0 and at > start + len(h.span)):
             continue
-        wrong = [w for w in CONFUSABLE.get(marker, []) if w != marker][:3]
+        wrong = [
+            w
+            for w in (e.get("distractors") or []) + CONFUSABLE.get(marker, [])
+            if w != marker and w not in (e.get("markers") or [])
+        ]
+        wrong = list(dict.fromkeys(wrong))[:3]
         if len(wrong) < 2:
             continue
         choices = [marker, *wrong]
@@ -361,31 +405,32 @@ def _words_by_sentence(sentences: list[str]) -> dict[str, list[str]]:
     return {s: [t for t in segment_text(s) if t != "\n"] for s in sentences}
 
 
-def practice(db: Session, user_id: int, pattern_id: str, rng: random.Random | None = None) -> dict:
+def practice(db: Session, user_id: int, point_id: str, rng: random.Random | None = None) -> dict:
     """A round of gap and word-order exercises, from the user's read texts
-    first, then their other texts, then the library."""
+    first, then their other texts, then the library, then the catalog's
+    own examples."""
     rng = rng or random.Random()
-    detail = pattern_detail(db, user_id, pattern_id)
-    if detail is None:
+    e = grammar_catalog.get(point_id)
+    detail = point_detail(db, user_id, point_id) if e else None
+    if e is None or detail is None:
         return {"items": []}
     pool = (
         detail["sentences"]["read"] + detail["sentences"]["saved"] + detail["sentences"]["library"]
     )
-    if not pool:
-        meta = grammar.pattern_meta(pattern_id)
-        pool = [
-            {
-                "sentence": meta["example"],
-                "span": meta["example"],
-                "translation": meta["example_translation"],
-                "source_title": "Example",
-                "source_key": "",
-                "read": False,
-            }
-        ]
+    pool += [
+        {
+            "sentence": x["zh"],
+            "span": x["zh"],
+            "translation": x["en"],
+            "source_title": "Example",
+            "source_key": "",
+            "read": False,
+        }
+        for x in e.get("examples") or []
+    ]
     hits = [
         Hit(
-            pattern_id,
+            e["id"],
             s["sentence"],
             s["span"],
             s["translation"],
@@ -398,37 +443,34 @@ def practice(db: Session, user_id: int, pattern_id: str, rng: random.Random | No
     words_of = _words_by_sentence([h.sentence for h in hits])
     items: list[dict] = []
     for i, h in enumerate(hits):
-        item = _order(h, words_of, rng) if i % 2 else _cloze(pattern_id, h, rng)
-        item = item or _cloze(pattern_id, h, rng) or _order(h, words_of, rng)
+        item = _order(h, words_of, rng) if i % 2 else _cloze(e, h, rng)
+        item = item or _cloze(e, h, rng) or _order(h, words_of, rng)
         if item:
             items.append(item)
         if len(items) >= PRACTICE_ITEMS:
             break
-    return {"pattern": grammar.pattern_meta(pattern_id), "items": items}
+    return {"point": grammar_catalog.summary(e), "items": items}
 
 
 def record(
-    db: Session,
-    user_id: int,
-    pattern_id: str,
-    correct: int,
-    total: int,
-    now: datetime | None = None,
+    db: Session, user_id: int, point_id: str, correct: int, total: int, now: datetime | None = None
 ) -> dict:
     """Store a practice round; a good round moves the next one further out."""
     now = now or datetime.utcnow()
-    row = (
-        db.query(GrammarProgress)
-        .filter(GrammarProgress.user_id == user_id, GrammarProgress.pattern_id == pattern_id)
-        .first()
+    e = grammar_catalog.get(point_id)
+    point = e["id"] if e else point_id
+    rows = db.query(GrammarProgress).filter(GrammarProgress.user_id == user_id).all()
+    row = next(
+        (r for r in rows if grammar_catalog.REGEX_POINT.get(r.pattern_id, r.pattern_id) == point),
+        None,
     )
+    good = total > 0 and correct / total >= GOOD_ROUND
     if row is None:
-        row = GrammarProgress(user_id=user_id, pattern_id=pattern_id, box=0, correct=0, total=0)
+        row = GrammarProgress(user_id=user_id, pattern_id=point, box=0, correct=0, total=0)
         db.add(row)
-        good = total > 0 and correct / total >= GOOD_ROUND
-        box = 0 if not good else 1
+        box = 1 if good else 0
     else:
-        good = total > 0 and correct / total >= GOOD_ROUND
+        row.pattern_id = point
         box = min(len(INTERVALS) - 1, (row.box or 0) + 1) if good else max(0, (row.box or 0) - 1)
     row.box = box
     row.correct = (row.correct or 0) + correct
@@ -439,4 +481,4 @@ def record(
     return _progress_payload(row, now) or {}
 
 
-__all__ = ["all_hits", "overview", "pattern_detail", "practice", "record"]
+__all__ = ["all_hits", "overview", "point_detail", "practice", "queue_for_tagging", "record"]
