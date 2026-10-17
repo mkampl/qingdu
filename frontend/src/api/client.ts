@@ -226,8 +226,7 @@ export const analyze = (
   request<AnalysisResponse>("/api/analyze", {
     body: {
       text,
-      // Only include the field when the caller has an explicit choice;
-      // omitting it tells the backend "use all glossary-flagged lists".
+      // The text's glossaries; omitted or null = none.
       ...(options.glossary_list_ids !== undefined
         ? { glossary_list_ids: options.glossary_list_ids }
         : {}),

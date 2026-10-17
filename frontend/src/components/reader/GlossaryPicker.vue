@@ -1,27 +1,32 @@
 <script setup lang="ts">
 /**
  * "Resources"-style glossary picker. Sits next to the Import button on
- * the reader's input rail. Lists every vocab-list the user has flagged
- * `apply_as_glossary`, lets them toggle each on/off per text.
+ * the reader's input rail. Each text picks its own glossaries: the lists
+ * flagged `apply_as_glossary` are offered here (plus any list the text
+ * already uses), none is on by default.
  *
  * Selection lives in the analysis store as `glossaryListIds`:
- *   null   = use all glossary-flagged lists (the default for fresh text)
- *   []     = explicitly use none
- *   [3,5]  = use only these two
+ *   null / [] = no glossary (a new text)
+ *   [3,5]     = these two
  *
- * Hidden entirely when the user hasn't flagged any lists yet — there's
- * nothing to pick and we don't want to advertise the feature in a way
- * the user can't act on.
+ * A change re-analyses the text; a saved text keeps the choice (and its
+ * curated sentence translations) right away.
+ *
+ * Hidden entirely when the user has no glossary lists — there's nothing
+ * to pick.
  */
 import { computed, ref, watch } from "vue";
 
 import { onAuthReady } from "@/composables/use-auth-ready";
+import * as api from "@/api/client";
 import { useAnalysisStore } from "@/stores/analysis";
+import { useToastStore } from "@/stores/toast";
 import { useVocabListsStore } from "@/stores/vocab-lists";
 import { hasOpenOverlay } from "@/utils/modal-stack";
 
 const analysis = useAnalysisStore();
 const vocabLists = useVocabListsStore();
+const toasts = useToastStore();
 const open = ref(false);
 const containerRef = ref<HTMLElement | null>(null);
 
@@ -29,20 +34,29 @@ const containerRef = ref<HTMLElement | null>(null);
 // before auth has hydrated and the lists would never load.
 onAuthReady(() => void vocabLists.ensureLoaded());
 
+// Lists this text has used while open stay offered even when they are not
+// flagged, so one switched off can be switched on again.
+const usedByText = ref(new Set<number>());
+watch(
+  () => analysis.savedTextId,
+  () => (usedByText.value = new Set(analysis.glossaryListIds ?? [])),
+  { immediate: true },
+);
+watch(
+  () => analysis.glossaryListIds,
+  (ids) => {
+    for (const id of ids ?? []) usedByText.value.add(id);
+  },
+);
 const glossaryLists = computed(() =>
-  vocabLists.lists.filter((vl) => vl.apply_as_glossary),
+  vocabLists.lists.filter((vl) => vl.apply_as_glossary || usedByText.value.has(vl.id)),
 );
 
 const hasAny = computed(() => glossaryLists.value.length > 0);
 
 /** Which glossary IDs are *effectively* active right now. */
 const activeIds = computed<Set<number>>(() => {
-  const ids = analysis.glossaryListIds;
-  // null = use all flagged lists -> reflect that as "every checkbox ticked".
-  if (ids === null) {
-    return new Set(glossaryLists.value.map((vl) => vl.id));
-  }
-  return new Set(ids);
+  return new Set(analysis.glossaryListIds ?? []);
 });
 
 const activeCount = computed(() => activeIds.value.size);
@@ -62,21 +76,26 @@ function selectNone() {
   applySelection(new Set());
 }
 
-function applySelection(selected: Set<number>) {
-  const all = glossaryLists.value.map((vl) => vl.id);
-  // Canonicalise: "every flagged list" -> null (so future-added glossaries
-  // are picked up automatically); otherwise an explicit array.
-  if (selected.size === all.length && all.every((id) => selected.has(id))) {
-    analysis.glossaryListIds = null;
-  } else {
-    analysis.glossaryListIds = Array.from(selected).sort((a, b) => a - b);
-  }
+async function applySelection(selected: Set<number>) {
+  const ids = Array.from(selected).sort((a, b) => a - b);
+  analysis.glossaryListIds = ids;
   // If there's a text in the box already analysed, the change should
   // take effect — re-run analysis so meanings update in place.
-  if (analysis.hasResult && analysis.inputText) {
-    // A failure lands in analysis.error, which the reader shows; don't let
-    // it escape as an unhandled rejection.
-    analysis.analyze(analysis.inputText).catch(() => undefined);
+  if (!analysis.hasResult || !analysis.inputText) return;
+  try {
+    await analysis.analyze(analysis.inputText);
+  } catch {
+    // The failure is in analysis.error, which the reader shows.
+    return;
+  }
+  // A saved text keeps its choice at once (no separate Save needed).
+  const id = analysis.savedTextId;
+  if (id === null || !analysis.result) return;
+  try {
+    await api.updateText(id, { glossary_list_ids: ids, analysis_data: analysis.result });
+    analysis.markSynced();
+  } catch {
+    toasts.error("Couldn't save the glossary choice for this text.");
   }
 }
 

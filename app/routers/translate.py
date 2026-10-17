@@ -38,7 +38,7 @@ async def translate_text(
 
     # Glossary terms in the text (longest first, two characters or more:
     # a single character is far more often an everyday word).
-    glossary = _build_glossary(db, user, data.glossary_list_ids, flagged_only=False)
+    glossary = _build_glossary(db, user, data.glossary_list_ids)
     terms, rest = [], text
     for zh in sorted(glossary, key=len, reverse=True):
         if len(zh) > 1 and zh in rest and glossary[zh].get("meaning"):

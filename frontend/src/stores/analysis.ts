@@ -50,10 +50,9 @@ export const useAnalysisStore = defineStore("analysis", () => {
   /** Whether the loaded library text has a comprehension quiz authored. */
   const libraryHasQuiz = ref(false);
   /**
-   * Phase #99 — per-text glossary picker selection.
-   * null  = use all glossary-flagged lists (the default for fresh analyses)
-   * []    = explicitly use no glossary
-   * [3,5] = use only those lists
+   * The text's glossaries (GlossaryPicker).
+   * null / [] = no glossary (a fresh text)
+   * [3,5]     = those lists
    * Persisted on the saved_text record via /save and /update.
    */
   const glossaryListIds = ref<number[] | null>(null);
@@ -97,6 +96,18 @@ export const useAnalysisStore = defineStore("analysis", () => {
         signal: controller.signal,
       });
       if (seq !== requestSeq) return;
+      // What the analysis doesn't make but the stored text carries: the
+      // curated sentence translations (keyed by sentence, so only the
+      // unchanged sentences keep theirs) and a topic series' notes. Only
+      // for the same saved text, not a newly pasted one.
+      const before = result.value as (AnalysisResponse & Record<string, unknown>) | null;
+      if (before && savedTextId.value !== null) {
+        const kept = { ...(before.sentence_translations ?? {}), ...(next.sentence_translations ?? {}) };
+        if (Object.keys(kept).length) next.sentence_translations = kept;
+        if (before.series !== undefined && !("series" in next)) {
+          (next as AnalysisResponse & Record<string, unknown>).series = before.series;
+        }
+      }
       result.value = next;
       // NOTE: savedTextId is intentionally preserved across re-analyse so the
       // user can edit a saved text + re-analyse + Save (which updates the
