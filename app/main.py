@@ -365,6 +365,19 @@ async def startup_event() -> None:
         app.state.lifecycle_task = task
         logger.info("Lifecycle scheduler started (interval=%ds)", LIFECYCLE_INTERVAL_S)
 
+        # Grammar section: read every text's analysis once now rather than
+        # on the first visit (services/grammar_book).
+        from app.services import grammar_book
+
+        async def _grammar_prewarm() -> None:
+            try:
+                n = await asyncio.to_thread(grammar_book.prewarm)
+                logger.info("Grammar cache warmed (%d texts)", n)
+            except Exception:
+                logger.exception("Grammar prewarm failed")
+
+        app.state.grammar_prewarm_task = asyncio.create_task(_grammar_prewarm())
+
         # Optional LLM: check the endpoint now and every few minutes, so
         # features appear when it comes up and vanish when it goes away.
         from app.services import llm
@@ -397,7 +410,12 @@ async def shutdown_event() -> None:
     import asyncio
     import contextlib
 
-    for name in ("lifecycle_task", "llm_probe_task", "grammar_tagging_task"):
+    for name in (
+        "lifecycle_task",
+        "grammar_prewarm_task",
+        "llm_probe_task",
+        "grammar_tagging_task",
+    ):
         task = getattr(app.state, name, None)
         if task is None or task.done():
             continue
