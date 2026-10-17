@@ -165,6 +165,25 @@ class GrammarProgress(Base):
     total = Column(Integer, nullable=False, default=0)
 
 
+class TextSeries(Base):
+    """A topic series (services/text_series): a folder of texts the LLM
+    writes one after another on one topic, each building on the last and
+    bringing about `new_words` words the user doesn't know yet."""
+
+    __tablename__ = "text_series"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    folder_id = Column(Integer, ForeignKey("text_folders.id"), nullable=False)
+    topic = Column(String(200), nullable=False)
+    level = Column(Integer, nullable=False, default=3)  # HSK 1-6, 7 = 7-9
+    new_words = Column(Integer, nullable=False, default=10)
+    length = Column(String(10), nullable=False, default="medium")
+    generating_since = Column(DateTime, nullable=True)
+    last_error = Column(String(300), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class GrammarSentenceTag(Base):
     """Grammar points the LLM found in one sentence (services/grammar_tagging),
     shared by everyone who reads it; re-done when the catalog changes."""

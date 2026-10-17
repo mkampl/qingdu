@@ -412,6 +412,44 @@ export const saveGrammarPractice = (id: string, correct: number, total: number) 
     body: { correct, total },
   });
 
+// --- Topic series ---------------------------------------------------------------
+
+export type SeriesLength = "short" | "medium" | "long";
+
+export interface TextSeriesInfo {
+  id: number;
+  folder_id: number;
+  topic: string;
+  /** HSK level, 7 = 7-9. */
+  level: number;
+  new_words: number;
+  length: SeriesLength;
+  texts: number;
+  /** The next text is being written. */
+  generating: boolean;
+  last_error: string | null;
+}
+
+export const listSeries = () => request<TextSeriesInfo[]>("/api/series");
+
+export const getSeries = (id: number) => request<TextSeriesInfo>(`/api/series/${id}`);
+
+export const createSeries = (input: {
+  topic: string;
+  level: number;
+  new_words: number;
+  length: SeriesLength;
+}) => request<TextSeriesInfo>("/api/series", { body: input });
+
+export const updateSeries = (
+  id: number,
+  patch: Partial<{ level: number; new_words: number; length: SeriesLength }>,
+) => request<TextSeriesInfo>(`/api/series/${id}`, { method: "PATCH", body: patch });
+
+/** Start writing the next text; poll getSeries until `generating` is false. */
+export const nextSeriesText = (id: number) =>
+  request<TextSeriesInfo>(`/api/series/${id}/next`, { method: "POST" });
+
 // --- Placement test -------------------------------------------------------------
 
 export interface PlacementItem {

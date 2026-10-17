@@ -31,6 +31,8 @@ A reading-and-study tool for Chinese learners, organised around the HSK vocabula
 
 ## Saved texts
 
+- **Topic series** (servers with an LLM) — pick a topic, a level, how many new words each text should bring (5–50, default 10) and a length; a folder fills with texts written one after another for your words. Each text continues the ones before, uses the last text's new words again and brings new ones, each at least twice; every sentence comes with its translation. The server counts what is really new for you and writes a text again when it is far off. With many new words, pre-learn them before reading.
+
 - **Folders** — keep saved texts in nested folders (a book, a course, a teacher). Texts without a folder stay at the top level; move a text or a folder anywhere, and deleting a folder keeps its texts. Each folder says how many of its texts are readable. Search looks through every folder.
 - **Series** — inside a folder texts have an order you can change; each shows its number (2 / 6), and the reader leads from one to the next. A text saved from the reader goes into the folder you have open.
 
