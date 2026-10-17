@@ -58,32 +58,28 @@ def _build_glossary(
     db: Session,
     user: User | None,
     list_ids: list[int] | None,
-    flagged_only: bool = True,
 ) -> dict[str, dict]:
     """
-    Resolve the picker selection to a {word: {pinyin, meaning, list_name}} map.
+    Resolve a text's glossary choice to a {word: {pinyin, meaning, list_name}} map.
 
-    Semantics:
+    Each text picks its own glossaries (the reader's Glossaries picker);
+    a list's glossary flag only offers it there. So:
       - user is None              -> empty map (anonymous can't use a glossary)
-      - list_ids is None          -> use every list the user has flagged
-      - list_ids == []            -> explicitly use no glossary
-      - list_ids == [3, 5]        -> use only those lists (ignoring others)
+      - list_ids None or []       -> no glossary (a new text starts without)
+      - list_ids == [3, 5]        -> those of the user's lists
 
-    Multi-list conflicts: later-created lists win (ORDER BY created_at DESC,
+    Multi-list conflicts: later-created lists win (ORDER BY created_at ASC,
     so the most recently-curated glossary takes priority).
-
-    `flagged_only=False` takes the named lists even when they are not
-    flagged as glossaries (the translator: a text's school glossary).
     """
-    if user is None or list_ids == []:
+    if user is None or not list_ids:
         return {}
 
-    q = db.query(VocabularyList).filter(VocabularyList.user_id == user.id)
-    if flagged_only or not list_ids:
-        q = q.filter(VocabularyList.apply_as_glossary.is_(True))
-    if list_ids:
-        q = q.filter(VocabularyList.id.in_(list_ids))
-    lists = q.order_by(VocabularyList.created_at.asc()).all()
+    lists = (
+        db.query(VocabularyList)
+        .filter(VocabularyList.user_id == user.id, VocabularyList.id.in_(list_ids))
+        .order_by(VocabularyList.created_at.asc())
+        .all()
+    )
 
     out: dict[str, dict] = {}
     for vl in lists:
