@@ -18,7 +18,7 @@ from pypinyin import Style, lazy_pinyin
 from sqlalchemy.orm import Session
 
 from app.database import UserWord
-from app.services import grammar_catalog, llm, readability
+from app.services import grammar_catalog, grammar_tagging, llm, readability
 from app.services.segmentation import segment_text
 from app.services.text_series import plain
 from app.services.word_info import lookup_pinyin_meaning
@@ -117,7 +117,8 @@ async def explain(sentence: str) -> dict:
     points = []
     for p in reply.get("points") or []:
         pid, span = str(p.get("id", "")), str(p.get("span", "")).strip()
-        if pid in allowed and span and span in sentence and pid not in {x["id"] for x in points}:
+        fits = pid in allowed and grammar_tagging.span_fits(pid, span, sentence)
+        if fits and pid not in {x["id"] for x in points}:
             e = grammar_catalog.by_id()[pid]
             points.append({"id": pid, "span": span, "title": e["title_en"], "level": e["level"]})
     breakdown = str(reply.get("breakdown") or "").strip()

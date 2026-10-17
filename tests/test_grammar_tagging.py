@@ -63,3 +63,14 @@ def test_nothing_is_queued_without_an_llm(monkeypatch):
     monkeypatch.delenv("LLM_BASE_URL", raising=False)
     llm.reset()
     assert grammar_tagging.enqueue(["我把书放在桌子上了。"]) == 0
+
+
+def test_a_span_must_hold_the_points_word():
+    s = "她们买了不少东西，逛到天黑才回宿舍。"
+    assert grammar_tagging.span_fits("hsk30-041", "买了", s)
+    assert not grammar_tagging.span_fits("hsk30-040", "逛到天黑才回宿舍", s)  # 了2 without 了
+    assert not grammar_tagging.span_fits("hsk30-041", "吃了", s)  # not in the sentence
+
+
+def test_tags_of_an_older_round_are_done_again():
+    assert grammar_tagging.tags_version() == grammar_catalog.version() * 100 + grammar_tagging.RULES
