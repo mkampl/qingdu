@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.database import UserWord
 from app.services import grammar_catalog, llm, readability
 from app.services.segmentation import segment_text
+from app.services.text_series import plain
 from app.services.word_info import lookup_pinyin_meaning
 from app.state import hsk_vocab
 
@@ -67,7 +68,7 @@ TEXT_PROMPT = """Write a short Chinese text (6-9 sentences, about {chars} charac
 characters) at HSK {level} level that uses this grammar point at least three times, naturally:
 {forms} — {title} ({structure})
 Topic: everyday life. Use mainly these words the reader knows: {words}
-Give it a short Chinese title. Plain text, no pinyin, no English.{stricter}
+Give it a short Chinese title. Plain text: no markdown or asterisks, no pinyin, no English.{stricter}
 """
 
 
@@ -187,8 +188,8 @@ async def practice_text(db: Session, user_id: int, point_id: str) -> dict:
             max_tokens=1200,
             temperature=0.7,
         )
-        text = str(reply.get("text") or "").strip()
-        title = str(reply.get("title") or "").strip()[:60] or e["title_en"]
+        text = plain(str(reply.get("text") or ""))
+        title = plain(str(reply.get("title") or ""))[:60] or e["title_en"]
         uses = sum(text.count(m) for m in e.get("markers") or [])
         if not text or (e.get("markers") and uses < 2):
             continue
