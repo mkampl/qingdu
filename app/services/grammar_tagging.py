@@ -30,6 +30,9 @@ FEATURE = "grammar"
 BATCH = 6
 IDLE_S = 5
 MAX_QUEUE = 5000
+# Bumped when the checks or the prompt change: stored tags of an older
+# round are done again (they are stored as catalog version * 100 + this).
+RULES = 2
 
 _queue: OrderedDict[str, str] = OrderedDict()  # hash -> sentence
 _lock = threading.Lock()
@@ -63,7 +66,16 @@ PROMPT = """You annotate Chinese sentences for learners with points of the HSK 3
 For each sentence below, choose from ITS candidate points only those the sentence really uses
 in that grammatical function (a word that only looks the same does not count: 得 in 觉得 is not
 the 得 complement, classical 得之 means "obtain"). For each chosen point give the exact span of
-the sentence that shows it. Choose nothing when no candidate fits.
+the sentence that shows it, including the point's grammar word. Choose nothing when no candidate
+fits. Common mix-ups:
+- 了 right after a verb (before its object) is 了1; 了 ending the sentence is 了2. One 了 is
+  either, except a verb + 了 at the very end, which can be both.
+- 在 is the preposition only before a place or time followed by the main verb (在家吃饭); in
+  他在家 / 在哪儿 it is the verb; before a verb alone it marks the progressive.
+- 来/去/上/下 as the main verb (去邮局) are not directional complements; a complement follows
+  another verb (走进去, 拿出来).
+- A character inside a longer word is not the point: 下 in 下午, 全 in 全班, 有 in 没有.
+- 吧1 is a suggestion or request, 吧2 a guess or agreement; choose one.
 
 {items}
 """
@@ -71,6 +83,24 @@ the sentence that shows it. Choose nothing when no candidate fits.
 
 def sentence_hash(sentence: str) -> str:
     return hashlib.sha1(sentence.encode("utf-8")).hexdigest()
+
+
+def tags_version() -> int:
+    return grammar_catalog.version() * 100 + RULES
+
+
+def span_fits(point_id: str, span: str, sentence: str) -> bool:
+    """Whether a tag's span is in the sentence and holds one of the point's
+    words (a 了2 tag on a clause without 了 is a guess). Whether the word
+    is the grammar word there (下 in 下午) is the model's call: the reader's
+    segmentation glues too much (一个, 这种, 学会) to decide it here."""
+    if not span or span not in sentence:
+        return False
+    e = grammar_catalog.by_id().get(point_id)
+    if e is None:
+        return False
+    markers = e.get("markers") or []
+    return not markers or any(m in span for m in markers)
 
 
 def enabled() -> bool:
@@ -84,7 +114,7 @@ def known(hashes: list[str]) -> dict[str, list[dict]]:
     out: dict[str, list[dict]] = {}
     db = SessionLocal()
     try:
-        version = grammar_catalog.version()
+        version = tags_version()
         for i in range(0, len(hashes), 500):
             for row in db.query(GrammarSentenceTag).filter(
                 GrammarSentenceTag.sentence_hash.in_(hashes[i : i + 500]),
@@ -155,7 +185,7 @@ async def tag_batch(batch: list[tuple[str, str]]) -> dict[str, list[dict]]:
         tags = []
         for p in s.get("points") or []:
             pid, span = str(p.get("id", "")), str(p.get("span", "")).strip()
-            fits = pid in allowed[n - 1] and span and span in sentence
+            fits = pid in allowed[n - 1] and span_fits(pid, span, sentence)
             if fits and not any(t["id"] == pid for t in tags):
                 tags.append({"id": pid, "span": span})
         out[h] = tags
@@ -165,7 +195,7 @@ async def tag_batch(batch: list[tuple[str, str]]) -> dict[str, list[dict]]:
 def _store(results: dict[str, list[dict]], model: str | None) -> None:
     db = SessionLocal()
     try:
-        version = grammar_catalog.version()
+        version = tags_version()
         for h, tags in results.items():
             row = db.get(GrammarSentenceTag, h)
             if row is None:
