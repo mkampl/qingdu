@@ -4,6 +4,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { useAnalysisStore } from "@/stores/analysis";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
+import { useCapabilitiesStore } from "@/stores/capabilities";
 import { useReaderStore } from "@/stores/reader";
 import { useToastStore } from "@/stores/toast";
 import { useVocabStatsStore } from "@/stores/vocab-stats";
@@ -51,6 +52,7 @@ const toasts = useToastStore();
 const audioPlayer = useAudioPlayerStore();
 const userWords = useUserWordsStore();
 const textFolders = useTextFoldersStore();
+const capabilities = useCapabilitiesStore();
 
 const localInput = ref<string>(analysis.inputText);
 const showEditor = ref<boolean>(!analysis.hasResult);
@@ -173,6 +175,15 @@ function openQuiz() {
 
 function onQuizPassed(progress: LibraryProgressEntry) {
   libraryProgress.value = progress;
+}
+
+/** Questions on a saved text (written by the LLM on request). */
+const textQuizOpen = ref(false);
+
+function onTextQuizPassed() {
+  // The server marked it read; keep a later scroll from lowering it.
+  lastPersistedProgress = 1;
+  toasts.success("All right: the text counts as read.");
 }
 
 async function onAnalyze() {
@@ -709,6 +720,14 @@ onBeforeUnmount(() => {
             @keydown.escape.prevent="newTagDraft = ''"
             @blur="addTag"
           />
+          <button
+            v-if="capabilities.llmFeature('quiz')"
+            type="button"
+            class="ml-auto rounded-full border border-accent px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent transition-colors hover:bg-accent/10"
+            @click="textQuizOpen = true"
+          >
+            Questions
+          </button>
         </div>
 
         <!-- Input / Edit affordance. Hidden in Listen mode so the text owns
@@ -873,6 +892,14 @@ onBeforeUnmount(() => {
       :title="displayTitle"
       @close="quizModalOpen = false"
       @passed="onQuizPassed"
+    />
+    <LibraryQuizModal
+      :open="textQuizOpen"
+      :slug="null"
+      :text-id="analysis.savedTextId"
+      :title="displayTitle"
+      @close="textQuizOpen = false"
+      @text-passed="onTextQuizPassed"
     />
   </div>
 </template>

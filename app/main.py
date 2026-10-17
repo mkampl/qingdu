@@ -40,6 +40,7 @@ from app.routers import (
     package,
     placement,
     readability,
+    reading_help,
     review,
     series,
     spa,
@@ -160,6 +161,7 @@ app.include_router(folders.router)
 app.include_router(grammar.router)
 app.include_router(placement.router)
 app.include_router(series.router)
+app.include_router(reading_help.router)
 app.include_router(texts.router)
 app.include_router(auth.router)
 app.include_router(invitations.router)
