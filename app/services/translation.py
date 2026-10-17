@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 
 import httpx
 from cachetools import TTLCache
@@ -10,8 +11,10 @@ from app.core.constants import (
     TRANSLATION_CACHE_TTL,
     TRANSLATION_SOURCE_DEEPL,
     TRANSLATION_SOURCE_GOOGLE,
+    TRANSLATION_SOURCE_LLM,
     TRANSLATION_SOURCE_MYMEMORY,
 )
+from app.services import llm
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +32,59 @@ async def _call_translation_api(
     return response
 
 
-async def get_translation_with_source(text: str) -> dict | None:
+LLM_FEATURE = "translate"
+# Longer texts go to the translation APIs: an LLM answer would take long.
+LLM_MAX_CHARS = 1500
+LLM_TIMEOUT = 25
+_CJK = re.compile(r"[\u3400-\u9fff]")
+
+LLM_PROMPT = """Translate this Chinese text into natural, faithful English that stays close to the
+Chinese, for a learner reading the original. Reply with the translation only.
+{terms}
+Text: {text}"""
+
+
+async def _llm_translation(text: str, terms: list[tuple[str, str]]) -> dict | None:
+    """The server's LLM, first when it is up: as good as DeepL on everyday
+    text, and it can use the text's glossary for a school's terms."""
+    if len(text) > LLM_MAX_CHARS or not llm.enabled(LLM_FEATURE):
+        return None
+    listed = (
+        "Use these renderings for terms when they carry that meaning:\n"
+        + "\n".join(f"- {zh} = {en}" for zh, en in terms)
+        + "\n"
+        if terms
+        else ""
+    )
+    try:
+        reply = await llm.chat(
+            [{"role": "user", "content": LLM_PROMPT.format(terms=listed, text=text)}],
+            max_tokens=min(4000, 200 + 4 * len(text)),
+            temperature=0.2,
+            timeout=LLM_TIMEOUT,
+        )
+    except llm.LlmError as e:
+        logger.warning("LLM translation failed: %s", e)
+        return None
+    out = str(reply or "").strip().strip('"').strip()
+    # An answer in Chinese (or empty) is no translation.
+    if not out or len(_CJK.findall(out)) > len(out) / 3:
+        return None
+    return {"translation": out, "source": TRANSLATION_SOURCE_LLM}
+
+
+async def get_translation_with_source(
+    text: str, terms: list[tuple[str, str]] | None = None
+) -> dict | None:
     """
     Get translation with multiple API support and source tracking.
-    Priority: DeepL > Google > MyMemory.
+    Priority: the server's LLM (with the glossary `terms` in the text) >
+    DeepL > Google > MyMemory.
     """
+    result = await _llm_translation(text, terms or [])
+    if result:
+        return result
+
     deepl_key = os.getenv("DEEPL_API_KEY")
     google_key = os.getenv("GOOGLE_TRANSLATE_API_KEY")
 

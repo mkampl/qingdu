@@ -53,6 +53,8 @@ opencc-python-reimplemented==0.1.7
 # EPUB / PDF import (Phase E2)
 EbookLib==0.20
 pypdf==6.12.1
+# Photos for the OCR import (services/image_ocr): orientation, size, JPEG.
+Pillow==11.1.0
 beautifulsoup4==4.12.3
 #pypinyin==0.49.0
 

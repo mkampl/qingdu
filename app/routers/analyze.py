@@ -58,6 +58,7 @@ def _build_glossary(
     db: Session,
     user: User | None,
     list_ids: list[int] | None,
+    flagged_only: bool = True,
 ) -> dict[str, dict]:
     """
     Resolve the picker selection to a {word: {pinyin, meaning, list_name}} map.
@@ -70,14 +71,16 @@ def _build_glossary(
 
     Multi-list conflicts: later-created lists win (ORDER BY created_at DESC,
     so the most recently-curated glossary takes priority).
+
+    `flagged_only=False` takes the named lists even when they are not
+    flagged as glossaries (the translator: a text's school glossary).
     """
     if user is None or list_ids == []:
         return {}
 
-    q = db.query(VocabularyList).filter(
-        VocabularyList.user_id == user.id,
-        VocabularyList.apply_as_glossary.is_(True),
-    )
+    q = db.query(VocabularyList).filter(VocabularyList.user_id == user.id)
+    if flagged_only or not list_ids:
+        q = q.filter(VocabularyList.apply_as_glossary.is_(True))
     if list_ids:
         q = q.filter(VocabularyList.id.in_(list_ids))
     lists = q.order_by(VocabularyList.created_at.asc()).all()

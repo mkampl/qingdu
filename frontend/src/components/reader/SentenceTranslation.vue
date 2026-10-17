@@ -17,6 +17,7 @@ const sourceLabel = computed(() => {
   if (source === "deepl") return "DeepL";
   if (source === "google") return "Google";
   if (source === "mymemory") return "MyMemory";
+  if (source === "llm") return "AI translation";
   if (source === "cache") return "Cached";
   if (source === "package") return "Package translation";
   return source;

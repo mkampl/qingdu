@@ -25,6 +25,7 @@ export type TranslationSource =
   | "deepl"
   | "google"
   | "mymemory"
+  | "llm"
   | "glossary"
   | "package"
   | "hsk"

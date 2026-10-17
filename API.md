@@ -26,6 +26,7 @@ Anonymous callers can still hit `GET /api/vocabulary-stats`, `GET /health`, `POS
 | Analysis | `/api/analyze`, `/api/translate`, `/api/tts/*` | Segment a text, translate a sentence, synthesise speech |
 | Saved texts | `/api/texts/*` | List, save, update, delete, share; move a text with `folder_id`; `POST /api/texts/order` sets a folder's reading order |
 | Topic series | `/api/series/*` | Texts on one topic written by the LLM one after another (folder per series, next text in the background) |
+| Photo import | `/api/extract/image` | Chinese text from a photo, read by the server's LLM (vision) |
 | Reading help | `/api/texts/{id}/quiz`, `/api/texts/{id}/quiz/write`, `/api/words/sense` | LLM-written questions on a saved text (graded on the server); what a word means in its sentence |
 | Text folders | `/api/folders/*` | Nested folders for saved texts: list, create, rename, move, delete (texts move up one level) |
 | Readability | `/api/readability`, `/api/readability/prelearn` | How much of a text the user can read and which words are missing; take missing words into review |
