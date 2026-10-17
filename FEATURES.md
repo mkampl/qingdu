@@ -66,6 +66,7 @@ Optional **daily auto-enrolment** seeds new HSK words into the learning pool at 
 
 ## Settings
 
+- **Settings follow your account** — pinyin, colouring, HSK version, review modes and the writing options are stored on your account, so phone and browser show the same; theme, reminders and vibration stay per device.
 - **Script** — auto / Simplified / Traditional. Applies to every Chinese surface (reader, saved texts, vocabulary lists, review cards). Internal data stays simp-canonical, conversion happens at the I/O boundary.
 - **HSK version** — new (9-level) or old (6-level); affects colouring, bulk-mark shortcuts and which list daily auto-enrolment draws from.
 - **Pinyin mode** — auto / on / off.

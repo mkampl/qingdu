@@ -36,7 +36,7 @@ from app.schemas import (
     SignupWithInviteRequest,
     UserSettingsUpdate,
 )
-from app.services import captcha, lifecycle, localday, srs, streak
+from app.services import captcha, lifecycle, localday, srs, streak, ui_settings
 from app.services.timestamps import iso_utc
 
 router = APIRouter(tags=["Authentication"])
@@ -126,6 +126,9 @@ async def get_me(user: User = Depends(get_current_user), db: Session = Depends(g
             # IANA zone for local-day boundaries; null until the SPA sends
             # the browser's zone on first load.
             "timezone": user.timezone,
+            # Reader/review preferences shared by every device (null until
+            # the first device sends its own).
+            "ui_settings": ui_settings.load(user.ui_settings),
             "account_status": user.account_status or "active",
             "soft_delete_at": iso_utc(expiry["soft_delete_at"]),
             "hard_delete_at": iso_utc(expiry["hard_delete_at"]),
@@ -289,6 +292,8 @@ async def update_my_settings(
             user, localday.user_tz(user), localday.resolve_tz(payload.timezone)
         )
         user.timezone = payload.timezone
+    if payload.ui_settings is not None:
+        user.ui_settings = ui_settings.merge(user.ui_settings, payload.ui_settings)
     db.commit()
     return {
         "daily_new_words": user.daily_new_words,
@@ -298,6 +303,7 @@ async def update_my_settings(
         "review_window": user.review_window,
         "review_focus": user.review_focus,
         "timezone": user.timezone,
+        "ui_settings": ui_settings.load(user.ui_settings),
     }
 
 
