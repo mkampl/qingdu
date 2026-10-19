@@ -435,7 +435,13 @@ watch(
 // stays a Default rather than a forced choice.
 
 // Settings → Review → Auto-grade after writing (0 = off, default 2 s).
-const autoGradeDelayMs = computed(() => settings.autoGradeDelayMs);
+// A context sentence appears with the result, so the countdown grows by
+// the time it takes to read it; a tap on the card stops the countdown.
+const autoGradeDelayMs = computed(() => {
+  const base = settings.autoGradeDelayMs;
+  const sentence = card.value?.cloze_sentence;
+  return base > 0 && sentence ? base + 1500 + Math.min(3500, 150 * sentence.length) : base;
+});
 const autoGradeTimer = ref<number | null>(null);
 const autoGradePending = ref<ReviewGrade | null>(null);
 
@@ -891,7 +897,7 @@ onMounted(() => {
     </div>
 
     <!-- Session header + card -->
-    <div v-else-if="card" class="space-y-6">
+    <div v-else-if="card" class="space-y-4 sm:space-y-6">
       <div class="flex items-center justify-between">
         <p
           class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
@@ -920,7 +926,8 @@ onMounted(() => {
 
       <!-- Card -->
       <div
-        class="rounded-2xl border border-border-subtle bg-bg-elevated px-6 py-10 text-center sm:px-10 sm:py-14"
+        class="rounded-2xl border border-border-subtle bg-bg-elevated px-4 py-6 text-center sm:px-10 sm:py-14"
+        @pointerdown="cancelAutoGrade"
       >
         <!-- Phase 1.3b — intro stage. Fresh / never-reviewed cards.
              Everything's shown from the start: hanzi big, pinyin, meaning,
@@ -970,7 +977,9 @@ onMounted(() => {
             />
           </div>
 
-          <div class="mt-6 flex flex-col items-center gap-2">
+          <div
+            class="sticky bottom-0 -mx-4 mt-6 flex flex-col items-center gap-2 bg-bg-elevated/95 pb-3 pt-3 backdrop-blur sm:static sm:mx-0 sm:bg-transparent sm:pb-0 sm:pt-0 sm:backdrop-blur-none"
+          >
             <button
               type="button"
               class="rounded-full bg-accent px-5 py-2 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90"
@@ -1411,7 +1420,12 @@ onMounted(() => {
            Intro never reaches this row directly: tapping 'Got it' on an
            intro card swaps the surface to trace, and the grade row appears
            once the trace WritingQuiz completes. -->
-      <div v-if="gradeRowVisible" class="grid grid-cols-4 gap-2">
+      <!-- On a phone the row sticks to the bottom of the screen, so a long
+           sentence or gloss above can never push it out of view. -->
+      <div
+        v-if="gradeRowVisible"
+        class="sticky bottom-0 z-10 -mx-3 grid grid-cols-4 gap-2 bg-bg/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur sm:static sm:mx-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+      >
         <button
           type="button"
           :disabled="review.grading"
