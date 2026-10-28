@@ -38,8 +38,8 @@ from app.services.readings import readings_payload
 from app.services.script import to_canonical, to_user_script
 from app.services.streak import record_activity
 from app.services.timestamps import iso_utc
-from app.services.word_info import lookup_pinyin_meaning
-from app.state import cedict_vocab, hsk_vocab
+from app.services.word_info import cedict_entry, lookup_pinyin_meaning
+from app.state import hsk_vocab
 
 router = APIRouter(tags=["Review"])
 
@@ -91,11 +91,11 @@ def _enrich(row: UserWord) -> dict:
     pinyin = row.pinyin or ""
     meaning = row.meaning or ""
     entry = hsk_vocab.get(row.word)
-    cedict_entry = cedict_vocab.get(row.word)
+    cedict_hit, _ = cedict_entry(row.word)
     # Prefer the meanings list from the richer source: HSK entries already
     # have CC-CEDICT meanings overlaid at startup, so hsk_vocab is the
     # primary; cedict_vocab covers non-HSK literary/proper-noun terms.
-    source_entry = entry or cedict_entry or {}
+    source_entry = entry or cedict_hit or {}
     meanings = source_entry.get("meanings", []) or []
     hsk_level = entry.get("level") if entry else None
 

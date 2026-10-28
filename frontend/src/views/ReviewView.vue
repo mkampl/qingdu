@@ -1095,7 +1095,10 @@ onMounted(() => {
           >
             Read · stability {{ Math.round(card.stability ?? 0) }}d
           </p>
-          <p class="mt-4 font-cn-serif text-6xl leading-none text-fg sm:text-7xl">
+          <p
+            class="font-cn-serif leading-none text-fg sm:text-7xl"
+            :class="revealed ? 'mt-2 text-5xl' : 'mt-4 text-6xl'"
+          >
             {{ card.word }}
           </p>
           <template v-if="!revealed">
@@ -1126,7 +1129,7 @@ onMounted(() => {
               </button>
             </div>
           </template>
-          <div v-else class="mt-6 space-y-1.5">
+          <div v-else class="mt-4 space-y-1.5 sm:mt-6">
             <p
               v-if="readVerdict"
               class="font-mono text-[11px] uppercase tracking-wider"
@@ -1151,8 +1154,10 @@ onMounted(() => {
               :focus="card.focus_gloss"
               headline-class="font-display text-xl text-fg"
               list-class="mt-1 space-y-0.5 text-sm text-fg-muted"
+              :max-meanings="3"
+              collapse-others
             />
-            <WordDetails :word="card.word" class="mx-auto max-w-md pt-2" />
+            <WordDetails :word="card.word" collapsible class="mx-auto max-w-md pt-2" />
             <ContextSentence
               v-if="card.cloze_sentence"
               :sentence="card.cloze_sentence"
@@ -1170,10 +1175,13 @@ onMounted(() => {
           >
             {{ formatHskLevel(card.hsk_level) }}
           </p>
-          <p class="font-cn-serif text-6xl leading-none text-fg sm:text-7xl">
+          <p
+            class="font-cn-serif leading-none text-fg sm:text-7xl"
+            :class="revealed ? 'text-5xl' : 'text-6xl'"
+          >
             {{ card.word }}
           </p>
-          <div v-if="revealed" class="mt-6 space-y-1.5">
+          <div v-if="revealed" class="mt-4 space-y-1.5 sm:mt-6">
             <p class="font-sans text-base text-fg-muted">{{ card.pinyin }}</p>
             <WordReadings
               class="mx-auto max-w-md"
@@ -1185,8 +1193,10 @@ onMounted(() => {
               :focus="card.focus_gloss"
               headline-class="font-display text-xl text-fg"
               list-class="mt-1 space-y-0.5 text-sm text-fg-muted"
+              :max-meanings="3"
+              collapse-others
             />
-            <WordDetails :word="card.word" class="mx-auto max-w-md pt-2" />
+            <WordDetails :word="card.word" collapsible class="mx-auto max-w-md pt-2" />
             <ContextSentence
               v-if="card.cloze_sentence"
               :sentence="card.cloze_sentence"

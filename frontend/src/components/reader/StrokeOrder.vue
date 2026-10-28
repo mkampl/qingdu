@@ -47,10 +47,20 @@ async function ensureWriterFor(idx: number) {
   try {
     // Dynamic import so hanzi-writer stays out of the main bundle.
     const HanziWriter = (await import("hanzi-writer")).default;
+    // Rare characters and variant forms (玅) have no stroke data; say so
+    // instead of leaving an empty box.
+    const char = cjkChars.value[idx];
+    const data = await HanziWriter.loadCharacterData(char).catch(() => null);
+    if (activeIdx.value !== idx || !containerRef.value) return;
     // Wipe whatever was there for the previous character.
     containerRef.value.innerHTML = "";
+    if (!data) {
+      error.value = `No stroke order for ${char} — a rare character.`;
+      writer.value = null;
+      return;
+    }
     const dark = settings.theme === "dark";
-    const w = HanziWriter.create(containerRef.value, cjkChars.value[idx], {
+    const w = HanziWriter.create(containerRef.value, char, {
       width: 140,
       height: 140,
       padding: 6,
@@ -168,7 +178,7 @@ onBeforeUnmount(() => {
         >
           Replay
         </button>
-        <p v-if="error" class="text-[11px] text-red-700 dark:text-red-300">
+        <p v-if="error" class="text-[11px] text-fg-muted">
           {{ error }}
         </p>
         <p v-else-if="loading" class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">

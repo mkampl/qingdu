@@ -138,15 +138,18 @@ def segment_text(text: str, glossary: dict | None = None) -> list[str]:
 
 
 def _resolve_non_hsk(segments: list[str], glossary: dict) -> dict[str, dict | None]:
-    """Info for every multi-character segment that is not an HSK headword
-    or a glossary entry: the CC-CEDICT entry when there is one, otherwise
-    a reading plus the token's dictionary parts. All local, no network:
-    isolated tokens are never sent to a translation service."""
+    """Info for every segment that is not an HSK headword or a glossary
+    entry: the CC-CEDICT entry when there is one, otherwise (for several
+    characters) a reading plus the token's dictionary parts. All local, no
+    network: isolated tokens are never sent to a translation service."""
     resolved: dict[str, dict | None] = {}
     for seg in segments:
-        if seg in resolved or len(seg) <= 1 or seg == "\n":
+        if seg in resolved or not seg or seg == "\n":
             continue
         if seg in glossary or get_word_info(seg) is not None:
+            continue
+        if len(seg) == 1:
+            resolved[seg] = resolve_from_cedict(seg) if is_cjk_word(seg) else None
             continue
         resolved[seg] = resolve_from_cedict(seg) or describe_non_word(seg, glossary)
     return resolved
@@ -275,7 +278,7 @@ async def analyze_chinese_text(
             total_hsk_words_old = _increment_level(
                 hsk_stats_old, total_hsk_words_old, vocab_entry.get("level_old"), "old-"
             )
-        elif len(segment) > 1:
+        else:
             info = resolved.get(segment)
             if info:
                 word_info.parts = info.get("parts") or None

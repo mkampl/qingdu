@@ -34,6 +34,8 @@ const props = withDefaults(
     focus?: WordGloss | null;
     /** Cap on the main reading's other senses (default: all). */
     maxMeanings?: number;
+    /** Fold "Other readings" behind a tap (review cards on phones). */
+    collapseOthers?: boolean;
     headlineClass?: string;
     listClass?: string;
   }>(),
@@ -45,6 +47,7 @@ const props = withDefaults(
     glosses: null,
     focus: null,
     maxMeanings: undefined,
+    collapseOthers: false,
     headlineClass: "font-display text-[15px] leading-snug text-fg",
     listClass: "mt-1 space-y-0.5 text-xs text-fg-muted",
   },
@@ -83,13 +86,18 @@ const custom = computed(() => customGlosses(props.glosses, props.focus));
       </li>
     </ul>
 
-    <div
+    <component
+      :is="collapseOthers ? 'details' : 'div'"
       v-if="others.length"
       class="mt-3 border-t border-border-subtle pt-2 text-left"
     >
-      <p class="font-mono text-[9px] uppercase tracking-wider text-fg-subtle">
-        Other readings
-      </p>
+      <component
+        :is="collapseOthers ? 'summary' : 'p'"
+        class="font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
+        :class="collapseOthers ? 'cursor-pointer hover:text-fg' : ''"
+      >
+        Other readings<template v-if="collapseOthers"> ({{ others.length }})</template>
+      </component>
       <ul class="mt-1 space-y-1.5">
         <li v-for="r in others" :key="r.pinyin" class="text-xs leading-snug">
           <span class="font-sans text-[13px] text-fg">{{ r.pinyin }}</span>
@@ -109,6 +117,6 @@ const custom = computed(() => customGlosses(props.glosses, props.focus));
           </span>
         </li>
       </ul>
-    </div>
+    </component>
   </div>
 </template>
