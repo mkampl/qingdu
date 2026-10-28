@@ -204,10 +204,10 @@ async function startCharQuiz(idx: number) {
     // wiring quiz mode. Without this, taps in the first second after
     // mount land on a writer that has no data yet and silently no-op,
     // which reads to the user as "nothing happens when I draw".
-    const charData = await HanziWriter.loadCharacterData(char);
+    const charData = await HanziWriter.loadCharacterData(char).catch(() => null);
     if (seq !== quizSeq || !canvasRef.value) return;
     if (!charData) {
-      error.value = `No stroke data for "${char}".`;
+      error.value = `No stroke data for ${char} (a rare character) — skip it.`;
       return;
     }
     // Stroke count drives the dynamic mistake threshold downstream.

@@ -9,7 +9,11 @@ import { computed, ref, watch } from "vue";
 import * as api from "@/api/client";
 import type { WordDetails } from "@/api/client";
 
-const props = defineProps<{ word: string }>();
+const props = defineProps<{
+  word: string;
+  /** Fold the details behind a tap (review cards on phones). */
+  collapsible?: boolean;
+}>();
 
 // Details don't change while the app runs: one request per word.
 const cache = new Map<string, Promise<WordDetails | null>>();
@@ -48,7 +52,17 @@ const hasAny = computed(() => !!data.value && (data.value.classifiers.length > 0
 </script>
 
 <template>
-  <div v-if="hasAny && data" class="space-y-2 text-left text-sm">
+  <component
+    :is="collapsible ? 'details' : 'div'"
+    v-if="hasAny && data"
+    class="space-y-2 text-left text-sm"
+  >
+    <summary
+      v-if="collapsible"
+      class="cursor-pointer font-mono text-[9px] uppercase tracking-wider text-fg-subtle hover:text-fg"
+    >
+      {{ chars.length ? "Characters" : "Measure word" }}
+    </summary>
     <p v-if="data.classifiers.length" class="text-fg-muted">
       <span class="mr-1 font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
         Measure word
@@ -75,5 +89,5 @@ const hasAny = computed(() => !!data.value && (data.value.classifiers.length > 0
         <span v-if="c.hint" class="mt-0.5 block text-xs italic text-fg-muted">{{ c.hint }}</span>
       </li>
     </ul>
-  </div>
+  </component>
 </template>

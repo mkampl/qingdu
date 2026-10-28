@@ -47,7 +47,7 @@ from app.core.constants import (
 from app.core.paths import DATA_DIR
 from app.services import dict_data, learner_glosses
 from app.services import readings as readings_service
-from app.state import cedict_vocab, hsk_lists_original, hsk_vocab
+from app.state import cedict_variants, cedict_vocab, hsk_lists_original, hsk_vocab
 
 logger = logging.getLogger(__name__)
 
@@ -930,6 +930,21 @@ def _parse_text(text: str) -> dict[str, dict]:
     return out
 
 
+def _variant_forms(text: str, parsed: dict[str, dict]) -> dict[str, str]:
+    """{traditional form: simplified headword} for every form that only
+    appears in CC-CEDICT's traditional column, so text written with it
+    (玅, a variant of 妙) still finds the entry."""
+    forms: dict[str, str] = {}
+    for raw_line in text.splitlines():
+        m = _ENTRY_RE.match(raw_line.strip())
+        if not m:
+            continue
+        traditional, simplified = m.group(1), m.group(2)
+        if traditional != simplified and traditional not in parsed and simplified in parsed:
+            forms.setdefault(traditional, simplified)
+    return forms
+
+
 def _looks_stub_reading(primary: str, simplified: str) -> bool:
     """A reading that is never the main one while a real reading
     matches: a pointer at another reading of the same word ("see
@@ -1184,6 +1199,8 @@ async def load_cedict() -> None:
     parsed = _parse_text(text)
     cedict_vocab.clear()
     cedict_vocab.update(parsed)
+    cedict_variants.clear()
+    cedict_variants.update(_variant_forms(text, parsed))
     overlaid, missing = _merge_into_hsk_vocab()
     dict_data.loaded_sources["cedict"] = digest
     logger.info(

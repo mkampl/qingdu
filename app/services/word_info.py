@@ -11,7 +11,9 @@ Fallback order:
      upstream complete-hsk-vocabulary list. Meanings here have already
      been overlaid with CC-CEDICT's richer glosses at startup.
   2. `app.state.cedict_vocab` — the full ~120k CC-CEDICT, used for words
-     not in HSK (literary terms, place names, classical Chinese).
+     not in HSK (literary terms, place names, classical Chinese). A form
+     CC-CEDICT lists only as traditional or variant (玅) reads its
+     headword's entry (妙).
   3. Anything else is not a dictionary word (很多, 我来, 洗衣服): pypinyin
      gives the reading and the meaning stays empty. Gluing the parts'
      glosses together ("very + many") made fake entries that ended up on
@@ -23,7 +25,20 @@ from __future__ import annotations
 from pypinyin import Style, lazy_pinyin
 
 from app.services.lexicon import split_into_known
-from app.state import cedict_vocab, hsk_vocab
+from app.state import cedict_variants, cedict_vocab, hsk_vocab
+
+
+def cedict_entry(word: str) -> tuple[dict | None, str | None]:
+    """The CC-CEDICT entry for `word`, and the headword it is a variant
+    or traditional form of (玅 -> 妙's entry, "妙"); (None, None) if
+    CC-CEDICT does not know it."""
+    entry = cedict_vocab.get(word)
+    if entry is not None:
+        return entry, None
+    headword = cedict_variants.get(word)
+    if headword is None:
+        return None, None
+    return cedict_vocab.get(headword), headword
 
 
 def lookup_pinyin_meaning(word: str) -> tuple[str, str]:
@@ -36,9 +51,9 @@ def lookup_pinyin_meaning(word: str) -> tuple[str, str]:
     if entry:
         return entry.get("pinyin", "") or "", entry.get("meaning", "") or ""
 
-    cedict_entry = cedict_vocab.get(word)
-    if cedict_entry:
-        return cedict_entry.get("pinyin", "") or "", cedict_entry.get("meaning", "") or ""
+    entry, _ = cedict_entry(word)
+    if entry:
+        return entry.get("pinyin", "") or "", entry.get("meaning", "") or ""
 
     return " ".join(lazy_pinyin(word, style=Style.TONE)), ""
 
@@ -48,7 +63,7 @@ def word_parts(word: str, extra=()) -> list[dict]:
     [{word, pinyin, meaning}] for each known sub-word. Empty for words the
     dictionaries know (they need no breakdown) and for single characters."""
     word = (word or "").strip()
-    if len(word) <= 1 or word in hsk_vocab or word in cedict_vocab:
+    if len(word) <= 1 or word in hsk_vocab or cedict_entry(word)[0] is not None:
         return []
     parts = []
     for part in split_into_known(word, extra):
@@ -57,4 +72,4 @@ def word_parts(word: str, extra=()) -> list[dict]:
     return parts
 
 
-__all__ = ["lookup_pinyin_meaning", "word_parts"]
+__all__ = ["cedict_entry", "lookup_pinyin_meaning", "word_parts"]

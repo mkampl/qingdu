@@ -19,3 +19,8 @@ hsk_lists_original: dict = {}
 # pinyin (tone-marked) and a meanings list. Populated by
 # `app.services.cedict_loader` on startup.
 cedict_vocab: dict = {}
+
+# Variant and traditional forms CC-CEDICT lists only in its traditional
+# column (玅 for 妙): {form: simplified headword}. Forms that are a
+# simplified headword themselves are left out.
+cedict_variants: dict = {}

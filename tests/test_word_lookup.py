@@ -13,7 +13,7 @@ import pytest
 
 from app.services.segmentation import _resolve_non_hsk
 from app.services.word_lookup import describe_non_word, resolve_from_cedict
-from app.state import cedict_vocab, hsk_vocab
+from app.state import cedict_variants, cedict_vocab, hsk_vocab
 
 
 @pytest.fixture
@@ -47,7 +47,11 @@ def vocab():
             "变得": {"pinyin": "biàn de", "meaning": "to become", "meanings": ["to become"]},
         }
     )
+    original_variants = dict(cedict_variants)
+    cedict_variants.clear()
     yield
+    cedict_variants.clear()
+    cedict_variants.update(original_variants)
     hsk_vocab.clear()
     hsk_vocab.update(original_hsk)
     cedict_vocab.clear()
@@ -113,3 +117,20 @@ def test_resolver_skips_hsk_and_glossary_words(vocab):
 
 def test_describe_non_word_ignores_non_chinese_tokens(vocab):
     assert describe_non_word("iPhone") is None
+
+
+def test_single_character_outside_hsk_gets_its_cedict_entry(vocab):
+    cedict_vocab["喵"] = {"pinyin": "miāo", "meaning": "meow", "meanings": ["meow"]}
+    info = _resolve_non_hsk(["喵", "！"], {})
+    assert info["喵"]["meaning"] == "meow"
+    assert info["！"] is None
+
+
+def test_variant_form_reads_its_headword(vocab):
+    """玅 is listed in CC-CEDICT only as the traditional form of 妙."""
+    cedict_vocab["妙"] = {"pinyin": "miào", "meaning": "clever", "meanings": ["clever"]}
+    cedict_variants["玅"] = "妙"
+    info = resolve_from_cedict("玅")
+    assert info["meaning"] == "clever"
+    assert info["pinyin"] == "miào"
+    assert info["meaning_tags"] == ["variant of 妙"]

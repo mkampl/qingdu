@@ -449,3 +449,15 @@ def test_preferred_sense_override_fixes_shang4_bound_form_misfire(monkeypatch):
     parsed = cedict_loader._parse_text(sample)
     assert parsed["上"]["meaning"] == "up; upper; above; previous"
     assert parsed["上"]["meaning_tags"] == ["bound form"]
+
+
+def test_variant_forms_only_from_the_traditional_column():
+    sample = (
+        "妙 妙 [miao4] /clever/wonderful/\n"
+        "玅 妙 [miao4] /variant of 妙[miao4]/\n"
+        "書 书 [shu1] /book/\n"
+        "后 后 [hou4] /back/\n"
+        "後 后 [hou4] /behind/\n"
+    )
+    parsed = {"妙": {}, "书": {}, "后": {}}
+    assert cedict_loader._variant_forms(sample, parsed) == {"玅": "妙", "書": "书", "後": "后"}

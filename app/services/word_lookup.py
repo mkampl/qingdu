@@ -20,8 +20,8 @@ from app.core.constants import TRANSLATION_SOURCE_CEDICT, TRANSLATION_SOURCE_PAR
 from app.core.radicals import CHAR_TO_RADICAL, RADICAL_PINYIN
 from app.services.lexicon import is_cjk_char
 from app.services.readings import readings_payload
-from app.services.word_info import word_parts
-from app.state import cedict_vocab, hsk_vocab
+from app.services.word_info import cedict_entry, word_parts
+from app.state import hsk_vocab
 
 
 def _char_component_stats(chars: list[str]) -> dict:
@@ -79,19 +79,24 @@ def _char_component_stats(chars: list[str]) -> dict:
 
 def resolve_from_cedict(word: str) -> dict | None:
     """
-    Direct CC-CEDICT hit for a multi-character word jieba segmented as one
-    token but that isn't in `hsk_vocab` itself (e.g. "一个", "变得") — very
-    common, correctly-segmented words that would otherwise fall through to
-    the per-character breakdown of `describe_non_word`.
+    Direct CC-CEDICT hit for a token that isn't in `hsk_vocab` itself:
+    a multi-character word jieba segmented as one token (e.g. "一个",
+    "变得") — very common, correctly-segmented words that would otherwise
+    fall through to the per-character breakdown of `describe_non_word` —
+    or a character outside HSK (喵). A variant or traditional form (玅)
+    reads its headword's entry (妙) and carries "variant of 妙" as a tag.
 
-    Returns None if `word` isn't in `cedict_vocab`. When every character of
+    Returns None if CC-CEDICT doesn't know `word`. When every character of
     `word` is itself in `hsk_vocab`, HSK level/radical are derived from the
     components (same as a compound) so the word still gets HSK colouring in
     the reader; otherwise those fields are left unset.
     """
-    entry = cedict_vocab.get(word)
+    entry, headword = cedict_entry(word)
     if entry is None:
         return None
+    tags = list(entry.get("meaning_tags") or [])
+    if headword:
+        tags.append(f"variant of {headword}")
 
     chars = list(word)
     stats = _char_component_stats(chars) if all(c in hsk_vocab for c in chars) else {}
@@ -100,7 +105,7 @@ def resolve_from_cedict(word: str) -> dict | None:
         "pinyin": entry.get("pinyin") or stats.get("pinyin", ""),
         "meaning": entry["meaning"],
         "meanings": entry.get("meanings") or [entry["meaning"]],
-        "meaning_tags": list(entry.get("meaning_tags") or []),
+        "meaning_tags": tags,
         "readings": readings_payload(entry),
         "level": stats.get("level", "unknown"),
         "level_new": stats.get("level_new"),
