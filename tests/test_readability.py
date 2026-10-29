@@ -2,6 +2,7 @@
 
 from app.database import UserWord
 from app.services import readability
+from tests.test_grammar_ai import fake_llm  # noqa: F401
 from tests.test_user_words import words_client as _words_client
 
 words_client = _words_client
@@ -120,6 +121,52 @@ def test_prelearn_stores_the_texts_own_meaning(words_client):
     assert ("有意思", "package", "dao") in links
     assert ("看书", "list", "Dao list") in links
     s.close()
+
+
+def test_prelearn_stores_the_meaning_in_the_text(words_client):
+    from app.database import TextWord, UserWordGloss
+
+    _prelearn(
+        words_client,
+        ["看书"],
+        title="A long title " * 8,
+        glosses={"看书": {"meaning": "to study the classics", "source": "text"}},
+    )
+    s = words_client.session_factory()
+    (g,) = [g for g in s.query(UserWordGloss).all() if g.source == "text"]
+    assert g.meaning == "to study the classics"
+    assert g.source_tag == ("A long title " * 8)[:64]
+    links = {(t.word, t.gloss_source, t.gloss_tag) for t in s.query(TextWord).all()}
+    assert ("看书", "text", g.source_tag) in links
+    s.close()
+
+
+def test_senses_one_request_for_all_words_then_cached(words_client, fake_llm):  # noqa: F811
+    import json
+
+    from app.services import text_senses
+
+    text_senses._cache.clear()
+    fake_llm.append(
+        json.dumps({"senses": [{"n": 1, "meaning": "the Great Dao"}, {"n": 7, "meaning": "x"}]})
+    )
+    items = [
+        {"word": "大道", "sentence": "三功九秘行大道！", "translation": "walking the Great Dao"},
+        {"word": "看书", "sentence": "我喜欢看书。"},
+    ]
+    r = words_client.post("/api/readability/senses", json={"items": items})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"senses": {"大道": "the Great Dao"}}
+    # Answered from the cache: no second request (the fake would answer junk).
+    r = words_client.post("/api/readability/senses", json={"items": items[:1]})
+    assert r.json() == {"senses": {"大道": "the Great Dao"}}
+
+
+def test_senses_are_off_without_an_llm(words_client):
+    r = words_client.post(
+        "/api/readability/senses", json={"items": [{"word": "看书", "sentence": "我看书。"}]}
+    )
+    assert r.status_code == 503
 
 
 def test_prelearn_rejects_a_bad_text_key(words_client):

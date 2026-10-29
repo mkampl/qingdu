@@ -7,19 +7,20 @@ services/readability for the counting rules.
 
 Pre-learning takes missing words of a text into review: each becomes a
 learning word with the sentence it stands in as its context sentence (and
-the text's own meaning when a package or glossary gives one), and is
-linked to the text so the reader can show the progress and a review
-session can focus on that text.
+the text's own meaning when a package or glossary gives one, or the
+meaning in its sentence the LLM gave, see POST /api/readability/senses),
+and is linked to the text so the reader can show the progress and a
+review session can focus on that text.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import TextWord, User, UserWord, get_db
 from app.routers.words import _context_title, _ensure_gloss, _upsert, may_create_word
-from app.services import cloze, readability
+from app.services import cloze, llm, readability, text_senses
 from app.services.script import to_canonical, to_user_script
 from app.services.streak import record_activity
 
@@ -44,9 +45,10 @@ class TextGloss(BaseModel):
 
     meaning: str = Field(..., min_length=1, max_length=500)
     pinyin: str | None = Field(None, max_length=128)
-    # 'package' (pre-analysed package) or 'glossary' (a vocab list used as
-    # glossary); the tag is the package or list name.
-    source: str = Field(..., pattern=r"^(package|glossary)$")
+    # 'package' (pre-analysed package), 'glossary' (a vocab list used as
+    # glossary) or 'text' (the LLM's meaning in the sentence); the tag is
+    # the package or list name, or the text's title.
+    source: str = Field(..., pattern=r"^(package|glossary|text)$")
     # Kept whole: the reader's popover stores a package's full source name
     # as the tag, and the review matches the text's meaning by it.
     tag: str | None = Field(None, max_length=500)
@@ -61,11 +63,32 @@ class PrelearnRequest(ReadabilityRequest):
     glosses: dict[str, TextGloss] = Field(default_factory=dict, max_length=500)
 
 
+class SenseItem(BaseModel):
+    word: str = Field(..., min_length=1, max_length=20)
+    sentence: str = Field(..., min_length=1, max_length=400)
+    # The book's translation of the sentence, when the text has one.
+    translation: str | None = Field(None, max_length=1000)
+
+
+class SensesRequest(BaseModel):
+    items: list[SenseItem] = Field(..., min_length=1, max_length=text_senses.MAX_ITEMS)
+
+
 def _stored_source(gloss: TextGloss | None) -> str | None:
     """The user_word_glosses source a text gloss is stored under."""
     if gloss is None:
         return None
-    return "package" if gloss.source == "package" else "list"
+    return {"package": "package", "glossary": "list"}.get(gloss.source, "text")
+
+
+def _stored_tag(gloss: TextGloss | None, title: str) -> str | None:
+    """The tag a text gloss is stored under; a text's meaning gets the
+    text's title (the gloss table keeps 64 characters)."""
+    if gloss is None:
+        return None
+    if gloss.source == "text":
+        return (gloss.tag or title or "text")[:64]
+    return gloss.tag or _stored_source(gloss)
 
 
 def _prelearned(db: Session, user: User, text_key: str | None) -> dict | None:
@@ -176,15 +199,16 @@ def prelearn_words(
                 pkg_source_tag=gloss.tag if is_pkg else None,
             )
             added.append(to_user_script(word, user))
-        if gloss is not None and gloss.source == "glossary":
-            # A vocab list's own meaning, stored like "learn this list" does.
+        if gloss is not None and gloss.source != "package":
+            # A vocab list's own meaning (stored like "learn this list"
+            # does) or the meaning in the text.
             _ensure_gloss(
                 db,
                 row,
                 pinyin=gloss.pinyin,
                 meaning=gloss.meaning,
-                source="list",
-                source_tag=gloss.tag or "list",
+                source=_stored_source(gloss),
+                source_tag=_stored_tag(gloss, title),
             )
         cloze.adopt_sentence(row, readability.sentence_for(split, word), title)
         if word not in linked:
@@ -195,7 +219,7 @@ def prelearn_words(
                     word=word,
                     title=title,
                     gloss_source=_stored_source(gloss),
-                    gloss_tag=(gloss.tag or _stored_source(gloss)) if gloss else None,
+                    gloss_tag=_stored_tag(gloss, title),
                 )
             )
             linked.add(word)
@@ -203,3 +227,25 @@ def prelearn_words(
         record_activity(user, db)
     db.commit()
     return {"added": added, "skipped": skipped, **_summary(db, user, payload)}
+
+
+@router.post("/api/readability/senses")
+async def text_word_senses(
+    payload: SensesRequest,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+) -> dict:
+    """What words of a text mean in their sentences (for pre-learning).
+    One LLM request for all of them; answers from the cache are free."""
+    items = [
+        (to_canonical(i.word.strip(), user), i.sentence.strip(), i.translation)
+        for i in payload.items
+    ]
+    llm.require(text_senses.FEATURE)
+    if not text_senses.cached_only(items):
+        llm.charge(db, user.id)
+    try:
+        found = await text_senses.senses_in(items)
+    except llm.LlmError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    return {"senses": {to_user_script(w, user): m for w, m in found.items()}}

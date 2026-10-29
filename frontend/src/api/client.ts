@@ -1201,7 +1201,8 @@ export const getReadability = (
 export interface TextGloss {
   meaning: string;
   pinyin?: string | null;
-  source: "package" | "glossary";
+  /** "text": the LLM's meaning in the sentence (POST /api/readability/senses). */
+  source: "package" | "glossary" | "text";
   tag?: string | null;
 }
 
@@ -1215,6 +1216,14 @@ export interface PrelearnRequest {
   library_slug?: string | null;
   glosses?: Record<string, TextGloss>;
 }
+
+/** What words of a text mean in their sentences (LLM), for pre-learning. */
+export const getTextSenses = (
+  items: { word: string; sentence: string; translation?: string | null }[],
+) =>
+  request<{ senses: Record<string, string> }>("/api/readability/senses", {
+    body: { items },
+  });
 
 export const prelearnWords = (body: PrelearnRequest) =>
   request<ReadabilityResponse & { added: string[]; skipped: string[] }>(
