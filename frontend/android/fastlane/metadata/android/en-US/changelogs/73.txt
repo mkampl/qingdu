@@ -1,0 +1,6 @@
+1.1.2 — Pre-learning and review:
+- Pre-learn words: each word shows what it means in this text, not only the dictionary's meaning
+- Review cards lead with your own meaning (glossary, text, package) before the dictionary's
+- A review of a text's pre-learned words has a "Back to text" button
+- Rare characters and variant forms (玅 for 妙) find their dictionary entry; no more broken stroke animation
+- The revealed answer fits on a phone screen; other readings and the character breakdown fold away
