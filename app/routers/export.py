@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import csv
+import hashlib
 import io
 import logging
 import os
@@ -40,6 +41,13 @@ _CSV_FIELDS = [
     "last_reviewed_at",
     "created_at",
 ]
+
+
+def _stable_id(key: str) -> int:
+    """Anki model or deck id for `key`, the same on every run, so a second
+    import updates the deck instead of adding another one (Python's hash()
+    is salted per process)."""
+    return 2147483600 + int.from_bytes(hashlib.sha256(key.encode()).digest()[:4], "big") % 1000
 
 
 @router.get("/api/words/export.csv")
@@ -102,7 +110,7 @@ async def export_words_anki(
     )
 
     model = genanki.Model(
-        2147483600 + (hash(user.username) % 1000),
+        _stable_id(user.username),
         "QingDu word state",
         fields=[
             {"name": "Hanzi"},
@@ -127,7 +135,7 @@ async def export_words_anki(
     )
 
     deck = genanki.Deck(
-        2147483600 + (hash(f"{user.username}-words") % 1000),
+        _stable_id(f"{user.username}-words"),
         f"QingDu — {user.username}",
     )
     for r in rows:
