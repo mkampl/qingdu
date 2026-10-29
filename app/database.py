@@ -405,6 +405,9 @@ class UserWordGloss(Base):
     - source='list': a vocab list's own meaning for the word (the list was
       learned, or used as glossary in a text the user pre-learned);
       `source_tag` is the list name.
+    - source='text': what the word means in a text's sentence, by the LLM,
+      kept when the word is pre-learned from that text; `source_tag` is
+      the text's title.
     """
 
     __tablename__ = "user_word_glosses"
@@ -413,7 +416,7 @@ class UserWordGloss(Base):
     user_word_id = Column(Integer, ForeignKey("user_words.id", ondelete="CASCADE"), nullable=False)
     pinyin = Column(String(128), nullable=True)
     meaning = Column(Text, nullable=False)
-    # 'dictionary' | 'package' | 'list'
+    # 'dictionary' | 'package' | 'list' | 'text'
     source = Column(String(32), nullable=False)
     # NULL for dictionary; the package name (e.g. "dao_de_jing_ch1") for
     # package-sourced glosses. Used as the human-facing tag in the UI.

@@ -24,7 +24,7 @@ import WritingQuiz from "@/components/reader/WritingQuiz.vue";
 import ContextSentence from "@/components/review/ContextSentence.vue";
 import WordDetails from "@/components/reader/WordDetails.vue";
 import WordReadings from "@/components/reader/WordReadings.vue";
-import { customGlosses } from "@/utils/glosses";
+import { customGlosses, leadGloss } from "@/utils/glosses";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReviewStore } from "@/stores/review";
@@ -164,6 +164,12 @@ function onWritingComplete(payload: {
 }
 
 const card = computed(() => review.current);
+// The meaning the card leads with: the focused text's or list's, else the
+// learner's own (glossary, then a text's, then a package's), else none
+// (the dictionary's headline leads).
+const cardFocus = computed(
+  () => card.value?.focus_gloss ?? leadGloss(card.value?.glosses) ?? null,
+);
 // The writing pass straight after the intro animation (see autoGradeForWriting).
 const firstEncounter = computed(() => card.value?.prompt_stage === "intro");
 const writingAutoGrade = computed(() =>
@@ -953,7 +959,7 @@ onMounted(() => {
             :meaning-tags="card.meaning_tags"
             :readings="card.readings"
               :glosses="card.glosses"
-              :focus="card.focus_gloss"
+              :focus="cardFocus"
             headline-class="font-display text-base leading-snug text-fg"
           />
           <WordDetails :word="card.word" class="mx-auto mt-3 max-w-md" />
@@ -1014,8 +1020,8 @@ onMounted(() => {
               :pinyin="card.pinyin"
               :meaning="card.meaning"
               :meanings="card.meanings"
-              :glosses="customGlosses(card.glosses, card.focus_gloss)"
-              :focus="card.focus_gloss ?? null"
+              :glosses="customGlosses(card.glosses, cardFocus)"
+              :focus="cardFocus"
               :show-outline="settings.writingShowOutline"
               @complete="onWritingComplete"
             />
@@ -1061,8 +1067,8 @@ onMounted(() => {
               :pinyin="card.pinyin"
               :meaning="card.meaning"
               :meanings="card.meanings"
-              :glosses="customGlosses(card.glosses, card.focus_gloss)"
-              :focus="card.focus_gloss ?? null"
+              :glosses="customGlosses(card.glosses, cardFocus)"
+              :focus="cardFocus"
               :show-outline="false"
               @complete="onWritingComplete"
             />
@@ -1151,7 +1157,7 @@ onMounted(() => {
               :meaning-tags="card.meaning_tags"
               :readings="card.readings"
               :glosses="card.glosses"
-              :focus="card.focus_gloss"
+              :focus="cardFocus"
               headline-class="font-display text-xl text-fg"
               list-class="mt-1 space-y-0.5 text-sm text-fg-muted"
               :max-meanings="3"
@@ -1190,7 +1196,7 @@ onMounted(() => {
               :meaning-tags="card.meaning_tags"
               :readings="card.readings"
               :glosses="card.glosses"
-              :focus="card.focus_gloss"
+              :focus="cardFocus"
               headline-class="font-display text-xl text-fg"
               list-class="mt-1 space-y-0.5 text-sm text-fg-muted"
               :max-meanings="3"
@@ -1296,7 +1302,7 @@ onMounted(() => {
               :meaning-tags="card.meaning_tags"
               :readings="card.readings"
               :glosses="card.glosses"
-              :focus="card.focus_gloss"
+              :focus="cardFocus"
               headline-class="font-display text-base text-fg"
             />
             <ContextSentence
@@ -1328,8 +1334,8 @@ onMounted(() => {
             :pinyin="card.pinyin"
             :meaning="card.meaning"
             :meanings="card.meanings"
-            :glosses="customGlosses(card.glosses, card.focus_gloss)"
-            :focus="card.focus_gloss ?? null"
+            :glosses="customGlosses(card.glosses, cardFocus)"
+            :focus="cardFocus"
             :show-outline="settings.writingShowOutline"
             @complete="onWritingComplete"
           />
@@ -1413,7 +1419,7 @@ onMounted(() => {
               :meaning-tags="card.meaning_tags"
               :readings="card.readings"
               :glosses="card.glosses"
-              :focus="card.focus_gloss"
+              :focus="cardFocus"
               headline-class="font-display text-base text-fg"
             />
             <p

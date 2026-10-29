@@ -57,8 +57,10 @@ def test_route_count(app_module):
     /api/placement/finish.
     +5 = 127/132 for topic series: GET + POST /api/series, GET + PATCH
     /api/series/{id}, POST /api/series/{id}/next.
+    +1 = 133/138 for POST /api/readability/senses (what a text's words mean
+    in their sentences, LLM, for pre-learning).
     """
-    assert len(app_module.routes) in (132, 137)
+    assert len(app_module.routes) in (133, 138)
 
 
 def test_router_tags_present(app_module):

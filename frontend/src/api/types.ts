@@ -93,7 +93,7 @@ export interface WordReading {
 
 export interface WordGloss {
   /** dictionary, a pre-analysed package, or one of the user's vocab lists. */
-  source: "dictionary" | "package" | "list";
+  source: "dictionary" | "package" | "list" | "text";
   tag: string | null;
   meaning: string;
   pinyin: string | null;

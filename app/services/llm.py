@@ -51,6 +51,7 @@ FEATURES: tuple[str, ...] = (
     "series",
     "quiz",
     "word_sense",
+    "text_sense",
     "translate",
     "ocr",
 )

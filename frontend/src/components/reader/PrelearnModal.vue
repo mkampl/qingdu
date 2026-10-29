@@ -3,9 +3,11 @@
  * "Pre-learn missing words": the words of the open text the user doesn't
  * know yet, most frequent first. The ones needed to make the text
  * readable are ticked; the user picks as many as they like, and the
- * chosen ones go into review with the sentence from this text and, for a
- * package or glossary text, the text's own meaning. Names and other words
- * not worth learning can be ignored, which also counts them as covered.
+ * chosen ones go into review with the sentence from this text and the
+ * text's own meaning: a package's or glossary's, else what the LLM says
+ * the word means in its sentence (with the book's translation of the
+ * sentence, when the text has one). Names and other words not worth
+ * learning can be ignored, which also counts them as covered.
  */
 import { computed, ref, watch } from "vue";
 
@@ -14,6 +16,9 @@ import type { ReadabilityResponse, TextGloss } from "@/api/client";
 import type { WordInfo } from "@/api/types";
 import Button from "@/components/ui/Button.vue";
 import Modal from "@/components/ui/Modal.vue";
+import { useAnalysisStore } from "@/stores/analysis";
+import { useAuthStore } from "@/stores/auth";
+import { useCapabilitiesStore } from "@/stores/capabilities";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 
@@ -33,6 +38,9 @@ const emit = defineEmits<{
 }>();
 
 const toasts = useToastStore();
+const analysis = useAnalysisStore();
+const auth = useAuthStore();
+const capabilities = useCapabilitiesStore();
 const userWords = useUserWordsStore();
 
 const selected = ref<Set<string>>(new Set());
@@ -43,8 +51,70 @@ const missing = computed(() =>
   (props.data?.missing ?? []).filter((m) => !ignored.value.has(m.word)),
 );
 
-// The text's own meaning per word, from its first occurrence.
+// What the LLM says the missing words mean in this text (no package or
+// glossary meaning of their own).
+const senses = ref<Record<string, string>>({});
+const sensing = ref(false);
+
+/** The sentence a word first stands in, and the book's translation of it
+ *  when the text has one. */
+function contextOf(word: string): { sentence: string; translation: string | null } | null {
+  const translations = analysis.result?.sentence_translations ?? {};
+  for (const [zh, en] of Object.entries(translations)) {
+    if (zh.includes(word) && zh.length <= 400) return { sentence: zh, translation: en || null };
+  }
+  let sentence = "";
+  for (const w of props.words) {
+    if (w.text === "\n") {
+      if (sentence.includes(word)) break;
+      sentence = "";
+      continue;
+    }
+    sentence += w.text;
+    if (/[。！？!?]$/.test(w.text)) {
+      if (sentence.includes(word)) break;
+      sentence = "";
+    }
+  }
+  sentence = sentence.trim();
+  return sentence.includes(word) ? { sentence: sentence.slice(0, 400), translation: null } : null;
+}
+
+async function loadSenses() {
+  if (!auth.isAuthed || !capabilities.llmFeature("text_sense")) return;
+  const items = [];
+  for (const m of props.data?.missing ?? []) {
+    if (fixedGlosses.value[m.word] || senses.value[m.word]) continue;
+    const ctx = contextOf(m.word);
+    if (ctx) items.push({ word: m.word, ...ctx });
+    if (items.length >= 40) break;
+  }
+  if (!items.length) return;
+  sensing.value = true;
+  try {
+    const r = await api.getTextSenses(items);
+    senses.value = { ...senses.value, ...r.senses };
+  } catch {
+    /* the dictionary meaning stays */
+  } finally {
+    sensing.value = false;
+  }
+}
+
+// The text's own meaning per word: a package's or glossary's, from its
+// first occurrence; else the LLM's.
 const textGlosses = computed(() => {
+  const out: Record<string, TextGloss> = { ...fixedGlosses.value };
+  const pinyin = new Map((props.data?.missing ?? []).map((m) => [m.word, m.pinyin]));
+  for (const [word, meaning] of Object.entries(senses.value)) {
+    if (!out[word]) {
+      out[word] = { meaning, pinyin: pinyin.get(word) ?? null, source: "text", tag: null };
+    }
+  }
+  return out;
+});
+
+const fixedGlosses = computed(() => {
   const out: Record<string, TextGloss> = {};
   for (const w of props.words) {
     if (out[w.text] || !w.meaning) continue;
@@ -77,6 +147,7 @@ watch(
     if (!open) return;
     ignored.value = new Set();
     selectFirst(props.data?.to_unlock ?? 0);
+    void loadSenses();
   },
 );
 
@@ -114,7 +185,7 @@ async function addToReview() {
   try {
     const r = await api.prelearnWords({
       tokens: props.words.map((w) => w.text),
-      extra: Object.keys(textGlosses.value),
+      extra: Object.keys(fixedGlosses.value),
       words: chosen.value,
       text_key: props.textKey,
       title: props.title,
@@ -194,6 +265,9 @@ async function addToReview() {
         </button>
       </div>
 
+      <p v-if="sensing" class="text-xs italic text-fg-muted">
+        Looking up what the words mean in this text…
+      </p>
       <p v-if="!missing.length" class="py-6 text-center text-sm italic text-fg-muted">
         Nothing missing — every word of this text is known or in review.
       </p>
@@ -239,7 +313,7 @@ async function addToReview() {
                 class="mr-1 inline-block max-w-[14rem] truncate rounded-full bg-accent/15 px-1.5 py-0.5 align-middle font-mono text-[9px] uppercase tracking-wider text-accent"
                 :title="textGlosses[m.word].tag || undefined"
               >
-                {{ textGlosses[m.word].tag || "this text" }}
+                {{ textGlosses[m.word].tag || "in this text" }}
               </span>
               {{ textGlosses[m.word].meaning }}
             </span>
