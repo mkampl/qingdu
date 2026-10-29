@@ -25,6 +25,8 @@ import ContextSentence from "@/components/review/ContextSentence.vue";
 import WordDetails from "@/components/reader/WordDetails.vue";
 import WordReadings from "@/components/reader/WordReadings.vue";
 import { customGlosses } from "@/utils/glosses";
+import { useOpenLibraryText } from "@/composables/use-open-library-text";
+import { useOpenSavedText } from "@/composables/use-open-saved-text";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReviewStore } from "@/stores/review";
@@ -61,6 +63,28 @@ watch(
 
 function clearScope() {
   void router.replace({ path: "/review" });
+}
+
+// A session focused on a text's pre-learned words leads back to that text
+// ("saved:<id>" or "library:<slug>"; a pasted text has no place to go).
+const openSavedText = useOpenSavedText();
+const openLibraryText = useOpenLibraryText();
+const scopeText = computed<{ savedId: number } | { slug: string } | null>(() => {
+  const m = /^(saved|library):(.+)$/.exec(review.scope?.textKey ?? "");
+  if (!m) return null;
+  const id = Number(m[2]);
+  if (m[1] === "saved") return Number.isInteger(id) ? { savedId: id } : null;
+  return { slug: m[2] };
+});
+
+async function backToText() {
+  const to = scopeText.value;
+  if (!to) return;
+  const opened =
+    "savedId" in to
+      ? await openSavedText(to.savedId)
+      : await openLibraryText(to.slug);
+  if (opened) review.reset();
 }
 
 function endPractice() {
@@ -729,13 +753,23 @@ onMounted(() => {
           {{ review.scopeInfo.due }} due · {{ review.scopeInfo.total }} words
         </span>
       </p>
-      <button
-        type="button"
-        class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle hover:text-fg"
-        @click="clearScope"
-      >
-        All reviews
-      </button>
+      <span class="flex items-center gap-4">
+        <button
+          v-if="scopeText"
+          type="button"
+          class="font-mono text-[10px] uppercase tracking-wider text-accent hover:text-fg"
+          @click="backToText"
+        >
+          ← Back to text
+        </button>
+        <button
+          type="button"
+          class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle hover:text-fg"
+          @click="clearScope"
+        >
+          All reviews
+        </button>
+      </span>
     </div>
 
     <!-- 7-day activity sparkline — only when authed; lives above the
@@ -1571,6 +1605,14 @@ onMounted(() => {
           @click="start(review.queueMode)"
         >
           Continue ({{ effectiveDueCount }})
+        </button>
+        <button
+          v-if="scopeText"
+          type="button"
+          class="rounded-full border border-accent px-4 py-1.5 text-sm text-accent transition-colors hover:bg-bg-sunken"
+          @click="backToText"
+        >
+          ← Back to text
         </button>
         <button
           type="button"
