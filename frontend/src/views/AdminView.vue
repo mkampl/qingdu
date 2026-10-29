@@ -136,8 +136,8 @@ const togglingId = ref<number | null>(null);
 
 async function toggleAdmin(user: AdminUserSummary) {
   if (togglingId.value !== null) return;
-  // Self-toggle: backend returns a friendly 400, so we don't bother short-
-  // circuiting on the client (auth.user doesn't carry the id field anyway).
+  // Self-toggle is refused by the backend (400); auth.user has no id to
+  // check it here.
   togglingId.value = user.id;
   try {
     await api.adminToggleAdmin(user.id);
@@ -239,7 +239,7 @@ function formatDate(iso: string): string {
   }
 }
 
-// --- Phase 2.7 — Registration + lifecycle settings ------------------------
+// --- Registration + lifecycle settings -----------------------------------
 
 interface RegSettingsForm {
   registration_open: boolean;
@@ -256,20 +256,23 @@ const regSaving = ref(false);
 const regError = ref<string | null>(null);
 const lifecycleRunning = ref(false);
 
+function toRegForm(s: api.RegistrationSettings): RegSettingsForm {
+  return {
+    registration_open: s["registration.open"],
+    registration_per_ip_24h: s["registration.per_ip_24h"],
+    registration_daily_cap: s["registration.daily_cap"],
+    registration_captcha: s["registration.captcha"],
+    lifecycle_soft_delete_days: s["lifecycle.soft_delete_days"],
+    lifecycle_hard_delete_days: s["lifecycle.hard_delete_days"],
+  };
+}
+
 async function loadRegistrationSettings() {
   if (!auth.isAdmin) return;
   regLoading.value = true;
   regError.value = null;
   try {
-    const s = await api.adminGetRegistrationSettings();
-    regForm.value = {
-      registration_open: s["registration.open"],
-      registration_per_ip_24h: s["registration.per_ip_24h"],
-      registration_daily_cap: s["registration.daily_cap"],
-      registration_captcha: s["registration.captcha"],
-      lifecycle_soft_delete_days: s["lifecycle.soft_delete_days"],
-      lifecycle_hard_delete_days: s["lifecycle.hard_delete_days"],
-    };
+    regForm.value = toRegForm(await api.adminGetRegistrationSettings());
   } catch (e) {
     regError.value = e instanceof ApiError ? e.message : "Couldn't load settings.";
   } finally {
@@ -282,15 +285,9 @@ async function saveRegistrationSettings() {
   regSaving.value = true;
   regError.value = null;
   try {
-    const s = await api.adminPatchRegistrationSettings({ ...regForm.value });
-    regForm.value = {
-      registration_open: s["registration.open"],
-      registration_per_ip_24h: s["registration.per_ip_24h"],
-      registration_daily_cap: s["registration.daily_cap"],
-      registration_captcha: s["registration.captcha"],
-      lifecycle_soft_delete_days: s["lifecycle.soft_delete_days"],
-      lifecycle_hard_delete_days: s["lifecycle.hard_delete_days"],
-    };
+    regForm.value = toRegForm(
+      await api.adminPatchRegistrationSettings({ ...regForm.value }),
+    );
     toasts.success("Settings saved.");
   } catch (e) {
     regError.value = e instanceof ApiError ? e.message : "Couldn't save settings.";
@@ -321,10 +318,8 @@ onMounted(() => {
   void loadRegistrationSettings();
 });
 
-// Auth hydrates asynchronously in App.vue, so the initial onMounted call
-// in this view can fire before `auth.isAdmin` flips true. Watch for the
-// transition and refire both fetches so a hard-load on /admin doesn't
-// leave us looking at an empty table + empty settings card.
+// Auth hydrates asynchronously in App.vue, so onMounted can run before
+// `auth.isAdmin` turns true (hard load on /admin). Refetch both then.
 watch(
   () => auth.isAdmin,
   (isAdmin) => {
@@ -556,10 +551,8 @@ watch(
       </table>
     </div>
 
-    <!-- Phase 2.7 — Registration & lifecycle. Sits below the user table
-         because the controls are instance-wide; the toggles drive behaviour
-         in the open signup flow + the soft/hard delete scheduler. Only
-         rendered for admins, gated on the same auth checks as the table. -->
+    <!-- Registration & lifecycle: instance-wide settings for open signup
+         and the soft/hard delete sweep. -->
     <div
       v-if="auth.isAdmin"
       class="mt-12 rounded-lg border border-border-subtle bg-bg-elevated p-6"
@@ -609,9 +602,8 @@ watch(
         class="grid gap-5 sm:grid-cols-2"
         @submit.prevent="saveRegistrationSettings"
       >
-        <!-- Registration master toggle. The four follow-on inputs are
-             still editable when off (defensible: the admin may be staging
-             a config), just visually de-emphasised. -->
+        <!-- Registration master toggle. The registration inputs below are
+             disabled while it is off. -->
         <label class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-3 transition-colors hover:bg-bg-sunken sm:col-span-2">
           <input
             v-model="regForm.registration_open"
@@ -681,10 +673,7 @@ watch(
           </span>
         </label>
 
-        <!-- Lifecycle thresholds. These are separate from registration —
-             a self-hoster can run open registration without any cleanup
-             (storage is cheap) or run invite-only with a cleanup pass
-             for old test accounts. -->
+        <!-- Lifecycle thresholds, independent of registration. -->
         <div class="sm:col-span-2 border-t border-border-subtle pt-4">
           <span class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
             Lifecycle cleanup

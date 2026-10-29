@@ -73,7 +73,7 @@ describe("ReviewView", () => {
     document.body.innerHTML = "";
   });
 
-  it("starts the next session's intro card on the intro, not on trace (M19)", async () => {
+  it("starts the next session's intro card on the intro, not on trace", async () => {
     const queue = vi
       .spyOn(api, "getReviewQueue")
       .mockResolvedValue({ mode: "mixed", cards: [card("一", "intro")] });
@@ -92,7 +92,7 @@ describe("ReviewView", () => {
     expect(w.text()).toContain("Got it");
   });
 
-  it("shows a grade failure with a retry that re-sends the grade (M18)", async () => {
+  it("shows a grade failure with a retry that re-sends the grade", async () => {
     vi.spyOn(api, "getReviewQueue").mockResolvedValue({
       mode: "recognition",
       cards: [card("一", "produce"), card("二", "produce")],
@@ -111,7 +111,7 @@ describe("ReviewView", () => {
     const w = mountView();
     await review.loadQueue("recognition");
     await flushPromises();
-    // Recognition card: the HSK level is shown formatted (L20).
+    // Recognition card: the HSK level is shown formatted.
     expect(w.text()).toContain("HSK 3");
     expect(w.text()).not.toContain("new-3");
     await w.findAll("button").find((b) => b.text().startsWith("Show answer"))!.trigger("click");
@@ -127,7 +127,7 @@ describe("ReviewView", () => {
     expect(w.text()).toContain("card 2 / 2");
   });
 
-  it("ignores grade shortcuts while a dialog is open (L19)", async () => {
+  it("ignores grade shortcuts while a dialog is open", async () => {
     vi.spyOn(api, "getReviewQueue").mockResolvedValue({
       mode: "recognition",
       cards: [card("一", "produce")],
@@ -147,7 +147,7 @@ describe("ReviewView", () => {
     w.unmount();
   });
 
-  it("drops TTS that resolves after the view is gone (M23)", async () => {
+  it("drops TTS that resolves after the view is gone", async () => {
     let resolveTts: (r: Response) => void = () => {};
     vi.spyOn(api, "tts").mockImplementation(
       () => new Promise<Response>((r) => (resolveTts = r)),
@@ -178,7 +178,7 @@ describe("ReviewView", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses the auto-grade delay setting; Off never auto-grades (L19)", async () => {
+  it("uses the auto-grade delay setting; Off never auto-grades", async () => {
     vi.useFakeTimers();
     try {
       useSettingsStore().autoGradeDelayMs = 0;

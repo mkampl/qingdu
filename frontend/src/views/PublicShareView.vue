@@ -1,16 +1,13 @@
 <script setup lang="ts">
 /**
- * Read-only public view for a shared text. No auth required. Reuses
- * the same chrome as the authed reader — TOC sidebar, stats panel,
- * grammar panel — except the save/share controls in StatsPanel are
- * hidden (the viewer can't save someone else's text into their own
- * library from this surface).
+ * Read-only public view for a shared text. No auth required. Uses the
+ * reader's TOC sidebar, stats panel and grammar panel, without the
+ * save/share controls in StatsPanel.
  *
- * The analysis store gets populated with the share data on mount so
- * that the reader's curated-sentence-translation lookup (Phase #100)
- * hits — without this, package-imported texts would fall through to
- * /api/translate even though the curated translations rode along in
- * `analysisData.sentence_translations`.
+ * The analysis store is loaded with the share data on mount so the
+ * reader's curated sentence translations
+ * (`analysisData.sentence_translations`) are used instead of
+ * /api/translate.
  *
  * Route: /s/:token
  */
@@ -50,9 +47,8 @@ onMounted(async () => {
     const fetched = await api.fetchSharedText(props.token);
     data.value = fetched;
     if (fetched.analysisData) {
-      // Hydrate the analysis store so the reader's curated-translation
-      // lookup (Phase #100) and the grammar / stats panels all have a
-      // single source of truth — same shape the authed reader uses.
+      // Same store shape the reader uses: curated translations and the
+      // grammar / stats panels read from it.
       analysis.loadSaved(fetched.content, fetched.analysisData);
     }
   } catch (e) {

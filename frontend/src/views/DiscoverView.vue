@@ -3,9 +3,9 @@
  * Discover: two layers.
  *   1. "For You" — bundled library texts in the user's comprehension zone
  *      (85-98 % of the running words known), easiest first, each saying
- *      whether it is readable yet or how many words are left. Hidden when the user
- *      is unauthenticated or hasn't built any known-word state yet.
- *   2. Static external-source links — curation by hand.
+ *      whether it is readable yet or how many words are left. Hidden when
+ *      signed out or without known words.
+ *   2. Hand-picked external-source links.
  */
 
 import { onMounted, ref } from "vue";
@@ -17,10 +17,7 @@ import ReadableBadge from "@/components/ui/ReadableBadge.vue";
 import { onAuthReady } from "@/composables/use-auth-ready";
 import { useOpenLibraryText } from "@/composables/use-open-library-text";
 
-
 const forYou = ref<LibraryForYouItem[]>([]);
-const forYouLoading = ref(false);
-const forYouLoaded = ref(false);
 
 const browseBands = ref<{ label: string; band: string; items: LibraryManifestItem[] }[]>([]);
 
@@ -31,7 +28,7 @@ const BANDS: { label: string; band: string; levels: number[] }[] = [
 ];
 
 onMounted(async () => {
-  // Browse-strip is anonymous — always fetch the manifest.
+  // The browse strip needs no account.
   try {
     const all = await api.listLibrary();
     browseBands.value = BANDS.map((b) => ({
@@ -47,21 +44,16 @@ onMounted(async () => {
 // For-You is auth-gated; it loads once the session check settles (and
 // again after a login on this page), and clears on logout.
 async function loadForYou() {
-  forYouLoading.value = true;
   try {
     const r = await api.libraryForYou({ limit: 9 });
     forYou.value = r.items;
   } catch {
     // silent — rail is optional
-  } finally {
-    forYouLoading.value = false;
-    forYouLoaded.value = true;
   }
 }
 
 onAuthReady(loadForYou, () => {
   forYou.value = [];
-  forYouLoaded.value = false;
 });
 
 const openLibraryText = useOpenLibraryText();
@@ -250,10 +242,8 @@ const groups: Group[] = [
       </div>
     </header>
 
-    <!-- Phase 1.5 — For You moves above Browse for authed users so the
-         first thing they see is something tuned to their level, not a
-         generic HSK rail. The block is auth-gated server-side (returns
-         an empty items array when there's no known-word data), so it
+    <!-- For You sits above Browse so signed-in users see their level
+         first. The server returns no items without known-word data, so it
          only renders for signed-in users with progress. -->
     <section v-if="forYou.length" class="mb-10 sm:mb-14">
       <header class="mb-4 sm:mb-5">
@@ -359,8 +349,8 @@ const groups: Group[] = [
           >
             {{ band.label }}
           </p>
-          <!-- Mobile: horizontal snap-scroll keeps each band a single visual
-               row instead of a 4-tall stack. sm+: original grid. -->
+          <!-- Mobile: horizontal snap-scroll keeps each band one row.
+               sm+: grid. -->
           <ul
             class="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:snap-none sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4"
           >
@@ -401,12 +391,9 @@ const groups: Group[] = [
       </div>
     </section>
 
-    <!-- Phase 1.5 — External-source groups collapsed into one disclosure.
-         The 14 cards used to dominate the page (~2/3 of the scroll on
-         mobile) even though they're static references most users hit
-         rarely. Inside the details: each group's kicker becomes a
-         subhead so the structure (Graded / News / Long-form / Meta)
-         survives the collapse. -->
+    <!-- External sources sit in one collapsed disclosure: static
+         references most users open rarely would otherwise dominate the
+         page on mobile. -->
     <details
       class="group/disclosure rounded-lg border border-border-subtle bg-bg-elevated"
     >

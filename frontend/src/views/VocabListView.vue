@@ -135,7 +135,7 @@ async function commitRename() {
   }
 }
 
-// --- Glossary toggle (Phase #99) -----------------------------------------
+// --- Glossary toggle ------------------------------------------------------
 
 async function toggleGlossary() {
   if (!list.value) return;
@@ -549,7 +549,7 @@ async function exportAnki() {
     } else {
       toasts.success("Anki package downloaded.");
     }
-    // Auto-close the modal after a beat so the success message lingers
+    // Close the modal after a moment, leaving the success message up briefly.
     setTimeout(() => {
       if (exportPhase.value === "done") exportPhase.value = "idle";
     }, 1800);

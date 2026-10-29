@@ -10,9 +10,8 @@ type Tab = "browse" | "lists";
 const route = useRoute();
 const router = useRouter();
 
-// Tab is driven by the URL query so deep links and the back button work.
-// Default is Browse — the HSK catalog is the more useful entry point for
-// new users; existing users who've curated lists can flip to Lists in a tap.
+// The tab lives in the URL query so deep links and the back button work.
+// Browse is the default entry point.
 const tab = computed<Tab>(() =>
   route.query.tab === "lists" ? "lists" : "browse",
 );
@@ -21,8 +20,7 @@ function setTab(next: Tab) {
   void router.replace({ query: { ...route.query, tab: next } });
 }
 
-// Keep the URL canonical — if someone hits /vocab without a query, stamp
-// ?tab=browse so refresh / share preserves state.
+// /vocab without a valid tab gets ?tab=browse.
 watch(
   () => route.query.tab,
   (current) => {
@@ -48,8 +46,8 @@ watch(
         </h1>
       </div>
 
-      <!-- Tab switcher. Stays in the header so it's the first thing the
-           user sees; tab state lives in the URL so reload + share work. -->
+      <!-- Tab switcher. -->
+
       <div
         role="tablist"
         aria-label="Vocabulary section"

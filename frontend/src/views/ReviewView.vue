@@ -1,16 +1,14 @@
 <script setup lang="ts">
 /**
- * SRS review session — Phase B.
- *
- * Two modes ship now: Recognition (flashcard) and Dictation (listen-and-type).
- * Cloze is reserved for when the backend can hand back a sample sentence per
- * card; until then the chip is shown with a "soon" badge.
+ * SRS review session. Mixed mode (default) shows each card at the stage
+ * the server picks (intro / trace / produce / read); the single modes are
+ * Recognition, Dictation, Writing and Cloze.
  *
  * Grading flow:
  *   1. user is shown the prompt for the current card
- *   2. user reveals the answer (recognition) or submits it (dictation)
- *   3. user picks Again / Hard / Good / Easy (recognition) — dictation auto-
- *      derives Good from a correct answer, Again from an incorrect one
+ *   2. user reveals the answer, submits it, or finishes the writing quiz
+ *   3. user picks Again / Hard / Good / Easy; writing and typed answers
+ *      suggest a grade (writing auto-grades after a countdown)
  *   4. store applies the grade, advances the cursor, optimistic stats tick
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -93,10 +91,8 @@ function endPractice() {
   void router.push(to);
 }
 
-// Auto-end practice once the single practice card has been graded so the
-// user lands back on My Words instead of the Start Review screen. Guard
-// on sessionGraded > 0 so the empty state on first mount doesn't fire
-// this before the card has even loaded.
+// Auto-end practice once its single card is graded, back to My Words.
+// sessionGraded > 0 keeps the empty state on first mount from firing it.
 watch(
   () => [
     review.practiceMode,
@@ -126,55 +122,41 @@ const DICTATION_VERDICT = {
 } as const;
 const ttsLoading = ref(false);
 
-const modes: {
-  id: ReviewMode;
-  label: string;
-  hint: string;
-  available: boolean;
-}[] = [
+const modes: { id: ReviewMode; label: string; hint: string }[] = [
   {
     id: "recognition",
     label: "Recognition",
     hint: "See the character, recall the meaning",
-    available: true,
   },
   {
     id: "dictation",
     label: "Dictation",
     hint: "Listen, type what you hear",
-    available: true,
   },
   {
     id: "writing",
     label: "Writing",
     hint: "Draw the character stroke by stroke",
-    available: true,
   },
   {
     id: "cloze",
     label: "Cloze",
     hint: "Fill the blank in a real sentence from your saved texts",
-    available: true,
   },
 ];
 
-// Writing-quiz state — tracks per-card mistakes from hanzi-writer's
-// onMistake/onCorrectStroke callbacks. ReviewView turns this into a
-// suggested FSRS grade on completion.
+// Writing-quiz result for the card, turned into a suggested FSRS grade.
 const writingMistakes = ref(0);
 const writingStrokes = ref(0);
 const writingDone = ref(false);
 
-// Cloze state — user types the missing word, we compare against
-// card.word (or its trad/simp equivalent, since the card.word the
-// server sent us is already in the user's display script).
+// Cloze state: the typed word is compared against card.word, which the
+// server sends in the user's display script.
 const clozeInput = ref("");
 const clozeFeedback = ref<"" | "correct" | "wrong">("");
 
-// Phase 1.3b — intro stage. The card auto-plays TTS and animates
-// stroke order on mount; the user just absorbs. The auto-Good
-// countdown is gated on the user tapping "Got it" — without a tap
-// the card just sits there with audio + strokes, no time pressure.
+// Intro stage: TTS and stroke order play on mount; "Got it" sets this and
+// swaps the card to the trace surface.
 const introReady = ref(false);
 
 function onWritingComplete(payload: {
@@ -200,9 +182,8 @@ const writingAutoGrade = computed(() =>
 const total = computed(() => review.queue.length);
 const idx = computed(() => Math.min(review.cursor + 1, total.value));
 
-// Phase 1.3b — the active "surface" the card renders. In Mixed mode the
-// server picks via prompt_stage (intro/trace/produce); in Advanced
-// single-mode it locks to whatever ReviewMode the user picked.
+// The surface the card renders. In Mixed mode the server picks it via
+// prompt_stage; in single mode it is the ReviewMode the user picked.
 type Surface =
   | "intro"
   | "trace"
@@ -216,17 +197,12 @@ type Surface =
 const activeSurface = computed<Surface>(() => {
   if (review.queueMode === "mixed") {
     const stage = (card.value?.prompt_stage as Surface) ?? "intro";
-    // Phase 1.3b follow-up — the intro stage is absorption only; after
-    // the user taps 'Got it' the same card swaps to the trace surface
-    // so they write it in the same encounter. FSRS only grades once,
-    // on the writing-quiz completion. Without this, fresh cards would
-    // disappear from today's queue (next due ≥ 1d) and the user would
-    // wait until tomorrow to write them for the first time.
+    // After 'Got it' an intro card swaps to trace, so a new word is
+    // written in the same encounter; FSRS grades once, on the writing
+    // quiz's completion.
     if (stage === "intro" && introReady.value) return "trace";
     return stage;
   }
-  // Single-mode — surface is the queueMode itself (one of the four
-  // ReviewModes; mixed is excluded by the conditional above).
   return review.queueMode as Surface;
 });
 
@@ -244,8 +220,8 @@ function resetCardState() {
   writingDone.value = false;
   clozeInput.value = "";
   clozeFeedback.value = "";
-  // Without this an intro card tapped "Got it" on, then End session, made
-  // the next session's first intro card skip straight to trace.
+  // Else "Got it" then End session would start the next session's first
+  // intro card on trace.
   introReady.value = false;
 }
 
@@ -254,14 +230,8 @@ async function start(mode: QueueMode) {
   await review.loadQueue(mode);
 }
 
-async function retryReview() {
-  await review.retry();
-}
-
-// Phase 1.3 — Advanced single-mode disclosure. Hidden by default;
-// expands to expose the four ReviewModes for power users who want to
-// drill one modality. Flipping the toggle persists to settings so the
-// preference survives next session.
+// Advanced disclosure with the four single modes. Choosing one persists
+// settings.reviewSingleMode.
 const advancedOpen = ref(false);
 
 function startMixed() {
@@ -269,9 +239,8 @@ function startMixed() {
 }
 
 function startSingle(mode: ReviewMode) {
-  // Persist the user's intent: they explicitly chose single-mode here,
-  // so future "Start review" calls (from /today panel, streak chip)
-  // default to it too. Flip back to Mixed by tapping "Mixed (default)".
+  // Later "Start review" calls (Today panel, streak chip) use single mode
+  // too, until the user switches back to Mixed.
   settings.reviewSingleMode = true;
   void start(mode);
 }
@@ -305,10 +274,8 @@ function revealRead() {
   void playTts();
 }
 
-// Hold a reference to the currently-playing TTS audio so back-to-back
-// playTts() calls (intro auto-play + intro→trace surface flip both
-// firing) don't stack into an echo. Each new play stops the previous
-// one cleanly and revokes its blob URL.
+// The playing TTS audio, so a new playTts() stops the previous one (no
+// echo) and revokes its blob URL.
 let activeTtsAudio: HTMLAudioElement | null = null;
 let activeTtsUrl: string | null = null;
 
@@ -368,11 +335,10 @@ async function playTts() {
   }
 }
 
-// Grade row — visible after reveal in recognition, after answer in
-// dictation, after the writing quiz completes, after a cloze answer.
-// Intro never reaches this row directly: tapping 'Got it' on an intro
-// card swaps the surface to trace, and the row appears once the trace
-// WritingQuiz completes. Shared by the template and the keyboard handler.
+// Grade row — visible after reveal in recognition / read, after an answer
+// in dictation / cloze, after a writing quiz completes. Intro never shows
+// it ('Got it' swaps to trace). Shared by the template and the keyboard
+// handler.
 const gradeRowVisible = computed(
   () =>
     (activeSurface.value === "recognition" && revealed.value) ||
@@ -422,8 +388,7 @@ function surfaceMode(): ReviewMode {
 
 async function gradeAndAdvance(g: ReviewGrade) {
   if (!card.value) return;
-  // Light tap for Again/Hard, medium thump for Good/Easy — feels right
-  // because a confident answer wants a more satisfying confirmation.
+  // Light tap for Again/Hard, stronger feedback for Good/Easy.
   if (g >= 3) hapticSuccess(settings.hapticsEnabled);
   else hapticTap(settings.hapticsEnabled);
   cancelAutoGrade();
@@ -433,11 +398,6 @@ async function gradeAndAdvance(g: ReviewGrade) {
   await review.grade(g, surfaceMode());
 }
 
-// Intro stage — passive absorption. TTS auto-plays and strokes animate
-// on card open, but the auto-Good countdown waits for the user to tap
-// "Got it". Without that gate the timer would fire even when the user
-// is just listening or hasn't looked yet — too aggressive on a fresh
-// word.
 function introContinue() {
   introReady.value = true;
 }
@@ -453,14 +413,11 @@ watch(
   },
 );
 
-// --- Phase #118 (2b) — Auto-grade countdown for writing mode ---------------
+// --- Auto-grade countdown for writing surfaces ----------------------------
 //
-// After writing-quiz completion, the user sees a suggested grade derived
-// from the mistake/stroke ratio. 2s later it auto-fires, mirroring the
-// "answer is right, advance automatically" pattern Duolingo/WaniKani use
-// and saving a tap on the common case. Any rating button click cancels
-// the timer and fires the clicked rating instead, so the auto-grade
-// stays a Default rather than a forced choice.
+// After the writing quiz completes, the suggested grade (from the
+// mistake/stroke ratio) fires after a delay. Clicking any grade cancels
+// the timer and uses that grade instead.
 
 // Settings → Review → Auto-grade after writing (0 = off, default 2 s).
 // A context sentence appears with the result, so the countdown grows by
@@ -502,10 +459,8 @@ watch(
     ] as const,
   ([surface, done, mistakes, strokes]) => {
     cancelAutoGrade();
-    // Writing-style surfaces autograde once the WritingQuiz fires its
-    // complete event. Intro doesn't grade on its own anymore — the user
-    // taps 'Got it' which swaps the surface to trace; that surface's
-    // writing-quiz completion is what produces the FSRS grade.
+    // Writing surfaces auto-grade once the WritingQuiz completes. Intro
+    // never grades itself ('Got it' swaps to trace).
     if (
       (surface === "writing" || surface === "trace" || surface === "produce") &&
       done
@@ -517,14 +472,11 @@ watch(
       );
     }
   },
-  { immediate: false },
 );
 
 // New card on screen: drop the previous card's UI state and audio, then
-// auto-play TTS once for this encounter. We watch the card (not the
-// surface) so an intro→trace flip on the *same* card doesn't re-fire
-// the audio — that flip was the source of the echo a user reported on
-// v1.0.34 (intro auto-play + transition auto-play overlapped).
+// auto-play TTS once. Watches the card, not the surface, so an
+// intro→trace flip on the same card doesn't replay the audio.
 watch(
   () => review.current,
   (cur, prev) => {
@@ -539,21 +491,12 @@ watch(
   { immediate: true },
 );
 
-// Phase #119 — Mobile focus-mode. Stays on as long as a card is loaded,
-// regardless of whether we're in the write-phase or the result-phase.
-// The previous version only kicked in on writingDone, which left the
-// writing canvas pushed below the fold during the *active* drawing
-// (user had to scroll down to find their canvas) — defeated the purpose.
-// Cleared automatically when review.current becomes null (queue exhausted,
-// session reset, or load failure) so the stats + sparkline come back
-// for the "start a new session" decision.
+// Focus mode while a card is loaded: hides the header, stats and
+// sparkline so the card (and writing canvas) fits on a phone screen.
 const focusMode = computed(() => review.current !== null);
 
-// Phase #119 — the queue-cutoff lives server-side per user.review_window.
-// The UI gates need to mirror that so "Due now: 0 / Due today: 17" with
-// window=today doesn't lock the user out of starting a session.
-// review.dueNow already resolves this the same way (see stores/review.ts)
-// so the home-screen badge and this view can't disagree.
+// Due count by the user's review window (review.dueNow, as for the nav
+// badge), or the focused scope's due count.
 const effectiveDueCount = computed(() =>
   review.scope ? (review.scopeInfo?.due ?? 0) : review.dueNow,
 );
@@ -561,21 +504,19 @@ const effectiveDueCount = computed(() =>
 const statTiles = computed((): Record<string, number> => {
   const info = review.scopeInfo;
   if (review.scope) {
-    const tiles: Record<string, number> = {
+    return {
       "Due now": info?.due_now ?? 0,
       "Due today": info?.due_today ?? 0,
       "In review": info?.total ?? 0,
       Learned: info?.learned ?? 0,
     };
-    return tiles;
   }
-  const tiles: Record<string, number> = {
+  return {
     "Due now": review.stats.due_now,
     "Due today": review.stats.due_today,
     Learning: review.stats.learning,
     "Reviewed today": review.stats.reviewed_today,
   };
-  return tiles;
 });
 watch(focusMode, (v) => {
   review.inFocus = v;
@@ -586,12 +527,6 @@ function submitCloze() {
   const guess = clozeInput.value.trim();
   if (!guess) return;
   clozeFeedback.value = guess === card.value.word ? "correct" : "wrong";
-}
-
-async function clozeContinue() {
-  // Correct → Good (3). Wrong → Again (1). Grade row stays available
-  // after so the user can override with Easy/Hard.
-  await gradeAndAdvance(clozeFeedback.value === "correct" ? 3 : 1);
 }
 
 function submitDictation() {
@@ -632,7 +567,6 @@ onMounted(() => {
   if (auth.isAuthed) review.refreshStats();
   window.addEventListener("keydown", onReviewKeydown);
 });
-
 </script>
 
 <template>
@@ -657,10 +591,8 @@ onMounted(() => {
       </h1>
     </header>
 
-    <!-- Practice-mode banner. Lives above the card body so it never
-         disappears when the SPA drops into focus-mode for writer /
-         cloze — the whole point is that the user sees this the entire
-         time. FSRS state, streak, and stats are all untouched. -->
+    <!-- Practice-mode banner, above the card so it stays visible in focus
+         mode. -->
     <div
       v-if="review.practiceMode"
       class="mb-6 flex items-start gap-3 rounded-md border border-amber-300/60 bg-amber-50/70 px-4 py-3 text-sm text-amber-800 dark:border-amber-700/50 dark:bg-amber-500/10 dark:text-amber-200"
@@ -709,7 +641,7 @@ onMounted(() => {
         type="button"
         class="shrink-0 rounded-md border border-current/30 px-3 py-1 font-mono text-[10px] uppercase tracking-wider transition-opacity hover:opacity-80 disabled:opacity-50"
         :disabled="review.grading || review.loading"
-        @click="retryReview"
+        @click="review.retry()"
       >
         Retry
       </button>
@@ -776,12 +708,10 @@ onMounted(() => {
       </span>
     </div>
 
-    <!-- 7-day activity sparkline — only when authed; lives above the
-         counter strip so the "how's the habit going?" view lands first. -->
+    <!-- 7-day activity sparkline, above the counter strip. -->
     <WeeklySparkline v-if="auth.isAuthed && !focusMode && !review.scope" class="mb-4" />
 
-    <!-- Stats strip — denser typography on mobile where four 60px-wide cards
-         used to wear text-2xl numbers. -->
+    <!-- Stats strip; smaller numbers on mobile. -->
     <div
       v-if="auth.isAuthed && !focusMode"
       class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3"
@@ -802,9 +732,8 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Phase #96 — daily-target progress strip. Hidden when target is 0
-         (auto-enrol disabled in Settings) so the chrome stays clean for
-         users who want full control over their learning pool. -->
+    <!-- Daily-target progress. Hidden when the target is 0 (auto-enrol
+         off in Settings). -->
     <p
       v-if="auth.isAuthed && review.stats.daily_target > 0 && !focusMode && !review.scope"
       class="-mt-2 mb-6 font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
@@ -817,11 +746,8 @@ onMounted(() => {
       </span>
     </p>
 
-    <!-- Phase 1.3 — Start screen. Mixed mode (every card cycles
-         Recognition → Cloze → Dictation → Writing) is the default
-         button; the four single-modality picks live behind an Advanced
-         disclosure so they're available to power users who want to
-         drill one modality at a time. -->
+    <!-- Start screen. Mixed mode is the default button; the four single
+         modes sit behind an Advanced disclosure. -->
     <div
       v-if="auth.isAuthed && review.queue.length === 0 && !review.loading"
       class="space-y-4"
@@ -832,9 +758,7 @@ onMounted(() => {
         {{ settings.reviewSingleMode ? "Pick a mode to begin" : "Ready to review" }}
       </p>
 
-      <!-- Default: progressive Mixed-mode Start. The hint copy from
-           v1.0.30 cluttered the home for users who already know what
-           Start does — collapsed to a single tight button. -->
+      <!-- Mixed-mode Start. -->
       <button
         v-if="!settings.reviewSingleMode"
         type="button"
@@ -853,9 +777,8 @@ onMounted(() => {
         </span>
       </button>
 
-      <!-- Advanced disclosure — single-modality picks. Always visible
-           when the user previously chose single-mode (so they can find
-           it and either continue or switch back). -->
+      <!-- Advanced disclosure — single-mode picks. Open while single mode
+           is the user's choice, so they can continue or switch back. -->
       <details
         v-if="!review.scope"
         :open="settings.reviewSingleMode || advancedOpen"
@@ -880,7 +803,7 @@ onMounted(() => {
               v-for="m in modes"
               :key="m.id"
               type="button"
-              :disabled="!m.available || effectiveDueCount === 0"
+              :disabled="effectiveDueCount === 0"
               class="rounded-md border border-border-subtle bg-bg px-3 py-2.5 text-left transition-colors hover:border-accent hover:bg-bg-sunken disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border-subtle disabled:hover:bg-bg"
               @click="startSingle(m.id)"
             >
@@ -961,17 +884,13 @@ onMounted(() => {
         />
       </div>
 
-
       <!-- Card -->
       <div
         class="rounded-2xl border border-border-subtle bg-bg-elevated px-4 py-6 text-center sm:px-10 sm:py-14"
         @pointerdown="cancelAutoGrade"
       >
-        <!-- Phase 1.3b — intro stage. Fresh / never-reviewed cards.
-             Everything's shown from the start: hanzi big, pinyin, meaning,
-             stroke animation, and TTS auto-plays. No quiz, no typing —
-             just absorption. A 'Continue' button skips the cooldown
-             ahead to the auto-Good countdown. -->
+        <!-- Intro stage, for new cards: hanzi, pinyin, meaning, stroke
+             animation, TTS. "Got it" moves on to the trace stage. -->
         <template v-if="activeSurface === 'intro'">
           <p
             class="font-mono text-[10px] uppercase tracking-wider text-accent"
@@ -990,8 +909,8 @@ onMounted(() => {
             :meanings="card.meanings"
             :meaning-tags="card.meaning_tags"
             :readings="card.readings"
-              :glosses="card.glosses"
-              :focus="cardFocus"
+            :glosses="card.glosses"
+            :focus="cardFocus"
             headline-class="font-display text-base leading-snug text-fg"
           />
           <WordDetails :word="card.word" class="mx-auto mt-3 max-w-md" />
@@ -1002,11 +921,8 @@ onMounted(() => {
             :source="card.sentence_source"
           />
 
-          <!-- Stroke animation: auto-replays each card via the :key bind
-               so the animation restarts when the cursor advances. For
-               multi-char words (e.g. 修为) auto-advance cycles through
-               every character in sequence — the user sees each one drawn
-               from scratch without having to tap the chips. -->
+          <!-- Stroke animation, restarted per card by :key. For multi-char
+               words auto-advance draws every character in turn. -->
           <div class="mt-6 flex justify-center">
             <StrokeOrder
               :key="`${card.word}-${review.cursor}`"
@@ -1033,12 +949,9 @@ onMounted(() => {
           </div>
         </template>
 
-        <!-- Phase 1.3b — trace stage (1d ≤ stability < 10d). Past the
-             first encounter; pinyin + meaning sit above the canvas and
-             the user produces the hanzi via hanzi-writer's stroke quiz.
-             TTS auto-plays on mount so audio still anchors motor memory.
-             showOutline mirrors the user's preference so beginners can
-             trace; the produce stage forces no-outline. -->
+        <!-- Trace stage: pinyin + meaning above the canvas, the user writes
+             the hanzi in hanzi-writer's stroke quiz. TTS plays on mount.
+             The outline follows the user's setting. -->
         <template v-else-if="activeSurface === 'trace'">
           <p
             class="font-mono text-[10px] uppercase tracking-wider text-accent"
@@ -1082,10 +995,8 @@ onMounted(() => {
           />
         </template>
 
-        <!-- Phase 1.3b — produce stage (stability ≥ 10d). Established
-             card; outline is forced off so the user has to recall the
-             hanzi from pinyin + meaning. No TTS this round — sound
-             cues are gone too. -->
+        <!-- Produce stage: no outline and no TTS; the hanzi comes from
+             pinyin + meaning alone. -->
         <template v-else-if="activeSurface === 'produce'">
           <p
             class="font-mono text-[10px] uppercase tracking-wider text-accent"
@@ -1463,13 +1374,9 @@ onMounted(() => {
         </template>
       </div>
 
-      <!-- Grade row — visible after reveal in recognition, after answer in
-           dictation, after the writing quiz completes, after a cloze answer.
-           Intro never reaches this row directly: tapping 'Got it' on an
-           intro card swaps the surface to trace, and the grade row appears
-           once the trace WritingQuiz completes. -->
-      <!-- On a phone the row sticks to the bottom of the screen, so a long
-           sentence or gloss above can never push it out of view. -->
+      <!-- Grade row (see gradeRowVisible). On a phone it sticks to the
+           bottom of the screen, so a long sentence above can't push it
+           out of view. -->
       <div
         v-if="gradeRowVisible"
         class="sticky bottom-0 z-10 -mx-3 grid grid-cols-4 gap-2 bg-bg/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur sm:static sm:mx-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
@@ -1631,10 +1538,9 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* Auto-grade countdown progress bar — fills bottom of the suggested
- * grade button over the auto-grade delay (inline animation-duration from
- * settings.autoGradeDelayMs). Width syncs with the
- * setTimeout, so users see exactly when the auto-fire is coming. */
+/* Auto-grade countdown bar along the bottom of the suggested grade button.
+ * The inline animation-duration matches the auto-grade timeout. */
+
 .qd-auto-grade-progress {
   transform-origin: left;
   animation: qd-auto-grade-fill 2000ms linear forwards;

@@ -106,12 +106,6 @@ async function submitCreate(e: Event) {
   }
 }
 
-function askDelete(id: number) {
-  pendingDeleteId.value = id;
-}
-function cancelDelete() {
-  pendingDeleteId.value = null;
-}
 async function confirmDelete(list: VocabularyListSummary) {
   if (deletingId.value !== null) return;
   deletingId.value = list.id;
@@ -137,10 +131,9 @@ async function confirmDelete(list: VocabularyListSummary) {
 </script>
 
 <template>
-  <!-- Rendered as a tab inside VocabView since Phase 1.4; the parent owns
-       the page wrapper + heading + tab switcher. We keep just the count
-       chip and the New-list button here as a thin action row so the tab
-       doesn't carry a redundant title. -->
+  <!-- A tab inside VocabView, which owns the page wrapper, heading and tab
+       switcher; this keeps only the count chip and the New-list button. -->
+
   <div class="space-y-5">
     <header class="flex items-baseline justify-between gap-4">
       <span
@@ -278,7 +271,7 @@ async function confirmDelete(list: VocabularyListSummary) {
               <button
                 type="button"
                 class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle hover:text-fg"
-                @click="cancelDelete"
+                @click="pendingDeleteId = null"
                 :disabled="deletingId === list.id"
               >
                 Cancel
@@ -297,7 +290,7 @@ async function confirmDelete(list: VocabularyListSummary) {
                 type="button"
                 class="rounded-md p-1.5 text-fg-subtle transition-colors hover:bg-bg-sunken hover:text-red-700 dark:hover:text-red-300"
                 :title="`Delete ${list.name}`"
-                @click="askDelete(list.id)"
+                @click="pendingDeleteId = list.id"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <path

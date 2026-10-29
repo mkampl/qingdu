@@ -117,10 +117,6 @@ async function load(reset = false) {
   }
 }
 
-async function loadMore() {
-  await load(false);
-}
-
 const hasMore = computed(() => items.value.length < total.value);
 const emptyText = computed(() =>
   browseEmptyText(level.value, search.value, stateFilter.value),
@@ -220,8 +216,7 @@ onMounted(() => void load(true));
       to add words to learning or mark them known.
     </p>
 
-    <!-- Level filter — snap-scroll on mobile so 10 chips don't wrap into
-         a wall. Same pattern Library uses. -->
+    <!-- Level filter — one horizontally scrolling row. -->
     <div
       role="tablist"
       aria-label="HSK level"
@@ -296,9 +291,9 @@ onMounted(() => void load(true));
       {{ error }}
     </p>
 
-    <!-- Result list — flexible row layout that wraps gracefully on narrow
-         screens. The hanzi anchor on the left, pinyin + meaning in the
-         middle, state actions on the right. -->
+    <!-- Result rows: hanzi, pinyin + meaning, state actions; wraps on
+         narrow screens. -->
+
     <ul class="space-y-2">
       <li
         v-for="item in items"
@@ -356,7 +351,7 @@ onMounted(() => void load(true));
       v-if="hasMore && !loading"
       type="button"
       class="w-full rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 text-xs font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
-      @click="loadMore"
+      @click="load()"
     >
       Load {{ Math.min(PAGE, total - items.length) }} more · {{ items.length }} / {{ total }}
     </button>
