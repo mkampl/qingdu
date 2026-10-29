@@ -1,8 +1,4 @@
-"""
-Activity stats for the user dashboard. Right now just a 7-day rollup
-that powers the sparkline on /review; will grow as Phase F surfaces
-more per-user analytics.
-"""
+"""Activity stats: the 7-day rollup behind the sparkline on /review."""
 
 from __future__ import annotations
 

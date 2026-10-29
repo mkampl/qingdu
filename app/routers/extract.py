@@ -13,8 +13,8 @@ space, every redirect hop re-checked and the connection pinned to the
 checked IP. Auth-gated so the endpoint isn't a free internet-egress probe
 for the world.
 
-Both handlers do blocking work (DNS, HTTP, HTML/PDF/EPUB parsing), so it
-runs in the threadpool rather than on the event loop.
+The blocking work (DNS, HTTP, HTML/PDF/EPUB parsing) runs in the
+threadpool rather than on the event loop.
 """
 
 from __future__ import annotations

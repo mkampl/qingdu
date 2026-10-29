@@ -34,42 +34,38 @@ class User(Base):
     last_active = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
     invite_quota = Column(Integer, default=5)  # How many invites this user can send
-    # Phase F2 — daily activity streak. `streak_last_active` is the date (UTC)
-    # of the most recent qualifying action; `streak_count` is the length of
-    # the contiguous run leading up to that date.
+    # Daily activity streak. `streak_last_active` is the date (UTC) of the
+    # most recent qualifying action; `streak_count` is the length of the
+    # contiguous run leading up to that date.
     streak_count = Column(Integer, default=0)
     streak_last_active = Column(Date, nullable=True)
-    # Phase F3 — streak freezes. Earned automatically (see streak.py), not
-    # purchasable — this app has no payment rails. Banked count; consumed
-    # one-per-missed-day to bridge a gap instead of resetting the streak.
+    # Streak freezes, earned automatically (see streak.py). Banked count;
+    # one is consumed per missed day to bridge a gap instead of resetting
+    # the streak.
     streak_freeze_count = Column(Integer, default=0)
-    # Phase #96 — systematic learning. Daily target of new HSK words to
-    # auto-enroll into the 'learning' pool; pulled from `hsk_focus_version`'s
-    # list in (level, random-within-level) order. 0 disables the auto-enroll
-    # (the default — new users opt in via Settings).
+    # Daily target of new HSK words to auto-enrol into the 'learning' pool,
+    # taken from `hsk_focus_version`'s list in (level, random-within-level)
+    # order. 0 (the default) disables auto-enrol; users opt in via Settings.
     daily_new_words = Column(Integer, default=0)
     hsk_focus_version = Column(String(8), default="new")
-    # Phase #96 follow-up — global script preference. 'auto' leaves text
-    # alone, 'simp' coerces every Chinese surface to Simplified, 'trad'
-    # to Traditional. Applied server-side at every endpoint that returns
-    # Chinese text (review queue, analyze, saved texts, vocab lists).
+    # Script preference: 'auto' leaves text alone, 'simp' coerces every
+    # Chinese surface to Simplified, 'trad' to Traditional. Applied
+    # server-side at every endpoint that returns Chinese text (review
+    # queue, analyze, saved texts, vocab lists).
     display_script = Column(String(8), default="auto")
-    # Phase #117 — FSRS retention target. 0.90 was the original default and
-    # matches AnkiDroid FSRS but lands hard-feeling early intervals (review
-    # 3 → 10d, review 4 → 40d). 0.95 lines up much better with classic
-    # Anki SM-2 (which most users carry as their intuition baseline) at
-    # the cost of slightly more reviews per word. Range 0.85-0.97 is what
-    # the FSRS authors call "the meaningful tuning band"; outside that the
-    # scheduler stops behaving usefully.
+    # FSRS retention target. 0.90 (AnkiDroid's FSRS default) gives
+    # hard-feeling early intervals (review 3 → 10d, review 4 → 40d); 0.95
+    # is closer to classic Anki SM-2 at the cost of slightly more reviews.
+    # The FSRS authors call 0.85-0.97 the meaningful tuning band; outside
+    # it the scheduler stops behaving usefully.
     review_retention = Column(Float, default=0.95)
-    # Phase #119 — look-ahead window for the review queue. People review
-    # roughly once a day, not every 30 minutes, so "due now" alone leaves
-    # half of today's batch on the table. The setting widens the cutoff:
-    #   'now'      → due_at <= now (strict, the original FSRS-conformant
-    #                pull; for users who really do review every hour)
-    #   'today'    → due_at < midnight tomorrow (the new default — covers
-    #                the typical once-a-day session without waiting for
-    #                each card to flip due during the session)
+    # Look-ahead window for the review queue. People review about once a
+    # day, so "due now" alone leaves half of today's batch on the table:
+    #   'now'      → due_at <= now (strict FSRS pull, for users who review
+    #                every hour)
+    #   'today'    → due_at < midnight tomorrow (the default — covers the
+    #                typical once-a-day session without waiting for each
+    #                card to flip due during the session)
     #   'tomorrow' → due_at < midnight day-after-tomorrow (pre-pull for
     #                "I won't be around tomorrow")
     review_window = Column(String(16), default="today")
@@ -85,10 +81,9 @@ class User(Base):
     # services/ui_settings), so every device shows the same. NULL until
     # the first device sends its own.
     ui_settings = Column(Text, nullable=True)
-    # Phase 2.7 — account lifecycle. `active` is the default; the lifecycle
-    # scheduler flips dormant accounts to `dormant` and (after the hard
-    # threshold) hard-deletes them. Self-hosters can disable the whole
-    # mechanism via system_settings; defaults below leave it off.
+    # Account lifecycle. The lifecycle scheduler flips idle accounts to
+    # `dormant` and, after the hard threshold, deletes them. Off unless
+    # enabled in system_settings.
     account_status = Column(String(16), default="active")
     # Embedded as the `tv` claim in every session JWT. Bumping it (password
     # change, admin reset) invalidates all tokens issued before.
@@ -101,11 +96,9 @@ class User(Base):
     )
     user_words = relationship("UserWord", back_populates="user", cascade="all, delete-orphan")
     # cascade is load-bearing: created_by_user_id is NOT NULL, so without it
-    # SQLAlchemy tries to null the FK on user delete and the whole delete
-    # rolls back with an IntegrityError — which silently broke both the admin
-    # delete button and the lifecycle hard-delete sweep for any user who had
-    # ever created an invitation. Claimed invitations *by* the user are fine:
-    # claimed_by_user_id is nullable and gets SET NULL.
+    # SQLAlchemy tries to null the FK on user delete and the delete (admin
+    # or lifecycle sweep) rolls back with an IntegrityError. Invitations the
+    # user claimed are fine: claimed_by_user_id is nullable and gets SET NULL.
     created_invitations = relationship(
         "InvitationToken",
         foreign_keys="InvitationToken.created_by_user_id",
@@ -131,10 +124,10 @@ class SavedText(Base):
     reading_progress = Column(Integer, default=0)  # 0-100%
     analysis_data = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
-    # Phase G3 — public sharing. NULL means "not shared"; a UUID4 means
-    # the text is reachable via /api/share/{token}. Revoking is a SET NULL.
+    # Public sharing. NULL means "not shared"; a UUID4 means the text is
+    # reachable via /api/share/{token}. Revoking is a SET NULL.
     share_token = Column(String(36), unique=True, nullable=True, index=True)
-    # Phase #99 — per-text override of which glossaries apply at re-analyze
+    # Per-text override of which glossaries apply at re-analyze
     # time. JSON array of int IDs. NULL means "use all the user's
     # glossary-flagged lists" (the default).
     glossary_list_ids = Column(Text, nullable=True)
@@ -235,7 +228,7 @@ class VocabularyList(Base):
     list_type = Column(String(50))  # 'hsk', 'auto', 'custom'
     sections = Column(Text)  # JSON string
     anki_deck_id = Column(Integer, nullable=True)
-    # Phase #99 — when true, this list's entries override HSK lookup during
+    # When true, this list's entries override HSK lookup during
     # /api/analyze. Used for specialized corpora (Daoist, Buddhist, jargon)
     # where the default meanings don't fit.
     apply_as_glossary = Column(Boolean, default=False)
@@ -270,9 +263,9 @@ class UserLibraryProgress(Base):
 
 
 class ApiToken(Base):
-    """Personal access token for external integrations — Phase #121, e.g. a
-    speech/LLM companion app that wants to read a user's known words and
-    report newly-encountered vocabulary back (see app/routers/external.py).
+    """Personal access token for external integrations, e.g. a speech/LLM
+    companion app that reads a user's known words and reports newly
+    encountered vocabulary back (see app/routers/external.py).
 
     Separate from the JWT session auth in app/auth.py: these are
     long-lived, user-issued, scope-limited, and revocable without touching
@@ -309,10 +302,6 @@ class UserWord(Base):
     Per-user state for a Chinese word. Absence of a row means 'new' (the user
     has never interacted with this word). Rows are created lazily — typically
     the first time a user clicks on a word or bulk-marks a section known.
-
-    SRS columns (ease, due_at, last_reviewed_at) are reserved for Phase B and
-    left at their defaults until the review loop is wired up; carrying them
-    here from the start avoids a migration when Phase B lands.
     """
 
     __tablename__ = "user_words"
@@ -323,31 +312,29 @@ class UserWord(Base):
     # 'learning' | 'known' | 'ignored' — 'new' is absence-of-row.
     state = Column(String(16), nullable=False, default="learning")
     seen_count = Column(Integer, default=1)
-    # Phase #96 — snapshot of the word's pinyin and meaning at insert time.
+    # Snapshot of the word's pinyin and meaning at insert time.
     # /api/review/queue serves these directly so reviews always have a
     # gloss, even for compounds and Dao-De-Jing-style imports whose
     # translations are not in the upstream HSK list.
     pinyin = Column(String(128), nullable=True)
     meaning = Column(Text, nullable=True)
-    # Phase #100 follow-up — provenance of the pinyin/meaning snapshot above.
-    # NULL on legacy rows (pre-this-column); "dictionary" when the snapshot
-    # came from lookup_pinyin_meaning() (HSK / CC-CEDICT / compound /
+    # Provenance of the pinyin/meaning snapshot above. NULL on rows older
+    # than this column; "dictionary" when the snapshot came from lookup_pinyin_meaning() (HSK / CC-CEDICT / compound /
     # pypinyin); "package" when the caller passed a curated meaning from a
     # pre-analyzed JSON package (e.g. the bundled Dao De Jing). Once a row
     # is stamped "package", subsequent clicks from any other package or
     # the dictionary chain do NOT overwrite the meaning — first-package
     # wins to keep SRS reviews stable.
     meaning_source = Column(String(32), nullable=True)
-    # Phase B remainder (cloze mode) — a sample sentence from one of the
-    # user's saved texts containing this word. Populated lazily when the
-    # row enters the /api/review/queue?mode=cloze pool. NULL means we
-    # haven't found a containing sentence yet (or the user has no saved
-    # text with this word — that's fine, the card just skips cloze).
+    # A sentence containing this word, from a saved or library text
+    # (services/cloze). Filled lazily when the review queue needs one; NULL
+    # until a containing sentence is found.
     sample_sentence = Column(Text, nullable=True)
     # Where sample_sentence came from: a saved text's or library text's
     # title. NULL for sentences from unsaved reading or older rows.
     sample_source = Column(String(160), nullable=True)
-    # SM-2-style ease * 100. Legacy; FSRS uses stability/difficulty below.
+    # SM-2-style ease * 100. Unused by scheduling; FSRS uses
+    # stability/difficulty below.
     ease = Column(Integer, default=250)
     # FSRS-4.5 state. `fsrs_state` carries the full Card JSON for round-tripping
     # (state machine + step + last_review timestamps). `stability` / `difficulty`
@@ -358,13 +345,8 @@ class UserWord(Base):
     fsrs_state = Column(Text, nullable=True)
     due_at = Column(DateTime, nullable=True)
     last_reviewed_at = Column(DateTime, nullable=True)
-    # Phase 1.3 — Mixed-mode review cycle tracking. `modes_completed` is a
-    # JSON list of mode names already graded `Good` or better in the
-    # current cycle (e.g. ["recognition", "cloze"]); FSRS only advances
-    # once all four mode names are present. Any failing grade clears the
-    # list so the next attempt re-starts the cycle. `modes_cycle_started_at`
-    # stamps the first grade of a cycle for analytics; it's NULL until a
-    # mixed-mode cycle is in flight.
+    # Unused: every grade advances FSRS once. Kept so existing databases
+    # and the schema stay in step.
     modes_completed = Column(Text, nullable=False, default="[]")
     modes_cycle_started_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -388,7 +370,7 @@ class UserWord(Base):
 
 
 class UserWordGloss(Base):
-    """Phase #120 — one of possibly many glosses for the same user-word.
+    """One of possibly many glosses for the same user-word.
 
     Lets a daoist 道 carry both the CEDICT primary ("the way; path;
     principle") AND the Dao-De-Jing package gloss ("Tao — the source")
@@ -461,8 +443,8 @@ class TextWord(Base):
 
 class UserWordEvent(Base):
     """
-    Append-only log of word-state interactions. Powers analytics, undo, and
-    future ML. We keep it separate from `user_words` so the read path for the
+    Append-only log of word-state interactions; powers the activity stats.
+    We keep it separate from `user_words` so the read path for the
     reader stays one indexed lookup per user.
     """
 
@@ -476,9 +458,9 @@ class UserWordEvent(Base):
     new_state = Column(String(16), nullable=True)
     # 1-4 when event_type == 'review' (FSRS Rating: Again/Hard/Good/Easy).
     grade = Column(Integer, nullable=True)
-    # Phase 1.3 — which modality fired this review event ('recognition',
-    # 'dictation', 'writing', 'cloze'). NULL on non-review events and on
-    # legacy review events pre-Phase 1.3.
+    # Which modality fired this review event ('recognition', 'dictation',
+    # 'writing', 'cloze'). NULL on non-review events and on review events
+    # older than this column.
     mode = Column(String(16), nullable=True)
     source_text_id = Column(
         Integer, ForeignKey("saved_texts.id", ondelete="SET NULL"), nullable=True
@@ -513,7 +495,7 @@ class InvitationToken(Base):
 
 
 class SystemSetting(Base):
-    """Phase 2.7 — key/value store for instance-wide admin toggles. Lives in
+    """Key/value store for instance-wide admin toggles. Lives in
     the DB (not env vars) so the admin can flip them from the UI without a
     redeploy. Keys are namespaced (e.g. `registration.open`,
     `registration.per_ip_24h`, `lifecycle.soft_delete_days`). Values are
@@ -528,10 +510,9 @@ class SystemSetting(Base):
 
 
 class SignupAttempt(Base):
-    """Phase 2.7 — per-IP rate-limit tracking for open registration. Rows
-    older than 24 h are pruned in the lifecycle pass. `successful` lets us
-    differentiate failed captcha / username-taken / global-cap-hit attempts
-    from real signups when surfacing stats."""
+    """Per-IP rate-limit tracking for open registration. Rows older than
+    24 h are pruned in the lifecycle pass. `successful` tells real signups
+    apart from failed captcha / username-taken / global-cap-hit attempts."""
 
     __tablename__ = "signup_attempts"
 
@@ -608,8 +589,6 @@ def init_db():
                     )
                     conn.commit()
 
-        # Phase #99 — glossary support: apply_as_glossary on vocab lists,
-        # glossary_list_ids on saved texts (both idempotent ALTERs).
         if inspector.has_table("vocabulary_lists"):
             vl_cols = {col["name"] for col in inspector.get_columns("vocabulary_lists")}
             if "apply_as_glossary" not in vl_cols:
@@ -630,8 +609,6 @@ def init_db():
                     )
                     conn.commit()
 
-        # Phase G3 — share_token column on saved_texts (idempotent ALTER).
-        # Phase #99 — glossary_list_ids on saved_texts.
         if inspector.has_table("saved_texts"):
             st_cols = {col["name"] for col in inspector.get_columns("saved_texts")}
             if "share_token" not in st_cols:
@@ -670,8 +647,6 @@ def init_db():
                     conn.execute(text("ALTER TABLE saved_texts ADD COLUMN quiz TEXT"))
                     conn.commit()
 
-        # Phase F2 — streak columns on users (idempotent ALTER).
-        # Phase #96 — daily_new_words + hsk_focus_version on users.
         if inspector.has_table("users"):
             user_cols = {col["name"] for col in inspector.get_columns("users")}
             with engine.connect() as conn:
@@ -731,7 +706,6 @@ def init_db():
                 if "ui_settings" not in user_cols:
                     logger.info("Adding ui_settings column to users")
                     conn.execute(text("ALTER TABLE users ADD COLUMN ui_settings TEXT"))
-                # Phase 2.7 — account lifecycle status.
                 if "account_status" not in user_cols:
                     logger.info("Adding account_status column to users")
                     conn.execute(
@@ -749,10 +723,6 @@ def init_db():
                     )
                 conn.commit()
 
-        # Phase B — FSRS columns on user_words + grade on user_word_events.
-        # Phase #96 — pinyin + meaning snapshot on user_words so reviews
-        # always have a gloss even when the upstream HSK list doesn't
-        # cover the word.
         if inspector.has_table("user_words"):
             uw_cols = {col["name"] for col in inspector.get_columns("user_words")}
             needed = [
@@ -763,11 +733,7 @@ def init_db():
                 ("meaning", "TEXT"),
                 ("sample_sentence", "TEXT"),
                 ("sample_source", "VARCHAR(160)"),
-                # Phase #100 follow-up — provenance of the meaning snapshot
-                # so package-sourced glosses can be preserved against
-                # dictionary fallback on re-clicks. See UserWord model.
                 ("meaning_source", "VARCHAR(32)"),
-                # Phase 1.3 — Mixed-mode review cycle tracking.
                 ("modes_completed", "TEXT NOT NULL DEFAULT '[]'"),
                 ("modes_cycle_started_at", "DATETIME"),
             ]
@@ -778,11 +744,9 @@ def init_db():
                         conn.execute(text(f"ALTER TABLE user_words ADD COLUMN {name} {sql_type}"))
                 conn.commit()
 
-        # Phase #96 follow-up — bring legacy 'known' rows into the SRS
-        # rotation. Before this change 'known' was a terminal opt-out
-        # (no due_at, never queued); now it's just a high-stability
-        # learning-like card. Seed legacy rows with a Review-phase FSRS
-        # state and scatter their first due dates across (60d, 180d).
+        # 'known' words are high-stability cards in the SRS rotation. Rows
+        # marked known without FSRS state get a Review-phase state with the
+        # first due date scattered across (60d, 180d).
         if inspector.has_table("user_words"):
             from app.services.srs import already_known_state
 
@@ -819,7 +783,6 @@ def init_db():
                 with engine.connect() as conn:
                     conn.execute(text("ALTER TABLE user_word_events ADD COLUMN grade INTEGER"))
                     conn.commit()
-            # Phase 1.3 — review event modality.
             if "mode" not in ev_cols:
                 logger.info("Adding mode column to user_word_events")
                 with engine.connect() as conn:
@@ -831,10 +794,8 @@ def init_db():
                     conn.execute(text("ALTER TABLE user_word_events ADD COLUMN word_count INTEGER"))
                     conn.commit()
 
-        # Phase #120 — backfill user_word_glosses for legacy rows. Every
-        # existing UserWord with a meaning gets one initial gloss row
-        # carrying its current meaning + pinyin + source. Idempotent:
-        # rows with at least one gloss are skipped.
+        # Every UserWord with a meaning but no gloss row gets one carrying
+        # its current meaning + pinyin + source. Idempotent.
         if inspector.has_table("user_words") and inspector.has_table("user_word_glosses"):
             session = SessionLocal()
             try:
@@ -850,10 +811,8 @@ def init_db():
                         if not r.meaning:
                             continue
                         source = "package" if r.meaning_source == "package" else "dictionary"
-                        # We don't have the original package name on legacy
-                        # rows — tag with "legacy" so the UI can render
-                        # something. Future package clicks will create
-                        # fresh tagged entries.
+                        # The package name is unknown here; the "legacy"
+                        # tag gives the UI something to show.
                         source_tag = "legacy" if source == "package" else None
                         session.add(
                             UserWordGloss(

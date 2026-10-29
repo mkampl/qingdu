@@ -67,9 +67,7 @@ async def browse_hsk(
 
     needle = q.strip().lower() if q else None
 
-    # Single-pass filter so we don't allocate twice. The dict is ~10k entries
-    # so we accept the O(n) scan per request — much simpler than maintaining
-    # a separate index, and small enough to be fast.
+    # An O(n) scan over ~10k entries per request: fast enough, no index.
     matched: list[tuple[str, dict]] = []
     for hanzi, data in hsk_vocab.items():
         if level is not None:

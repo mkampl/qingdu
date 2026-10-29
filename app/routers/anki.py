@@ -20,10 +20,10 @@ from app.services.gloss_refresh import refresh_vocab_list
 router = APIRouter(tags=["Anki Export"])
 logger = logging.getLogger(__name__)
 
-# All handlers here are deliberately plain `def`, not `async def`: they do
-# synchronous gTTS network calls (with time.sleep pacing), file IO, and
-# genanki packaging. Starlette runs sync handlers in its threadpool, so a
-# long export no longer freezes the event loop for every other request.
+# All handlers here are plain `def`, not `async def`: they do synchronous
+# gTTS network calls (with time.sleep pacing), file IO and genanki
+# packaging. Starlette runs sync handlers in its threadpool, so a long
+# export does not block the event loop for other requests.
 
 
 def _owned_list(db: Session, user: User, list_id: int) -> VocabularyList:
@@ -51,7 +51,7 @@ def check_audio_status(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    """Fast non-generating audit of which TTS clips are already cached."""
+    """How many of the list's TTS clips are already cached."""
     vocab_list = _owned_list(db, user, list_id)
     sections = json.loads(vocab_list.sections) if vocab_list.sections else []
 
@@ -147,12 +147,9 @@ def export_vocabulary_list_anki(
     refresh_vocab_list(db, vocab_list)
     sections = json.loads(vocab_list.sections) if vocab_list.sections else []
 
-    audio_cache_dir = DATA_DIR / "audio_cache"
-    audio_cache_dir.mkdir(exist_ok=True)
     temp_dir = tempfile.mkdtemp(prefix="qingdu_anki_")
     media_files: list = []
 
-    total_words = sum(len(s.get("words", [])) for s in sections)  # noqa: F841
     words_processed = 0
     audio_generated = 0
     audio_cached = 0
@@ -197,8 +194,8 @@ def export_vocabulary_list_anki(
                 continue
             subdeck_name = f"{vocab_list.name}::{section_name}"
             # Stable digest, NOT Python's hash(): PYTHONHASHSEED randomises
-            # str hashes per process, so re-exporting after a restart minted
-            # new deck IDs and duplicated every subdeck in the user's Anki.
+            # str hashes per process, so deck IDs would change after a
+            # restart and a re-export would duplicate every subdeck in Anki.
             section_digest = int.from_bytes(
                 hashlib.sha256(section_name.encode("utf-8")).digest()[:4], "big"
             )
@@ -218,8 +215,7 @@ def export_vocabulary_list_anki(
 
                 try:
                     unicode_ids = "_".join(str(ord(char)) for char in hanzi)
-                    cache_filename = f"{unicode_ids}_zh.mp3"
-                    cache_path = audio_cache_dir / cache_filename
+                    cache_path = _cache_path_for(hanzi)
                     mp3_filename = os.path.join(temp_dir, f"{unicode_ids}_pronunciation.mp3")
 
                     if cache_path.exists() and cache_path.stat().st_size > 0:

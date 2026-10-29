@@ -1,21 +1,11 @@
 """
-Watch-and-read prototype (spike, not a shipped feature yet).
+Watch and read: fetch a YouTube video's Chinese caption track and run it
+through the reader's segmentation/HSK pipeline, so the frontend can show
+a synced, clickable transcript next to the embedded video.
 
-Given a YouTube URL, fetch its Chinese caption track and run it through
-the same word-segmentation/HSK-lookup pipeline the Reader already uses,
-so the frontend can render a synced, clickable transcript next to the
-embedded video — the same interaction TeaTime Chinese offers with its own
-proprietary transcripts, built here on openly-available caption data
-instead. See the companion write-up for the licensing/feasibility
-analysis behind this.
-
-Caching is a plain in-memory dict: a video's captions never change, and
-every fetch either hits YouTube's public caption endpoint (which has been
-observed rate-limiting/blocking requests from some datacenter IPs) or
-re-runs analysis on every sentence, so a repeat view of the same video
-should cost nothing. Fine for a single-process prototype; would need to
-move to the database (like the rest of the app's persistent state) if
-this graduates into a real feature.
+Results are cached in a small per-process LRU: a video's captions do not
+change, and YouTube's caption endpoint rate-limits or blocks some
+datacenter IPs, so a repeat view should not fetch again.
 """
 
 from __future__ import annotations
@@ -75,15 +65,10 @@ def _cache_put(video_id: str, value: YoutubeReadResponse) -> None:
         _cache.popitem(last=False)
 
 
-async def _analyze_segments(sentences: list, is_generated: bool) -> list[YoutubeSegment]:
-    """
-    One analyze_chinese_text() call for the whole video instead of one per
-    sentence: joining every sentence with '\\n' and splitting the result
-    back up on the linebreak markers it emits is far cheaper than N
-    separate calls (each of which would fire its own batch of online
-    lookups) and gives every unknown word in the video a single shared
-    concurrent-lookup pass instead of N of them.
-    """
+async def _analyze_segments(sentences: list) -> list[YoutubeSegment]:
+    """One analyze_chinese_text() call for the whole video: the sentences
+    are joined with '\\n' and the result is split back at the linebreak
+    tokens."""
     combined = "\n".join(s.text for s in sentences)
     result = await analyze_chinese_text(combined)
     words = result["words"]
@@ -147,7 +132,7 @@ async def read_youtube(
         video_id,
         is_generated,
     )
-    segments = await _analyze_segments(sentences, is_generated)
+    segments = await _analyze_segments(sentences)
     response = YoutubeReadResponse(video_id=video_id, is_generated=is_generated, segments=segments)
     _cache_put(video_id, response)
     return response

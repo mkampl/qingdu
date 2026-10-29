@@ -1,7 +1,7 @@
 """
-Per-user word-state tracking — the foundation of LingQ-style "known words"
-and the Phase B SRS review loop. Routes here let the SPA read and mutate
-each user's word state and read aggregate stats.
+Per-user word-state tracking: LingQ-style "known words" and the SRS
+review rotation. Routes here let the SPA read and change each user's word
+states and read aggregate stats.
 
 State model:
 - Absence of a UserWord row == 'new' (never touched).
@@ -9,13 +9,12 @@ State model:
 - Clicking a word in the reader bumps 'new' → 'learning' (handled here);
   explicit toggles in the popover write 'known' or 'ignored'.
 
-Every mutation also appends a UserWordEvent so we can power undo and
-analytics later without changing this code path.
+Every mutation also appends a UserWordEvent (the activity stats read it).
 """
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
@@ -67,8 +66,8 @@ def _record_event(
 def _apply_known_scheduling(row: UserWord) -> None:
     """Schedule a row as "already known" — Review-phase FSRS card with
     ~90d stability and a randomised first-review date in (60d, 180d).
-    State stays 'known' so the reader colours it accordingly; the review
-    queue now includes both 'learning' and 'known' so it still rotates."""
+    State stays 'known' so the reader colours it accordingly; known cards
+    stay in the review rotation."""
     seeded = already_known_state()
     row.state = "known"
     row.fsrs_state = seeded["fsrs_state"]
@@ -76,26 +75,6 @@ def _apply_known_scheduling(row: UserWord) -> None:
     row.difficulty = seeded["difficulty"]
     row.due_at = seeded["due_at"]
     row.last_reviewed_at = seeded["last_reviewed_at"]
-
-
-def _resolve_snapshot(
-    word: str,
-    pkg_meaning: str | None,
-    pkg_pinyin: str | None,
-    pkg_translation_source: str | None,
-) -> tuple[str, str, str | None]:
-    """Decide which (pinyin, meaning, meaning_source) to stamp on a row.
-
-    When the caller hands us a package-sourced snapshot
-    (`translation_source == "package"` plus an actual meaning), we use it
-    verbatim and tag the row "package" so subsequent dictionary clicks
-    don't overwrite it. Otherwise we fall through to the in-process
-    dictionary chain — same behaviour as before this column existed.
-    """
-    if pkg_translation_source == "package" and (pkg_meaning or pkg_pinyin):
-        return (pkg_pinyin or "", pkg_meaning or "", "package")
-    pinyin, meaning = lookup_pinyin_meaning(word)
-    return pinyin, meaning, "dictionary"
 
 
 def _ensure_gloss(
@@ -107,14 +86,9 @@ def _ensure_gloss(
     source: str,
     source_tag: str | None,
 ) -> None:
-    """Phase #120 — add a gloss to a UserWord row if no equivalent one
-    exists yet. Equivalence: same (source, source_tag) pair.
-
-    The first dictionary gloss added is the row's primary meaning. The
-    legacy `meaning`/`pinyin` columns on UserWord still get populated
-    with the *first* gloss we see (so existing read paths keep working
-    until they're migrated); subsequent glosses go to UserWordGloss
-    only.
+    """Add a gloss to a UserWord row unless one with the same (source,
+    source_tag) exists. The row's own `meaning`/`pinyin` snapshot takes
+    the first gloss it gets.
     """
     if not meaning:
         return
@@ -127,9 +101,8 @@ def _ensure_gloss(
         None,
     )
     if existing is not None:
-        # Refresh the meaning if the dictionary's view of this word
-        # drifted (e.g. CC-CEDICT picked a better primary after a
-        # heuristic tune). Package glosses are immutable.
+        # A dictionary gloss follows the current dictionary (e.g. a better
+        # CC-CEDICT primary). Other glosses are kept as they are.
         if source == "dictionary":
             if meaning and meaning != existing.meaning:
                 existing.meaning = meaning
@@ -145,9 +118,6 @@ def _ensure_gloss(
             source_tag=source_tag,
         )
     )
-    # Mirror the first gloss into the legacy columns so callers that
-    # haven't been migrated yet still see *something* on the row. The
-    # gloss list itself is the source of truth.
     if not row.meaning:
         row.meaning = meaning
         row.pinyin = pinyin or None
@@ -169,6 +139,39 @@ def may_create_word(db: Session, user_id: int, word: str, *, is_pkg: bool = Fals
         db.query(UserWord.id).filter(UserWord.user_id == user_id, UserWord.word == word).first()
     )
     return exists is not None or is_lexical_word(word, db=db, user_id=user_id)
+
+
+def _seed_glosses(
+    db: Session,
+    row: UserWord,
+    word: str,
+    is_pkg: bool,
+    pkg_pinyin: str | None,
+    pkg_meaning: str | None,
+    pkg_tag: str | None,
+) -> None:
+    """Always a dictionary gloss (the default learner-facing meaning,
+    whatever context the word was met in), plus a package gloss tagged by
+    package name when the word came from one."""
+    dict_pinyin, dict_meaning = lookup_pinyin_meaning(word)
+    if dict_meaning:
+        _ensure_gloss(
+            db,
+            row,
+            pinyin=dict_pinyin,
+            meaning=dict_meaning,
+            source="dictionary",
+            source_tag=None,
+        )
+    if is_pkg:
+        _ensure_gloss(
+            db,
+            row,
+            pinyin=pkg_pinyin,
+            meaning=pkg_meaning,
+            source="package",
+            source_tag=pkg_tag or "package",
+        )
 
 
 def _upsert(
@@ -207,33 +210,7 @@ def _upsert(
         row.seen_count = (row.seen_count or 0) + 1
         row.updated_at = datetime.utcnow()
 
-    # Always ensure a dictionary gloss exists — that's the default
-    # learner-facing meaning regardless of which context they clicked
-    # the word in. lookup_pinyin_meaning hits HSK/CC-CEDICT/compound/pypinyin.
-    dict_pinyin, dict_meaning = lookup_pinyin_meaning(word)
-    if dict_meaning:
-        _ensure_gloss(
-            db,
-            row,
-            pinyin=dict_pinyin,
-            meaning=dict_meaning,
-            source="dictionary",
-            source_tag=None,
-        )
-
-    # Add the package gloss as its own row if the click came from a
-    # package. Multiple packages can co-exist as separate glosses
-    # tagged by package name.
-    if is_pkg:
-        _ensure_gloss(
-            db,
-            row,
-            pinyin=pkg_pinyin,
-            meaning=pkg_meaning,
-            source="package",
-            source_tag=pkg_source_tag or "package",
-        )
-
+    _seed_glosses(db, row, word, is_pkg, pkg_pinyin, pkg_meaning, pkg_source_tag)
     _record_event(db, user_id, word, "state_change", state, source_text_id)
     return row
 
@@ -395,27 +372,7 @@ async def bulk_mark_known(
             row.updated_at = datetime.utcnow()
             updated += 1
 
-        # Phase #120 — same gloss logic as _upsert(): always seed a
-        # dictionary gloss, plus a tagged package gloss when relevant.
-        dict_pinyin, dict_meaning = lookup_pinyin_meaning(word)
-        if dict_meaning:
-            _ensure_gloss(
-                db,
-                row,
-                pinyin=dict_pinyin,
-                meaning=dict_meaning,
-                source="dictionary",
-                source_tag=None,
-            )
-        if is_pkg:
-            _ensure_gloss(
-                db,
-                row,
-                pinyin=pkg_pinyin,
-                meaning=pkg_meaning,
-                source="package",
-                source_tag=pkg_tag or "package",
-            )
+        _seed_glosses(db, row, word, is_pkg, pkg_pinyin, pkg_meaning, pkg_tag)
         _record_event(db, user.id, word, "bulk_mark_known", "known", payload.source_text_id)
     record_activity(user, db)
     db.commit()
@@ -680,15 +637,7 @@ async def snooze_word(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Push due_at forward by `days` days.
-
-    Body: {word: str, days: int 1..365}. Default 3 if unset; anything else
-    is a 422.
-    Useful when the user isn't ready to re-encounter a word yet but doesn't
-    want to mark it 'known' or remove it from the queue entirely.
-    """
-    from datetime import timedelta
-
+    """Push a word's due date `days` (1-365, default 3) forward."""
     word_raw = payload.word.strip()
     days = payload.days
     if not word_raw:
@@ -714,8 +663,6 @@ async def review_now(
     db: Session = Depends(get_db),
 ) -> dict:
     """Set due_at = now so the word surfaces immediately in /review."""
-    from datetime import datetime
-
     word_raw = (payload.get("word") or "").strip()
     if not word_raw:
         raise HTTPException(400, "word is required")

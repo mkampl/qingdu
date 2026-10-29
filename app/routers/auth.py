@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -101,9 +102,9 @@ async def login(request: Request, data: LoginRequest, db: Session = Depends(get_
 async def get_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if not user:
         return {"authenticated": False}
-    # Phase 2.7 — lifecycle expiry. Computed from the live settings every
-    # call so the SPA can show countdowns / schedule local notifications
-    # without a separate fetch. Admin accounts always get None back.
+    # Lifecycle expiry from the live settings, so the SPA can show
+    # countdowns and schedule local notifications without another request.
+    # None for admin accounts.
     settings = lifecycle.get_settings(db)
     expiry = lifecycle.expiry_for(user, settings)
     return {
@@ -112,9 +113,8 @@ async def get_me(user: User = Depends(get_current_user), db: Session = Depends(g
             "username": user.username,
             "is_admin": user.is_admin,
             "must_change_password": user.must_change_password,
-            # Phase #96 — settings exposed alongside identity so the SPA's
-            # SettingsModal can read + edit them without a second round-trip.
-            # daily_new_words default is 0 (off) — users opt in from Settings.
+            # Settings ride along so the settings modal needs no second
+            # request. daily_new_words defaults to 0 (off).
             "daily_new_words": user.daily_new_words if user.daily_new_words is not None else 0,
             "hsk_focus_version": user.hsk_focus_version or "new",
             "display_script": user.display_script or "auto",
@@ -152,9 +152,8 @@ async def issue_captcha(request: Request):
     summary="Whether open registration is currently accepting new users",
 )
 async def registration_status(db: Session = Depends(get_db)):
-    """Public — used by the SPA to decide whether to render the Sign Up
-    link in the login modal. Returns the captcha flag so the form can
-    skip the captcha entirely when the instance disables it."""
+    """Whether the Sign Up link is shown, and whether signup needs the
+    captcha."""
     settings = lifecycle.get_settings(db)
     return {
         "open": bool(settings.get("registration.open")),
@@ -172,15 +171,11 @@ async def open_register(
     data: OpenRegisterRequest,
     db: Session = Depends(get_db),
 ):
-    """Self-service signup. Subject to the instance settings:
-    `registration.open` must be on, captcha must validate (if enabled),
-    per-IP and global daily caps are enforced.
+    """Self-service signup. `registration.open` must be on, the captcha
+    must validate (if enabled), and the per-IP and global daily caps apply.
 
-    The `honeypot` field is accepted for back-compat with v1.0.45 clients
-    but is NOT checked — Android autofill / password managers cheerfully
-    fill sr-only fields, which trapped legitimate signup attempts on
-    mobile. Captcha + IP rate limit + global daily cap are enough for a
-    demo this size."""
+    The `honeypot` field is accepted but not checked: autofill and password
+    managers fill hidden fields, which would block real signups."""
     ip = _client_ip(request)
     settings = lifecycle.get_settings(db)
     try:
@@ -309,7 +304,7 @@ async def update_my_settings(
 
 @router.post("/api/auth/logout")
 async def logout():
-    """Client-side token removal — server-side this is a no-op."""
+    """No-op: the client drops its token."""
     return {"message": "Logged out successfully"}
 
 
@@ -333,15 +328,11 @@ async def export_my_data(
 ):
     """Everything the server knows about this account, as one JSON file.
 
-    The escape hatch the demo's inactivity deletion policy owes its users
-    (and what the F-Droid crowd rightly expects): texts, word states with
-    their FSRS scheduling, glosses, vocab lists, the review event log, and
-    profile settings. `analysis_data` is deliberately excluded — it is a
-    derived cache, re-created by pasting the text back in, and it dwarfs
-    everything else combined. Flexible auth so a plain <a download> works.
+    Texts, folders, word states with their FSRS scheduling, glosses, vocab
+    lists, the review event log and profile settings. `analysis_data` is
+    left out: it is a derived cache, re-created by pasting the text back in,
+    and dwarfs everything else. Flexible auth so a plain <a download> works.
     """
-    from fastapi.responses import JSONResponse
-
     words = db.query(UserWord).filter(UserWord.user_id == user.id).all()
     payload = {
         "format": "qingdu-export",
@@ -437,14 +428,12 @@ async def delete_my_account(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    """Self-service account deletion — immediate and irreversible.
+    """Delete the caller's account, immediately and irreversibly.
 
     Password re-entry guards against a left-open session. A wrong password
     is 403, not 401: the session itself is fine, and the SPA treats 401 as
-    "logged out". Admins must
-    demote themselves first (or use another admin), mirroring the
-    admin-panel rule, so an instance can't delete its last admin by
-    accident.
+    "logged out". Admins must be demoted first, as in the admin panel, so
+    an instance can't delete its last admin by accident.
     """
     if not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Password is incorrect")
