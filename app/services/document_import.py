@@ -1,12 +1,10 @@
 """
-EPUB / PDF / subtitle text extraction. The output mirrors the trafilatura-extracted
-URL shape so the reader can treat all imports uniformly: a single body
-string plus optional title and byline.
+EPUB / PDF / subtitle text extraction. The output mirrors the
+trafilatura-extracted URL shape so the reader can treat all imports
+uniformly: a single body string plus optional title and byline.
 
-We deliberately don't OCR scanned PDFs here — that's Phase E3's job
-(browser-side tesseract.js). If a PDF has no extractable text we surface
-that fact so the SPA can tell the user instead of silently importing an
-empty page.
+Scanned PDFs are not OCRed here. A PDF without extractable text raises,
+so the SPA can tell the user instead of importing an empty page.
 """
 
 from __future__ import annotations
@@ -39,10 +37,7 @@ class DocumentImportError(Exception):
 
 
 def extract_document(filename: str, data: bytes) -> ExtractedDocument:
-    """
-    Dispatch on extension. Anything not .epub/.pdf raises. EPUB and PDF
-    each route through their own extractor.
-    """
+    """Dispatch on extension; an unsupported one raises."""
     lower = filename.lower()
     if lower.endswith(".epub"):
         return _extract_epub(data)
@@ -132,7 +127,6 @@ def _extract_subtitles(filename: str, data: bytes) -> ExtractedDocument:
 
 def _extract_epub(data: bytes) -> ExtractedDocument:
     try:
-        # EbookLib reads from disk; route via BytesIO via the public helper.
         book = epub.read_epub(io.BytesIO(data))
     except Exception as e:
         raise DocumentImportError(f"Couldn't parse EPUB: {e}") from e
@@ -186,8 +180,7 @@ def _html_to_text(html: str) -> str:
     # Drop script/style/nav-like noise.
     for tag in soup(["script", "style", "nav", "header", "footer"]):
         tag.decompose()
-    # Insert blank lines between block elements so paragraphs survive
-    # the .get_text() flattening.
+    # One line per text node keeps paragraphs apart; long blank runs collapse.
     text = soup.get_text(separator="\n").strip()
     return _BLOCK_BREAK.sub("\n\n", text)
 

@@ -5,8 +5,7 @@ is a complete Qingdu-shaped reading text — pre-analyzed at maintainer build
 time so the server never re-analyzes a library text and never spends a
 DeepL token on bundled content.
 
-Loaded once at module import. ~21 MB across 180 files; iterating the
-manifest stays trivial.
+Loaded once on first use (~22 MB across 180 files).
 
 The stored analyses carry the glosses the dictionary had at build time.
 `client_entry()` re-resolves them against the current dictionary the first
@@ -48,7 +47,6 @@ def _unique_cjk_words(analyzed: dict | None) -> set[str]:
         token = w.get("text") or ""
         if not token or not w.get("is_hsk") and not w.get("hsk_level"):
             continue
-        # Cheap CJK check — any 一-鿿 char
         if any("一" <= c <= "鿿" for c in token):
             out.add(token)
     return out

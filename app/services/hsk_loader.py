@@ -272,8 +272,8 @@ def _apply_konfuzius_old_hsk() -> None:
 
 
 def _save_processed() -> None:
-    """Persist the processed vocabulary for tools and as a fallback cache.
-    The dated backups the old download path kept are pruned over time."""
+    """Persist the processed vocabulary for tools and as a fallback cache,
+    and prune dated backups older than 30 days."""
     vocab_file = DATA_DIR / "hsk_vocabulary.json"
     with open(vocab_file, "w", encoding="utf-8") as f:
         json.dump(hsk_vocab, f, ensure_ascii=False, indent=2)

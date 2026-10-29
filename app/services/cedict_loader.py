@@ -28,8 +28,10 @@ License of CC-CEDICT data: CC-BY-SA 4.0.
 from __future__ import annotations
 
 import gzip
+import json
 import logging
 import math
+import os
 import re
 from pathlib import Path
 
@@ -148,14 +150,11 @@ def _convert_pinyin(numbered: str) -> str:
 # data; this is purely a display layer.
 
 _CL_INLINE_RE = re.compile(r"\s*\(CL:[^)]*\)")
-# Multi-clause idioms/proverbs are still a single trad|simp pair spanning
-# the whole phrase (e.g. "一朝被蛇咬，十年怕井繩|一朝被蛇咬，十年怕井绳"), not
-# one pair per clause. A hanzi-only character class stops at the internal
-# fullwidth comma, so the substitution matched across clause boundaries
-# instead of across the pair boundary and produced a duplicated clause
-# ("一朝被蛇咬，一朝被蛇咬，十年怕井绳"). Including the punctuation CC-CEDICT
-# uses inside these phrases keeps the whole clause together as one side
-# of the pair.
+# Multi-clause idioms/proverbs are a single trad|simp pair spanning the
+# whole phrase (e.g. "一朝被蛇咬，十年怕井繩|一朝被蛇咬，十年怕井绳"), not one
+# pair per clause. The class includes the punctuation CC-CEDICT uses
+# inside these phrases so each side of the pair is the whole phrase; a
+# hanzi-only class would stop at the comma and duplicate a clause.
 _TRAD_SIMP_RE = re.compile(r"([一-鿿，。！？、；：]+)\|([一-鿿，。！？、；：]+)")
 _BRACKET_PINYIN_RE = re.compile(r"\[([^\]]+)\]")
 _MAX_DISPLAY_CHARS = 110
@@ -414,17 +413,15 @@ def _any_sense_self_variant(meanings: list[str], simplified: str) -> bool:
     unrelated variant relationship for a different word must not be
     penalised for it: 繭 (cocoon)'s second sense is "(bound form) callus
     (variant of 趼[jian3])" — 趼 is a different character entirely, not
-    a duplicate of 繭 — so a same-target check leaves 繭 unflagged while
-    a bare "any sense contains variant of" check wrongly demoted it below
+    a duplicate of 繭 — so a same-target check leaves 繭 unflagged, where
+    a bare "any sense contains variant of" check would demote it below
     蠒, a pure "variant of 繭|茧" stub with no real content of its own.
 
     A leading-only check (`_looks_minor`, prefix match on the picked
-    *primary*) also misses the parenthetical-trailing form: 呆's own
-    third sense "variant of 待[dai1]" (leading, and NOT a self-reference
-    since 待 isn't 呆) correctly left 呆 unflagged by that mechanism, but
-    獃's "foolish; stupid (variant of 呆[dai1])" (trailing, embedded, and
-    a genuine self-reference since 呆 IS the character 獃 duplicates)
-    dodged the prefix check entirely and let 獃 outrank 呆."""
+    *primary*) misses the parenthetical-trailing form: 呆's own third
+    sense "variant of 待[dai1]" is not a self-reference (待 isn't 呆), but
+    獃's "foolish; stupid (variant of 呆[dai1])" is, and would let 獃
+    outrank 呆."""
     for m in meanings:
         match = _VARIANT_MARKER_RE.search(m)
         if match and simplified in match.group(1):
@@ -462,11 +459,10 @@ def _has_deprioritised_tag(sense: str) -> bool:
     """True when the sense's leading parenthetical annotation cluster
     contains a register/usage tag from _DEPRIORITISE_TAGS. CC-CEDICT
     sometimes stacks a domain tag ahead of the register tag —
-    "(computing) (bound form) parent-" for 父 — so a strict startswith()
-    on just the first tag misses the (bound form) marker entirely and
-    lets the domain-jargon sense win as primary (父, "father", was
-    displaying a computing term). Collects every leading "(...)" group,
-    not just the first, and checks the tag list against all of them."""
+    "(computing) (bound form) parent-" for 父 — so a startswith() on just
+    the first tag would miss the (bound form) marker and let the
+    domain-jargon sense win as primary. Collects every leading "(...)"
+    group and checks the tag list against all of them."""
     low = sense.lower().lstrip()
     m = _LEADING_PARENS_RE.match(low)
     if not m:
@@ -477,11 +473,10 @@ def _has_deprioritised_tag(sense: str) -> bool:
 
 def _looks_pronunciation_note(sense: str) -> bool:
     """True for a bare "Taiwan pr. [x]" / "also pr. [x]" cross-reference.
-    These carry no meaning of their own; because they don't open with a
-    register tag they used to slip past _pick_learner_primary untouched,
-    so a character whose every real sense WAS tagged fell through to this
-    footnote and displayed it as the primary meaning (迹 showed
-    "Taiwan pr. (jī)" instead of "trace; mark")."""
+    These carry no meaning of their own and don't open with a register
+    tag, so without this check a character whose every real sense is
+    tagged would fall through to the footnote (迹 "Taiwan pr. (jī)"
+    instead of "trace; mark")."""
     return bool(_PRONUNCIATION_NOTE_RE.match(sense.strip()))
 
 
@@ -644,26 +639,22 @@ def _entry_quality(
     meanings = meanings if meanings is not None else [primary]
     score = 100
     # CC-CEDICT capitalizes the pinyin of proper-noun readings
-    # ("Ping2 guo3" the company vs "ping2 guo3" the fruit). The company
-    # entry's long parenthesised gloss dodged every other penalty while
-    # the fruit's bare "apple" ate the (since removed) stub-gloss one, so
-    # 苹果 (HSK 3!) was glossed "Apple (American tech company)" on review cards. When
-    # a word only HAS proper-noun readings (中国), they all carry the
-    # penalty and the relative ranking still works.
+    # ("Ping2 guo3" the company vs "ping2 guo3" the fruit); the company's
+    # long gloss dodges every other penalty, so without this one 苹果 would
+    # read "Apple (American tech company)". When a word only HAS
+    # proper-noun readings (中国), they all carry the penalty and the
+    # relative ranking still works.
     if numbered_pinyin[:1].isupper():
         score -= 70
     # Scan every sense, not just the picked primary. 秊 (a variant
-    # character of 年) lists "grain / harvest (old) / variant of 年" —
-    # _pick_learner_primary grabs "grain" since it isn't register-tagged,
-    # which hid the "variant of" marker from this check (it's sense #3)
-    # and let 秊's 3-sense padding outscore 年's clean single "year" via
-    # the sense-count bonus below. 年 was glossed "grain" on review cards
-    # until this was caught. Same mechanism broke 欢 (歡 "joyous" losing
-    # to 驩 "a breed of horse / variant of 歡|欢"). _any_sense_self_variant
-    # additionally catches the marker when it trails a sense in a
-    # parenthetical rather than leading it, scoped to self-references
-    # only so an unrelated variant mention in a secondary sense doesn't
-    # wrongly demote an otherwise-fine entry (see its docstring).
+    # character of 年) lists "grain / harvest (old) / variant of 年" and
+    # _pick_learner_primary grabs "grain", so a primary-only check would
+    # miss the marker and let 秊's 3-sense padding outscore 年's single
+    # "year" via the sense-count bonus below (likewise 驩 vs 歡 for 欢).
+    # _any_sense_self_variant also catches the marker when it trails a
+    # sense in a parenthetical, scoped to self-references so an unrelated
+    # variant mention in a secondary sense doesn't demote an otherwise
+    # fine entry (see its docstring).
     if _looks_minor(primary) or _any_sense_self_variant(meanings, simplified):
         score -= 100
     if _looks_pure_marker(primary):
@@ -683,12 +674,10 @@ def _entry_quality(
         # classifier sense anywhere else is usually the rare reading
         # (服 fù "dose", 通 tòng, 只 zhī) and must not get a boost.
         score += 40
-    # Frequency, log-scaled and uncapped. The old +80 cap was reached at
-    # ~100k occurrences, so for every common character both everyday
-    # readings tied (好 hǎo vs hào) and the strongest signal was lost
-    # exactly where it mattered. 32 points per decade fitted best when
-    # the picks were checked against pypinyin's phrase readings for all
-    # HSK words with several readings.
+    # Frequency, log-scaled and uncapped: a cap would tie both everyday
+    # readings of common characters (好 hǎo vs hào), exactly where the
+    # signal matters most. 32 points per decade fits best against
+    # pypinyin's phrase readings for all HSK words with several readings.
     if frequency > 0:
         score += int(math.log10(frequency) * _FREQUENCY_POINTS_PER_DECADE)
     # Sense-count bonus. A reading with multiple distinct senses
@@ -719,10 +708,7 @@ def _load_subtlex_char_pinyin() -> dict[str, dict[str, int]]:
     transcript material) is a legitimate downstream use. See
     THIRD_PARTY_LICENSES.md for the full provenance writeup.
     """
-    import json
-    from pathlib import Path as _P
-
-    path = _P(__file__).resolve().parent.parent / "data" / "subtlex_char_pinyin_freq.json"
+    path = Path(__file__).resolve().parent.parent / "data" / "subtlex_char_pinyin_freq.json"
     if not path.exists():
         return {}
     try:
@@ -736,15 +722,12 @@ def _load_primary_overrides() -> dict[str, dict[str, str]]:
     """Load the hand-curated primary-sense/reading override list (see
     app/data/cedict_primary_overrides.json for provenance and the
     rationale for keeping this manual rather than trying to make the
-    heuristic scoring perfect for every one of CC-CEDICT's ~120k entries.
+    heuristic scoring perfect for every one of CC-CEDICT's ~120k entries).
 
     Shape: {"preferred_reading": {simplified: numbered_pinyin}, "preferred_sense": {simplified: substring}}.
     Missing/unparseable file -> both empty, heuristic-only behaviour unchanged.
     """
-    import json
-    from pathlib import Path as _P
-
-    path = _P(__file__).resolve().parent.parent / "data" / "cedict_primary_overrides.json"
+    path = Path(__file__).resolve().parent.parent / "data" / "cedict_primary_overrides.json"
     if not path.exists():
         return {"preferred_reading": {}, "preferred_sense": {}}
     try:
@@ -832,8 +815,7 @@ def _parse_text(text: str) -> dict[str, dict]:
         # notwithstanding. E.g. 汉's rich Han4 entry ("Han ethnic group /
         # Chinese language / the Han dynasty") loses to its bare han4
         # "man" entry under the heuristic alone -- the capitalized-pinyin
-        # proper-noun penalty (added to stop 苹果/Apple-the-company
-        # winning) fires on 汉 too, since CC-CEDICT capitalizes pinyin
+        # proper-noun penalty (see _entry_quality) fires on 汉 too, since CC-CEDICT capitalizes pinyin
         # for named concepts generally, not just irrelevant proper nouns.
         if preferred_reading.get(simplified) == numbered_pinyin:
             quality = 10_000_000
@@ -874,7 +856,7 @@ def _parse_text(text: str) -> dict[str, dict]:
     out: dict[str, dict] = {}
     for simplified, group in grouped.items():
         lines = list(group.values())
-        # Highest score wins; on a tie the later line does, which kept 读
+        # Highest score wins; on a tie the later line does, which keeps 读
         # off the dòu "comma" reading that happens to be listed first.
         main = max(lines, key=lambda c: (c["quality"], c["order"]))
         pinned = preferred_reading.get(simplified)
@@ -1017,16 +999,12 @@ def _attach_reading_examples(parsed: dict[str, dict]) -> None:
 # uses the CEDICT "trad|simp[pinyin]" notation, or just simp if there's
 # no trad form. We pull the simp form out and use it as a lookup key.
 #
-# CC-CEDICT has seven variant phrasings as of the 2026-07 snapshot. The
-# `erhua form of` and `erhua variant of` strings are interchangeable in
-# the source; missing one of them leaves entries like
-# 女孩儿 (`erhua form of 女孩[nu:3 hai2]`) un-resolved, showing the
-# pointer instead of the actual gloss ("girl"). `used in X` was added
-# after an audit found readings like 漂's piao4 ("used in 漂亮[piao4
-# liang5]") outscoring the piao1 "to float" reading on frequency —
-# correctly, since piao4 only exists inside 漂亮 and that compound is
-# very common — but then displaying the bare "used in 漂亮" pointer
-# instead of following it to 漂亮's actual meaning ("pretty").
+# `erhua form of` and `erhua variant of` are interchangeable in the
+# source; both are needed so 女孩儿 (`erhua form of 女孩[nu:3 hai2]`)
+# shows "girl", not the pointer. `used in X` covers readings like 漂's
+# piao4 ("used in 漂亮[piao4 liang5]"), which rightly outscores piao1
+# "to float" on frequency and is then followed to 漂亮's meaning
+# ("pretty").
 #
 # The cleaned headline renders the target's bracket pinyin as "(pīn
 # yīn)" right after it; group 2 captures that so a pointer can be
@@ -1072,9 +1050,8 @@ def _resolve_variant_references(parsed: dict[str, dict]) -> None:
 
     Runs to a fixed point (capped) rather than a single pass so chained
     pointers (A -> B -> C) resolve fully instead of leaving A on B's
-    still-unresolved text — "used in X" made chains more likely since
-    it's common for the target of one referential stub to itself be a
-    variant-of another entry.
+    still-unresolved text; the target of a "used in X" stub is often
+    itself a variant of another entry.
 
     "used in X" on a reading other than the main one stays as written:
     "gě: used in 自个儿" says more than 自个儿's gloss would.
@@ -1154,12 +1131,9 @@ async def load_cedict() -> None:
     working on the existing HSK data.
 
     Honours `QINGDU_SKIP_CEDICT_LOAD=1` as a hard skip. conftest sets
-    this in the test suite so CI doesn't pull ~4MB on every run; the
-    handful of tests that actually exercise cedict lookups seed
-    `cedict_vocab` directly in their own fixtures.
+    this in the test suite to keep it fast; the tests that exercise
+    cedict lookups seed `cedict_vocab` directly in their own fixtures.
     """
-    import os
-
     if os.environ.get("QINGDU_SKIP_CEDICT_LOAD") == "1":
         logger.info("CC-CEDICT load skipped (QINGDU_SKIP_CEDICT_LOAD=1)")
         return

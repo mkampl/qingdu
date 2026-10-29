@@ -1,5 +1,5 @@
 """
-Phase 2.7 — Account lifecycle + registration settings.
+Account lifecycle + registration settings.
 
 The instance has a small admin-tunable config surface stored in
 `system_settings` (DB-backed, no env-var dance). The defaults below are
@@ -196,9 +196,10 @@ def purge_user(db: Session, user: User) -> None:
     log, the pre-learned text words and the library progress have no ORM
     relationship (the event log can be thousands of rows — loading them
     into the session just to delete them would be wasteful), so they are
-    bulk-deleted here. SQLite runs without FK enforcement, so forgetting a table
-    here leaks orphaned rows silently — keep this the single deletion path
-    (admin delete + lifecycle sweep both call it). Caller commits.
+    bulk-deleted here. SQLite runs without FK enforcement, so forgetting a
+    table here leaks orphaned rows silently — keep this the single
+    deletion path (admin delete + lifecycle sweep both call it). Caller
+    commits.
     """
     for table in (
         UserWordEvent,
@@ -220,8 +221,7 @@ def run_lifecycle_pass(db: Session | None = None) -> dict[str, int]:
     """Mark dormant + hard-delete users that have crossed the thresholds.
 
     Returns a small stat dict the caller can log. Admins are never touched.
-    Closing pruning of signup_attempts older than 24 h happens here too —
-    keeps the table tiny.
+    Also prunes signup_attempts older than 24 h.
 
     Safe to call concurrently with normal traffic (one-row-per-user
     updates only). Safe to call repeatedly — idempotent."""

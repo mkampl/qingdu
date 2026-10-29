@@ -42,11 +42,6 @@ def prime_jieba() -> int:
     return added
 
 
-def get_word_info(word: str) -> dict | None:
-    """Look up a word in the HSK vocab. Returns None if not found."""
-    return hsk_vocab.get(word)
-
-
 def _increment_level(stats: dict, total: int, level: str | None, prefix: str) -> int:
     """
     Increment the stats bucket for `level` (e.g. "new-3" -> "hsk3").
@@ -69,9 +64,9 @@ def _refine_token(token: str, glossary: dict) -> list[str]:
     split anything else into the dictionary words it is made of.
 
     jieba's dictionary is full of phrases (很多, 三个, 洗衣服, 第一个) that
-    are not words for a learner; they used to come out as one token with
-    a glued "very + many" gloss. Non-Chinese tokens and single characters
-    pass through unchanged."""
+    are not words for a learner and would get a glued "very + many"
+    gloss. Non-Chinese tokens and single characters pass through
+    unchanged."""
     if len(token) <= 1 or token in glossary or not is_cjk_word(token):
         return [token]
     if in_dictionary(token) or not dictionaries_loaded():
@@ -120,8 +115,8 @@ def segment_text(text: str, glossary: dict | None = None) -> list[str]:
     jieba's HMM stays on: it only joins runs of single characters, and
     what it invents is either a dictionary word jieba's own word list
     lacks (公钥, 食材, 点赞, 内卷: kept) or a non-word (我来, 太热, 我点:
-    split again). With the HMM off those dictionary words came out as
-    single characters, and the non-words come out the same either way.
+    split again). With the HMM off those dictionary words would come out
+    as single characters, and the non-words come out the same either way.
     Terms of the user's glossary that jieba cut up are joined again."""
     glossary = glossary or {}
     lines = text.split("\n")
@@ -146,7 +141,7 @@ def _resolve_non_hsk(segments: list[str], glossary: dict) -> dict[str, dict | No
     for seg in segments:
         if seg in resolved or not seg or seg == "\n":
             continue
-        if seg in glossary or get_word_info(seg) is not None:
+        if seg in glossary or seg in hsk_vocab:
             continue
         if len(seg) == 1:
             resolved[seg] = resolve_from_cedict(seg) if is_cjk_word(seg) else None
@@ -198,7 +193,7 @@ async def analyze_chinese_text(
     `glossary`, if provided, is a {word: {pinyin, meaning, list_name}} map
     built by the caller from the user's glossary-flagged vocabulary lists.
     On glossary hit, the word's pinyin + meaning come from the user instead
-    of HSK / online lookup; HSK level (when the word is also in HSK) is
+    of the dictionary; HSK level (when the word is also in HSK) is
     still attached so the corpus difficulty signal stays honest.
     """
     text = text.strip()
@@ -238,7 +233,7 @@ async def analyze_chinese_text(
         # popover work — only the meaning/pinyin/source get overridden.
         glossary_hit = glossary.get(segment)
         if glossary_hit:
-            vocab_entry = get_word_info(segment) or {}
+            vocab_entry = hsk_vocab.get(segment) or {}
             word_info.hsk_level = vocab_entry.get("level", "")
             word_info.level_new = vocab_entry.get("level_new")
             word_info.level_old = vocab_entry.get("level_old")
@@ -256,7 +251,7 @@ async def analyze_chinese_text(
             words.append(word_info.dict())
             continue
 
-        vocab_entry = get_word_info(segment)
+        vocab_entry = hsk_vocab.get(segment)
 
         if vocab_entry:
             word_info.hsk_level = vocab_entry["level"]
@@ -360,7 +355,7 @@ async def analyze_chinese_text(
             "hsk_words_old": total_hsk_words_old,
             "hsk_distribution_old": hsk_stats_old,
             "estimated_level_old": estimated_level_old,
-            # Legacy fields (for backwards compatibility — use new HSK).
+            # Aliases of the new-HSK fields.
             "hsk_words": total_hsk_words_new,
             "hsk_distribution": hsk_stats_new,
             "estimated_level": estimated_level_new,

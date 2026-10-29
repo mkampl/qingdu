@@ -1,16 +1,15 @@
 """Reader and review preferences kept on the account.
 
-The SPA used to keep these on the device only, so a phone and a laptop
-showed different pinyin, colours and review modes. They live in
-`users.ui_settings` as JSON now. Only the keys below are stored, each
-checked; device matters (theme, reminder time, haptics) stay local.
+Stored in `users.ui_settings` as JSON so a phone and a laptop show the
+same pinyin, colours and review modes. Only the keys below are stored,
+each checked; device matters (theme, reminder time, haptics) stay local.
 """
 
 from __future__ import annotations
 
 import json
 
-# key -> allowed values (a set) or a validator
+# key -> allowed values
 _CHOICES: dict[str, set] = {
     "pinyinMode": {"auto", "on", "off"},
     "hskVersion": {"new", "old"},
@@ -25,7 +24,6 @@ _BOOLS = {
     "onboarded",
 }
 _INTS = {"autoGradeDelayMs": (0, 10_000)}
-KEYS = frozenset(_CHOICES) | _BOOLS | frozenset(_INTS)
 
 
 def clean(raw: dict) -> dict:
@@ -57,4 +55,4 @@ def merge(stored: str | None, update: dict) -> str:
     return json.dumps({**(load(stored) or {}), **clean(update)}, sort_keys=True)
 
 
-__all__ = ["KEYS", "clean", "load", "merge"]
+__all__ = ["clean", "load", "merge"]

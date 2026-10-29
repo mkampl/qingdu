@@ -2,12 +2,12 @@
 Bring stored glosses up to the current dictionary.
 
 Saved texts keep the full analyse output in `analysis_data`, and
-vocabulary lists keep the pinyin/meaning each word had when it was added.
-Both used to stay frozen forever: an old DeepL guess for an isolated token
-(十点 -> "half-witted") or a pre-fix HSK sense survived every dictionary
-update. These helpers re-resolve such entries from the in-memory
-dictionaries when `dict_data.dict_version()` has moved on since the last
-refresh, and stamp the version they used so the next open is a no-op.
+vocabulary lists keep the pinyin/meaning each word had when it was added,
+which may be a machine guess for an isolated token (十点 -> "half-witted")
+or a sense the dictionary no longer picks. These helpers re-resolve such
+entries from the in-memory dictionaries when `dict_data.dict_version()`
+has moved on since the last refresh, and stamp the version they used so
+the next open is a no-op.
 
 What is refreshed:
 - saved-text tokens whose meaning came from a dictionary (hsk, hsk-chars,
@@ -69,8 +69,9 @@ REFRESHABLE_SOURCES = frozenset(
 )
 
 # Optional per-token fields the analyser emits (the other readings of a
-# polyphone, the dictionary parts of a non-word). Copied when the resolved entry has
-# them and dropped when it does not, so a stale breakdown never lingers.
+# polyphone, the dictionary parts of a non-word). Copied when the resolved
+# entry has them and dropped when it does not, so a stale breakdown never
+# lingers.
 _OPTIONAL_FIELDS = ("readings", "parts")
 
 

@@ -1,8 +1,7 @@
 """
-FSRS wrapper around the `fsrs` package (v6). Keeps every direct call to
-`fsrs` in this one module so the rest of the codebase doesn't depend on
-the third-party API surface — if we ever swap algorithms (back to SM-2,
-forward to FSRS-5/6, custom), only this file changes.
+FSRS wrapper around the `fsrs` package (v6). Every direct call to `fsrs`
+stays in this module, so the rest of the codebase doesn't depend on the
+third-party API.
 
 Storage shape (per UserWord row):
 - `fsrs_state` (TEXT JSON) — full Card round-trip; source of truth.
@@ -48,8 +47,7 @@ def _to_rating(grade: int) -> Rating:
 def card_from_state(state_json: str | None) -> Card:
     """
     Reconstruct an FSRS Card from the JSON we stored. Returns a fresh Card
-    when state_json is None / empty — that's how we onboard a word that
-    was 'learning' before Phase B shipped (or any word with no review history).
+    when state_json is None / empty (a word with no review history).
     """
     if not state_json:
         return Card()
@@ -81,8 +79,7 @@ def apply_grade(state_json: str | None, grade: int, retention: float | None = No
         "fsrs_state": new_card.to_json(),
         "stability": new_card.stability,
         "difficulty": new_card.difficulty,
-        # FSRS uses tz-aware UTC; our DateTime columns are naive (legacy choice
-        # from the rest of the schema). Strip the tz so we don't mix and match.
+        # FSRS uses tz-aware UTC; the DateTime columns are naive UTC.
         "due_at": _as_naive_utc(new_card.due),
         "last_reviewed_at": _as_naive_utc(new_card.last_review)
         if new_card.last_review
@@ -153,11 +150,10 @@ def already_known_state(jitter_seed: int | None = None) -> dict:
     }
 
 
-# --- Phase 1.3b: stability-driven progressive prompt stages ----------------
+# --- Stability-driven progressive prompt stages ----------------------------
 #
 # A card's "prompt stage" tells the SPA which review surface to render.
-# Three stages, picked from the FSRS stability number that the scheduler
-# already maintains:
+# Four stages, picked from the FSRS stability and the review focus:
 #
 #   intro    — stability < 1d / NULL    — first encounters
 #              UI shows hanzi + pinyin + TTS + stroke animation; Good is
@@ -182,10 +178,7 @@ def already_known_state(jitter_seed: int | None = None) -> dict:
 #              FSRS's learning steps (the pass ~10 min after the intro, or
 #              after a lapse) is written from memory (trace) instead.
 #   reading  — intro, then read throughout.
-#   writing  — intro, trace, produce (the original progression).
-#
-# The thresholds are tunable; we expose them as module constants so a
-# future Settings → Review challenge slider can shift them.
+#   writing  — intro, trace, produce.
 
 INTRO_STABILITY_THRESHOLD_DAYS = 1.0
 PRODUCE_STABILITY_THRESHOLD_DAYS = 10.0
@@ -232,10 +225,6 @@ def stage_for_row(row, user) -> PromptStage:
         focus=getattr(user, "review_focus", None) or DEFAULT_REVIEW_FOCUS,
         learning_step=in_learning_steps(row.fsrs_state),
     )
-
-
-# Phase 1.3 cycle helpers were superseded by stage selection; the columns
-# remain on UserWord/UserWordEvent as event telemetry only.
 
 
 __all__ = [

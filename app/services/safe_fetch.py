@@ -1,11 +1,11 @@
 """
 Fetch a user-supplied public URL without becoming an SSRF proxy.
 
-The old guard resolved the hostname, checked the addresses, then handed
-the URL to trafilatura — which resolved it again (a DNS-rebinding window)
-and followed redirects on its own (so `https://evil.example/` → 302 →
-`http://127.0.0.1:5001/…` sailed through). Here every hop is checked and
-the connection goes to the exact address that passed the check:
+Checking the resolved addresses and then letting a library fetch the URL
+is not enough: it resolves the name again (a DNS-rebinding window) and
+follows redirects on its own (`https://evil.example/` → 302 →
+`http://127.0.0.1:5001/…`). Here every hop is checked and the connection
+goes to the exact address that passed the check:
 
 - only http/https, no IP literals or hostnames in private/loopback/
   link-local/multicast/reserved space (any bad A/AAAA record fails the

@@ -31,8 +31,6 @@ async def fetch_chinese_tts(text: str) -> bytes:
     chunks = _split_for_tts(text)
     if len(chunks) == 1:
         return await _fetch_single(chunks[0])
-    # Fetch chunks in parallel (modest concurrency — these go to the same
-    # Google endpoint and we don't want to look bot-like).
     results = await asyncio.gather(*(_fetch_single(c) for c in chunks))
     return b"".join(results)
 

@@ -42,8 +42,7 @@ from app.database import LlmUsage
 
 logger = logging.getLogger(__name__)
 
-# Every LLM feature the app knows; LLM_FEATURES picks from these. Features
-# add their name here when they are built.
+# Every LLM feature the app knows; LLM_FEATURES picks from these.
 FEATURES: tuple[str, ...] = (
     "grammar",
     "explain_sentence",

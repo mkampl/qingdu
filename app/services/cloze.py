@@ -1,5 +1,5 @@
 """
-Cloze-mode review support — Phase B remainder.
+Cloze-mode review support.
 
 For each word a user is reviewing in cloze mode, we want a sentence from
 one of the user's *own* saved texts where that word appears, with the
@@ -14,9 +14,10 @@ Pipeline:
    `populate_sample_sentence` asks the database for the newest saved
    text containing the word and stores the first hit, falling back to
    the shortest sentence of the bundled library that uses the word. If
-   nothing matches, the card stays empty and the cloze queue drops it. Misses are remembered per user (in memory) until
-   one of their texts is saved, edited or deleted — `forget_misses` —
-   so a long tail of sentence-less cards doesn't rescan on every session.
+   nothing matches, the card stays empty and the cloze queue drops it.
+   Misses are remembered per user (in memory) until one of their texts
+   is saved, edited or deleted (`forget_misses`), so a long tail of
+   sentence-less cards doesn't rescan on every session.
 3. `make_cloze_template(sentence, word)` produces the visible "fill in
    the blank" string by replacing the first occurrence of the word
    with ``___``. The card payload also carries the bare word so the
@@ -79,8 +80,7 @@ def split_sentences(text: str) -> list[str]:
     """Cheaply split Chinese text into sentence-sized chunks."""
     if not text:
         return []
-    raw = [s.strip() for s in _SENTENCE_SPLIT_RE.split(text) if s.strip()]
-    return raw
+    return [s.strip() for s in _SENTENCE_SPLIT_RE.split(text) if s.strip()]
 
 
 def find_sentence_for_word(text: str, word: str) -> str | None:

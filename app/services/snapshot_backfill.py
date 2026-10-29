@@ -16,7 +16,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.database import UserWord
+from app.database import UserWord, UserWordGloss
 from app.services.word_info import lookup_pinyin_meaning
 
 logger = logging.getLogger(__name__)
@@ -28,10 +28,8 @@ def refresh_all_user_words(db: Session) -> int:
     immutable (the user clicked them in a specific package context, the
     package's curated meaning is the source of truth).
 
-    Also keeps the legacy UserWord.meaning / .pinyin columns in sync
-    with the first gloss so older read paths still work."""
-    from app.database import UserWordGloss
-
+    Also keeps UserWord.meaning / .pinyin in sync with the dictionary
+    gloss."""
     updated = 0
     for row in db.query(UserWord).yield_per(500):
         fresh_pinyin, fresh_meaning = lookup_pinyin_meaning(row.word)
@@ -44,9 +42,7 @@ def refresh_all_user_words(db: Session) -> int:
         )
         changed = False
         if dict_gloss is None:
-            # Row has no dictionary gloss yet — create one. Happens for
-            # rows that were originally package-only and the user has
-            # now run a backfill against a richer dictionary.
+            # A row with only a package gloss.
             db.add(
                 UserWordGloss(
                     user_word=row,
@@ -58,14 +54,14 @@ def refresh_all_user_words(db: Session) -> int:
             )
             changed = True
         else:
-            if fresh_meaning and fresh_meaning != dict_gloss.meaning:
+            if fresh_meaning != dict_gloss.meaning:
                 dict_gloss.meaning = fresh_meaning
                 changed = True
             if fresh_pinyin and fresh_pinyin != (dict_gloss.pinyin or ""):
                 dict_gloss.pinyin = fresh_pinyin
                 changed = True
 
-        # Keep legacy columns in sync with the dictionary gloss, unless the
+        # The row's own columns follow the dictionary gloss, unless the
         # headline came from a package: that snapshot is curated and must
         # survive dictionary changes like the package gloss row does.
         if row.meaning_source != "package":
@@ -84,8 +80,7 @@ def refresh_all_user_words(db: Session) -> int:
 
 
 def run_at_startup() -> int | None:
-    """Helper called from `app.main.startup_event` so the call site
-    doesn't have to manage its own session.
+    """The backfill in its own session, for `app.main.startup_event`.
 
     Returns the number of rewritten rows, or None when the backfill was
     skipped (version unchanged, or dictionary data incomplete)."""
