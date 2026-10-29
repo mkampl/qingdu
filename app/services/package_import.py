@@ -11,10 +11,10 @@ the package author chose.
 
 from __future__ import annotations
 
-from app.core.constants import TRANSLATION_SOURCE_HSK  # noqa: F401  re-exported style
 from app.schemas import PackageToken, QingduPackage, WordInfo
 from app.services import grammar
 from app.services.levels import estimate_text_level
+from app.services.segmentation import _increment_level
 from app.state import hsk_vocab
 
 
@@ -70,26 +70,11 @@ def _hsk_level_buckets() -> tuple[dict, dict, int, int]:
     return ({f"hsk{i}": 0 for i in range(1, 10)}, {f"hsk{i}": 0 for i in range(1, 7)}, 0, 0)
 
 
-def _bump_level(stats: dict, total: int, level: str | None, prefix: str) -> int:
-    if not level:
-        return total
-    raw = level.replace(prefix, "").replace("+", "")
-    try:
-        key = f"hsk{int(raw)}"
-        if key in stats:
-            stats[key] += 1
-        return total + 1
-    except ValueError:
-        return total
-
-
 def _build_word_info(tok: PackageToken, package_source: str | None) -> WordInfo:
     """Build a single WordInfo from a package token, layering HSK metadata."""
     if tok.is_punct:
-        # Punctuation passes through as a non-clickable token. We mark it
-        # is_hsk=False so the reader skips popover wiring, and use the same
-        # translation_source ("linebreak"-style flag) the analyse pipeline
-        # uses for non-word tokens.
+        # Punctuation passes through as a non-clickable token: is_hsk=False
+        # so the reader wires no popover.
         return WordInfo(
             text=tok.text,
             is_hsk=False,
@@ -136,16 +121,15 @@ def transform(package: QingduPackage) -> dict:
         # recognises, so the headline difficulty stays honest about the
         # corpus (the package author's translation choices are independent).
         if not tok.is_punct:
-            total_new = _bump_level(hsk_stats_new, total_new, wi.level_new, "new-")
-            total_old = _bump_level(hsk_stats_old, total_old, wi.level_old, "old-")
+            total_new = _increment_level(hsk_stats_new, total_new, wi.level_new, "new-")
+            total_old = _increment_level(hsk_stats_old, total_old, wi.level_old, "old-")
         words.append(wi.dict())
 
     estimated_new = estimate_text_level(hsk_stats_new, total_new)
     estimated_old = estimate_text_level(hsk_stats_old, total_old)
 
-    # Grammar pattern detector — runs on the joined text, language-version
-    # agnostic. Classical patterns won't match modern-Chinese rules well,
-    # but that's fine: the detector just no-ops on missing patterns.
+    # Classical text rarely matches the modern-Chinese patterns; the
+    # detector then finds nothing.
     grammar_sentences = _group_grammar_sentences(package.tokens)
     matches, metas = grammar.detect_patterns(grammar_sentences)
     grammar_payload = {
@@ -162,9 +146,8 @@ def transform(package: QingduPackage) -> dict:
         "patterns": metas,
     }
 
-    # Sentence translations ride into the analyzed result so they're saved
-    # alongside everything else and survive reloads/restarts without
-    # depending on the in-memory TTL cache (which evicts after 1h).
+    # Sentence translations go into the result so they are saved with it
+    # and don't depend on the in-memory TTL cache.
     sentence_translations = dict(package.sentence_translations or {})
 
     return {
@@ -180,7 +163,7 @@ def transform(package: QingduPackage) -> dict:
             "hsk_words_old": total_old,
             "hsk_distribution_old": hsk_stats_old,
             "estimated_level_old": estimated_old,
-            # Legacy aliases.
+            # Aliases of the new-HSK fields.
             "hsk_words": total_new,
             "hsk_distribution": hsk_stats_new,
             "estimated_level": estimated_new,

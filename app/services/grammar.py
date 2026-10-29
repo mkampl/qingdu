@@ -1,10 +1,9 @@
 """
 Sentence-pattern detection for the reader.
 
-Ships ~30 HSK 1–5 grammar patterns as inline annotations (Phase D shipped
-the first 10, Phase 1.7 added the next 20).
-The detector runs after jieba segmentation and emits per-pattern matches
-with their token-range positions so the SPA can underline + popover them.
+Ships ~30 HSK 1–5 grammar patterns as inline annotations. The detector
+runs after jieba segmentation and emits per-pattern matches with their
+token-range positions so the SPA can underline + popover them.
 
 Why regex-on-text, not token equality:
     jieba happily fuses "越来越" into a single token and "因为" into a
@@ -61,9 +60,9 @@ class PatternDef:
     # also part of ordinary words: the marker (first of `solo` found in the
     # match) must stand as its own token (把, not 一把 or 把握) or, with
     # `suffix`, follow the start of a token (看过, 吃了饭; not 过去);
-    # `not_tokens` lists tokens with it that are not the pattern (不过), `not_prev` / `not_next`
-    # neighbouring tokens that rule it out (classical 得之: `not_next`
-    # holds first characters of the next token).
+    # `not_tokens` lists tokens with it that are not the pattern (不过),
+    # `not_prev` / `not_next` neighbouring tokens that rule it out
+    # (classical 得之: `not_next` holds first characters of the next token).
     solo: tuple[str, ...] = ()
     suffix: bool = False
     not_tokens: frozenset[str] = frozenset()
@@ -101,8 +100,7 @@ PATTERNS: list[PatternDef] = [
         ),
         example="我把书读完了。",
         example_translation="I finished reading the book.",
-        # 把 + at least one follow-up character. False positives on idioms
-        # like 一把 are tolerable — better to highlight than to miss.
+        # 把 + at least one follow-up character; `solo` rules out 一把 / 把握.
         regex=re.compile(r"把[一-鿿]{1,8}"),
         solo=("把",),
     ),
@@ -217,7 +215,7 @@ PATTERNS: list[PatternDef] = [
         suffix=True,
         not_tokens=frozenset({"为了", "除了", "受不了", "了不起", "罢了", "算了", "得了", "极了"}),
     ),
-    # --- Phase 1.7 expansion: HSK 2–5 patterns -------------------------------
+    # --- HSK 2–5 patterns -------------------------------------------------------
     PatternDef(
         id="cong-dao",
         title="从…到…",

@@ -150,7 +150,7 @@ def migrate_analysis_data(analysis_data: dict) -> dict:
     stats["hsk_words_old"] = total_hsk_words_old
     stats["hsk_distribution_old"] = hsk_stats_old
     stats["estimated_level_old"] = estimated_level_old
-    # Legacy fields kept around for backwards compatibility — point at new HSK.
+    # Aliases of the new-HSK fields.
     stats["hsk_words"] = total_hsk_words_new
     stats["hsk_distribution"] = hsk_stats_new
     stats["estimated_level"] = estimated_level_new

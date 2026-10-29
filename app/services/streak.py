@@ -3,19 +3,13 @@ Daily-activity streak tracking. Any "this user engaged today" event hits
 `record_activity` — the function is idempotent within a single day and
 collapses every qualifying interaction into one streak bump.
 
-What counts as a qualifying activity:
-- Marking a word's state (POST /api/words/state, bulk-mark-known)
-- Grading a review card (POST /api/review/grade)
+What counts: marking words, grading a review card, adding words to learn
+(pre-learn, list learn, external apps), finishing a text (read to the end
+or quiz passed) and a grammar practice round. Reading time alone doesn't:
+it can't be measured honestly without a tab-focus heartbeat.
 
-Reading time without marking words doesn't count for now — it's hard to
-measure honestly without a tab-focus heartbeat, and adding one would
-amplify the privacy footprint of the app. We can revisit if the streak
-turns out to be too easy to drop.
-
-Streak freezes (Phase F3): earned automatically every FREEZE_MILESTONE_DAYS
-of streak, banked up to MAX_STREAK_FREEZES. There's no purchase path — this
-app has no payment rails, and an earned-only freeze fits the low-pressure
-tone better anyway. A freeze covers exactly one missed day each; missing N
+Streak freezes: earned every FREEZE_MILESTONE_DAYS of streak, banked up to
+MAX_STREAK_FREEZES, never bought. A freeze covers one missed day; missing N
 consecutive days consumes N banked freezes to bridge the gap, and the
 streak only actually breaks once the gap is longer than what's banked.
 There's no background job, so "did a freeze bridge this gap" is computed
@@ -23,10 +17,10 @@ lazily in both directions: `record_activity` spends freezes (and awards new
 ones) when the user next acts, and `current_streak` mirrors the same gap
 math read-only so the displayed count stays consistent in between.
 
-Days are the user's local calendar days (services.localday). Rows written
-before `users.timezone` existed hold UTC dates; `rebase_for_timezone`
-moves `streak_last_active` onto the new zone's calendar whenever the
-timezone setting changes, so switching zones never costs a streak:
+Days are the user's local calendar days (services.localday); without a
+timezone they are UTC dates. `rebase_for_timezone` moves
+`streak_last_active` onto the new zone's calendar whenever the timezone
+setting changes, so switching zones never costs a streak:
 
 - the date moves by the difference between "today" in the new zone and
   "today" in the old zone, when that difference is positive (switching

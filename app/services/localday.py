@@ -8,7 +8,7 @@ midnight, not at UTC midnight (which is 08:00 in Shanghai).
 
 `users.timezone` holds an IANA name, set once from the browser and
 changeable in Settings. NULL (never set) and names this Python's tz
-database doesn't know both fall back to UTC, which is the old behaviour.
+database doesn't know both fall back to UTC.
 """
 
 from __future__ import annotations

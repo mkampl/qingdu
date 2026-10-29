@@ -88,7 +88,7 @@ async def get_translation_with_source(
     deepl_key = os.getenv("DEEPL_API_KEY")
     google_key = os.getenv("GOOGLE_TRANSLATE_API_KEY")
 
-    # DeepL — header auth required since Nov 2025.
+    # DeepL takes the key only in the Authorization header.
     if deepl_key:
         try:
             async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:

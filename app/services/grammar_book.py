@@ -30,7 +30,8 @@ from sqlalchemy.orm import Session
 
 from app.database import GrammarProgress, SavedText, SessionLocal, UserLibraryProgress
 from app.services import grammar, grammar_catalog, grammar_tagging, library
-from app.services.segmentation import _group_sentences
+from app.services.segmentation import _group_sentences, segment_text
+from app.services.timestamps import iso_utc
 
 logger = logging.getLogger(__name__)
 
@@ -250,8 +251,8 @@ def _progress_payload(p: GrammarProgress | None, now: datetime) -> dict | None:
     return {
         "box": p.box,
         "due": p.due_at is not None and p.due_at <= now,
-        "due_at": p.due_at.isoformat() + "Z" if p.due_at else None,
-        "last_at": p.last_at.isoformat() + "Z" if p.last_at else None,
+        "due_at": iso_utc(p.due_at),
+        "last_at": iso_utc(p.last_at),
         "correct": p.correct,
         "total": p.total,
     }
@@ -417,8 +418,6 @@ def _order(h: Hit, words_of: dict[str, list[str]], rng: random.Random) -> dict |
 
 def _words_by_sentence(sentences: list[str]) -> dict[str, list[str]]:
     """Word tokens of each sentence, from the segmenter."""
-    from app.services.segmentation import segment_text
-
     return {s: [t for t in segment_text(s) if t != "\n"] for s in sentences}
 
 

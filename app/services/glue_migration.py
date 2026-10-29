@@ -1,9 +1,8 @@
 """
 Split user words that are not dictionary words into their parts.
 
-Before segmentation split phrases, clicking 很多 or 洗衣服 in the reader
-created a user word with a glued "very + many" gloss. This finds those
-rows (multi-character Chinese words that are not in HSK, CC-CEDICT, the
+A database can hold user words for phrases such as 很多 or 洗衣服, with a
+glued "very + many" gloss. This finds those rows (multi-character Chinese words that are not in HSK, CC-CEDICT, the
 user's own vocabulary lists or a package gloss) and, for each:
 
 - splits the word into dictionary words (洗衣服 -> 洗 + 衣服, 我来 -> 我 + 来);

@@ -3,9 +3,8 @@ Timestamps on the wire.
 
 The schema stores naive UTC datetimes (`datetime.utcnow()` everywhere).
 `naive.isoformat()` has no offset, and browsers parse an offset-less
-date-time string as *local* time — so west of UTC a card due "in one
-minute" looked hours away, and east of UTC everything looked overdue.
-Every datetime the API returns goes through `iso_utc()`, which always
+date-time string as *local* time, which shifts every due date by the
+user's UTC offset. Every datetime the API returns goes through `iso_utc()`, which always
 carries an explicit `Z`.
 """
 

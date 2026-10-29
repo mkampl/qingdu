@@ -1,12 +1,10 @@
 """
-YouTube caption fetch + sentence-merge for the watch-and-read prototype.
+YouTube caption fetch + sentence-merge for watch-and-read.
 
-Pulls a Chinese caption track for a public YouTube video via the same
-public `timedtext` endpoint the YouTube player itself calls to render
-captions in-browser — no API key. (The official Data API v3
-`captions.download` endpoint requires OAuth *as the video's own channel
-owner*, which is structurally useless for pulling captions off an
-arbitrary third-party video — see the youtube-transcript-api README.)
+Pulls a Chinese caption track for a public YouTube video via the public
+`timedtext` endpoint the YouTube player itself uses — no API key. (The
+Data API v3 `captions.download` endpoint needs OAuth as the video's own
+channel owner, so it can't read third-party videos.)
 
 Manually-authored caption tracks are already real, punctuated sentences
 and need no further work. Auto-generated (ASR) Chinese tracks are almost
@@ -14,11 +12,9 @@ always one long unpunctuated word stream, so those get re-segmented here
 by merging consecutive cues until we hit sentence-ending punctuation or a
 length cap.
 
-Known risk (documented upstream, not paranoia): YouTube has been blocking
-some requests from cloud/datacenter IP ranges. Empirically this VPS was
-NOT blocked as of 2026-09-02 — but callers should cache aggressively
-(a video's captions never change) so a block, if it ever happens, costs
-one failed fetch instead of breaking every subsequent view.
+YouTube blocks some requests from cloud/datacenter IP ranges. Callers
+should cache aggressively (a video's captions never change), so a block
+costs one failed fetch instead of breaking every later view.
 """
 
 from __future__ import annotations
@@ -40,22 +36,16 @@ logger = logging.getLogger(__name__)
 # we ever fall back to auto-generated ASR captions for any of them.
 _PREFERRED_LANGS = ["zh-Hans", "zh-CN", "zh", "zh-Hant", "zh-TW", "zh-HK"]
 
-# Real terminal punctuation always closes a sentence. Commas/enumeration
-# commas are a *soft* close — added after real-world captions turned out
-# to rarely carry a full stop mid-narration, which let unrelated clauses
-# glue into one multi-second highlighted block (a 73-char, 14s block was
-# observed on a real TED zh-Hans track). A cue containing a comma still
-# closes cleanly on a complete clause, since we only ever cut at cue
-# boundaries, never mid-cue.
+# Terminal punctuation always closes a sentence. Commas/enumeration
+# commas also close one: captions rarely carry a full stop mid-narration,
+# and without this unrelated clauses glue into one long highlighted block.
+# Cuts only fall at cue boundaries, so a comma cue still ends on a
+# complete clause.
 _SENTENCE_END = "。！？!?…，、"
 _MAX_SENTENCE_CHARS = 25
-# A caption track can carry zero punctuation of any kind (observed: a
-# fansubbed episode, "manually created" track, no full stops and no
-# commas anywhere) and can have long silent/no-dialogue gaps between
-# cues. The char cap alone doesn't catch that second case — a
-# 168-second block was observed spanning a scene change, since only
-# ~68 characters were spoken across that whole span. This time cap
-# forces a cut regardless of character count once a block runs long.
+# A track can carry no punctuation at all and have long silent gaps
+# between cues, where few characters span minutes. This time cap forces a
+# cut regardless of character count once a block runs long.
 _MAX_SENTENCE_SECONDS = 8.0
 _MAX_CUES = 400  # guards against multi-hour videos blowing up the analysis pass
 
@@ -148,23 +138,17 @@ def _split_text(text: str, full_len: int, full_duration: float) -> list[str]:
     legitimately single sentence like "你好，世界" that merely contains
     an internal comma is never chopped up):
       1. real terminal punctuation (。！？!?…) — always tried first.
-      2. commas/enumeration commas — real content was observed running
-         20+ seconds on commas alone with no full stop at all (a
-         run-on line of dialogue).
+      2. commas/enumeration commas — for run-on lines with no full stop.
       3. hard character/duration-based chunking — last resort for
-         content with no punctuation of any kind (observed: sung
-         dialogue, ~24s of continuous lyrics, zero commas or full
-         stops). Not a real sentence boundary, just a cap on how long
-         one highlight can run. Chunk count satisfies both caps, since
-         slow/drawn-out singing can badly exceed the time cap on very
-         few characters.
+         content with no punctuation at all (sung lyrics, for example).
+         Not a real sentence boundary, just a cap on how long one
+         highlight can run. Chunk count satisfies both caps, since
+         drawn-out singing can exceed the time cap on very few
+         characters.
 
-    Recursive rather than one flat pass: a cue can carry *some* real
-    terminal punctuation and still leave a too-long remainder (observed:
-    two short question-marked sentences followed by a 21.5s, 96-char,
-    comma-only run-on in the same cue) — splitting once at tier 1 alone
-    left that remainder as one giant piece, since a >1-part result there
-    short-circuited any further escalation.
+    Recursive rather than one flat pass: a cue can carry some terminal
+    punctuation and still leave a too-long comma-only remainder, which
+    the next tier then splits.
     """
     if not _is_too_big(text, full_len, full_duration):
         return [text]
@@ -191,15 +175,12 @@ def _split_cue_into_sentences(cue: dict) -> list[dict]:
     span proportionally by character count. A cue that's already within
     both caps comes back unchanged.
 
-    Needed for Whisper/SRT-sourced cues specifically (see qingdu-watch,
-    the companion tool this module was ported to): ASR timestamps only
-    exist at the segment level, and a segment routinely bundles several
-    complete sentences into one multi-second block — the highlight then
-    lagged 4-5 real sentences behind the audio. There's no true
-    per-sentence timing to fall back on, so this is a proportional-by-
-    length approximation, not exact — but a large improvement over one
-    highlight per ASR segment. Harmless no-op for ordinary YouTube
-    caption cues, which are usually already single clauses.
+    Needed for Whisper/SRT-sourced cues: ASR timestamps only exist at the
+    segment level, and a segment often bundles several sentences into one
+    multi-second block, so the highlight would lag behind the audio.
+    There's no per-sentence timing, so this is a proportional-by-length
+    approximation. A no-op for ordinary YouTube caption cues, which are
+    usually single clauses already.
     """
     parts = _split_text(cue["text"], len(cue["text"]), cue["duration"])
     if len(parts) <= 1:
@@ -239,19 +220,15 @@ def _merge_into_sentences(cues: list[dict]) -> list[CaptionSentence]:
         text = cue["text"].strip().replace("\n", " ")
         if not text:
             continue
-        # Real caption tracks are supposed to be chronological, but a
-        # fansubbed episode was observed with a chunk of duplicate/corrupt
-        # cues jumping backward by hundreds of seconds partway through —
-        # trusting that blindly produced a sentence with end < start.
-        # Silently drop anything that isn't roughly forward-moving rather
-        # than trying to guess how to reorder genuinely broken data.
+        # Tracks should be chronological, but broken ones carry cues that
+        # jump backward; those would give a sentence with end < start.
+        # Drop anything that isn't roughly forward-moving rather than
+        # guessing how to reorder broken data.
         if cue["start"] < last_cue_end - 0.5:
             continue
         last_cue_end = max(last_cue_end, cue["start"] + cue["duration"])
-        # Check both caps *before* appending — checking after let a block
-        # overshoot by up to one whole cue's length (a 31-char result was
-        # observed with a 25-char cap), since by then it's too late to
-        # avoid adding this cue to the block that's about to close anyway.
+        # Check both caps before appending, so a block never overshoots a
+        # cap by up to one whole cue.
         prospective_len = sum(len(t) for t in buf_text) + len(text)
         prospective_end = cue["start"] + cue["duration"]
         too_long = buf_text and prospective_len > _MAX_SENTENCE_CHARS

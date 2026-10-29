@@ -54,12 +54,6 @@ def pinyin_key(text: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFD", s) if not unicodedata.combining(c))
 
 
-def _pinyin_key_sql(col) -> ColumnElement:
-    """SQL twin of pinyin_key() for the stored pinyin column (the Python
-    function is registered on each SQLite connection in app.database)."""
-    return func.pinyin_key(col)
-
-
 def search_clause(term: str, user: User | None) -> ColumnElement[bool] | None:
     """SQL filter for a search box query, or None for a blank query."""
     term = (term or "").strip()
@@ -70,7 +64,9 @@ def search_clause(term: str, user: User | None) -> ColumnElement[bool] | None:
 
     key = pinyin_key(term)
     if key and _PINYIN_QUERY.match(key):
-        clauses.append(_pinyin_key_sql(UserWord.pinyin).contains(key, autoescape=True))
+        # pinyin_key() is registered as an SQL function on each SQLite
+        # connection (app.database).
+        clauses.append(func.pinyin_key(UserWord.pinyin).contains(key, autoescape=True))
 
     clauses.append(func.lower(UserWord.meaning).contains(term.lower(), autoescape=True))
     return or_(*clauses)

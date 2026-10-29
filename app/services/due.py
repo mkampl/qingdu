@@ -2,9 +2,8 @@
 One definition of "due" for every screen that counts or lists due cards.
 
 The Review page (`/api/review/stats`, `/api/review/queue`) and the `/words`
-due chips used to compute their own cutoffs, so the nav badge could say
-"38 due today" while `/words` → Due today listed fewer. Both now go through
-`end_of_day()` and `due_clause()`.
+due chips both go through `end_of_day()` and `due_clause()`, so the nav
+badge and the Due today list agree.
 
 Rules:
 - Only rows in ACTIVE_REVIEW_STATES can be due. Ignored words never are.
@@ -26,10 +25,8 @@ from sqlalchemy.sql.elements import ColumnElement
 from app.database import UserWord
 from app.services import localday
 
-# State values that participate in the review queue. 'known' joined
-# 'learning' once it became a high-stability SRS card instead of a
-# terminal opt-out; only 'ignored' (and absence of row) stay out of
-# the rotation.
+# States in the review queue. A 'known' word is a high-stability card;
+# only 'ignored' words (and words without a row) stay out.
 ACTIVE_REVIEW_STATES = ("learning", "known")
 
 
@@ -56,10 +53,9 @@ def due_clause(cutoff: datetime) -> ColumnElement[bool]:
     )
 
 
-# user.review_window values. "today"/"tomorrow" look ahead to the end of
-# that local day so a once-a-day session covers everything coming due;
-# "now" is the strict FSRS pull (due_at <= now).
-REVIEW_WINDOWS = ("now", "today", "tomorrow")
+# user.review_window: "today"/"tomorrow" look ahead to the end of that
+# local day so a once-a-day session covers everything coming due; "now"
+# is the strict FSRS pull (due_at <= now).
 DEFAULT_REVIEW_WINDOW = "today"
 
 

@@ -1,5 +1,5 @@
 """
-Phase 2.7 — Math captcha for open registration.
+Math captcha for open registration.
 
 Lightweight, F-Droid-clean (no external script, no third-party API). The
 server issues a one-shot JWT carrying the expected answer; the client
@@ -30,9 +30,7 @@ def issue() -> dict[str, str]:
     b = random.randint(2, 9)
     op = random.choice(["+", "-"])
     if op == "-":
-        # Order so the result is non-negative — keeps the answer in the
-        # 0..9 single-digit band, easier on humans and harder for the
-        # bot-checker to silently coerce signs.
+        # Non-negative result: the answer stays a single digit.
         a, b = max(a, b), min(a, b)
         answer = a - b
     else:
