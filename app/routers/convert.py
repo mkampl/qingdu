@@ -28,12 +28,8 @@ def _converter(direction: str) -> OpenCC:
     return _CONVERTERS[direction]
 
 
-# Range of Traditional-only / Variant CJK characters we sample on auto-detect.
-# Anything in the CJK Compatibility Ideographs block or above the basic CJK
-# range is a strong "this is Traditional" signal. Far from perfect — many
-# Traditional characters share codepoints with Simplified — but combined
-# with a round-trip check below it's enough to surface a suggestion to the
-# user.
+# Common Traditional-only characters. Hits add to the t2s round-trip score
+# in detect_script; rough, but enough to suggest a conversion to the user.
 _TRADITIONAL_INDICATOR_CHARS = set(
     "繁體華個來時動學東說國這個樣這種會應該過導為門題該專業點數"
     "電當會與內為對於現經發產業務開發學習產業變數電腦東西華語"

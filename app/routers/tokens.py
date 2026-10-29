@@ -1,8 +1,6 @@
 """
-Personal access tokens for external integrations — e.g. a speech/LLM
-companion app that wants to read a user's known-word set and report newly
-encountered vocabulary back into qingdu. See app/routers/external.py for
-the endpoints these tokens actually unlock.
+Personal access tokens for external integrations; app/routers/external.py
+has the endpoints they unlock.
 
 Token management itself is JWT-session-only (require_auth): a leaked PAT
 must never be able to mint more tokens or revoke the others.

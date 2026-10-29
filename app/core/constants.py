@@ -20,8 +20,6 @@ TRANSLATION_CACHE_TTL = 3600  # 1 hour in seconds
 
 # HSK Configuration
 HSK_WORD_BASE_FREQ = 10000
-HSK_MIN_LEVEL = 1
-HSK_MAX_LEVEL = 9
 
 # API Configuration
 API_TIMEOUT = 5.0  # seconds
@@ -29,8 +27,6 @@ HSK_DOWNLOAD_TIMEOUT = 30.0  # seconds
 
 # Retry Configuration
 MAX_RETRY_ATTEMPTS = 3
-RETRY_MIN_WAIT = 1  # seconds
-RETRY_MAX_WAIT = 5  # seconds
 HSK_RETRY_MIN_WAIT = 2  # seconds
 HSK_RETRY_MAX_WAIT = 10  # seconds
 
@@ -38,7 +34,6 @@ HSK_RETRY_MAX_WAIT = 10  # seconds
 TEXT_LEVEL_THRESHOLD = 80  # percentage for level estimation
 
 # Authentication
-TOKEN_EXPIRE_DAYS = 30
 MIN_PASSWORD_LENGTH = 8
 
 # Translation API Sources

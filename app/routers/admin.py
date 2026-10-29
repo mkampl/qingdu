@@ -28,8 +28,7 @@ async def get_registration_settings(
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Return the instance-wide registration + lifecycle config. Keys map
-    onto the toggles in the admin UI's `Registration & lifecycle` panel."""
+    """The instance-wide registration and lifecycle settings."""
     return lifecycle.get_settings(db)
 
 
@@ -39,9 +38,7 @@ async def update_registration_settings(
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Partial update. Field names map to the `lifecycle` service keys —
-    the dotted form is converted at the boundary so the UI doesn't have
-    to know the internal namespace."""
+    """Partial update of the registration and lifecycle settings."""
     mapping = {
         "registration_open": "registration.open",
         "registration_per_ip_24h": "registration.per_ip_24h",
@@ -78,8 +75,7 @@ async def update_registration_settings(
 async def run_lifecycle_now(
     admin: User = Depends(require_admin),
 ):
-    """Manually trigger a lifecycle sweep. Useful from the admin UI to
-    verify settings without waiting for the scheduled tick."""
+    """Run a lifecycle sweep now instead of waiting for the scheduled one."""
     return lifecycle.run_lifecycle_pass()
 
 
@@ -215,98 +211,76 @@ async def update_user_invite_quota(
 
 # --- Translation-provider healthcheck ----------------------------------------
 #
-# Probes each provider individually with a known Chinese phrase ('你好') so an
-# admin can confirm DeepL/Google/MyMemory are reachable + accepting the auth
-# we send. Surfaces deprecations (like the Nov-2025 DeepL form-body auth
-# retirement) before users notice them in the silent-fallback chain.
+# Probes each provider with a known phrase so an admin can confirm DeepL,
+# Google and MyMemory are reachable and accept the auth we send. The
+# translation chain falls through silently, so a bad key or an API change
+# shows up here first.
 
 _PROBE_TEXT = "你好"
+
+
+async def _probe(send, translation_of) -> dict:
+    """Run one provider request; `translation_of` reads the JSON reply."""
+    try:
+        async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
+            response = await send(client)
+        if response.is_success:
+            translation = translation_of(response.json())
+            return {"status": "ok", "http_status": response.status_code, "translation": translation}
+        return {
+            "status": "error",
+            "http_status": response.status_code,
+            "detail": response.text[:300],
+        }
+    except Exception as e:
+        return {"status": "error", "detail": str(e)[:300]}
 
 
 async def _probe_deepl() -> dict:
     key = os.getenv("DEEPL_API_KEY")
     if not key:
         return {"status": "not_configured", "detail": "DEEPL_API_KEY is empty"}
-    try:
-        async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
-            response = await client.post(
-                "https://api-free.deepl.com/v2/translate",
-                headers={"Authorization": f"DeepL-Auth-Key {key}"},
-                data={"text": _PROBE_TEXT, "target_lang": "EN", "source_lang": "ZH"},
-            )
-        if response.is_success:
-            data = response.json()
-            translation = (data.get("translations") or [{}])[0].get("text", "")
-            return {"status": "ok", "http_status": response.status_code, "translation": translation}
-        return {
-            "status": "error",
-            "http_status": response.status_code,
-            "detail": response.text[:300],
-        }
-    except Exception as e:
-        return {"status": "error", "detail": str(e)[:300]}
+    return await _probe(
+        lambda client: client.post(
+            "https://api-free.deepl.com/v2/translate",
+            headers={"Authorization": f"DeepL-Auth-Key {key}"},
+            data={"text": _PROBE_TEXT, "target_lang": "EN", "source_lang": "ZH"},
+        ),
+        lambda data: (data.get("translations") or [{}])[0].get("text", ""),
+    )
 
 
 async def _probe_google() -> dict:
     key = os.getenv("GOOGLE_TRANSLATE_API_KEY")
     if not key:
         return {"status": "not_configured", "detail": "GOOGLE_TRANSLATE_API_KEY is empty"}
-    try:
-        async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
-            response = await client.post(
-                "https://translation.googleapis.com/language/translate/v2",
-                params={
-                    "key": key,
-                    "q": _PROBE_TEXT,
-                    "target": "en",
-                    "source": "zh",
-                },
-            )
-        if response.is_success:
-            data = response.json()
-            translation = ((data.get("data") or {}).get("translations") or [{}])[0].get(
-                "translatedText", ""
-            )
-            return {"status": "ok", "http_status": response.status_code, "translation": translation}
-        return {
-            "status": "error",
-            "http_status": response.status_code,
-            "detail": response.text[:300],
-        }
-    except Exception as e:
-        return {"status": "error", "detail": str(e)[:300]}
+    return await _probe(
+        lambda client: client.post(
+            "https://translation.googleapis.com/language/translate/v2",
+            params={"key": key, "q": _PROBE_TEXT, "target": "en", "source": "zh"},
+        ),
+        lambda data: ((data.get("data") or {}).get("translations") or [{}])[0].get(
+            "translatedText", ""
+        ),
+    )
 
 
 async def _probe_mymemory() -> dict:
-    try:
-        async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
-            response = await client.get(
-                f"https://api.mymemory.translated.net/get?q={_PROBE_TEXT}&langpair=zh|en"
-            )
-        if response.is_success:
-            data = response.json()
-            translation = (data.get("responseData") or {}).get("translatedText", "")
-            return {"status": "ok", "http_status": response.status_code, "translation": translation}
-        return {
-            "status": "error",
-            "http_status": response.status_code,
-            "detail": response.text[:300],
-        }
-    except Exception as e:
-        return {"status": "error", "detail": str(e)[:300]}
+    return await _probe(
+        lambda client: client.get(
+            f"https://api.mymemory.translated.net/get?q={_PROBE_TEXT}&langpair=zh|en"
+        ),
+        lambda data: (data.get("responseData") or {}).get("translatedText", ""),
+    )
 
 
 @router.get("/api/admin/translate-providers")
 async def translate_providers_healthcheck(
     admin: User = Depends(require_admin),
 ):
-    """Probe each translation provider with the same Chinese phrase.
-
-    The translation chain silently falls through on failure (DeepL -> Google
-    -> MyMemory). This endpoint surfaces which providers actually work,
-    catching API deprecations + bad keys before users hit them.
-    """
-    _ = admin  # auth dependency only; we don't read it
+    """Probe each translation provider (DeepL, Google, MyMemory) with the
+    same Chinese phrase and report which ones work."""
+    _ = admin
     deepl, google, mymemory = (
         await _probe_deepl(),
         await _probe_google(),

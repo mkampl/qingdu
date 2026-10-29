@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.core.rate_limit import limiter
-from app.database import SavedText, User, UserWord, get_db
+from app.database import SavedText, User, get_db
+from app.routers.analyze import _user_glosses_map
 from app.services import cloze, dict_data, readability, text_folders
 from app.services.gloss_refresh import DICT_VERSION_KEY, refresh_analysis
 from app.services.migrations import migrate_analysis_data
@@ -128,34 +129,6 @@ def _comprehension(analysis_data: dict, status: dict[str, str]) -> dict:
     }
 
 
-def _user_glosses_map(db: Session, user_id: int) -> dict[str, list[dict]]:
-    """Phase #120 — every gloss this user has collected, keyed by word.
-    Attached to the saved-text payload so the reader's popover surfaces
-    the user's curated meanings (dictionary + package tags) even on the
-    cached analysis_data path that doesn't re-run /api/analyze."""
-    from app.database import UserWordGloss
-
-    rows = (
-        db.query(
-            UserWord.word,
-            UserWordGloss.source,
-            UserWordGloss.source_tag,
-            UserWordGloss.meaning,
-            UserWordGloss.pinyin,
-        )
-        .join(UserWordGloss, UserWordGloss.user_word_id == UserWord.id)
-        .filter(UserWord.user_id == user_id)
-        .order_by(UserWord.word, UserWordGloss.created_at)
-        .all()
-    )
-    out: dict[str, list[dict]] = {}
-    for word, source, tag, meaning, pinyin in rows:
-        out.setdefault(word, []).append(
-            {"source": source, "tag": tag, "meaning": meaning, "pinyin": pinyin}
-        )
-    return out
-
-
 def _attach_user_glosses(analysis_data: dict, glosses_map: dict[str, list[dict]]) -> None:
     """Walk analysis_data['words'] and attach user_glosses to each word
     that has any glosses in the map. Mutates in place."""
@@ -172,7 +145,6 @@ def _attach_user_glosses(analysis_data: dict, glosses_map: dict[str, list[dict]]
 
 @router.post("/api/texts/save")
 async def save_text(
-    request: Request,
     text_data: SaveTextRequest,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
@@ -261,11 +233,10 @@ def get_text(
 
     migrated_data = migrate_analysis_data(analysis_data)
     summary = _summary(text, migrated_data, readability.user_status(db, user.id), user)
-    # Phase #120 — attach the user's tagged glosses to each word so
-    # the popover shows package + dictionary side by side. Also runs
-    # against the canonical (pre-conversion) text since UserWord
-    # rows are simp-keyed.
-    _attach_user_glosses(migrated_data, _user_glosses_map(db, user.id))
+    # The user's tagged glosses per word, so the popover shows package and
+    # dictionary meanings side by side without re-running /api/analyze.
+    # Before the script conversion: UserWord rows are simp-keyed.
+    _attach_user_glosses(migrated_data, _user_glosses_map(db, user))
     # Then convert the analysis_data (and the raw `content`) to the
     # user's display script. analysis_data is walked in place: every
     # word.text and grammar sentence.text gets converted.
@@ -300,11 +271,8 @@ async def enable_share(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    """
-    Mint (or return the existing) public share token for this saved text.
-    The token is a UUID4 — 128 bits of entropy, can't be reasonably
-    guessed. Tokens persist until explicitly revoked via DELETE.
-    """
+    """Create (or return the existing) public share token for this text.
+    A UUID4; it stays valid until revoked via DELETE."""
     text = db.query(SavedText).filter(SavedText.id == text_id, SavedText.user_id == user.id).first()
     if not text:
         raise HTTPException(status_code=404, detail="Text not found")
@@ -321,8 +289,7 @@ async def disable_share(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    """Revoke the share token. The text remains saved; just no longer
-    reachable via /api/share/{token}."""
+    """Revoke the share token; the text stays saved."""
     text = db.query(SavedText).filter(SavedText.id == text_id, SavedText.user_id == user.id).first()
     if not text:
         raise HTTPException(status_code=404, detail="Text not found")
@@ -339,11 +306,8 @@ async def get_shared_text(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """
-    Public read-only view of a shared text. No auth. Returns only what
-    the reader needs to render — no user_id, no progress, no tags.
-    Rate-limited to keep the endpoint from being a free analysis cache.
-    """
+    """Public read-only view of a shared text: only what the reader needs
+    to render, no owner, progress or tags."""
     text = db.query(SavedText).filter(SavedText.share_token == token).first()
     if not text:
         raise HTTPException(status_code=404, detail="Share link not found or revoked")

@@ -1,11 +1,11 @@
 """
-Pre-analyzed package import (Phase #100).
+Pre-analyzed package import.
 
 A package is a JSON file the user produced with their own LLM (or curated
 by hand) for specialised corpora. The endpoint validates the structure,
 layers in our HSK / radical metadata, runs grammar pattern detection, and
-returns the same shape `/api/analyze` does — so the SPA renders the
-result through the existing reader pipeline unchanged.
+returns the same shape `/api/analyze` does, so the SPA renders it like
+any analysed text.
 """
 
 from __future__ import annotations
@@ -41,11 +41,8 @@ async def import_package_body(
     strict: bool = Query(True, description="Reject mismatched token concatenation."),
     user: User = Depends(require_auth),
 ) -> dict:
-    """
-    JSON-body variant. The auth dependency only gates access — the package
-    contents are user-supplied and not stored automatically (the SPA decides
-    when to save the result via /api/texts/save).
-    """
+    """Import a package sent as the JSON body. Nothing is stored; save the
+    result via /api/texts/save."""
     _ = user
     return _do_import(package, strict=strict)
 
@@ -56,10 +53,7 @@ async def import_package_file(
     strict: bool = Query(True),
     user: User = Depends(require_auth),
 ) -> dict:
-    """
-    Multipart variant — the user uploads a .json file. Parses + validates
-    + transforms exactly like the body variant.
-    """
+    """Import a package uploaded as a .json file."""
     _ = user
     raw = await file.read(_MAX_PACKAGE_BYTES + 1)
     if len(raw) > _MAX_PACKAGE_BYTES:
@@ -82,11 +76,7 @@ async def import_package_file(
 
 @router.get("/api/import/package/samples")
 async def list_sample_packages() -> dict:
-    """
-    List the bundled reference packages so the SPA can render a
-    "Try a sample" affordance on the import tab. Packages ship in
-    `app/data/packages/`.
-    """
+    """List the bundled sample packages (`app/data/packages/`)."""
     if not _SAMPLES_DIR.exists():
         return {"samples": []}
     out = []
@@ -110,11 +100,8 @@ async def list_sample_packages() -> dict:
 
 @router.get("/api/import/package/samples/{name}")
 async def get_sample_package(name: str) -> dict:
-    """
-    Return a bundled sample by name. Names are restricted to the basename
-    of the .json file in `app/data/packages/`; we explicitly reject paths.
-    """
-    # Path traversal guard — name must be a flat slug.
+    """A bundled sample package by name (file name without .json)."""
+    # Path traversal guard: name must be a flat slug.
     if "/" in name or ".." in name or "\\" in name:
         raise HTTPException(status_code=400, detail="Invalid sample name.")
     path = _SAMPLES_DIR / f"{name}.json"
@@ -128,12 +115,8 @@ async def get_sample_package(name: str) -> dict:
 
 @router.get("/api/import/package/schema.json")
 async def package_schema() -> JSONResponse:
-    """
-    Serve the JSON Schema for QingduPackage. The author of a package can
-    feed this to their LLM (Anthropic / OpenAI structured outputs, etc.)
-    to get a reliable round-trip. We auto-generate from the Pydantic
-    model so it can't drift from the source of truth.
-    """
+    """JSON Schema of a package, e.g. for an LLM's structured output.
+    Generated from the Pydantic model, so it cannot drift."""
     schema = QingduPackage.model_json_schema()
     schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
     schema["title"] = "QingduPackage"
@@ -147,10 +130,9 @@ def _do_import(package: QingduPackage, strict: bool) -> dict:
         raise HTTPException(status_code=422, detail=str(e)) from e
     result = transform(package)
 
-    # Defense-in-depth: also seed the server-side translation cache so even
-    # a stale frontend (or a /api/translate hit from a different code path)
-    # gets the curated translation back. The primary path is now the
-    # `sentence_translations` baked into the analyze response (no TTL).
+    # The SPA reads `sentence_translations` from the response; seeding the
+    # translation cache as well means a /api/translate call for one of
+    # these sentences also gets the curated translation.
     for sentence, translation in (package.sentence_translations or {}).items():
         if not sentence or not translation:
             continue

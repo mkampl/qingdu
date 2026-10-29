@@ -9,7 +9,7 @@ Mode hints in the queue payload:
 - dictation:   same payload, the SPA plays TTS for word.text.
 - writing:     same payload, the SPA renders a hanzi-writer quiz canvas
                and grades from the stroke-mistake count.
-- cloze:       reserved — needs a sample-sentence pipeline (Phase B+).
+- cloze:       only cards with a sample sentence; the SPA blanks the word.
 """
 
 from __future__ import annotations
@@ -73,20 +73,16 @@ class GradeRequest(BaseModel):
     word: str
     grade: int  # 1=Again, 2=Hard, 3=Good, 4=Easy
     mode: ReviewMode = "recognition"
-    # Phase 1.3 introduced a cycle-gating flag; Phase 1.3b reverted to
-    # single-FSRS-advance and uses prompt_stage instead. Field stays in
-    # the schema for client back-compat — any value is accepted and
-    # ignored. New clients should omit it.
+    # Accepted and ignored, so older clients that send it keep working.
     cycle: bool = False
 
 
 def _enrich(row: UserWord) -> dict:
     """
     Pinyin + meaning for the queue payload. Prefer the snapshot stored on
-    the UserWord row (Phase #96 — survives unknown-word-cache TTLs and
-    package re-imports); fall back to the live HSK entry for HSK words
-    that pre-date the snapshot columns. The lazy backfill in the queue
-    handler writes the values back to the row after this call.
+    the UserWord row (it keeps a package's meaning); fall back to the
+    dictionary for rows without one. The queue handler writes the
+    looked-up values back to the row.
     """
     pinyin = row.pinyin or ""
     meaning = row.meaning or ""
@@ -126,11 +122,9 @@ def _enrich(row: UserWord) -> dict:
         else []
     )
 
-    # Phase #120 — tagged glosses. Each is one (source, source_tag,
-    # meaning, pinyin) row, surfaced in creation order so the
-    # dictionary entry (which we always seed first) lands at index 0
-    # and package entries follow. The frontend renders these with
-    # provenance chips ("[Dao De Jing]").
+    # Tagged glosses in creation order, so the dictionary entry (always
+    # seeded first) lands at index 0 and package entries follow. The
+    # frontend shows them with provenance chips ("[Dao De Jing]").
     glosses_payload = [
         {
             "source": g.source,
@@ -152,6 +146,33 @@ def _enrich(row: UserWord) -> dict:
         "hsk_level": hsk_level,
         "glosses": glosses_payload,
     }
+
+
+def _card(row: UserWord, user: User, db: Session) -> dict:
+    """The card payload shared by the review queue and practice."""
+    enriched = _enrich(row)
+    # The context the word was met in, else one from a saved or library
+    # text: cloze blanks it, the other surfaces show it once the answer
+    # is out.
+    sentence = row.sample_sentence or cloze.populate_sample_sentence(row, db)
+    card = {
+        "word": to_user_script(row.word, user),
+        "due_at": iso_utc(row.due_at),
+        "stability": row.stability,
+        "difficulty": row.difficulty,
+        # Progressive prompt stage from FSRS stability and the user's
+        # review focus (intro / read / trace / produce; see srs.py).
+        "prompt_stage": srs.stage_for_row(row, user),
+        "has_sample_sentence": bool(sentence),
+        **enriched,
+    }
+    if sentence:
+        displayed_sentence = to_user_script(sentence, user)
+        displayed_word = to_user_script(row.word, user)
+        card["cloze_template"] = cloze.make_cloze_template(displayed_sentence, displayed_word)
+        card["cloze_sentence"] = displayed_sentence
+        card["sentence_source"] = row.sample_source
+    return card
 
 
 _CLOZE_PAGE_SIZE = 50
@@ -186,13 +207,13 @@ def review_queue(
     db: Session = Depends(get_db),
 ) -> dict:
     """
-    Return up to `limit` cards that are due (due_at <= now) OR have no
-    due_at yet (i.e. were marked 'learning' before Phase B shipped, so
-    they need a first FSRS init). Ordered by due_at ASC, NULLs first.
+    Return up to `limit` cards due within the user's review window, or
+    with no due_at yet (they need a first FSRS init). Ordered by due_at
+    ASC, NULLs first.
 
-    Side effect (Phase #96): tops up the user's 'learning' pool with up
-    to `daily_new_words` fresh HSK entries before reading the queue, so
-    the queue never goes empty while there are HSK words left to learn.
+    Side effect: tops up the user's 'learning' pool with up to
+    `daily_new_words` fresh HSK entries before reading the queue, so the
+    queue never goes empty while there are HSK words left to learn.
 
     `text_key` or `list_id` focus the session on the words pre-learned for
     one text or the words of one vocab list (services.review_scope). Such
@@ -207,11 +228,8 @@ def review_queue(
     scope = review_scope.resolve(db, user, text_key, list_id)
     if scope is None and enroll_daily_words(user, db, now):
         db.commit()
-    # Phase #119 — look-ahead window. People review once a day, not every
-    # 30 minutes; widening the cutoff to "today" covers the typical session
-    # without forcing the user to wait for each card to flip due. Strict
-    # FSRS-conformant pull is still available via review_window='now'.
-    # services.due owns the definition; /api/review/stats counts with it.
+    # The user's look-ahead window (users.review_window). services.due owns
+    # the definition; /api/review/stats counts with it.
     base = db.query(UserWord).filter(
         UserWord.user_id == user.id, review_window_clause(user.review_window, now, tz)
     )
@@ -222,40 +240,14 @@ def review_queue(
     # back an empty queue while eligible cards sit further down. Page
     # through the due rows until `limit` cards survive the filter.
     rows = _cloze_candidates(base, limit, db) if mode == "cloze" else base.limit(limit).all()
-    # Build payload and lazy-backfill the snapshot columns on rows that
-    # were inserted before Phase #96 introduced them. Every card carries
-    # its sample sentence (the context it was met in, else one from a saved
-    # or library text): cloze blanks it, the other surfaces show it once
-    # the answer is out.
+    # Rows without a pinyin/meaning snapshot get the looked-up values.
     cards = []
     for r in rows:
-        enriched = _enrich(r)
-        if (not r.pinyin and enriched["pinyin"]) or (not r.meaning and enriched["meaning"]):
-            r.pinyin = enriched["pinyin"] or None
-            r.meaning = enriched["meaning"] or None
-
-        sentence = r.sample_sentence or cloze.populate_sample_sentence(r, db)
-
-        # Progressive prompt stage from FSRS stability and the user's
-        # review focus (intro / read / trace / produce; see srs.py).
-        stage = srs.stage_for_row(r, user)
-
-        card = {
-            "word": to_user_script(r.word, user),
-            "due_at": iso_utc(r.due_at),
-            "stability": r.stability,
-            "difficulty": r.difficulty,
-            "prompt_stage": stage,
-            "has_sample_sentence": bool(sentence),
-            **enriched,
-            "focus_gloss": review_scope.focus_gloss(scope, r),
-        }
-        if sentence:
-            displayed_sentence = to_user_script(sentence, user)
-            displayed_word = to_user_script(r.word, user)
-            card["cloze_template"] = cloze.make_cloze_template(displayed_sentence, displayed_word)
-            card["cloze_sentence"] = displayed_sentence
-            card["sentence_source"] = r.sample_source
+        card = _card(r, user, db)
+        if (not r.pinyin and card["pinyin"]) or (not r.meaning and card["meaning"]):
+            r.pinyin = card["pinyin"] or None
+            r.meaning = card["meaning"] or None
+        card["focus_gloss"] = review_scope.focus_gloss(scope, r)
         cards.append(card)
     # Snapshot backfill and freshly found cloze sentences.
     if db.dirty:
@@ -269,40 +261,18 @@ def practice_card(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Fetch a single UserWord as a practice card.
+    """One tracked word as a practice card, whether due or not.
 
-    Same enrichment as the review queue, but no auto-enrol, no due-date
-    filter, no ordering. The client uses this to let the user cycle
-    through a specific word's four modalities without any server-side
-    FSRS / streak / stats mutation — practice is deliberately 'aus der
-    Konkurrenz raus'. Nothing is graded, so there's no matching
-    /api/review/grade sibling; the SPA advances modes locally and
-    returns to /words on End Practice."""
+    Same payload as a review-queue card. Practice is not graded and does
+    not touch FSRS, the streak or the stats."""
     # /words lists words in the user's display script; rows are canonical.
     word = to_canonical(word, user)
     row = db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.word == word).first()
     if not row:
         raise HTTPException(status_code=404, detail="Not a tracked word")
-    enriched = _enrich(row)
-    sentence = row.sample_sentence or cloze.populate_sample_sentence(row, db)
-    stage = srs.stage_for_row(row, user)
-    card = {
-        "word": to_user_script(row.word, user),
-        "due_at": iso_utc(row.due_at),
-        "stability": row.stability,
-        "difficulty": row.difficulty,
-        "prompt_stage": stage,
-        "has_sample_sentence": bool(sentence),
-        **enriched,
-    }
-    if sentence:
-        displayed_sentence = to_user_script(sentence, user)
-        displayed_word = to_user_script(row.word, user)
-        card["cloze_template"] = cloze.make_cloze_template(displayed_sentence, displayed_word)
-        card["cloze_sentence"] = displayed_sentence
-        card["sentence_source"] = row.sample_source
-    # populate_sample_sentence may have written a new snapshot; commit that
-    # so a follow-up practice call doesn't do the lookup again.
+    card = _card(row, user, db)
+    # populate_sample_sentence may have stored a sentence; commit it so a
+    # follow-up practice call doesn't look it up again.
     db.commit()
     return {"card": card}
 
@@ -313,13 +283,8 @@ def grade_card(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Grade one review card. Phase 1.3b — single FSRS advance per grade.
-    The card's prompt stage (intro / read / trace / produce) is picked by
-    `srs.stage_for_row` on the queue side, so the grade
-    endpoint stays simple: one grade, one FSRS step. The Mixed-mode
-    cycle that Phase 1.3 introduced is gone; the schema columns remain
-    for event telemetry only.
-    """
+    """Grade one review card: one grade, one FSRS step. `mode` is logged
+    with the review event."""
     if payload.grade not in srs.VALID_GRADES:
         raise HTTPException(status_code=400, detail=f"grade must be one of {srs.VALID_GRADES}")
 
@@ -328,9 +293,8 @@ def grade_card(
     word_simp = to_canonical(payload.word, user)
 
     row = db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.word == word_simp).first()
-    # Only cards the queue could have handed out are gradeable. Grading
-    # used to create rows for arbitrary strings and to advance (and
-    # streak-bump) ignored words.
+    # Only cards the queue could have handed out are gradeable: no rows
+    # for arbitrary strings, no grading (or streak) for ignored words.
     if row is None:
         raise HTTPException(status_code=404, detail="Not a tracked word")
     if row.state not in ACTIVE_REVIEW_STATES:
@@ -467,7 +431,7 @@ def review_stats(
         "learning": learning,
         "in_rotation": in_rotation,
         "reviewed_today": reviewed_today,
-        # Phase #96 — counters for the "new today: X / Y" badge.
+        # Counters for the "new today: X / Y" badge.
         "new_today": enrolled_today(user, db, now),
         "daily_target": user.daily_new_words or 0,
     }

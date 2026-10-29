@@ -1,8 +1,7 @@
 """
-Personal-data exports — CSV of all your word states, and an Anki deck
-of the words you're currently learning. Both are user-scoped via
-require_auth (and the iframe-tolerant flexible variant for the download
-links so they work without setting Authorization headers).
+Personal-data exports: a CSV of all your word states and an Anki deck of
+the words you are learning or know. Both use require_auth_flexible so
+plain download links work without an Authorization header.
 """
 
 from __future__ import annotations
@@ -19,7 +18,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from app.auth import require_auth, require_auth_flexible
+from app.auth import require_auth_flexible
 from app.database import User, UserWord, get_db
 from app.services.timestamps import iso_utc
 from app.state import hsk_vocab
@@ -48,8 +47,7 @@ async def export_words_csv(
     user: User = Depends(require_auth_flexible),
     db: Session = Depends(get_db),
 ):
-    """All UserWord rows for the current user as CSV. Streams in memory —
-    even a few-thousand-row export comes in well under 1 MB."""
+    """All of the user's word states as CSV."""
     rows = (
         db.query(UserWord)
         .filter(UserWord.user_id == user.id)
@@ -93,13 +91,9 @@ async def export_words_anki(
     user: User = Depends(require_auth_flexible),
     db: Session = Depends(get_db),
 ):
-    """
-    Anki deck of every word the user is actively learning or already knows.
-    Two-sided cards: front 汉字 + pinyin, back meaning + HSK level.
-    No audio in this export — the per-word audio cache is shared with
-    the existing vocab-list export; users who want audio per-word should
-    use the vocab-list export path which prepares + caches first.
-    """
+    """Anki deck of every word the user is learning or knows: front 汉字,
+    back pinyin, meaning and HSK level. No audio; the vocab-list export
+    has it."""
     rows = (
         db.query(UserWord)
         .filter(UserWord.user_id == user.id, UserWord.state.in_(("learning", "known")))
@@ -168,8 +162,3 @@ async def export_words_anki(
             "X-Export-Stats": f"cards={len(rows)}",
         },
     )
-
-
-# require_auth is referenced via require_auth_flexible's dependency tree, so
-# the import is load-bearing — keep the name resolvable for static analysers.
-_ = require_auth

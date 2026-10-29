@@ -11,10 +11,9 @@ from app.services.tts import fetch_chinese_tts
 router = APIRouter(tags=["TTS"])
 logger = logging.getLogger(__name__)
 
-# These endpoints proxy to Google's public TTS service and were shipped
-# with NO rate limit at all — an anonymous open proxy. 60/min per IP is
-# generous for real reading (the narration player requests sentence by
-# sentence) while capping abuse.
+# These anonymous endpoints proxy Google's public TTS service. 60/min per
+# IP is generous for real reading (the narration player requests sentence
+# by sentence) while keeping them from serving as an open proxy.
 TTS_RATE_LIMIT = "60/minute"
 
 # Both endpoints are anonymous, so upstream errors (hostnames, status

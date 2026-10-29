@@ -1,13 +1,12 @@
 """
-Read/write API for external integrations — token-scoped (see
-app/routers/tokens.py), separate from the SPA's own /api/words/* routes.
+Read/write API for external integrations, token-scoped (see
+app/routers/tokens.py) and separate from the SPA's /api/words/* routes.
 
-Built for the language-speaking-companion use case: an outside app (its
-own whisper/LLM/TTS stack) reads which words a user already knows, and
-reports newly-encountered vocabulary back so it lands in the same review
-pipeline a reader click would create.
+An outside app (e.g. a speaking companion) reads which words a user
+already knows and reports newly encountered vocabulary back, so it lands
+in the same review pipeline a reader click would.
 
-Kept deliberately narrow: read:words and write:words only ever touch
+Kept narrow: read:words and write:words only ever touch
 UserWord rows. No access to auth, admin, streak/freeze counters (those
 stay server-derived via record_activity), or any other account data.
 """
@@ -28,8 +27,7 @@ router = APIRouter(prefix="/api/external", tags=["External API"])
 
 class EncounteredWord(BaseModel):
     word: str
-    # Free-text, purely informational (shows up nowhere yet but kept for
-    # future analytics / provenance without another migration).
+    # Free text; accepted but not stored.
     source: str = Field(default="external", max_length=64)
 
 

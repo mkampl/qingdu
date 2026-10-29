@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.auth import require_auth
@@ -17,14 +17,12 @@ async def generate_invitation(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    """Generate a new invitation token (skips quota check if quota is -1)."""
+    """Create an invitation token (a quota of -1 means unlimited)."""
     used_count = (
         db.query(InvitationToken).filter(InvitationToken.created_by_user_id == user.id).count()
     )
 
     if user.invite_quota >= 0 and used_count >= user.invite_quota:
-        from fastapi import HTTPException
-
         raise HTTPException(
             status_code=403,
             detail=(
@@ -41,9 +39,7 @@ async def generate_invitation(
     db.commit()
     db.refresh(invitation)
 
-    base_url = (
-        str(request.url).split("/api")[0] if hasattr(request, "url") else "http://localhost:8000"
-    )
+    base_url = str(request.url).split("/api")[0]
     invite_url = f"{base_url}/?invite={token}"
 
     return {
@@ -84,11 +80,6 @@ async def get_my_invitations(
         else {}
     )
 
-    def _claimed_username(inv: InvitationToken) -> str | None:
-        if not inv.claimed_by_user_id:
-            return None
-        return claimer_names.get(inv.claimed_by_user_id)
-
     return {
         "invitations": [
             {
@@ -96,7 +87,7 @@ async def get_my_invitations(
                 "token": inv.token[-8:],
                 "full_token": inv.token,
                 "status": _status(inv),
-                "claimed_by": _claimed_username(inv),
+                "claimed_by": claimer_names.get(inv.claimed_by_user_id),
                 "claimed_at": iso_utc(inv.claimed_at),
                 "expires_at": iso_utc(inv.expires_at),
                 "created_at": iso_utc(inv.created_at),

@@ -53,15 +53,8 @@ async def translate_text(
         cache_key += f"_{digest}"
     if cache_key in translation_cache:
         cached_result = translation_cache[cache_key]
-        # Support both the legacy str cache shape and the current dict shape.
-        if isinstance(cached_result, str):
-            return {
-                "translation": cached_result,
-                "source": TRANSLATION_SOURCE_CACHE,
-                "cached": True,
-            }
         return {
-            "translation": cached_result.get("translation", cached_result),
+            "translation": cached_result["translation"],
             "source": cached_result.get("source", TRANSLATION_SOURCE_CACHE),
             "cached": True,
         }

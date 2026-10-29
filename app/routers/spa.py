@@ -6,8 +6,8 @@ The Vite build emits to `frontend/dist`. The Dockerfile copies that dir to
 isn't matched by a more-specific API/static route falls back to `index.html`
 for client-side routing (history-mode router).
 
-`/v2/*` paths are kept around as permanent redirects to `/*` so the bookmarks
-and invite links generated during the `/v2`-staging period keep working.
+`/v2/*` paths redirect permanently to `/*` so old bookmarks and invite
+links that carry the prefix keep working.
 """
 
 from pathlib import Path
@@ -40,9 +40,7 @@ def mount(app):
     app.include_router(router)
 
 
-# Legacy /v2/* paths from the staging period — keep them working forever by
-# redirecting to the same path under /. FastAPI's RedirectResponse preserves
-# the query string when present (no extra work needed for `?invite=…`).
+# /v2/* → the same path under /, query string (e.g. `?invite=…`) kept.
 @router.get("/v2", include_in_schema=False)
 async def v2_root_redirect(request: Request):
     qs = f"?{request.url.query}" if request.url.query else ""

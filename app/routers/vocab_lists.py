@@ -92,8 +92,8 @@ def _dump_sections(sections: list[ListSection]) -> str:
 
 def _load_sections(vocab_list: VocabularyList) -> list[dict]:
     """Stored sections, defensively: lists saved before request validation
-    can hold sections without a name or words, which used to KeyError
-    every later mutation."""
+    can hold sections without a name or words, which would KeyError every
+    later mutation."""
     try:
         raw = json.loads(vocab_list.sections) if vocab_list.sections else []
     except (TypeError, ValueError):
@@ -195,9 +195,8 @@ async def update_vocabulary_list(
     db: Session = Depends(get_db),
 ):
     vocab_list = _owned_list(db, user, list_id)
-    # PATCH-style: only update fields the caller sent. Previously this
-    # wiped `sections` to [] when a caller omitted the key — a footgun
-    # that Phase #99's glossary toggle would have triggered on every flip.
+    # PATCH-style: only the fields the caller sent change, so the glossary
+    # toggle can send just `apply_as_glossary`.
     if list_data.name is not None:
         vocab_list.name = list_data.name
     if list_data.sections is not None:
@@ -275,10 +274,6 @@ async def add_section_to_list(
 ):
     vocab_list = _owned_list(db, user, list_id)
     sections = _load_sections(vocab_list)
-    logger.info(
-        f"Before adding: list {list_id} has {len(sections)} sections: "
-        f"{[s['name'] for s in sections]}"
-    )
     section_name = section_data.name
     if any(s["name"] == section_name for s in sections):
         raise HTTPException(status_code=409, detail="Section already exists")
@@ -286,17 +281,10 @@ async def add_section_to_list(
     sections.append({"name": section_name, "words": []})
     vocab_list.sections = json.dumps(sections)
     db.commit()
-    db.refresh(vocab_list)
-
-    updated_sections = _load_sections(vocab_list)
-    logger.info(
-        f"After commit: list {list_id} has {len(updated_sections)} sections: "
-        f"{[s['name'] for s in updated_sections]}"
-    )
     return {
         "message": "Section added",
         "name": section_name,
-        "total_sections": len(updated_sections),
+        "total_sections": len(sections),
     }
 
 

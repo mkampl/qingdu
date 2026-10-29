@@ -16,10 +16,8 @@ async def health_check():
         "status": "healthy",
         "vocab_loaded": len(hsk_vocab) > 0,
         "vocab_count": len(hsk_vocab),
-        # CC-CEDICT diagnostic. Zero means the loader couldn't fetch the
-        # upstream zip (no cached file or download failed); analyze and
-        # review will still work on HSK alone but with less-polished
-        # primary meanings.
+        # Zero means CC-CEDICT failed to load; analyze and review still
+        # work on HSK alone, with less polished meanings.
         "cedict_loaded": len(cedict_vocab) > 0,
         "cedict_count": len(cedict_vocab),
     }

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user
 from app.core.constants import ANALYZE_RATE_LIMIT, MAX_ANALYZE_CHARS
 from app.core.rate_limit import limiter
-from app.database import User, UserWord, VocabularyList, get_db
+from app.database import User, UserWord, UserWordGloss, VocabularyList, get_db
 from app.schemas import TextAnalysisRequest
 from app.services.script import to_canonical, to_user_script, user_script
 from app.services.segmentation import analyze_chinese_text
@@ -24,14 +24,11 @@ def _user_state_map(db: Session, user: User | None) -> dict[str, str]:
 
 
 def _user_glosses_map(db: Session, user: User | None) -> dict[str, list[dict]]:
-    """Phase #120 — for each word the user has touched, the list of
-    glosses they've collected with provenance. Surfaced in the popover so
-    a Daoist 道 in /reader shows both the dictionary primary AND the
-    Daodejing package gloss with their tags. Cheap: one indexed join."""
+    """For each word the user has touched, the glosses they've collected
+    with provenance. The popover shows them, so a Daoist 道 shows both the
+    dictionary primary and the Daodejing package gloss. One indexed join."""
     if user is None:
         return {}
-    from app.database import UserWordGloss
-
     rows = (
         db.query(
             UserWord.word,
@@ -39,7 +36,6 @@ def _user_glosses_map(db: Session, user: User | None) -> dict[str, list[dict]]:
             UserWordGloss.source_tag,
             UserWordGloss.meaning,
             UserWordGloss.pinyin,
-            UserWordGloss.created_at,
         )
         .join(UserWordGloss, UserWordGloss.user_word_id == UserWord.id)
         .filter(UserWord.user_id == user.id)
@@ -47,7 +43,7 @@ def _user_glosses_map(db: Session, user: User | None) -> dict[str, list[dict]]:
         .all()
     )
     out: dict[str, list[dict]] = {}
-    for word, source, tag, meaning, pinyin, _ in rows:
+    for word, source, tag, meaning, pinyin in rows:
         out.setdefault(word, []).append(
             {"source": source, "tag": tag, "meaning": meaning, "pinyin": pinyin}
         )
@@ -153,8 +149,7 @@ async def analyze_text(
     db: Session = Depends(get_db),
 ) -> dict:
     if len(data.text) > MAX_ANALYZE_CHARS:
-        # Every unknown token fans out to upstream lookups, so an unbounded
-        # body is an amplification lever (and anonymous callers can send it).
+        # Analysis cost grows with the text, and anonymous callers can send it.
         raise HTTPException(
             status_code=413,
             detail=f"Text is too long — the limit is {MAX_ANALYZE_CHARS:,} characters.",
