@@ -34,14 +34,13 @@ const RANK: Record<string, number> = { list: 0, text: 1, package: 2 };
 const rank = (g: WordGloss) => RANK[g.source] ?? 3;
 
 /** The meaning a card leads with when no text or list is in focus: the
- *  learner's own (glossary, list, text, package) before the dictionary's. */
+ *  learner's own before the dictionary's. */
 export function leadGloss(glosses: WordGloss[] | null | undefined): WordGloss | null {
-  const own = (glosses ?? []).filter((g) => g.source !== "dictionary");
-  return own.length ? own.reduce((a, b) => (rank(b) < rank(a) ? b : a)) : null;
+  return customGlosses(glosses)[0] ?? null;
 }
 
 /** Meanings other than the dictionary's, without the focused one, in
- *  [leadGloss] order. A meaning two sources share (a text's glossary and
+ *  RANK order. A meaning two sources share (a text's glossary and
  *  a list built from the same glossary) is shown once. */
 export function customGlosses(
   glosses: WordGloss[] | null | undefined,

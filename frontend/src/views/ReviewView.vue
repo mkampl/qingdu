@@ -167,9 +167,7 @@ const card = computed(() => review.current);
 // The meaning the card leads with: the focused text's or list's, else the
 // learner's own (glossary, then a text's, then a package's), else none
 // (the dictionary's headline leads).
-const cardFocus = computed(
-  () => card.value?.focus_gloss ?? leadGloss(card.value?.glosses) ?? null,
-);
+const cardFocus = computed(() => card.value?.focus_gloss ?? leadGloss(card.value?.glosses));
 // The writing pass straight after the intro animation (see autoGradeForWriting).
 const firstEncounter = computed(() => card.value?.prompt_stage === "intro");
 const writingAutoGrade = computed(() =>

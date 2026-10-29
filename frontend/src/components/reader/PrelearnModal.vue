@@ -51,6 +51,30 @@ const missing = computed(() =>
   (props.data?.missing ?? []).filter((m) => !ignored.value.has(m.word)),
 );
 
+// A package's or glossary's meaning per word, from its first occurrence.
+const fixedGlosses = computed(() => {
+  const out: Record<string, TextGloss> = {};
+  for (const w of props.words) {
+    if (out[w.text] || !w.meaning) continue;
+    if (w.translation_source === "package") {
+      out[w.text] = {
+        meaning: w.meaning,
+        pinyin: w.pinyin,
+        source: "package",
+        tag: w.package_source ?? null,
+      };
+    } else if (w.translation_source === "glossary") {
+      out[w.text] = {
+        meaning: w.meaning,
+        pinyin: w.pinyin,
+        source: "glossary",
+        tag: w.glossary_source ?? null,
+      };
+    }
+  }
+  return out;
+});
+
 // What the LLM says the missing words mean in this text (no package or
 // glossary meaning of their own).
 const senses = ref<Record<string, string>>({});
@@ -65,13 +89,8 @@ function contextOf(word: string): { sentence: string; translation: string | null
   }
   let sentence = "";
   for (const w of props.words) {
-    if (w.text === "\n") {
-      if (sentence.includes(word)) break;
-      sentence = "";
-      continue;
-    }
-    sentence += w.text;
-    if (/[。！？!?]$/.test(w.text)) {
+    if (w.text !== "\n") sentence += w.text;
+    if (w.text === "\n" || /[。！？!?]$/.test(w.text)) {
       if (sentence.includes(word)) break;
       sentence = "";
     }
@@ -101,37 +120,13 @@ async function loadSenses() {
   }
 }
 
-// The text's own meaning per word: a package's or glossary's, from its
-// first occurrence; else the LLM's.
+// The text's own meaning per word: a package's or glossary's, else the LLM's.
 const textGlosses = computed(() => {
   const out: Record<string, TextGloss> = { ...fixedGlosses.value };
   const pinyin = new Map((props.data?.missing ?? []).map((m) => [m.word, m.pinyin]));
   for (const [word, meaning] of Object.entries(senses.value)) {
     if (!out[word]) {
       out[word] = { meaning, pinyin: pinyin.get(word) ?? null, source: "text", tag: null };
-    }
-  }
-  return out;
-});
-
-const fixedGlosses = computed(() => {
-  const out: Record<string, TextGloss> = {};
-  for (const w of props.words) {
-    if (out[w.text] || !w.meaning) continue;
-    if (w.translation_source === "package") {
-      out[w.text] = {
-        meaning: w.meaning,
-        pinyin: w.pinyin,
-        source: "package",
-        tag: w.package_source ?? null,
-      };
-    } else if (w.translation_source === "glossary") {
-      out[w.text] = {
-        meaning: w.meaning,
-        pinyin: w.pinyin,
-        source: "glossary",
-        tag: w.glossary_source ?? null,
-      };
     }
   }
   return out;

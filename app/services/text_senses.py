@@ -89,7 +89,7 @@ async def senses_in(items: list[tuple[str, str, str | None]]) -> dict[str, str]:
         max_tokens=60 + 40 * len(ask),
         temperature=0.1,
     )
-    for s in reply.get("senses") or [] if isinstance(reply, dict) else []:
+    for s in reply.get("senses") or []:
         n = s.get("n") if isinstance(s, dict) else None
         if not isinstance(n, int) or not 1 <= n <= len(ask):
             continue

@@ -81,10 +81,14 @@ def _stored_source(gloss: TextGloss | None) -> str | None:
     return {"package": "package", "glossary": "list"}.get(gloss.source, "text")
 
 
-def _text_tag(gloss: TextGloss, title: str) -> str:
-    """The tag a text's meaning is stored under: the text's title (the
-    gloss table keeps 64 characters)."""
-    return (gloss.tag or title or "text")[:64]
+def _stored_tag(gloss: TextGloss | None, title: str) -> str | None:
+    """The tag a text gloss is stored under; a text's meaning gets the
+    text's title (the gloss table keeps 64 characters)."""
+    if gloss is None:
+        return None
+    if gloss.source == "text":
+        return (gloss.tag or title or "text")[:64]
+    return gloss.tag or _stored_source(gloss)
 
 
 def _prelearned(db: Session, user: User, text_key: str | None) -> dict | None:
@@ -195,24 +199,16 @@ def prelearn_words(
                 pkg_source_tag=gloss.tag if is_pkg else None,
             )
             added.append(to_user_script(word, user))
-        if gloss is not None and gloss.source == "text":
+        if gloss is not None and gloss.source != "package":
+            # A vocab list's own meaning (stored like "learn this list"
+            # does) or the meaning in the text.
             _ensure_gloss(
                 db,
                 row,
                 pinyin=gloss.pinyin,
                 meaning=gloss.meaning,
-                source="text",
-                source_tag=_text_tag(gloss, title),
-            )
-        if gloss is not None and gloss.source == "glossary":
-            # A vocab list's own meaning, stored like "learn this list" does.
-            _ensure_gloss(
-                db,
-                row,
-                pinyin=gloss.pinyin,
-                meaning=gloss.meaning,
-                source="list",
-                source_tag=gloss.tag or "list",
+                source=_stored_source(gloss),
+                source_tag=_stored_tag(gloss, title),
             )
         cloze.adopt_sentence(row, readability.sentence_for(split, word), title)
         if word not in linked:
@@ -223,13 +219,7 @@ def prelearn_words(
                     word=word,
                     title=title,
                     gloss_source=_stored_source(gloss),
-                    gloss_tag=(
-                        _text_tag(gloss, title)
-                        if gloss and gloss.source == "text"
-                        else (gloss.tag or _stored_source(gloss))
-                        if gloss
-                        else None
-                    ),
+                    gloss_tag=_stored_tag(gloss, title),
                 )
             )
             linked.add(word)
