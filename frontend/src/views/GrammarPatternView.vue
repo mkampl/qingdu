@@ -209,7 +209,7 @@ watch(id, load, { immediate: true });
           <div class="flex flex-wrap items-center justify-between gap-3">
             <p class="text-sm text-fg">
               <template v-if="detail.progress">
-                Practised {{ detail.progress.correct }}/{{ detail.progress.total }} right ·
+                Practiced {{ detail.progress.correct }}/{{ detail.progress.total }} right ·
                 next {{ dueText(detail.progress.due_at) }}
               </template>
               <template v-else>Fill gaps and put sentences in order, with your own sentences.</template>
@@ -225,7 +225,7 @@ watch(id, load, { immediate: true });
               >
                 Practice text
               </Button>
-              <Button variant="primary" size="sm" @click="startPractice">Practise</Button>
+              <Button variant="primary" size="sm" @click="startPractice">Practice</Button>
             </div>
           </div>
           <p v-if="textBusy" class="mt-2 text-xs text-fg-muted">

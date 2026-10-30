@@ -203,7 +203,7 @@ const groups: Group[] = [
   {
     kicker: "Meta",
     title: "Where to look next",
-    blurb: "Two more meta-resources if you want to keep digging.",
+    blurb: "Two more places to find reading material.",
     sources: [
       {
         name: "The Chairman's Bao — Reading list",
@@ -330,7 +330,8 @@ const groups: Group[] = [
           From the library
         </h2>
         <p class="mt-1.5 max-w-prose text-sm leading-relaxed text-fg-muted sm:mt-2">
-          180 bundled HSK-aligned texts in the app. A taste below; the full
+          Short texts for every HSK level, bundled with the app. A taste
+          below; the full
           collection lives on the
           <RouterLink
             to="/library"

@@ -795,9 +795,9 @@ onBeforeUnmount(() => {
               Ready when you are
             </span>
             <p class="max-w-md font-display text-lg italic leading-relaxed text-fg-muted">
-              Paste a paragraph in the editor above and we'll show you the HSK
-              composition, pinyin where it'd help, and translations of any
-              sentence you select.
+              Paste a paragraph in the editor above to see its HSK level mix,
+              the pinyin and meaning of each word, and a translation of any
+              sentence you tap.
             </p>
             <p
               class="hidden text-[12px] text-fg-subtle sm:block"

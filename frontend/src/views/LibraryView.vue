@@ -146,7 +146,8 @@ const openLibraryText = useOpenLibraryText();
     </header>
 
     <p class="mb-5 max-w-prose text-sm leading-relaxed text-fg-muted sm:mb-8">
-      180 short texts, 20 per HSK level, written to demonstrate the
+      {{ items.length ? `${items.length} short texts` : "Short texts" }}
+      for each HSK level, written to demonstrate the
       vocabulary and grammar of each level. Click one to open it in the
       reader — mark it as read or pass its quiz there to check it off. No
       login required to browse — sign in to track completion here and get
