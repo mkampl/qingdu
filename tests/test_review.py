@@ -45,7 +45,7 @@ def review_client(app_module):
     # Seed: two due cards (no due_at means brand-new in queue), one already
     # due in the past, one due far in the future (should NOT appear), one
     # ignored (should NOT appear). Known-with-due-in-the-past also appears
-    # in the queue now that 'known' is just a high-stability SRS state.
+    # in the queue: 'known' is a high-stability SRS state.
     now = datetime.utcnow()
     db.add(UserWord(user_id=1, word="一", state="learning"))
     db.add(UserWord(user_id=1, word="二", state="learning", due_at=now - timedelta(hours=2)))
@@ -108,7 +108,7 @@ def test_queue_orders_nulls_first(review_client):
 
 
 def test_grade_updates_due_at_and_removes_from_queue(review_client):
-    """Phase 1.3b — every grade advances FSRS immediately; the prompt
+    """Every grade advances FSRS immediately; the prompt
     stage on the queue side picks which modality to render, the grade
     endpoint stays simple."""
     client, Session = review_client
@@ -384,7 +384,7 @@ def _add(Session, *rows):
         db.close()
 
 
-# --- H6: timestamps ---------------------------------------------------------
+# --- timestamps -------------------------------------------------------------
 
 
 def test_iso_utc_marks_naive_datetimes_as_utc():
@@ -414,7 +414,7 @@ def test_review_and_words_timestamps_carry_utc_offset(review_client):
                 assert item[key].endswith("Z"), (key, item[key])
 
 
-# --- M24: hysteresis --------------------------------------------------------
+# --- hysteresis -------------------------------------------------------------
 
 
 def test_next_state_after_grade_only_again_demotes_known():
@@ -469,7 +469,7 @@ def test_hard_on_known_card_keeps_it_known(review_client):
         db.close()
 
 
-# --- M20: cloze fills up to the limit ---------------------------------------
+# --- cloze fills up to the limit --------------------------------------------
 
 
 def test_cloze_queue_skips_sentence_less_rows_before_limit(review_client, monkeypatch):
@@ -502,7 +502,7 @@ def test_cloze_queue_skips_sentence_less_rows_before_limit(review_client, monkey
         db.close()
 
 
-# --- M21: one window definition --------------------------------------------
+# --- one window definition -------------------------------------------------
 
 
 def test_window_counts_match_queue(review_client):
@@ -529,7 +529,7 @@ def test_window_counts_match_queue(review_client):
         words = {c["word"] for c in cards}
         assert ("明" in words) is (window == "tomorrow")
         assert "后" not in words
-    # The old client read due_today for 'tomorrow' and undercounted.
+    # due_today alone would undercount the 'tomorrow' window.
     assert stats["due_in_window"] > stats["due_today"]
 
 
@@ -541,7 +541,7 @@ def test_stats_in_rotation_counts_learning_and_known(review_client):
     assert body["learning"] == 3
 
 
-# --- L21: weekly marked_known ----------------------------------------------
+# --- weekly marked_known ---------------------------------------------------
 
 
 def test_weekly_marked_known_counts_words_not_reviews(review_client):

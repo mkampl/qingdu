@@ -144,7 +144,7 @@ def test_extract_endpoint_blocks_redirect_to_loopback(app_module, fake_dns, open
     assert r.status_code == 400
 
 
-# ---- blocking work stays off the event loop (H8) --------------------------
+# ---- blocking work stays off the event loop -------------------------------
 
 
 def _assert_no_running_loop():

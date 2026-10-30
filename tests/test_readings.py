@@ -1,6 +1,6 @@
 """Polyphone readings: main-reading anchoring for HSK words, all readings
 kept on the CC-CEDICT entry, self-"see" pointers, usage examples, the
-scorer fixes, and the `readings` payload on analyze / review / vocab."""
+scorer, and the `readings` payload on analyze / review / vocab."""
 
 import asyncio
 
@@ -242,7 +242,7 @@ def test_non_hsk_word_uses_scorer_only(monkeypatch):
 
 
 def test_scorer_no_longer_penalises_one_word_glosses():
-    # 车 chē "car" lost to jū "war chariot" through the -25 stub penalty.
+    # A one-word gloss is not a stub: 车 chē "car" must beat jū "war chariot".
     car = cedict_loader._entry_quality("car", "che1", 53066, ["car", "vehicle"], "车")
     chariot = cedict_loader._entry_quality(
         "war chariot (archaic)", "ju1", 26109, ["war chariot (archaic)", "rook"], "车"

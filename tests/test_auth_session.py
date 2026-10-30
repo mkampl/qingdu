@@ -91,7 +91,7 @@ def _me(client, token: str) -> bool:
     return r.json()["authenticated"]
 
 
-# ---- H2: wrong credentials on re-check are 403, session survives ---------
+# ---- wrong credentials on re-check are 403, session survives -------------
 
 
 def test_wrong_old_password_is_403_and_session_survives(auth_client):
@@ -114,7 +114,7 @@ def test_wrong_delete_account_password_is_403(auth_client):
     assert _me(auth_client, token)
 
 
-# ---- M11: token_version -------------------------------------------------
+# ---- token_version -----------------------------------------------------
 
 
 def test_password_change_invalidates_old_tokens(auth_client):
@@ -185,7 +185,7 @@ def test_pat_survives_password_change(auth_client):
     assert auth_client.get("/api/external/words", headers=_h(raw)).status_code == 200
 
 
-# ---- L10: same credential rules everywhere -------------------------------
+# ---- same credential rules everywhere ------------------------------------
 
 
 def _invite(client) -> str:

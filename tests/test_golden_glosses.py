@@ -6,8 +6,8 @@ headlines are checked as the app shows them.
 
 The expectations live in tests/data/golden_glosses.json (see its "about"
 block). Entries the code still gets wrong carry an "xfail" field naming
-the branch meant to fix them; they run as xfail(strict=True), so a fix
-shows up as an XPASS failure until the field is removed from the data.
+the open problem; they run as xfail(strict=True), so a fix shows up as an
+XPASS failure until the field is removed from the data.
 """
 
 import json

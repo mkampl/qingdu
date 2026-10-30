@@ -1,5 +1,5 @@
 """
-Phase-A word-state API: round-trip the lifecycle (new → learning → known →
+Word-state API: round-trip the lifecycle (new → learning → known →
 ignored → cleared back to new), bulk-mark, stats, and the join into the
 /api/analyze response.
 
@@ -136,13 +136,13 @@ def test_stats_endpoint(words_client):
     assert body["streak"] == 1
 
 
-# --- Phase #100 follow-up: package-curated meaning snapshots ----------------
+# --- package-curated meaning snapshots --------------------------------------
 
 
 def _fetch_row(client, word: str) -> UserWord | None:
     """Look the UserWord row up directly — the API surface returns only
     `state`, so snapshot-related assertions need to bypass it. Eager-loads
-    glosses so Phase #120 tests can inspect them after the session closes."""
+    glosses so tests can inspect them after the session closes."""
     from sqlalchemy.orm import joinedload
 
     session = client.session_factory()
@@ -163,10 +163,10 @@ def _fetch_row(client, word: str) -> UserWord | None:
 
 
 def test_set_state_with_package_snapshot_stores_meaning(words_client):
-    """Phase #120 — a package click stores the package gloss as a
-    separate UserWordGloss row tagged with the package name, in
-    addition to whatever dictionary gloss the chain produced. Both
-    co-exist on the same UserWord."""
+    """A package click stores the package gloss as a separate
+    UserWordGloss row tagged with the package name, in addition to
+    whatever dictionary gloss the chain produced. Both co-exist on the
+    same UserWord."""
     r = words_client.post(
         "/api/words/state",
         json={
@@ -183,7 +183,7 @@ def test_set_state_with_package_snapshot_stores_meaning(words_client):
     row = _fetch_row(words_client, "道")
     assert row is not None
     # Package gloss is one of the row's glosses, tagged with the package
-    # name. The legacy meaning column carries the first gloss (dict or
+    # name. The row's meaning column carries the first gloss (dict or
     # package, whichever landed first).
     pkg_glosses = [g for g in row.glosses if g.source == "package"]
     assert any(g.meaning == "the Dao" for g in pkg_glosses)
@@ -191,7 +191,7 @@ def test_set_state_with_package_snapshot_stores_meaning(words_client):
 
 
 def test_package_and_dictionary_glosses_coexist(words_client):
-    """Phase #120 — the dictionary gloss and the package gloss live as
+    """The dictionary gloss and the package gloss live as
     separate UserWordGloss rows on the same UserWord, so the popover
     and review card can render both with their tags."""
     # First a non-package click — only the dictionary gloss exists.
@@ -224,7 +224,7 @@ def test_package_and_dictionary_glosses_coexist(words_client):
 
 
 def test_package_snapshot_idempotent_within_same_package(words_client):
-    """Phase #120 — repeated clicks on the same word in the same package
+    """Repeated clicks on the same word in the same package
     don't pile up duplicate gloss rows. (source, source_tag) acts as
     the unique key for gloss equivalence."""
     payload = {
@@ -246,7 +246,7 @@ def test_package_snapshot_idempotent_within_same_package(words_client):
 
 
 def test_two_packages_produce_two_package_glosses(words_client):
-    """Phase #120 — clicking the same word in two *different* packages
+    """Clicking the same word in two *different* packages
     produces two distinct gloss rows so each context's meaning is
     preserved with its tag."""
     words_client.post(
@@ -279,9 +279,8 @@ def test_two_packages_produce_two_package_glosses(words_client):
 
 def test_set_state_without_snapshot_falls_back_to_dictionary(words_client):
     """Non-package callers (the HSK / CC-CEDICT / pypinyin path the
-    reader uses for most clicks) must keep today's behaviour: the
-    backend resolves via lookup_pinyin_meaning() and never stamps
-    'package'."""
+    reader uses for most clicks): the backend resolves via
+    lookup_pinyin_meaning() and never stamps 'package'."""
     r = words_client.post("/api/words/state", json={"word": "中", "state": "learning"})
     assert r.status_code == 200
     row = _fetch_row(words_client, "中")
@@ -290,7 +289,7 @@ def test_set_state_without_snapshot_falls_back_to_dictionary(words_client):
 
 
 def test_bulk_mark_known_with_snapshots(words_client):
-    """Phase #120 — bulk-mark-known applies the per-word snapshot the
+    """Bulk-mark-known applies the per-word snapshot the
     same way the single-word endpoint does: a package snapshot lands as
     a tagged UserWordGloss row; words without a snapshot only get the
     dictionary gloss."""

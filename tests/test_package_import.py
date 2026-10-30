@@ -142,8 +142,8 @@ def test_empty_tokens_rejected():
 
 
 def test_sentence_translations_ride_into_analysis_data():
-    """The whole point of #100: curated translations must reach the reader.
-    Carrying them inside the analysis response means they're persisted in
+    """Curated translations must reach the reader. Carrying them inside
+    the analysis response means they're persisted in
     saved_texts.analysis_data and survive both the 1h server TTL cache
     and any restart."""
     pkg = _minimal_package(

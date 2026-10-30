@@ -62,7 +62,7 @@ def test_backfill_overwrites_stale_meaning(db_session, fake_dictionaries):
             word="地",
             state="learning",
             pinyin="de",
-            meaning="-ly",  # stale snapshot from the pre-fix parser
+            meaning="-ly",  # stale snapshot from an older dictionary parse
         )
     )
     db_session.commit()
@@ -81,8 +81,8 @@ def test_backfill_is_idempotent(db_session, fake_dictionaries):
     row = UserWord(user_id=1, word="地", state="learning", pinyin="dì", meaning="earth")
     db_session.add(row)
     db_session.commit()
-    # Seed the dictionary gloss too — that's the row backfill now
-    # maintains rather than the legacy columns.
+    # Seed the dictionary gloss too: backfill compares against that row
+    # as well as the snapshot columns.
     db_session.add(
         UserWordGloss(
             user_word_id=row.id,

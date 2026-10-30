@@ -1,12 +1,7 @@
 """
-Security- and lifecycle-critical paths that shipped untested until the
-2026-07 audit — and promptly contained a data-retention bug: deleting a
-user who had ever created an invitation raised IntegrityError, rolled
-back, and made the lifecycle hard-delete sweep silently delete nobody.
-
-Covers: user deletion cascades, the dormant->deleted two-pass guarantee,
-admin authorization, the math captcha, per-IP signup limiting, and the
-SSRF guard on the URL extractor.
+Security- and lifecycle-critical paths: user deletion cascades, the
+dormant->deleted two-pass guarantee, admin authorization, the math
+captcha, per-IP signup limiting, and the SSRF guard on the URL extractor.
 """
 
 from datetime import datetime, timedelta
@@ -57,8 +52,9 @@ def _make_user(db, username, **kwargs):
 
 
 def test_purge_user_with_invitations_and_data(db_session):
-    """The audit's BLOCKER: created_invitations had no cascade, so deleting
-    an invite-creator tried to NULL a NOT NULL FK and rolled back."""
+    """Deleting a user who created invitations must not try to NULL a
+    NOT NULL FK and roll back; otherwise the lifecycle hard-delete sweep
+    silently deletes nobody."""
     db = db_session
     alice = _make_user(db, "alice")
     bob = _make_user(db, "bob")
@@ -259,8 +255,7 @@ def test_export_contains_all_user_data(owner_client, db_session):
 
 
 def test_export_includes_glosses(owner_client, db_session):
-    """Any user with a gloss row used to 500 the export (it read a
-    non-existent `gloss` attribute)."""
+    """The export includes the user's gloss rows and does not fail on them."""
     client, owner = owner_client
     uw = UserWord(user_id=owner.id, word="道", state="learning", pinyin="dào", meaning="way")
     db_session.add(uw)

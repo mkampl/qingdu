@@ -1,8 +1,8 @@
 """
-Client-IP derivation behind a reverse proxy (H3).
+Client-IP derivation behind a reverse proxy.
 
 Behind Caddy every request reaches uvicorn from the Docker bridge gateway,
-so keying rate limits on the socket peer turned the 5/minute login limit
+so keying rate limits on the socket peer would turn the 5/minute login limit
 into one global budget. uvicorn's ProxyHeadersMiddleware (driven by
 FORWARDED_ALLOW_IPS) rewrites `request.client` from X-Forwarded-For when,
 and only when, the peer is a trusted proxy. The app keys everything on

@@ -1,9 +1,9 @@
 """Segmentation never yields phrases that are not words.
 
-jieba (with its HMM) produced tokens such as 我来, 很多, 三个 or 洗衣服 that
-no dictionary lists; the reader then glued per-character glosses together
-("very + many") or asked a translation service about the isolated token.
-Tokens are now dictionary words (HSK, CC-CEDICT, the user's glossary) or
+jieba (with its HMM) produces tokens such as 我来, 很多, 三个 or 洗衣服 that
+no dictionary lists; the reader would then glue per-character glosses
+together ("very + many") or ask a translation service about the isolated
+token. Tokens are dictionary words (HSK, CC-CEDICT, the user's glossary) or
 single characters. Runs against the pinned dictionary data.
 """
 
