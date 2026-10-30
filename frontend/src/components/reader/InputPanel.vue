@@ -249,7 +249,7 @@ async function convert(direction: ConvertDirection) {
           <button
             type="button"
             class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-fg-muted transition-colors hover:text-fg hover:bg-bg-sunken"
-            title="Import from URL, EPUB, or PDF"
+            title="Import from a URL, file, scan or package"
             @click="emit('import-url')"
           >
             <svg width="11" height="11" viewBox="0 0 11 11" fill="none">

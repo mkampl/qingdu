@@ -103,7 +103,7 @@ async function startPractice() {
     practice.value = { items: r.items, index: 0, correct: 0 };
     resetItem();
   } catch (e) {
-    practiceError.value = e instanceof Error ? e.message : "Nothing to practise yet.";
+    practiceError.value = e instanceof Error ? e.message : "Nothing to practice yet.";
   }
 }
 

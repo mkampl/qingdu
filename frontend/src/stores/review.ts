@@ -110,7 +110,7 @@ export const useReviewStore = defineStore("review", () => {
         errorKind.value = "empty";
         error.value =
           mode === "cloze"
-            ? "None of your due words appear in a saved text yet, so there's nothing to fill in. Try another mode."
+            ? "No due word appears in a saved text yet. Try another mode."
             : scope.value
               ? "None of these words are due right now."
               : "Nothing to review right now.";

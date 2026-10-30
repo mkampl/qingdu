@@ -175,7 +175,7 @@ watch(
       // reminder that will never fire. (Re-enabling re-asks the OS.)
       settings.reminderEnabled = false;
       toasts.error(
-        "Notifications are blocked for QingDu — allow them in Android settings to use reminders.",
+        "Notifications are blocked. Allow them in Android settings to get reminders.",
       );
     }
   },

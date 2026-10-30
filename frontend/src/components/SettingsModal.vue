@@ -353,7 +353,7 @@ const reviewWindowOptions: { value: ReviewWindow; label: string; hint: string }[
   {
     value: "now",
     label: "Just due",
-    hint: "Only cards whose FSRS due_at has already passed. Strict — wait for each card to flip due.",
+    hint: "Only cards that are due right now. Cards due later today wait.",
   },
   {
     value: "today",
@@ -815,10 +815,10 @@ function resetApiBase() {
             Auto-add tapped words to learning
           </span>
           <span class="block text-xs text-fg-muted">
-            Off by default — a tap just shows the gloss. Use the
-            <span class="font-medium text-fg">Learning</span> button in the
-            popover to enrol a word into the SRS queue, or turn this on if
-            you'd rather every tap promote 'new' words automatically.
+            Off: a tap only shows the meaning; the
+            <span class="font-medium text-fg">Learning</span> button adds a
+            word to your reviews. On: every new word you tap goes into your
+            reviews.
           </span>
         </span>
       </label>
@@ -835,11 +835,11 @@ function resetApiBase() {
         />
         <span class="flex-1">
           <span class="block font-display text-base text-fg">
-            Show HSK colour legend
+            Show HSK color legend
           </span>
           <span class="block text-xs text-fg-muted">
             Adds a small key under the composition stats explaining each level's
-            wash colour.
+            wash color.
           </span>
         </span>
       </label>
@@ -909,9 +909,8 @@ function resetApiBase() {
               Remind me daily
             </span>
             <span class="block text-xs text-fg-muted">
-              A local notification at a fixed time. Body shows the
-              due-count from the last time the app was open — close enough
-              to motivate a return visit without needing a server push.
+              A notification at a fixed time with your number of due cards
+              (as of your last visit).
             </span>
           </span>
         </label>
