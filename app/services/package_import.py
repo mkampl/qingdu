@@ -14,6 +14,7 @@ from __future__ import annotations
 from app.schemas import PackageToken, QingduPackage, WordInfo
 from app.services import grammar
 from app.services.levels import hsk_statistics
+from app.services.segmentation import _group_sentences
 from app.state import hsk_vocab
 
 
@@ -120,7 +121,7 @@ def transform(package: QingduPackage) -> dict:
 
     # Classical text rarely matches the modern-Chinese patterns; the
     # detector then finds nothing.
-    grammar_sentences = _group_grammar_sentences(package.tokens)
+    grammar_sentences = _group_sentences([t.text for t in package.tokens], split_lines=False)
     matches, metas = grammar.detect_patterns(grammar_sentences)
     grammar_payload = {
         "matches": [
@@ -150,31 +151,6 @@ def transform(package: QingduPackage) -> dict:
             **hsk_statistics(hsk_levels),
         },
     }
-
-
-_SENTENCE_END_CHARS = "。！？!?…"
-
-
-def _group_grammar_sentences(
-    tokens: list[PackageToken],
-) -> list[tuple[int, grammar.Sentence]]:
-    """Mirrors `_group_sentences` from segmentation — build per-sentence
-    chunks with absolute token offsets for the grammar detector."""
-    out: list[tuple[int, grammar.Sentence]] = []
-    cur_words: list[str] = []
-    cur_text: list[str] = []
-    cur_start = 0
-    for i, tok in enumerate(tokens):
-        cur_words.append(tok.text)
-        cur_text.append(tok.text)
-        if any(p in tok.text for p in _SENTENCE_END_CHARS):
-            out.append((cur_start, grammar.Sentence(words=cur_words, text="".join(cur_text))))
-            cur_words = []
-            cur_text = []
-            cur_start = i + 1
-    if cur_words:
-        out.append((cur_start, grammar.Sentence(words=cur_words, text="".join(cur_text))))
-    return out
 
 
 __all__ = ["PackageImportError", "transform", "validate"]

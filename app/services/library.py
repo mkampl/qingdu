@@ -95,8 +95,6 @@ def client_entry(slug: str) -> dict[str, Any] | None:
     return out
 
 
-# Sentence-final punctuation for the sentence index below.
-_SENTENCE_END = frozenset("。！？；…!?;")
 _MAX_EXAMPLE_CHARS = 60
 
 
@@ -105,24 +103,13 @@ def _sentence_index() -> list[tuple[int, str, str, frozenset[str]]]:
     """(hsk_level, title, sentence, word tokens) for every sentence of the
     bundled texts, built from the stored segmentation so a word only
     matches where it stands as a word (会 is not found inside 社会)."""
-    rows: list[tuple[int, str, str, frozenset[str]]] = []
-    for e in _all_entries():
-        words = (e.get("analyzed") or {}).get("words") or []
-        text, tokens = "", set()
-        for w in words:
-            token = w.get("text") or ""
-            if token == "\n":
-                token = ""
-            text += token
-            if token.strip():
-                tokens.add(token)
-            if token and token[-1] in _SENTENCE_END or not token:
-                if text.strip() and tokens:
-                    rows.append((e["hsk_level"], e["title"], text.strip(), frozenset(tokens)))
-                text, tokens = "", set()
-        if text.strip() and tokens:
-            rows.append((e["hsk_level"], e["title"], text.strip(), frozenset(tokens)))
-    return rows
+    return [
+        (e["hsk_level"], e["title"], sentence, tokens)
+        for e in _all_entries()
+        for sentence, tokens in readability.sentences(
+            w.get("text") for w in (e.get("analyzed") or {}).get("words") or []
+        )
+    ]
 
 
 def example_sentence(word: str, max_level: int | None = None) -> tuple[str, str] | None:

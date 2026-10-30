@@ -78,6 +78,14 @@ def test_absolute_offsets_span_multiple_sentences():
     assert by_id["yue-yue"].start_word_idx >= len(s1.words)
 
 
+def test_group_sentences_line_breaks():
+    tokens = ["我", "好", "\n", "你", "好", "。", "他"]
+    grouped = [(start, s.words) for start, s in _group_sentences(tokens)]
+    assert grouped == [(0, ["我", "好"]), (3, ["你", "好", "。"]), (6, ["他"])]
+    grouped = [(start, s.words) for start, s in _group_sentences(tokens, split_lines=False)]
+    assert grouped == [(0, ["我", "好", "\n", "你", "好", "。"]), (6, ["他"])]
+
+
 def test_pattern_meta_round_trip():
     meta = pattern_meta("shi-de")
     assert meta["id"] == "shi-de"

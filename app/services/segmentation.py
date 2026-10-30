@@ -133,19 +133,22 @@ def _resolve_non_hsk(segments: list[str], glossary: dict) -> dict[str, dict | No
     return resolved
 
 
-def _group_sentences(segments: list[str]) -> list[tuple[int, grammar.Sentence]]:
+def _group_sentences(
+    segments: list[str], split_lines: bool = True
+) -> list[tuple[int, grammar.Sentence]]:
     """
     Walk the segmented tokens (in 1:1 correspondence with the response's
     `words` array) and group them into sentences for grammar detection.
     Returns (absolute_word_offset, Sentence) tuples so the detector can
-    emit globally-positioned spans.
+    emit globally-positioned spans. With `split_lines` a "\n" token ends
+    the sentence and is left out; otherwise it is an ordinary token.
     """
     out: list[tuple[int, grammar.Sentence]] = []
     cur_words: list[str] = []
     cur_text: list[str] = []
     cur_start = 0
     for i, seg in enumerate(segments):
-        if seg == "\n":
+        if split_lines and seg == "\n":
             if cur_words:
                 out.append((cur_start, grammar.Sentence(words=cur_words, text="".join(cur_text))))
                 cur_words = []
