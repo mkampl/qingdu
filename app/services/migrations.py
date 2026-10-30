@@ -4,10 +4,8 @@ new-HSK / old-HSK shape. Run on saved texts and vocabulary lists at
 read time so old user content keeps working.
 """
 
-import contextlib
-
 from app.core.radicals import CHAR_TO_RADICAL, RADICAL_PINYIN
-from app.services.levels import estimate_text_level
+from app.services.levels import estimate_text_level, level_number
 from app.state import hsk_vocab
 
 
@@ -39,14 +37,10 @@ def migrate_word_data(word_data: dict) -> dict:
             char_levels_old: list = []
             for char in chars:
                 char_data = hsk_vocab[char]
-                level_new = char_data.get("level_new")
-                if level_new:
-                    with contextlib.suppress(ValueError, AttributeError):
-                        char_levels_new.append(int(level_new.replace("new-", "").replace("+", "")))
-                level_old = char_data.get("level_old")
-                if level_old:
-                    with contextlib.suppress(ValueError, AttributeError):
-                        char_levels_old.append(int(level_old.replace("old-", "")))
+                if (n := level_number(char_data.get("level_new"))) is not None:
+                    char_levels_new.append(n)
+                if (n := level_number(char_data.get("level_old"), ("old-",))) is not None:
+                    char_levels_old.append(n)
 
             word_data["level_new"] = f"new-{max(char_levels_new)}" if char_levels_new else None
             word_data["level_old"] = f"old-{max(char_levels_old)}" if char_levels_old else None
@@ -118,27 +112,17 @@ def migrate_analysis_data(analysis_data: dict) -> dict:
         if not word.get("is_hsk"):
             continue
 
-        level_new = word.get("level_new")
-        if level_new:
-            level_new_num = level_new.replace("new-", "").replace("+", "")
-            try:
-                key = f"hsk{int(level_new_num)}"
-                if key in hsk_stats_new:
-                    hsk_stats_new[key] += 1
-                total_hsk_words_new += 1
-            except ValueError:
-                pass
+        n = level_number(word.get("level_new"), ("new-", ""))
+        if n is not None:
+            if f"hsk{n}" in hsk_stats_new:
+                hsk_stats_new[f"hsk{n}"] += 1
+            total_hsk_words_new += 1
 
-        level_old = word.get("level_old")
-        if level_old:
-            level_old_num = level_old.replace("old-", "")
-            try:
-                key = f"hsk{int(level_old_num)}"
-                if key in hsk_stats_old:
-                    hsk_stats_old[key] += 1
-                total_hsk_words_old += 1
-            except ValueError:
-                pass
+        n = level_number(word.get("level_old"), ("old-", ""))
+        if n is not None:
+            if f"hsk{n}" in hsk_stats_old:
+                hsk_stats_old[f"hsk{n}"] += 1
+            total_hsk_words_old += 1
 
     estimated_level_new = estimate_text_level(hsk_stats_new, total_hsk_words_new)
     estimated_level_old = estimate_text_level(hsk_stats_old, total_hsk_words_old)

@@ -10,7 +10,6 @@ to `data/hsk_vocabulary.json` for tools and as a fallback cache.
 Mutates `app.state.hsk_vocab` and `app.state.hsk_lists_original` in place.
 """
 
-import contextlib
 import json
 import logging
 from datetime import datetime
@@ -35,6 +34,7 @@ from app.core.paths import BACKUP_DIR, DATA_DIR
 from app.core.radicals import CHAR_TO_RADICAL, RADICAL_PINYIN
 from app.konfuzius_parser import parse_konfuzius_old_hsk
 from app.services import dict_data
+from app.services.levels import level_number
 from app.state import hsk_lists_original, hsk_vocab
 
 logger = logging.getLogger(__name__)
@@ -139,16 +139,11 @@ def _supplement_missing_levels() -> None:
             char_levels_list: list = []
             ok = True
             for char in chars:
-                if char in hsk_vocab and hsk_vocab[char].get("level_new"):
-                    level_str = hsk_vocab[char]["level_new"].replace("new-", "").replace("+", "")
-                    try:
-                        char_levels_list.append(int(level_str))
-                    except ValueError:
-                        ok = False
-                        break
-                else:
+                n = level_number((hsk_vocab.get(char) or {}).get("level_new"))
+                if n is None:
                     ok = False
                     break
+                char_levels_list.append(n)
             if ok and char_levels_list:
                 word_data["level_new"] = f"new-{max(char_levels_list)}"
                 if not word_data.get("level"):
@@ -159,10 +154,9 @@ def _supplement_missing_levels() -> None:
             # More pragmatic for old HSK: don't require ALL chars to have level_old.
             char_levels_list = []
             for char in chars:
-                if char in hsk_vocab and hsk_vocab[char].get("level_old"):
-                    level_str = hsk_vocab[char]["level_old"].replace("old-", "")
-                    with contextlib.suppress(ValueError):
-                        char_levels_list.append(int(level_str))
+                n = level_number((hsk_vocab.get(char) or {}).get("level_old"), ("old-",))
+                if n is not None:
+                    char_levels_list.append(n)
             if char_levels_list:
                 word_data["level_old"] = f"old-{max(char_levels_list)}"
                 supplemented_old += 1
@@ -376,14 +370,12 @@ def process_raw_hsk(raw_data: list) -> None:
 
             # Track lowest HSK level per character in both systems.
             for char in simplified:
-                if level_new:
-                    level_new_num = int(level_new.replace("new-", "").replace("+", ""))
-                    if char not in char_levels_new or level_new_num < char_levels_new[char]:
-                        char_levels_new[char] = level_new_num
-                if level_old:
-                    level_old_num = int(level_old.replace("old-", ""))
-                    if char not in char_levels_old or level_old_num < char_levels_old[char]:
-                        char_levels_old[char] = level_old_num
+                level_new_num = level_number(level_new)
+                if level_new_num and level_new_num < char_levels_new.get(char, 99):
+                    char_levels_new[char] = level_new_num
+                level_old_num = level_number(level_old, ("old-",))
+                if level_old_num and level_old_num < char_levels_old.get(char, 99):
+                    char_levels_old[char] = level_old_num
 
     _add_character_components(char_levels_new, char_levels_old)
     _supplement_missing_levels()
@@ -414,11 +406,11 @@ def process_raw_hsk(raw_data: list) -> None:
     new_hsk_dist: dict = {}
     for _word, data in hsk_vocab.items():
         if data.get("level_new") and data.get("is_original_hsk", False):
-            level_num = data["level_new"].replace("new-", "").replace("+", "")
+            level_num = level_number(data["level_new"])
             new_hsk_dist[level_num] = new_hsk_dist.get(level_num, 0) + 1
     if new_hsk_dist:
         logger.info("NEW HSK distribution (original words only):")
-        for level in sorted(new_hsk_dist, key=int):
+        for level in sorted(new_hsk_dist, key=lambda n: n or 0):
             logger.info(f"  Level {level}: {new_hsk_dist[level]} words")
 
     _populate_radical_pinyin()

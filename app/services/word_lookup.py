@@ -12,12 +12,11 @@ Two strategies, tried in this order by `app.services.segmentation`:
   storing. Sentence translation is separate (`translation.py`).
 """
 
-import contextlib
-
 from pypinyin import Style, lazy_pinyin
 
 from app.core.constants import TRANSLATION_SOURCE_CEDICT, TRANSLATION_SOURCE_PARTS
 from app.core.radicals import CHAR_TO_RADICAL, RADICAL_PINYIN
+from app.services.levels import level_number
 from app.services.lexicon import is_cjk_char
 from app.services.readings import readings_payload
 from app.services.word_info import cedict_entry, word_parts
@@ -51,19 +50,10 @@ def _char_component_stats(chars: list[str]) -> dict:
             else:
                 char_radical_pinyins.append("")
 
-        level_new = char_data.get("level_new")
-        if level_new:
-            level_new_str = level_new.replace("new-", "").replace("+", "")
-            try:
-                char_levels_new.append(int(level_new_str))
-            except ValueError:
-                char_levels_new.append(1)
-
-        level_old = char_data.get("level_old")
-        if level_old:
-            level_old_str = level_old.replace("old-", "")
-            with contextlib.suppress(ValueError):
-                char_levels_old.append(int(level_old_str))
+        if char_data.get("level_new"):
+            char_levels_new.append(level_number(char_data["level_new"]) or 1)
+        if (n := level_number(char_data.get("level_old"), ("old-",))) is not None:
+            char_levels_old.append(n)
 
     level_new = f"new-{max(char_levels_new)}" if char_levels_new else None
     level_old = f"old-{max(char_levels_old)}" if char_levels_old else None

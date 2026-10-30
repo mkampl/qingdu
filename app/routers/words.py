@@ -13,7 +13,6 @@ Every mutation also appends a UserWordEvent (the activity stats read it).
 """
 
 import json
-import re
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -32,6 +31,7 @@ from app.schemas import (
 )
 from app.services import cloze, library
 from app.services.due import due_clause, end_of_day, utcnow
+from app.services.levels import level_number
 from app.services.lexicon import is_lexical_word, user_word_sources
 from app.services.localday import user_tz
 from app.services.script import to_canonical, to_user_script
@@ -405,19 +405,11 @@ def _hsk_words_at_or_below(up_to_level: int, hsk_version: str) -> list[str]:
     """
     field = "level_new" if hsk_version == "new" else "level_old"
     prefix = "new-" if hsk_version == "new" else "old-"
-    words: list[str] = []
-    for word, entry in hsk_vocab.items():
-        level = entry.get(field)
-        if not level or not level.startswith(prefix):
-            continue
-        raw = level[len(prefix) :].replace("+", "")
-        try:
-            n = int(raw)
-        except ValueError:
-            continue
-        if n <= up_to_level:
-            words.append(word)
-    return words
+    return [
+        word
+        for word, entry in hsk_vocab.items()
+        if (n := level_number(entry.get(field), (prefix,))) is not None and n <= up_to_level
+    ]
 
 
 @router.post("/api/words/import-hsk")
@@ -487,14 +479,6 @@ async def import_hsk_known(
     }
 
 
-def _hsk_level_number(level: str | None) -> int | None:
-    """ "new-3" -> 3, "old-6" -> 6, "new-7-9" -> 7; None for anything else."""
-    if not level:
-        return None
-    m = re.match(r"^(?:new|old)-(\d+)", level)
-    return int(m.group(1)) if m else None
-
-
 def _hsk_level(entry: dict | None, hsk_version: str = "new") -> int | None:
     """Numeric HSK level of a hsk_vocab entry for the chosen HSK version.
 
@@ -506,9 +490,9 @@ def _hsk_level(entry: dict | None, hsk_version: str = "new") -> int | None:
     first, second = (
         ("level_old", "level_new") if hsk_version == "old" else ("level_new", "level_old")
     )
-    lvl = _hsk_level_number(entry.get(first))
+    lvl = level_number(entry.get(first), ("new-", "old-"))
     if lvl is None:
-        lvl = _hsk_level_number(entry.get(second))
+        lvl = level_number(entry.get(second), ("new-", "old-"))
     return lvl
 
 

@@ -36,8 +36,7 @@ import time
 from sqlalchemy.orm import Session
 
 from app.database import SavedText, UserWord
-from app.services import library
-from app.state import hsk_vocab
+from app.services import library, readability
 
 # Chinese / Western sentence-final punctuation. We keep the terminator
 # attached to the preceding sentence so the rendered cloze looks natural
@@ -151,7 +150,7 @@ def populate_sample_sentence(row: UserWord, db: Session) -> str | None:
         row.sample_sentence = sentence
         row.sample_source = _source_label(hit[1])
         return sentence
-    example = library.example_sentence(row.word, _hsk_level_number(row.word))
+    example = library.example_sentence(row.word, readability.hsk_level_number(row.word))
     if example:
         row.sample_sentence, title = example
         row.sample_source = _source_label(title)
@@ -177,13 +176,6 @@ def adopt_sentence(row: UserWord, sentence: str | None, source: str | None) -> b
 def _source_label(title: str | None) -> str | None:
     title = (title or "").strip()
     return title[:160] or None
-
-
-def _hsk_level_number(word: str) -> int | None:
-    """3 for "new-3", 7 for "new-7-9"; None outside the HSK list."""
-    level = (hsk_vocab.get(word) or {}).get("level_new") or ""
-    m = re.match(r"new-(\d+)", level)
-    return int(m.group(1)) if m else None
 
 
 __all__ = [

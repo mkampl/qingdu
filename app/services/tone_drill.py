@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.database import UserWord
 from app.services.cedict_loader import _apply_tone
+from app.services.levels import level_number
 from app.services.readings import numbered_syllables
 from app.state import hsk_vocab
 
@@ -53,18 +54,13 @@ def _tones(word: str, pinyin: str | None) -> tuple[str, ...] | None:
     return syl
 
 
-def _level(entry: dict) -> int | None:
-    raw = str(entry.get("level_new") or entry.get("level") or "")
-    digits = "".join(ch for ch in raw if ch.isdigit())
-    return int(digits) if digits else None
-
-
 def candidates() -> dict[str, Candidate]:
     out: dict[str, Candidate] = {}
     for word, entry in hsk_vocab.items():
         tones = _tones(word, entry.get("pinyin"))
         if tones and entry.get("meaning"):
-            out[word] = Candidate(word, tones, entry["meaning"], _level(entry))
+            level = level_number(entry.get("level_new") or entry.get("level"), ("new-", "old-"))
+            out[word] = Candidate(word, tones, entry["meaning"], level)
     return out
 
 

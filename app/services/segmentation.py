@@ -12,7 +12,7 @@ import jieba
 from app.core.constants import HSK_WORD_BASE_FREQ, TRANSLATION_SOURCE_HSK
 from app.schemas import WordInfo
 from app.services import grammar
-from app.services.levels import estimate_text_level
+from app.services.levels import estimate_text_level, level_number
 from app.services.lexicon import (
     dictionaries_loaded,
     in_dictionary,
@@ -47,16 +47,13 @@ def _increment_level(stats: dict, total: int, level: str | None, prefix: str) ->
     Increment the stats bucket for `level` (e.g. "new-3" -> "hsk3").
     Returns the new total (caller does `total = _increment_level(...)`).
     """
-    if not level:
+    n = level_number(level, (prefix, ""))
+    if n is None:
         return total
-    level_num = level.replace(prefix, "").replace("+", "")
-    try:
-        key = f"hsk{int(level_num)}"
-        if key in stats:
-            stats[key] += 1
-        return total + 1
-    except ValueError:
-        return total
+    key = f"hsk{n}"
+    if key in stats:
+        stats[key] += 1
+    return total + 1
 
 
 def _refine_token(token: str, glossary: dict) -> list[str]:

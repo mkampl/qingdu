@@ -12,18 +12,13 @@ from __future__ import annotations
 import random
 import re
 
+from app.services.levels import level_number
 from app.state import hsk_vocab
 
 LEVELS = range(1, 8)  # 7 = HSK 7-9
 CHOICES = 4
 MAX_ITEMS = 12
 _SPLIT = re.compile(r"[;,，；/(（]")
-
-
-def _level(entry: dict) -> int | None:
-    raw = str(entry.get("level_new") or "")
-    m = re.match(r"new-(\d)", raw)
-    return int(m.group(1)) if m else None
 
 
 def short_meaning(meaning: str) -> str:
@@ -35,7 +30,7 @@ def short_meaning(meaning: str) -> str:
 def _pool(level: int) -> list[tuple[str, str, str]]:
     out = []
     for word, entry in hsk_vocab.items():
-        if _level(entry) != level or not 1 <= len(word) <= 4:
+        if level_number(entry.get("level_new")) != level or not 1 <= len(word) <= 4:
             continue
         meaning = short_meaning(entry.get("meaning") or "")
         if len(meaning) >= 2 and not meaning.startswith(("(", "variant", "used in")):
