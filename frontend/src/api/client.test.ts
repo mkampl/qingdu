@@ -50,3 +50,19 @@ describe("request() 401 handling", () => {
     expect(onUnauthorized).toHaveBeenCalledOnce();
   });
 });
+
+describe("setUserWordState", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("sends the package a word was met in", async () => {
+    const fetch = respond(200, { word: "道", state: "learning" });
+    vi.stubGlobal("fetch", fetch);
+    await api.setUserWordState("道", "learning", null, {
+      meaning: "the Dao",
+      translation_source: "package",
+      package_source: "Dao De Jing",
+    });
+    const body = JSON.parse((fetch.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(body.package_source).toBe("Dao De Jing");
+  });
+});

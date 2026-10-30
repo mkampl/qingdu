@@ -3,6 +3,7 @@ import { useAnalysisStore } from "@/stores/analysis";
 import { useAudioPlayerStore } from "@/stores/audio-player";
 import { useReaderStore } from "@/stores/reader";
 import { useReviewStore } from "@/stores/review";
+import { useTextFoldersStore } from "@/stores/text-folders";
 import { useUserWordsStore } from "@/stores/userWords";
 import { useVocabListsStore } from "@/stores/vocab-lists";
 
@@ -12,7 +13,7 @@ import { useVocabListsStore } from "@/stores/vocab-lists";
  * states, lists, review stats or saved text.
  *
  * `keepReading` leaves the reader (current analysis, saved-text id, audio
- * queue) alone. Used when a session merely expires: the same person most
+ * queue, the folder a save goes to) alone. Used when a session merely expires: the same person most
  * likely signs straight back in and shouldn't lose the page. If a
  * *different* account signs in afterwards, the auth store resets the
  * reader then.
@@ -30,5 +31,6 @@ export function resetUserScopedStores(options: { keepReading?: boolean } = {}) {
     useAnalysisStore().reset();
     useReaderStore().reset();
     useAudioPlayerStore().reset();
+    useTextFoldersStore().reset();
   }
 }
