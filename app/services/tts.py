@@ -17,6 +17,8 @@ _TIMEOUT_SECONDS = 10.0
 # MP3 frame is self-describing.
 _MAX_CHARS_PER_REQUEST = 180
 _SPLIT_PUNCTUATION = re.compile(r"([,，。！？；：、,.!?;:])")
+# Chunk requests in flight at once for one text.
+_MAX_CONCURRENT_CHUNKS = 4
 
 
 async def fetch_chinese_tts(text: str) -> bytes:
@@ -31,7 +33,13 @@ async def fetch_chinese_tts(text: str) -> bytes:
     chunks = _split_for_tts(text)
     if len(chunks) == 1:
         return await _fetch_single(chunks[0])
-    results = await asyncio.gather(*(_fetch_single(c) for c in chunks))
+    limit = asyncio.Semaphore(_MAX_CONCURRENT_CHUNKS)
+
+    async def fetch(chunk: str) -> bytes:
+        async with limit:
+            return await _fetch_single(chunk)
+
+    results = await asyncio.gather(*(fetch(c) for c in chunks))
     return b"".join(results)
 
 
