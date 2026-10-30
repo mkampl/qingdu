@@ -38,6 +38,7 @@ from app.schemas import (
     UserSettingsUpdate,
 )
 from app.services import captcha, lifecycle, localday, srs, streak, ui_settings
+from app.services.due import REVIEW_WINDOWS
 from app.services.timestamps import iso_utc
 
 router = APIRouter(tags=["Authentication"])
@@ -252,11 +253,7 @@ async def update_my_settings(
             status_code=400,
             detail="review_retention must be between 0.85 and 0.97",
         )
-    if payload.review_window is not None and payload.review_window not in {
-        "now",
-        "today",
-        "tomorrow",
-    }:
+    if payload.review_window is not None and payload.review_window not in REVIEW_WINDOWS:
         raise HTTPException(
             status_code=400,
             detail="review_window must be 'now', 'today', or 'tomorrow'",
