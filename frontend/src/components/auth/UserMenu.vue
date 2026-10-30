@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { ref } from "vue";
 import { useRouter } from "vue-router";
+
+import { useDismiss } from "@/composables/use-dismiss";
 
 import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
@@ -23,24 +25,7 @@ function close() {
   open.value = false;
 }
 
-function onDocumentClick(e: MouseEvent) {
-  if (!open.value) return;
-  const target = e.target as Node;
-  if (rootRef.value && !rootRef.value.contains(target)) {
-    open.value = false;
-  }
-}
-function onKey(e: KeyboardEvent) {
-  if (e.key === "Escape") open.value = false;
-}
-onMounted(() => {
-  document.addEventListener("click", onDocumentClick);
-  document.addEventListener("keydown", onKey);
-});
-onBeforeUnmount(() => {
-  document.removeEventListener("click", onDocumentClick);
-  document.removeEventListener("keydown", onKey);
-});
+useDismiss(open, rootRef, close);
 
 function openChangePassword() {
   close();
