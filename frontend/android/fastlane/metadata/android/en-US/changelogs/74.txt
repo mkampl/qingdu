@@ -1,0 +1,8 @@
+1.1.3 — Review and reading:
+- Grade buttons show when the card comes back (e.g. Good · 5d)
+- Clearer wording in review, settings, import and reminders
+- A word marked in a package text keeps its package name
+- After switching accounts, no folders of the previous account remain
+- Audio: a second tap restarts the clip; closing a sentence translation stops its audio
+- Escape closes one layer at a time (word popup before sentence)
+- Many internal cleanups; no change to your data
