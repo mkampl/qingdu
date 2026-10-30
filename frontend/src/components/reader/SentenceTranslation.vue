@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 
 import * as api from "@/api/client";
 import SentenceGrammar from "@/components/reader/SentenceGrammar.vue";
+import { useTtsPlayer } from "@/composables/use-tts-player";
 import { useReaderStore } from "@/stores/reader";
 
 const props = defineProps<{ text: string }>();
@@ -24,32 +25,13 @@ const sourceLabel = computed(() => {
 });
 
 // Sentence playback uses the body-based POST /api/tts/sentence (long
-// sentences don't fit a URL path). We keep a per-instance Audio element so
-// a click during playback re-triggers from the start cleanly.
-const ttsLoading = ref(false);
-let currentAudio: HTMLAudioElement | null = null;
+// sentences don't fit a URL path). A click during playback starts the
+// sentence again from the beginning.
+const { loading: ttsLoading, play: playAudio } = useTtsPlayer();
 
 async function playSentence() {
   if (!props.text || ttsLoading.value) return;
-  ttsLoading.value = true;
-  try {
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-    }
-    const response = await api.ttsSentence(props.text);
-    if (!response.ok) throw new Error("TTS failed");
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    currentAudio = audio;
-    audio.addEventListener("ended", () => URL.revokeObjectURL(url));
-    await audio.play();
-  } catch {
-    /* swallow — the next click can retry. */
-  } finally {
-    ttsLoading.value = false;
-  }
+  await playAudio(() => api.ttsSentence(props.text));
 }
 </script>
 

@@ -12,6 +12,7 @@ import { useSettingsStore } from "@/stores/settings";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 import { useVocabListsStore } from "@/stores/vocab-lists";
+import { useTtsPlayer } from "@/composables/use-tts-player";
 import { hasOpenOverlay } from "@/utils/modal-stack";
 
 import { defaultSectionName, sectionContaining } from "@/utils/vocab-lists";
@@ -119,23 +120,11 @@ onBeforeUnmount(() => {
   contentObserver?.disconnect();
 });
 
-const ttsLoading = ref(false);
+const { loading: ttsLoading, play: playAudio } = useTtsPlayer();
 async function playTts() {
-  if (!word.value?.text) return;
-  ttsLoading.value = true;
-  try {
-    const response = await api.tts(word.value.text);
-    if (!response.ok) throw new Error("TTS failed");
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.addEventListener("ended", () => URL.revokeObjectURL(url));
-    await audio.play();
-  } catch {
-    /* ignore — keep button responsive */
-  } finally {
-    ttsLoading.value = false;
-  }
+  const text = word.value?.text;
+  if (!text) return;
+  await playAudio(() => api.tts(text));
 }
 
 watch(word, (next) => {

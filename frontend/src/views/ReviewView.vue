@@ -30,6 +30,7 @@ import WordReadings from "@/components/reader/WordReadings.vue";
 import { customGlosses, leadGloss } from "@/utils/glosses";
 import { useOpenLibraryText } from "@/composables/use-open-library-text";
 import { useOpenSavedText } from "@/composables/use-open-saved-text";
+import { useTtsPlayer } from "@/composables/use-tts-player";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useReviewStore } from "@/stores/review";
@@ -126,7 +127,7 @@ const DICTATION_VERDICT = {
   wrong: "Not quite",
   "": "",
 } as const;
-const ttsLoading = ref(false);
+const { loading: ttsLoading, play: playAudio, cancel: cancelTts } = useTtsPlayer();
 
 // Writing-quiz result for the card, turned into a suggested FSRS grade.
 const writingMistakes = ref(0);
@@ -312,65 +313,13 @@ function revealRead() {
   void playTts();
 }
 
-// The playing TTS audio, so a new playTts() stops the previous one (no
-// echo) and revokes its blob URL.
-let activeTtsAudio: HTMLAudioElement | null = null;
-let activeTtsUrl: string | null = null;
-
-function stopActiveTts() {
-  if (activeTtsAudio) {
-    try {
-      activeTtsAudio.pause();
-      activeTtsAudio.currentTime = 0;
-    } catch {
-      // ignore — element may have been GC'd
-    }
-    activeTtsAudio = null;
-  }
-  if (activeTtsUrl) {
-    URL.revokeObjectURL(activeTtsUrl);
-    activeTtsUrl = null;
-  }
-}
-
-// Bumped by every playTts() and whenever the card changes or the view
-// unmounts. A fetch that resolves after that is dropped instead of
-// playing the previous card's audio over the current one.
-let ttsSeq = 0;
-
-function cancelTts() {
-  ttsSeq += 1;
-  stopActiveTts();
-  ttsLoading.value = false;
-}
-
+// A new playTts() stops the previous clip (no echo). cancelTts() runs when
+// the card changes, so a late fetch doesn't play the previous card's audio
+// over the current one; the player also cancels on unmount.
 async function playTts() {
   if (!card.value) return;
-  stopActiveTts();
-  const seq = ++ttsSeq;
-  ttsLoading.value = true;
-  try {
-    const r = await api.tts(card.value.word);
-    if (!r.ok) throw new Error("TTS failed");
-    const blob = await r.blob();
-    if (seq !== ttsSeq) return;
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    activeTtsAudio = audio;
-    activeTtsUrl = url;
-    audio.addEventListener("ended", () => {
-      if (activeTtsAudio === audio) {
-        URL.revokeObjectURL(url);
-        activeTtsAudio = null;
-        activeTtsUrl = null;
-      }
-    });
-    await audio.play();
-  } catch {
-    /* keep button responsive */
-  } finally {
-    if (seq === ttsSeq) ttsLoading.value = false;
-  }
+  const word = card.value.word;
+  await playAudio(() => api.tts(word));
 }
 
 // Grade row — visible after reveal in recognition / read, after an answer
@@ -596,7 +545,6 @@ async function dictationContinue() {
 
 onBeforeUnmount(() => {
   cancelAutoGrade();
-  cancelTts();
   review.inFocus = false;
   window.removeEventListener("keydown", onReviewKeydown);
 });
