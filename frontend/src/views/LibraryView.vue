@@ -1,9 +1,8 @@
 <script setup lang="ts">
 /**
- * Library: the full bundled HSK 1-9 reading collection. Anonymous-readable.
- * Filterable by HSK band + free-text search across title/topic; the For-You
- * personalisation lives in DiscoverView and depends on auth + a non-empty
- * known-word set, which this page intentionally does not require.
+ * Library: the full bundled HSK 1-9 reading collection, readable without
+ * an account. Filter by HSK level, search title/topic. Per-user progress
+ * and readability badges appear when signed in.
  */
 
 import { computed, onMounted, ref } from "vue";
@@ -18,7 +17,6 @@ import type {
 import ReadableBadge from "@/components/ui/ReadableBadge.vue";
 import { onAuthReady } from "@/composables/use-auth-ready";
 import { useOpenLibraryText } from "@/composables/use-open-library-text";
-
 
 const items = ref<LibraryManifestItem[]>([]);
 const loading = ref(false);
@@ -48,7 +46,7 @@ onMounted(async () => {
 });
 
 // Read/quiz badges are per-user: fetched once the session check settles
-// (a hard reload used to miss them), dropped on logout.
+// (so a hard reload gets them too), dropped on logout.
 onAuthReady(
   async () => {
     try {
@@ -127,10 +125,6 @@ const countByLevel = computed(() => {
 });
 
 const openLibraryText = useOpenLibraryText();
-
-function open(item: LibraryManifestItem) {
-  void openLibraryText(item.slug);
-}
 </script>
 
 <template>
@@ -162,9 +156,8 @@ function open(item: LibraryManifestItem) {
       </RouterLink>.
     </p>
 
-    <!-- Filter bar — on mobile the HSK chips ride a horizontal snap-scroll
-         strip and the search + sort drop onto their own row, so the page
-         doesn't open with a three-line wall of controls. -->
+    <!-- Filter bar. Mobile: HSK chips in a horizontal snap-scroll strip,
+         search + sort on their own row. -->
     <div class="mb-6 space-y-2 sm:mb-8 sm:flex sm:flex-wrap sm:items-center sm:gap-3 sm:space-y-0">
       <div
         class="-mx-4 flex snap-x snap-mandatory items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
@@ -239,7 +232,7 @@ function open(item: LibraryManifestItem) {
         <button
           type="button"
           class="group flex h-full w-full flex-col gap-2 rounded-lg border border-border bg-bg-elevated p-4 text-left transition-shadow hover:shadow-md"
-          @click="open(item)"
+          @click="openLibraryText(item.slug)"
         >
           <div class="flex items-start justify-between gap-2">
             <p

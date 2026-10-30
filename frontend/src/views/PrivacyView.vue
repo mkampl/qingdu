@@ -1,13 +1,9 @@
 <script setup lang="ts">
-// Audit trust item — a plain, honest privacy page. Linked from the footer,
-// the F-Droid listing, and the fastlane metadata. Content is written for
-// the demo server (qingdu.itvoodoo.at); a self-hosted instance is governed
-// by whoever runs it, and the page says so.
-//
-// Self-hosters can turn this page off entirely (PRIVACY_PAGE_ENABLED=false)
-// if their jurisdiction doesn't require one or they'd rather link their own
-// policy — the content below is written for the maintainer's demo server
-// and would be misleading if left up unedited to describe someone else's.
+// Privacy page, linked from the footer, the F-Droid listing and the fastlane
+// metadata. The content describes the demo server (qingdu.itvoodoo.at); a
+// self-hosted instance is governed by whoever runs it, and the page says so.
+// Self-hosters can turn it off (PRIVACY_PAGE_ENABLED=false) and link their
+// own policy instead.
 import { onMounted } from "vue";
 
 import { getApiBase, getDefaultApiBase } from "@/api/client";

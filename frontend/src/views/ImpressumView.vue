@@ -1,8 +1,6 @@
 <script setup lang="ts">
-// Content is entirely operator-supplied (env vars, see .env.example) — this
-// component never hardcodes anyone's real name/address. If the operator
-// hasn't configured it, that's a valid state for a self-hosted instance,
-// not an error: show a neutral notice instead of a broken page.
+// Content comes from the operator's env vars (see .env.example). Unset is
+// valid for a self-hosted instance: show a neutral notice.
 import { onMounted } from "vue";
 
 import { useLegalStore } from "@/stores/legal";

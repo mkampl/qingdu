@@ -52,9 +52,8 @@ type LoadState =
 
 const state = ref<LoadState>({ status: "idle" });
 const search = ref("");
-// Per-row UX state — track which row is in "are you sure?" mode and which
-// is currently being deleted, so the page survives a slow network without
-// double-firing the request.
+// The row asking "are you sure?" and the one being deleted (no double
+// request on a slow network).
 const pendingDeleteId = ref<number | null>(null);
 const deletingId = ref<number | null>(null);
 const openingId = ref<number | null>(null);
@@ -79,10 +78,8 @@ async function load() {
 
 onMounted(load);
 
-// When the user signs in from the empty-state CTA (which opens the modal
-// without navigating), the page wouldn't fetch the library again until
-// the user manually visited another route and came back. Watch the auth
-// flag so the load fires the moment they're authed.
+// Signing in from the sign-in CTA opens a modal without navigating, so
+// load on the auth change.
 watch(
   () => auth.isAuthed,
   (isAuthed) => {
@@ -325,14 +322,6 @@ async function shift(text: SavedTextSummary, by: -1 | 1) {
     toasts.error(e instanceof ApiError ? e.message : "Couldn't save the order.");
     void load();
   }
-}
-
-function askDelete(id: number) {
-  pendingDeleteId.value = id;
-}
-
-function cancelDelete() {
-  pendingDeleteId.value = null;
 }
 
 async function confirmDelete(text: SavedTextSummary) {
@@ -726,7 +715,7 @@ async function confirmDelete(text: SavedTextSummary) {
                 <button
                   type="button"
                   class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle hover:text-fg"
-                  @click="cancelDelete"
+                  @click="pendingDeleteId = null"
                   :disabled="deletingId === text.id"
                 >
                   Cancel
@@ -775,7 +764,8 @@ async function confirmDelete(text: SavedTextSummary) {
                   type="button"
                   class="rounded-md p-1.5 text-fg-subtle transition-colors hover:bg-bg-sunken hover:text-red-700 dark:hover:text-red-300"
                   :title="`Delete ${text.title || 'this text'}`"
-                  @click="askDelete(text.id)"
+                  @click="pendingDeleteId = text.id"
+
                 >
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                     <path

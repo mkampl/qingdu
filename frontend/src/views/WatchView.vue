@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Watch & read — prototype (spike, not linked from nav yet).
+ * Watch & read — prototype, not linked from the nav.
  *
  * Paste a YouTube URL, embed the official player, fetch its Chinese
  * caption track through /api/media/youtube (already segmented + HSK/CEDICT
@@ -9,11 +9,8 @@
  * word for the same popover the Reader uses, click a sentence to jump
  * the video there and fetch its translation.
  *
- * This proves the end-to-end mechanism (real captions -> real analysis ->
- * real sync) before deciding whether it's worth building into a proper
- * feature. See the Discover-page conversation for the licensing analysis
- * behind why this is built on open caption data instead of scraping a
- * paywalled transcript site.
+ * Built on the video's own caption track rather than a scraped
+ * third-party transcript, for licensing reasons.
  */
 import { computed, nextTick, onBeforeUnmount, ref } from "vue";
 
@@ -28,8 +25,8 @@ import { useReaderStore } from "@/stores/reader";
 import { useSettingsStore } from "@/stores/settings";
 import { useToastStore } from "@/stores/toast";
 
-// Minimal ambient shim for the bits of the YouTube IFrame Player API we
-// use — not worth a whole @types/youtube dependency for a prototype.
+// The parts of the YouTube IFrame Player API used here (no @types/youtube).
+
 interface YTPlayer {
   getCurrentTime(): number;
   seekTo(seconds: number, allowSeekAhead: boolean): void;

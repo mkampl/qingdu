@@ -164,10 +164,8 @@ async function refresh() {
     fetched.value = r.items.length;
     hasMore.value = r.has_more;
     loaded.value = true;
-    // Pull the same numbers the header badge shows, so the user can't see
-    // "38 due" in the nav and "28 due" here at the same time.
-    review.refreshStats();
-    userWords.refreshStats();
+    // Keep the counters in step with the header badge.
+    refreshCounters();
   } catch (e) {
     if (!requests.isLatest(id)) return;
     error.value = e instanceof Error ? e.message : "Couldn't load your queue";
@@ -201,7 +199,6 @@ async function loadMore() {
 }
 
 const nextBatch = computed(() => nextBatchSize(items.value.length, total.value, PAGE));
-
 
 watch([stateFilter, dueFilter, hskFilter, sortKey], () => refresh(), { deep: true });
 watch(search, () => {
@@ -642,11 +639,9 @@ function toggleExpanded(word: string) {
               >
                 ⚡ Review now
               </button>
-              <!-- Practice — a no-consequences session for this one word.
-                   No FSRS advance, no streak update, no due-date shuffle.
-                   Handy for eyeballing how a card will look next time, or
-                   for extra writing practice out of turn. See the review
-                   store's startPractice() for the wiring. -->
+              <!-- Practice: a session for this one word that changes no
+                   schedule, streak or stats (review.startPractice). -->
+
               <button
                 type="button"
                 class="rounded-md border border-border bg-bg-elevated px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted hover:text-fg"

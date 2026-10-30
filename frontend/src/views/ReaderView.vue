@@ -63,8 +63,6 @@ const saved = ref(false);
 const saving = ref(false);
 const justSaved = ref(false); // drives the chop-settle animation
 
-const placeholderSeeded = ref(false);
-
 // A text opened while the reader is already showing (previous / next in a
 // folder, the Today panel) replaces the analysis; keep the collapsed
 // editor's text, and with it the char count, in step.
@@ -75,19 +73,16 @@ watch(
   },
 );
 
-// Seed with a literary opening line on first mount if there's no input,
-// so the empty state is welcoming rather than blank.
+// Seed a starter sentence on first mount if there's no input.
 const STARTER_TEXT =
   "我今天去学校学习中文。老师教我们很多新的汉字。我觉得中文很有意思,但是也很难。";
 
 onMounted(() => {
   if (!analysis.inputText && !analysis.hasResult) {
     localInput.value = STARTER_TEXT;
-    placeholderSeeded.value = true;
   }
-  // Cold-start guard: if the backend is still loading HSK vocab, the user's
-  // click on Analyze would 503. Kick off a poll so we know when it's ready
-  // and can show a friendly banner in the meantime.
+  // While the backend is still loading HSK vocab, Analyze would 503: poll
+  // until it's ready and show a banner meanwhile.
   void vocabStats.startPolling();
 });
 onBeforeUnmount(() => vocabStats.stop());
@@ -193,7 +188,6 @@ async function onAnalyze() {
   try {
     await analysis.analyze(localInput.value);
     showEditor.value = false;
-    placeholderSeeded.value = false;
     await nextTick();
     if (articleRef.value) {
       articleRef.value.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -222,7 +216,6 @@ function onClear() {
   reader.reset();
   saved.value = false;
   showEditor.value = true;
-  placeholderSeeded.value = false;
 }
 
 // --- Import from URL ----------------------------------------------------
@@ -251,17 +244,14 @@ function onImported(payload: {
   analysis.reset();
   reader.reset();
   saved.value = false;
-  placeholderSeeded.value = false;
 
   if (payload.analysisData) {
-    // Phase #100 package-import path — the package carries pre-computed
-    // analysis, so skip the editor and go straight to the analysed view.
+    // Package import: the package carries its analysis, so skip the editor.
     analysis.loadSaved(payload.content, payload.analysisData, null);
     showEditor.value = false;
     localInput.value = payload.content;
   } else {
-    // URL / EPUB / PDF / Scan path — populate the editor and let the user
-    // hit Analyze when they're ready.
+    // URL / EPUB / PDF / scan: fill the editor; the user hits Analyze.
     localInput.value = payload.content;
     showEditor.value = true;
   }
@@ -273,8 +263,8 @@ function onImported(payload: {
   }
 }
 
-// Best-effort title from the first sentence (clipped). Used for FRESH saves;
-// loaded saved texts use their stored title (analysis.savedTextTitle).
+// Title from the first sentence (clipped), for first saves; saved texts use
+// their stored title (analysis.savedTextTitle).
 const derivedTitle = computed(() => {
   const text = analysis.inputText.trim();
   if (!text) return "Untitled";
@@ -423,13 +413,12 @@ onBeforeUnmount(() => document.removeEventListener("keydown", onGlobalKey));
 
 // --- Reading-progress persistence ---------------------------------------
 //
-// When the user opens a saved text, the analysis store carries its id +
-// last-known progress. We:
-//   1. Restore scroll to roughly that position once the article element is
-//      laid out (next-tick after ReadingText renders).
-//   2. Debounce-PATCH /api/texts/:id with the current scroll fraction so
-//      Saved Texts cards reflect real progress instead of always 0%.
-//   3. Cancel any pending PATCH if the user navigates away.
+// A saved text opened in the analysis store carries its id + last-known
+// progress. Here:
+//   1. Restore scroll to roughly that position once the article is laid out.
+//   2. Debounce-PATCH /api/texts/:id with the scroll fraction, shown on the
+//      Saved Texts cards.
+//   3. Flush a pending PATCH on unmount.
 
 const liveProgress = ref(0);
 let progressFlushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -437,8 +426,7 @@ let lastPersistedProgress: number | null = null;
 
 function schedulePersist(value: number) {
   if (!analysis.savedTextId) return;
-  // Skip noise: only persist when the value moves by ≥ 1%, plus the natural
-  // 100% milestone, so we don't hammer the API on micro-scrolls.
+  // Persist only when the value moves by ≥ 1%, or first reaches the end.
   if (
     lastPersistedProgress !== null &&
     Math.abs(value - lastPersistedProgress) < 0.01 &&
@@ -470,11 +458,9 @@ function onProgress(value: number) {
   schedulePersist(value);
 }
 
-// Restore scroll position after the article renders. We can't jump to a
-// pixel offset deterministically (the article height isn't known until
-// after layout), so we restore by scrolling <main> (see utils/scroll.ts —
-// window itself never scrolls) to a multiple of the article's bounding
-// height, matching what ReadingProgress.compute would compute.
+// Restore the scroll position as a fraction of the article's height once it
+// is laid out, matching ReadingProgress. Scrolls the app scroll element
+// (see utils/scroll.ts — window itself never scrolls).
 function restoreScroll() {
   const target = analysis.initialProgress;
   if (target <= 0 || !articleRef.value) return;
@@ -532,22 +518,19 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="relative">
-    <!-- The reading column + sticky margin panel. Generous outer padding so
-         the text breathes; the margin panel sits to the right on ≥ md.
-         In listen mode we collapse the right column so the text takes the
-         whole frame — auto-scrolled narration with no marginalia. -->
+    <!-- Reading column + sticky margin panel to the right on ≥ md. Listen
+         mode drops the right column so the text takes the whole frame. -->
     <div
       class="mx-auto grid max-w-6xl grid-cols-1 gap-x-12 gap-y-8 px-5 pt-10 pb-24 sm:px-8 md:pt-14 lg:px-10"
       :class="audioPlayer.listenMode ? 'md:grid-cols-1' : 'md:grid-cols-[1fr_320px]'"
     >
-      <!-- LEFT: reading column. We keep its own max-width tight so line length
-           stays in the comfortable 60-72ch range for Chinese reading. -->
+      <!-- LEFT: reading column. -->
       <main
         class="relative min-w-0"
         aria-label="Reading"
       >
-        <!-- Vertical progress hairline (≥ md only). Positioned just outside
-             the column's left edge — mimics the spine of an open book. -->
+        <!-- Vertical progress hairline (≥ md only), just outside the
+             column's left edge. -->
         <div
           class="pointer-events-none absolute -left-6 top-0 hidden h-full md:block"
           aria-hidden="true"
@@ -779,9 +762,7 @@ onBeforeUnmount(() => {
 
         <!-- The analysed reading text. -->
         <article ref="articleRef" class="relative">
-          <!-- Analysing state — shown WHILE the request is in flight so the
-               page doesn't go blank under the input panel. Replaced by
-               ReadingText once analysis.result lands. -->
+          <!-- Shown while the analysis request is in flight. -->
           <AnalysingCard
             v-if="analysis.loading"
             :text-length="(localInput || analysis.inputText).length"
@@ -795,16 +776,13 @@ onBeforeUnmount(() => {
           <!-- Previous / next text of the folder. -->
           <TextSeriesNav v-if="analysis.result && !analysis.loading" placement="bottom" />
 
-          <!-- Continuous narration player. Only shows once we have an
-               analysed text — gates on .result so the empty state stays
-               clean. Sticks to the bottom of the viewport so it stays
-               reachable as you scroll. -->
+          <!-- Continuous narration player, sticky at the bottom of the
+               viewport. -->
           <PlayerBar v-if="analysis.result" :analysis="analysis.result" />
 
-          <!-- Empty state. For authed users, ReaderTodayPanel surfaces the
-               three actionable hooks (due reviews, continue reading, library
-               pick) above the paste prompt; anonymous users (or authed users
-               with no hooks yet) only see the invitation below. -->
+          <!-- Empty state. ReaderTodayPanel shows due reviews, continue
+               reading and a library pick for signed-in users, above the
+               paste prompt. -->
           <div v-else class="flex flex-col items-start gap-4 text-fg-muted">
             <ReaderTodayPanel />
             <div
@@ -866,9 +844,9 @@ onBeforeUnmount(() => {
             @share="openShare"
           />
 
-          <!-- Grammar patterns detected in the current text. Only renders
-               itself when the analysis carries grammar matches; renders
-               nothing for older saved analyses pre-Phase D. -->
+          <!-- Grammar patterns in the text; renders nothing when the
+               analysis has no grammar matches. -->
+
           <GrammarPanel :grammar="analysis.result.grammar" />
         </aside>
       </Transition>
