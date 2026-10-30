@@ -21,6 +21,10 @@ import StrokeOrder from "@/components/reader/StrokeOrder.vue";
 import WritingQuiz from "@/components/reader/WritingQuiz.vue";
 import ContextSentence from "@/components/review/ContextSentence.vue";
 import RevealedAnswer from "@/components/review/RevealedAnswer.vue";
+import ReviewStart from "@/components/review/ReviewStart.vue";
+import ScopeBanner from "@/components/review/ScopeBanner.vue";
+import SessionComplete from "@/components/review/SessionComplete.vue";
+import StatTiles from "@/components/review/StatTiles.vue";
 import WordDetails from "@/components/reader/WordDetails.vue";
 import WordReadings from "@/components/reader/WordReadings.vue";
 import { customGlosses, leadGloss } from "@/utils/glosses";
@@ -123,29 +127,6 @@ const DICTATION_VERDICT = {
   "": "",
 } as const;
 const ttsLoading = ref(false);
-
-const modes: { id: ReviewMode; label: string; hint: string }[] = [
-  {
-    id: "recognition",
-    label: "Recognition",
-    hint: "See the character, recall the meaning",
-  },
-  {
-    id: "dictation",
-    label: "Dictation",
-    hint: "Listen, type what you hear",
-  },
-  {
-    id: "writing",
-    label: "Writing",
-    hint: "Draw the character stroke by stroke",
-  },
-  {
-    id: "cloze",
-    label: "Cloze",
-    hint: "Fill the blank in a real sentence from your saved texts",
-  },
-];
 
 // Writing-quiz result for the card, turned into a suggested FSRS grade.
 const writingMistakes = ref(0);
@@ -286,7 +267,8 @@ async function start(mode: QueueMode) {
   await review.loadQueue(mode);
 }
 
-// Advanced disclosure with the four single modes. Choosing one persists
+// Open state of the start screen's Advanced disclosure (the four single
+// modes), kept here so it survives a session. Choosing a mode persists
 // settings.reviewSingleMode.
 const advancedOpen = ref(false);
 
@@ -733,61 +715,20 @@ onMounted(() => {
     </div>
 
     <!-- Focused session: only the words of one text or vocab list. -->
-    <div
+    <ScopeBanner
       v-if="auth.isAuthed && review.scope"
-      class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/40 bg-accent/5 px-4 py-2.5"
-    >
-      <p class="text-sm text-fg">
-        <span class="font-mono text-[10px] uppercase tracking-wider text-accent">
-          {{ review.scope.listId !== undefined ? "List" : "Text" }}
-        </span>
-        <span class="ml-2 font-medium">{{ review.scopeInfo?.title || "Focused review" }}</span>
-        <span v-if="review.scopeInfo" class="ml-2 text-xs text-fg-muted">
-          {{ review.scopeInfo.due }} due · {{ review.scopeInfo.total }} words
-        </span>
-      </p>
-      <span class="flex items-center gap-4">
-        <button
-          v-if="scopeText"
-          type="button"
-          class="font-mono text-[10px] uppercase tracking-wider text-accent hover:text-fg"
-          @click="backToText"
-        >
-          ← Back to text
-        </button>
-        <button
-          type="button"
-          class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle hover:text-fg"
-          @click="clearScope"
-        >
-          All reviews
-        </button>
-      </span>
-    </div>
+      :scope="review.scope"
+      :info="review.scopeInfo"
+      :can-go-back="scopeText !== null"
+      @back="backToText"
+      @clear="clearScope"
+    />
 
     <!-- 7-day activity sparkline, above the counter strip. -->
     <WeeklySparkline v-if="auth.isAuthed && !focusMode && !review.scope" class="mb-4" />
 
     <!-- Stats strip; smaller numbers on mobile. -->
-    <div
-      v-if="auth.isAuthed && !focusMode"
-      class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3"
-    >
-      <div
-        v-for="(stat, key) in statTiles"
-        :key="key"
-        class="rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 sm:px-4 sm:py-3"
-      >
-        <p
-          class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
-        >
-          {{ key }}
-        </p>
-        <p class="mt-0.5 font-display text-xl tabular-nums text-fg sm:mt-1 sm:text-2xl">
-          {{ stat.toLocaleString() }}
-        </p>
-      </div>
-    </div>
+    <StatTiles v-if="auth.isAuthed && !focusMode" :tiles="statTiles" />
 
     <!-- Daily-target progress. Hidden when the target is 0 (auto-enrol
          off in Settings). -->
@@ -805,104 +746,17 @@ onMounted(() => {
 
     <!-- Start screen. Mixed mode is the default button; the four single
          modes sit behind an Advanced disclosure. -->
-    <div
+    <ReviewStart
       v-if="auth.isAuthed && review.queue.length === 0 && !review.loading"
-      class="space-y-4"
-    >
-      <p
-        class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
-      >
-        {{ settings.reviewSingleMode ? "Pick a mode to begin" : "Ready to review" }}
-      </p>
-
-      <!-- Mixed-mode Start. -->
-      <button
-        v-if="!settings.reviewSingleMode"
-        type="button"
-        :disabled="effectiveDueCount === 0"
-        class="group flex w-full items-center justify-between rounded-lg border border-accent/40 bg-accent/5 px-5 py-3.5 text-left transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50"
-        @click="startMixed"
-      >
-        <span class="font-display text-lg font-medium text-fg">
-          <template v-if="review.scope">
-            Start these {{ effectiveDueCount }}
-          </template>
-          <template v-else>Start review</template>
-        </span>
-        <span class="font-mono text-[10px] uppercase tracking-wider text-fg-muted group-hover:text-fg">
-          →
-        </span>
-      </button>
-
-      <!-- Advanced disclosure — single-mode picks. Open while single mode
-           is the user's choice, so they can continue or switch back. -->
-      <details
-        v-if="!review.scope"
-        :open="settings.reviewSingleMode || advancedOpen"
-        class="group rounded-lg border border-border-subtle bg-bg-elevated"
-        @toggle="advancedOpen = ($event.target as HTMLDetailsElement).open"
-      >
-        <summary class="flex cursor-pointer items-center justify-between px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted hover:text-fg">
-          {{ settings.reviewSingleMode ? "Single-mode picker" : "Advanced — drill one modality" }}
-          <span class="text-fg-subtle">⌃</span>
-        </summary>
-        <div class="border-t border-border-subtle px-4 py-3">
-          <button
-            v-if="settings.reviewSingleMode"
-            type="button"
-            class="mb-3 w-full rounded-md border border-accent/40 bg-accent/5 px-3 py-2 text-left text-xs font-medium text-accent transition-colors hover:bg-accent/10"
-            @click="switchToMixed"
-          >
-            ← Use Mixed mode (recommended)
-          </button>
-          <div class="grid gap-2 sm:grid-cols-2 sm:gap-3">
-            <button
-              v-for="m in modes"
-              :key="m.id"
-              type="button"
-              :disabled="effectiveDueCount === 0"
-              class="rounded-md border border-border-subtle bg-bg px-3 py-2.5 text-left transition-colors hover:border-accent hover:bg-bg-sunken disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border-subtle disabled:hover:bg-bg"
-              @click="startSingle(m.id)"
-            >
-              <span class="block font-display text-sm font-medium text-fg">
-                {{ m.label }}
-              </span>
-              <span class="block text-xs text-fg-muted">{{ m.hint }}</span>
-            </button>
-          </div>
-        </div>
-      </details>
-
-      <!-- Tone practice: hear a word, pick its tones (no grading). -->
-      <RouterLink
-        v-if="!review.scope"
-        to="/tones"
-        class="flex items-center justify-between rounded-lg border border-border-subtle bg-bg-elevated px-4 py-2.5 transition-colors hover:border-accent"
-      >
-        <span>
-          <span class="block font-display text-sm font-medium text-fg">Tone practice</span>
-          <span class="block text-xs text-fg-muted">Hear a word, pick its tones (mǎi or mài?)</span>
-        </span>
-        <span class="font-mono text-[10px] uppercase tracking-wider text-fg-muted">→</span>
-      </RouterLink>
-
-      <div
-        v-if="effectiveDueCount === 0 && review.stats.in_rotation > 0"
-        class="mt-2 rounded-lg border border-border-subtle bg-bg-elevated px-5 py-4 text-center text-sm text-fg-muted"
-      >
-        Nothing's due right now — come back later. Your
-        {{ review.stats.in_rotation.toLocaleString() }} Learning and Known
-        words come back on their own schedule.
-      </div>
-      <div
-        v-else-if="review.stats.in_rotation === 0"
-        class="mt-2 rounded-lg border border-border-subtle bg-bg-elevated px-5 py-4 text-center text-sm text-fg-muted"
-      >
-        Nothing to review yet. Click any word in the reader and choose
-        "Learning" (or "Known") from the popover — both join your review
-        rotation.
-      </div>
-    </div>
+      v-model:advanced-open="advancedOpen"
+      :due-count="effectiveDueCount"
+      :scoped="review.scope !== null"
+      :single-mode="settings.reviewSingleMode"
+      :in-rotation="review.stats.in_rotation"
+      @start-mixed="startMixed"
+      @start-single="startSingle"
+      @switch-to-mixed="switchToMixed"
+    />
 
     <!-- Loading state -->
     <div
@@ -1428,51 +1282,17 @@ onMounted(() => {
     </div>
 
     <!-- Session complete -->
-    <div
+    <SessionComplete
       v-else-if="
         auth.isAuthed && review.sessionGraded > 0 && review.queue.length > 0
       "
-      class="rounded-lg border border-border-subtle bg-bg-elevated px-6 py-10 text-center"
-    >
-      <p class="font-display text-xl font-medium text-fg">Session complete.</p>
-      <p class="mt-2 text-sm text-fg-muted">
-        {{ review.sessionGraded.toLocaleString() }} card{{
-          review.sessionGraded === 1 ? "" : "s"
-        }}
-        reviewed.
-        <template v-if="effectiveDueCount > 0">
-          {{ effectiveDueCount.toLocaleString() }} still due — keep going?
-        </template>
-        <template v-else>
-          Nothing else due right now. Come back later.
-        </template>
-      </p>
-      <div class="mt-6 flex justify-center gap-3">
-        <button
-          v-if="effectiveDueCount > 0"
-          type="button"
-          class="rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90"
-          @click="start(review.queueMode)"
-        >
-          Continue ({{ effectiveDueCount }})
-        </button>
-        <button
-          v-if="scopeText"
-          type="button"
-          class="rounded-full border border-accent px-4 py-1.5 text-sm text-accent transition-colors hover:bg-bg-sunken"
-          @click="backToText"
-        >
-          ← Back to text
-        </button>
-        <button
-          type="button"
-          class="rounded-full border border-border px-4 py-1.5 text-sm text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
-          @click="review.reset()"
-        >
-          Done
-        </button>
-      </div>
-    </div>
+      :graded="review.sessionGraded"
+      :due="effectiveDueCount"
+      :can-go-back="scopeText !== null"
+      @continue="start(review.queueMode)"
+      @back="backToText"
+      @done="review.reset()"
+    />
   </section>
 </template>
 
