@@ -7,6 +7,7 @@ import type { InvitationSummary } from "@/api/types";
 import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
 import { useToastStore } from "@/stores/toast";
+import type { LoadState } from "@/utils/load-state";
 import { formatUtcDate } from "@/utils/time";
 
 import Button from "@/components/ui/Button.vue";
@@ -17,17 +18,12 @@ const auth = useAuthStore();
 const modals = useAppModalsStore();
 const toasts = useToastStore();
 
-type LoadState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | {
-      status: "ok";
-      invitations: InvitationSummary[];
-      quota: { total: number; used: number; remaining: number };
-    }
-  | { status: "error"; message: string };
+type InvitationsState = LoadState<{
+  invitations: InvitationSummary[];
+  quota: { total: number; used: number; remaining: number };
+}>;
 
-const state = ref<LoadState>({ status: "idle" });
+const state = ref<InvitationsState>({ status: "idle" });
 const generating = ref(false);
 
 async function load() {
@@ -107,14 +103,14 @@ function formatDate(iso: string): string {
   }
 }
 
-const quotaLabel = (state: LoadState) => {
+const quotaLabel = (state: InvitationsState) => {
   if (state.status !== "ok") return "";
   const { total, used, remaining } = state.quota;
   if (total === -1) return `${used} sent · unlimited`;
   return `${used} of ${total} used · ${remaining} remaining`;
 };
 
-const canGenerate = (state: LoadState) => {
+const canGenerate = (state: InvitationsState) => {
   if (state.status !== "ok") return false;
   return state.quota.total === -1 || state.quota.remaining > 0;
 };

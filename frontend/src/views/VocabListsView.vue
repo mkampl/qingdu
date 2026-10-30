@@ -6,10 +6,12 @@ import * as api from "@/api/client";
 import { ApiError } from "@/api/client";
 import type { VocabularyListSummary } from "@/api/types";
 import { onAuthReady } from "@/composables/use-auth-ready";
+import { useInlineDelete } from "@/composables/use-inline-delete";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useToastStore } from "@/stores/toast";
 import { useVocabListsStore } from "@/stores/vocab-lists";
+import type { LoadState } from "@/utils/load-state";
 import { listCounts } from "@/utils/vocab-lists";
 
 import Button from "@/components/ui/Button.vue";
@@ -26,15 +28,7 @@ const toasts = useToastStore();
 const vocabListsCache = useVocabListsStore();
 const router = useRouter();
 
-type LoadState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "ok"; lists: VocabularyListSummary[] }
-  | { status: "error"; message: string };
-
-const state = ref<LoadState>({ status: "idle" });
-const pendingDeleteId = ref<number | null>(null);
-const deletingId = ref<number | null>(null);
+const state = ref<LoadState<{ lists: VocabularyListSummary[] }>>({ status: "idle" });
 
 const createOpen = ref(false);
 const createName = ref("");
@@ -106,9 +100,11 @@ async function submitCreate(e: Event) {
   }
 }
 
-async function confirmDelete(list: VocabularyListSummary) {
-  if (deletingId.value !== null) return;
-  deletingId.value = list.id;
+const {
+  pendingId: pendingDeleteId,
+  deletingId,
+  confirmDelete,
+} = useInlineDelete(async (list: VocabularyListSummary) => {
   try {
     await api.deleteVocabularyList(list.id);
     vocabListsCache.invalidate();
@@ -123,11 +119,8 @@ async function confirmDelete(list: VocabularyListSummary) {
     toasts.error(
       e instanceof ApiError ? e.message : "Couldn't delete the list.",
     );
-  } finally {
-    deletingId.value = null;
-    pendingDeleteId.value = null;
   }
-}
+});
 </script>
 
 <template>

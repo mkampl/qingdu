@@ -5,9 +5,11 @@ import { useRouter } from "vue-router";
 import * as api from "@/api/client";
 import { ApiError } from "@/api/client";
 import type { AdminUserSummary } from "@/api/types";
+import { useInlineDelete } from "@/composables/use-inline-delete";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useToastStore } from "@/stores/toast";
+import type { LoadState } from "@/utils/load-state";
 import { formatUtcDate } from "@/utils/time";
 
 import Button from "@/components/ui/Button.vue";
@@ -20,13 +22,7 @@ const authModals = useAuthModalsStore();
 const toasts = useToastStore();
 const router = useRouter();
 
-type LoadState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "ok"; users: AdminUserSummary[] }
-  | { status: "error"; message: string };
-
-const state = ref<LoadState>({ status: "idle" });
+const state = ref<LoadState<{ users: AdminUserSummary[] }>>({ status: "idle" });
 const users = computed<AdminUserSummary[]>(() =>
   state.value.status === "ok" ? state.value.users : [],
 );
@@ -110,12 +106,11 @@ async function submitCreate(e: Event) {
 
 // --- Delete user (inline two-step) ---------------------------------------
 
-const pendingDeleteId = ref<number | null>(null);
-const deletingId = ref<number | null>(null);
-
-async function confirmDelete(user: AdminUserSummary) {
-  if (deletingId.value !== null) return;
-  deletingId.value = user.id;
+const {
+  pendingId: pendingDeleteId,
+  deletingId,
+  confirmDelete,
+} = useInlineDelete(async (user: AdminUserSummary) => {
   try {
     await api.adminDeleteUser(user.id);
     removeUser(user.id);
@@ -124,11 +119,8 @@ async function confirmDelete(user: AdminUserSummary) {
     toasts.error(
       e instanceof ApiError ? e.message : "Couldn't delete the user.",
     );
-  } finally {
-    deletingId.value = null;
-    pendingDeleteId.value = null;
   }
-}
+});
 
 // --- Toggle admin --------------------------------------------------------
 
