@@ -1364,6 +1364,7 @@ export const setUserWordState = (
             meaning: snapshot.meaning ?? null,
             pinyin: snapshot.pinyin ?? null,
             translation_source: snapshot.translation_source ?? null,
+            package_source: snapshot.package_source ?? null,
           }
         : {}),
     },
