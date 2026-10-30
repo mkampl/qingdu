@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import SavedText, User, get_db
-from app.routers.texts import READ_THROUGH, _progress_fraction
 from app.services import llm, text_quiz, word_sense
+from app.services.reading_progress import READ_THROUGH, progress_fraction
 from app.services.streak import record_activity
 
 router = APIRouter(tags=["Reading help"])
@@ -73,7 +73,7 @@ def grade_quiz(
         raise HTTPException(status_code=400, detail="Expected an answer for every question")
     results = text_quiz.grade(quiz, body.answers)
     all_correct = all(results)
-    if all_correct and _progress_fraction(text.reading_progress) < READ_THROUGH:
+    if all_correct and progress_fraction(text.reading_progress) < READ_THROUGH:
         text.reading_progress = 1.0
         record_activity(user, db)
         db.commit()

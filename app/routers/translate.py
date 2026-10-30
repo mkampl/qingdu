@@ -11,8 +11,8 @@ from app.core.constants import (
 )
 from app.core.rate_limit import limiter
 from app.database import User, get_db
-from app.routers.analyze import _build_glossary
 from app.schemas import TranslationRequest
+from app.services import word_lists
 from app.services.translation import get_translation_with_source, translation_cache
 
 router = APIRouter(tags=["Translation"])
@@ -38,7 +38,7 @@ async def translate_text(
 
     # Glossary terms in the text (longest first, two characters or more:
     # a single character is far more often an everyday word).
-    glossary = _build_glossary(db, user, data.glossary_list_ids)
+    glossary = word_lists.build_glossary(db, user, data.glossary_list_ids)
     terms, rest = [], text
     for zh in sorted(glossary, key=len, reverse=True):
         if len(zh) > 1 and zh in rest and glossary[zh].get("meaning"):

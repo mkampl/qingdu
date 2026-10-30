@@ -20,7 +20,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth import require_auth
-from app.database import SavedText, User, UserWord, UserWordEvent, UserWordGloss, get_db
+from app.database import User, UserWord, get_db
 from app.schemas import (
     VALID_WORD_STATES,
     BulkMarkKnownRequest,
@@ -29,211 +29,23 @@ from app.schemas import (
     SnoozeRequest,
     WordStateUpdate,
 )
-from app.services import cloze, library
+from app.services import cloze, user_words
 from app.services.due import due_clause, end_of_day, utcnow
 from app.services.levels import level_number
 from app.services.lexicon import is_lexical_word, user_word_sources
 from app.services.localday import user_tz
 from app.services.script import to_canonical, to_user_script
-from app.services.srs import ALREADY_KNOWN_STABILITY_DAYS, already_known_state
+from app.services.srs import ALREADY_KNOWN_STABILITY_DAYS
 from app.services.streak import current_streak, record_activity
 from app.services.timestamps import iso_utc
-from app.services.word_info import lookup_pinyin_meaning
 from app.services.word_search import search_clause
 from app.state import hsk_vocab
 
 router = APIRouter(tags=["Words"])
 
 
-def _record_event(
-    db: Session,
-    user_id: int,
-    word: str,
-    event_type: str,
-    new_state: str | None = None,
-    source_text_id: int | None = None,
-) -> None:
-    db.add(
-        UserWordEvent(
-            user_id=user_id,
-            word=word,
-            event_type=event_type,
-            new_state=new_state,
-            source_text_id=source_text_id,
-        )
-    )
-
-
-def _apply_known_scheduling(row: UserWord) -> None:
-    """Schedule a row as "already known" — Review-phase FSRS card with
-    ~90d stability and a randomised first-review date in (60d, 180d).
-    State stays 'known' so the reader colours it accordingly; known cards
-    stay in the review rotation."""
-    seeded = already_known_state()
-    row.state = "known"
-    row.fsrs_state = seeded["fsrs_state"]
-    row.stability = seeded["stability"]
-    row.difficulty = seeded["difficulty"]
-    row.due_at = seeded["due_at"]
-    row.last_reviewed_at = seeded["last_reviewed_at"]
-
-
-def _ensure_gloss(
-    db: Session,
-    row: UserWord,
-    *,
-    pinyin: str | None,
-    meaning: str | None,
-    source: str,
-    source_tag: str | None,
-) -> None:
-    """Add a gloss to a UserWord row unless one with the same (source,
-    source_tag) exists. The row's own `meaning`/`pinyin` snapshot takes
-    the first gloss it gets.
-    """
-    if not meaning:
-        return
-    existing = next(
-        (
-            g
-            for g in row.glosses
-            if g.source == source and (g.source_tag or None) == (source_tag or None)
-        ),
-        None,
-    )
-    if existing is not None:
-        # A dictionary gloss follows the current dictionary (e.g. a better
-        # CC-CEDICT primary). Other glosses are kept as they are.
-        if source == "dictionary":
-            if meaning and meaning != existing.meaning:
-                existing.meaning = meaning
-            if pinyin and pinyin != existing.pinyin:
-                existing.pinyin = pinyin
-        return
-    db.add(
-        UserWordGloss(
-            user_word=row,
-            pinyin=pinyin or None,
-            meaning=meaning,
-            source=source,
-            source_tag=source_tag,
-        )
-    )
-    if not row.meaning:
-        row.meaning = meaning
-        row.pinyin = pinyin or None
-        row.meaning_source = source
-
-
 def not_a_word_detail(word: str) -> str:
     return f"「{word}」 is not a dictionary word. Save the words it is made of instead."
-
-
-def may_create_word(db: Session, user_id: int, word: str, *, is_pkg: bool = False) -> bool:
-    """Whether a new UserWord row may be created for `word`. Dictionary
-    words, the user's own list and package words, and words clicked in a
-    package text qualify; phrases such as 很多 or 洗衣服 do not. An
-    existing row can always be updated, so this only guards inserts."""
-    if is_pkg:
-        return True
-    exists = (
-        db.query(UserWord.id).filter(UserWord.user_id == user_id, UserWord.word == word).first()
-    )
-    return exists is not None or is_lexical_word(word, db=db, user_id=user_id)
-
-
-def _seed_glosses(
-    db: Session,
-    row: UserWord,
-    word: str,
-    is_pkg: bool,
-    pkg_pinyin: str | None,
-    pkg_meaning: str | None,
-    pkg_tag: str | None,
-) -> None:
-    """Always a dictionary gloss (the default learner-facing meaning,
-    whatever context the word was met in), plus a package gloss tagged by
-    package name when the word came from one."""
-    dict_pinyin, dict_meaning = lookup_pinyin_meaning(word)
-    if dict_meaning:
-        _ensure_gloss(
-            db,
-            row,
-            pinyin=dict_pinyin,
-            meaning=dict_meaning,
-            source="dictionary",
-            source_tag=None,
-        )
-    if is_pkg:
-        _ensure_gloss(
-            db,
-            row,
-            pinyin=pkg_pinyin,
-            meaning=pkg_meaning,
-            source="package",
-            source_tag=pkg_tag or "package",
-        )
-
-
-def _upsert(
-    db: Session,
-    user_id: int,
-    word: str,
-    state: str,
-    source_text_id: int | None,
-    pkg_meaning: str | None = None,
-    pkg_pinyin: str | None = None,
-    pkg_translation_source: str | None = None,
-    pkg_source_tag: str | None = None,
-) -> UserWord:
-    is_pkg = pkg_translation_source == "package" and (pkg_meaning or pkg_pinyin) is not None
-
-    row = db.query(UserWord).filter(UserWord.user_id == user_id, UserWord.word == word).first()
-    if row is None:
-        row = UserWord(
-            user_id=user_id,
-            word=word,
-            state=state,
-            seen_count=1,
-        )
-        if state == "known":
-            _apply_known_scheduling(row)
-        db.add(row)
-        db.flush()  # row.id needed for gloss FK
-    else:
-        # Same guard as bulk_mark_known: a mature card (stability already
-        # past the "known" seed) keeps its FSRS history instead of being
-        # reseeded to 90 days.
-        if state == "known" and (row.stability or 0) < ALREADY_KNOWN_STABILITY_DAYS:
-            _apply_known_scheduling(row)
-        else:
-            row.state = state
-        row.seen_count = (row.seen_count or 0) + 1
-        row.updated_at = datetime.utcnow()
-
-    _seed_glosses(db, row, word, is_pkg, pkg_pinyin, pkg_meaning, pkg_source_tag)
-    _record_event(db, user_id, word, "state_change", state, source_text_id)
-    return row
-
-
-def _context_title(
-    db: Session, user_id: int, source_text_id: int | None, library_slug: str | None
-) -> str | None:
-    """Title of the text a word was marked in: one of the user's saved
-    texts, else a bundled library text."""
-    if source_text_id is not None:
-        title = (
-            db.query(SavedText.title)
-            .filter(SavedText.id == source_text_id, SavedText.user_id == user_id)
-            .scalar()
-        )
-        if title:
-            return title
-    if library_slug:
-        entry = library.get(library_slug)
-        if entry:
-            return entry.get("title")
-    return None
 
 
 @router.get("/api/words/state")
@@ -262,10 +74,10 @@ async def set_word_state(
     if not word:
         raise HTTPException(status_code=400, detail="word is required")
     is_pkg = payload.translation_source == "package" and bool(payload.meaning or payload.pinyin)
-    if not may_create_word(db, user.id, word, is_pkg=is_pkg):
+    if not user_words.may_create_word(db, user.id, word, is_pkg=is_pkg):
         raise HTTPException(status_code=422, detail=not_a_word_detail(word))
 
-    row = _upsert(
+    row = user_words.upsert_word(
         db,
         user.id,
         word,
@@ -280,7 +92,7 @@ async def set_word_state(
         cloze.adopt_sentence(
             row,
             to_canonical(payload.sentence, user),
-            _context_title(db, user.id, payload.source_text_id, payload.library_slug),
+            user_words.context_title(db, user.id, payload.source_text_id, payload.library_slug),
         )
     record_activity(user, db)
     db.commit()
@@ -300,7 +112,7 @@ async def clear_word_state(
     row = db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.word == word).first()
     if row is not None:
         db.delete(row)
-        _record_event(db, user.id, word, "state_change", None, None)
+        user_words.record_event(db, user.id, word, "state_change", None, None)
         db.commit()
     return {"word": word, "state": "new"}
 
@@ -364,17 +176,19 @@ async def bulk_mark_known(
                 continue
         if row is None:
             row = UserWord(user_id=user.id, word=word, state="learning", seen_count=1)
-            _apply_known_scheduling(row)
+            user_words.apply_known_scheduling(row)
             db.add(row)
             db.flush()
             updated += 1
         elif (row.stability or 0) < ALREADY_KNOWN_STABILITY_DAYS:
-            _apply_known_scheduling(row)
+            user_words.apply_known_scheduling(row)
             row.updated_at = datetime.utcnow()
             updated += 1
 
-        _seed_glosses(db, row, word, is_pkg, pkg_pinyin, pkg_meaning, pkg_tag)
-        _record_event(db, user.id, word, "bulk_mark_known", "known", payload.source_text_id)
+        user_words.seed_glosses(db, row, word, is_pkg, pkg_pinyin, pkg_meaning, pkg_tag)
+        user_words.record_event(
+            db, user.id, word, "bulk_mark_known", "known", payload.source_text_id
+        )
     record_activity(user, db)
     db.commit()
     return {"updated": updated, "total": len(words), "skipped": skipped}
@@ -394,22 +208,6 @@ async def word_stats(
     counts["streak"] = current_streak(user)
     counts["streak_freezes"] = user.streak_freeze_count or 0
     return counts
-
-
-def _hsk_words_at_or_below(up_to_level: int, hsk_version: str) -> list[str]:
-    """
-    Return the list of HSK words at level <= `up_to_level` for the chosen
-    version. Single-character entries are included; that's intentional —
-    they're how learners build pinyin / radical recognition even before
-    they read the compounds.
-    """
-    field = "level_new" if hsk_version == "new" else "level_old"
-    prefix = "new-" if hsk_version == "new" else "old-"
-    return [
-        word
-        for word, entry in hsk_vocab.items()
-        if (n := level_number(entry.get(field), (prefix,))) is not None and n <= up_to_level
-    ]
 
 
 @router.post("/api/words/import-hsk")
@@ -433,50 +231,7 @@ async def import_hsk_known(
             detail=f"up_to_level must be 1..{max_level} for HSK {payload.hsk_version}",
         )
 
-    candidates = _hsk_words_at_or_below(payload.up_to_level, payload.hsk_version)
-    if not candidates:
-        return {"inserted": 0, "skipped": 0, "total_eligible": 0}
-
-    # Find which candidates the user has already touched.
-    existing_rows = (
-        db.query(UserWord.word)
-        .filter(UserWord.user_id == user.id, UserWord.word.in_(candidates))
-        .all()
-    )
-    existing = {w for (w,) in existing_rows}
-
-    to_insert = [w for w in candidates if w not in existing]
-    for word in to_insert:
-        pinyin, meaning = lookup_pinyin_meaning(word)
-        row = UserWord(
-            user_id=user.id,
-            word=word,
-            state="learning",
-            seen_count=1,
-            pinyin=pinyin or None,
-            meaning=meaning or None,
-            meaning_source="dictionary",
-        )
-        _apply_known_scheduling(row)
-        db.add(row)
-    # Single event row marking the bulk action — avoids 2 000+ event rows
-    # for the typical "mark HSK 1–4" use.
-    db.add(
-        UserWordEvent(
-            user_id=user.id,
-            word=f"hsk-{payload.hsk_version}-<=L{payload.up_to_level}",
-            event_type="bulk_mark_known",
-            new_state="known",
-            word_count=len(to_insert),
-        )
-    )
-    record_activity(user, db)
-    db.commit()
-    return {
-        "inserted": len(to_insert),
-        "skipped": len(existing),
-        "total_eligible": len(candidates),
-    }
+    return user_words.import_hsk_known(db, user, payload.up_to_level, payload.hsk_version)
 
 
 def _hsk_level(entry: dict | None, hsk_version: str = "new") -> int | None:
@@ -636,7 +391,7 @@ async def snooze_word(
     now = utcnow()
     base = max(row.due_at or now, now)
     row.due_at = base + timedelta(days=days)
-    _record_event(db, user.id, word, "snooze")
+    user_words.record_event(db, user.id, word, "snooze")
     db.commit()
     return {"word": word, "days": days, **_schedule_fields(row, now)}
 
@@ -657,6 +412,6 @@ async def review_now(
         raise HTTPException(404, "word not in your queue")
 
     row.due_at = datetime.utcnow()
-    _record_event(db, user.id, word, "review_now")
+    user_words.record_event(db, user.id, word, "review_now")
     db.commit()
     return {"word": word, "due_at": iso_utc(row.due_at)}

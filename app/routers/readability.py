@@ -19,10 +19,10 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import TextWord, User, UserWord, get_db
-from app.routers.words import _context_title, _ensure_gloss, _upsert, may_create_word
 from app.services import cloze, llm, readability, text_senses
 from app.services.script import to_canonical, to_user_script
 from app.services.streak import record_activity
+from app.services.user_words import context_title, ensure_gloss, may_create_word, upsert_word
 
 router = APIRouter(tags=["Readability"])
 
@@ -164,7 +164,7 @@ def prelearn_words(
     split = readability.sentences(tokens)
     extra = {to_canonical(w.strip(), user) for w in payload.extra if w.strip()}
     glosses = {to_canonical(w, user): g for w, g in payload.glosses.items()}
-    title = (payload.title or "").strip()[:160] or _context_title(
+    title = (payload.title or "").strip()[:160] or context_title(
         db, user.id, payload.source_text_id, payload.library_slug
     )
     linked = {
@@ -187,7 +187,7 @@ def prelearn_words(
             continue
         row = db.query(UserWord).filter(UserWord.user_id == user.id, UserWord.word == word).first()
         if row is None:
-            row = _upsert(
+            row = upsert_word(
                 db,
                 user.id,
                 word,
@@ -202,7 +202,7 @@ def prelearn_words(
         if gloss is not None and gloss.source != "package":
             # A vocab list's own meaning (stored like "learn this list"
             # does) or the meaning in the text.
-            _ensure_gloss(
+            ensure_gloss(
                 db,
                 row,
                 pinyin=gloss.pinyin,

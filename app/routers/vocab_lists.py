@@ -10,13 +10,13 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import User, UserWord, VocabularyList, get_db
-from app.routers.words import _ensure_gloss, _upsert, may_create_word
 from app.services import dict_data
 from app.services.gloss_refresh import is_user_meaning, refresh_vocab_list
 from app.services.migrations import migrate_vocabulary_sections
 from app.services.review_scope import list_words
 from app.services.script import convert_vocab_sections, to_canonical, to_user_script
 from app.services.streak import record_activity
+from app.services.user_words import ensure_gloss, may_create_word, upsert_word
 
 router = APIRouter(tags=["Vocabulary Lists"])
 logger = logging.getLogger(__name__)
@@ -453,13 +453,13 @@ def learn_list(
             if not may_create_word(db, user.id, word, is_pkg=True):
                 skipped.append(to_user_script(word, user))
                 continue
-            row = _upsert(db, user.id, word, "learning", None)
+            row = upsert_word(db, user.id, word, "learning", None)
             added.append(to_user_script(word, user))
         else:
             tracked += 1
         meaning = (entry.get("meaning") or "").strip()
         if is_user_meaning(word, meaning):
-            _ensure_gloss(
+            ensure_gloss(
                 db,
                 row,
                 pinyin=entry.get("pinyin") or None,

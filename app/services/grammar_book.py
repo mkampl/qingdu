@@ -30,12 +30,12 @@ from sqlalchemy.orm import Session
 
 from app.database import GrammarProgress, SavedText, SessionLocal, UserLibraryProgress
 from app.services import grammar, grammar_catalog, grammar_tagging, library
+from app.services.reading_progress import READ_THROUGH, progress_fraction
 from app.services.segmentation import _group_sentences, segment_text
 from app.services.timestamps import iso_utc
 
 logger = logging.getLogger(__name__)
 
-READ_THROUGH = 0.99
 MAX_SENTENCES = 60
 MAX_SENTENCE_CHARS = 80
 # Days until a point is due again, by box (raised by a good practice round,
@@ -96,14 +96,6 @@ def _cached(key: str, size: int) -> TextGrammar | None:
     return tg if tg and tg.size == size else None
 
 
-def _progress_fraction(raw) -> float:
-    try:
-        value = float(raw or 0)
-    except (TypeError, ValueError):
-        return 0.0
-    return value / 100 if value > 1 else value
-
-
 def _sources(db: Session, user_id: int) -> list[tuple[str, str, bool, int | None, TextGrammar]]:
     """(key, title, read, library level, grammar) for every text the user
     can learn from: their saved texts, then the library."""
@@ -132,7 +124,7 @@ def _sources(db: Session, user_id: int) -> list[tuple[str, str, bool, int | None
                 words if isinstance(words, list) else [],
                 data.get("sentence_translations") or {},
             )
-        read = _progress_fraction(progress) >= READ_THROUGH
+        read = progress_fraction(progress) >= READ_THROUGH
         out.append((key, title or "", read, None, tg))
 
     read_slugs = {
