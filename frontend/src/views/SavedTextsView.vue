@@ -8,6 +8,7 @@ import type { SavedTextSummary, TextFolder } from "@/api/types";
 import FolderNameModal from "@/components/texts/FolderNameModal.vue";
 import FolderPickerModal from "@/components/texts/FolderPickerModal.vue";
 import SeriesCreateModal from "@/components/texts/SeriesCreateModal.vue";
+import { useInlineDelete } from "@/composables/use-inline-delete";
 import { useOpenSavedText } from "@/composables/use-open-saved-text";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
@@ -20,6 +21,7 @@ import Spinner from "@/components/ui/Spinner.vue";
 import Tag from "@/components/ui/Tag.vue";
 import TextInput from "@/components/ui/TextInput.vue";
 
+import type { LoadState } from "@/utils/load-state";
 import {
   formatDate,
   matchesSearch,
@@ -44,18 +46,8 @@ const route = useRoute();
 const openSavedText = useOpenSavedText();
 const capabilities = useCapabilitiesStore();
 
-type LoadState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "ok"; texts: SavedTextSummary[] }
-  | { status: "error"; message: string };
-
-const state = ref<LoadState>({ status: "idle" });
+const state = ref<LoadState<{ texts: SavedTextSummary[] }>>({ status: "idle" });
 const search = ref("");
-// The row asking "are you sure?" and the one being deleted (no double
-// request on a slow network).
-const pendingDeleteId = ref<number | null>(null);
-const deletingId = ref<number | null>(null);
 const openingId = ref<number | null>(null);
 
 async function load() {
@@ -324,9 +316,13 @@ async function shift(text: SavedTextSummary, by: -1 | 1) {
   }
 }
 
-async function confirmDelete(text: SavedTextSummary) {
-  if (deletingId.value !== null) return;
-  deletingId.value = text.id;
+// The row asking "are you sure?" and the one being deleted (no double
+// request on a slow network).
+const {
+  pendingId: pendingDeleteId,
+  deletingId,
+  confirmDelete,
+} = useInlineDelete(async (text: SavedTextSummary) => {
   try {
     await api.deleteText(text.id);
     if (state.value.status === "ok") {
@@ -340,11 +336,8 @@ async function confirmDelete(text: SavedTextSummary) {
     toasts.error(
       e instanceof ApiError ? e.message : "Couldn't delete that text.",
     );
-  } finally {
-    deletingId.value = null;
-    pendingDeleteId.value = null;
   }
-}
+});
 </script>
 
 <template>

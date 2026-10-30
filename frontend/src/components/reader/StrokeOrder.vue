@@ -9,6 +9,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import { useSettingsStore } from "@/stores/settings";
+import { hanziInk, loadStrokeData } from "@/utils/hanzi-writer";
 
 const settings = useSettingsStore();
 
@@ -45,12 +46,10 @@ async function ensureWriterFor(idx: number) {
   loading.value = true;
   error.value = null;
   try {
-    // Dynamic import so hanzi-writer stays out of the main bundle.
-    const HanziWriter = (await import("hanzi-writer")).default;
-    // Rare characters and variant forms (玅) have no stroke data; say so
-    // instead of leaving an empty box.
+    // A character without stroke data says so instead of leaving an
+    // empty box.
     const char = cjkChars.value[idx];
-    const data = await HanziWriter.loadCharacterData(char).catch(() => null);
+    const { HanziWriter, data } = await loadStrokeData(char);
     if (activeIdx.value !== idx || !containerRef.value) return;
     // Wipe whatever was there for the previous character.
     containerRef.value.innerHTML = "";
@@ -59,7 +58,7 @@ async function ensureWriterFor(idx: number) {
       writer.value = null;
       return;
     }
-    const dark = settings.theme === "dark";
+    const { ink, outline } = hanziInk(settings.theme);
     const w = HanziWriter.create(containerRef.value, char, {
       width: 140,
       height: 140,
@@ -67,11 +66,9 @@ async function ensureWriterFor(idx: number) {
       strokeAnimationSpeed: 1,
       delayBetweenStrokes: 90,
       showOutline: true,
-      // hanzi-writer only parses hex/rgb, so the OKLCH theme tokens can't
-      // be passed through; use the same light/dark ink pair as WritingQuiz.
-      strokeColor: dark ? "#e5e7eb" : "#1f2937",
-      radicalColor: dark ? "#e5e7eb" : "#1f2937",
-      outlineColor: dark ? "#4b5563" : "#dddddd",
+      strokeColor: ink,
+      radicalColor: ink,
+      outlineColor: outline,
     });
     writer.value = w;
     w.animateCharacter({

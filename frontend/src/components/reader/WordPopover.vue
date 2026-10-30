@@ -12,7 +12,8 @@ import { useSettingsStore } from "@/stores/settings";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 import { useVocabListsStore } from "@/stores/vocab-lists";
-import { hasOpenOverlay } from "@/utils/modal-stack";
+import { useDismiss } from "@/composables/use-dismiss";
+import { useTtsPlayer } from "@/composables/use-tts-player";
 
 import { defaultSectionName, sectionContaining } from "@/utils/vocab-lists";
 
@@ -37,20 +38,15 @@ const anchor = computed(() => reader.selectedAnchor);
 
 const isMobile = ref(false);
 
-function onKey(e: KeyboardEvent) {
-  // A dialog on top (share, settings) gets Escape first.
-  if (e.key === "Escape" && word.value && !hasOpenOverlay()) reader.clearWord();
-}
 const popoverRef = ref<HTMLElement | null>(null);
-function onDocumentClick(e: MouseEvent) {
-  if (!word.value) return;
-  const target = e.target as Node;
-  // Don't close when clicking another HSK-wash word — the new selection
-  // overrides this one (handled by selectWord).
-  const inPopover = popoverRef.value?.contains(target);
-  const inWord = (target as HTMLElement)?.closest?.(".hsk-wash");
-  if (!inPopover && !inWord) reader.clearWord();
-}
+// A click outside closes the popover, except on another HSK-wash word:
+// the new selection overrides this one (handled by selectWord). A dialog
+// on top (share, settings) gets Escape first.
+useDismiss(() => !!word.value, popoverRef, () => reader.clearWord(), {
+  capture: true,
+  ignore: (target) => !!(target as HTMLElement).closest?.(".hsk-wash"),
+  yieldToOverlays: true,
+});
 
 // Natural height of the popover content, measured so placement can flip /
 // cap it properly instead of guessing.
@@ -107,35 +103,19 @@ onMounted(() => {
   measureViewport();
   window.addEventListener("resize", onResize);
   document.addEventListener("scroll", onAnyScroll, { capture: true, passive: true });
-  document.addEventListener("keydown", onKey);
-  document.addEventListener("click", onDocumentClick, true);
 });
 onBeforeUnmount(() => {
   window.removeEventListener("resize", onResize);
   document.removeEventListener("scroll", onAnyScroll, { capture: true });
-  document.removeEventListener("keydown", onKey);
-  document.removeEventListener("click", onDocumentClick, true);
   if (scrollFrame) cancelAnimationFrame(scrollFrame);
   contentObserver?.disconnect();
 });
 
-const ttsLoading = ref(false);
+const { loading: ttsLoading, play: playAudio } = useTtsPlayer();
 async function playTts() {
-  if (!word.value?.text) return;
-  ttsLoading.value = true;
-  try {
-    const response = await api.tts(word.value.text);
-    if (!response.ok) throw new Error("TTS failed");
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.addEventListener("ended", () => URL.revokeObjectURL(url));
-    await audio.play();
-  } catch {
-    /* ignore — keep button responsive */
-  } finally {
-    ttsLoading.value = false;
-  }
+  const text = word.value?.text;
+  if (!text) return;
+  await playAudio(() => api.tts(text));
 }
 
 watch(word, (next) => {

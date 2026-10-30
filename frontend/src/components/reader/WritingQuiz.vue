@@ -15,6 +15,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useSettingsStore } from "@/stores/settings";
 import type { WordGloss } from "@/api/types";
 import GlossChip from "@/components/ui/GlossChip.vue";
+import { hanziInk, loadStrokeData } from "@/utils/hanzi-writer";
 import { otherMeanings } from "@/utils/meanings";
 import {
   emptyScores,
@@ -185,13 +186,11 @@ async function startCharQuiz(idx: number) {
   error.value = null;
   currentMistakes.value = 0;
   try {
-    const HanziWriter = (await import("hanzi-writer")).default;
-
     // Pre-load the character stroke data from the upstream CDN BEFORE
     // wiring quiz mode. Without this, taps in the first second after
     // mount land on a writer that has no data yet and silently no-op,
     // which reads to the user as "nothing happens when I draw".
-    const charData = await HanziWriter.loadCharacterData(char).catch(() => null);
+    const { HanziWriter, data: charData } = await loadStrokeData(char);
     if (seq !== quizSeq || !canvasRef.value) return;
     if (!charData) {
       error.value = `No stroke data for ${char} (a rare character) — skip it.`;
@@ -243,11 +242,9 @@ async function startCharQuiz(idx: number) {
       signal,
     });
 
-    // Theme-aware ink: gray-800 reads cleanly on light backgrounds but
-    // disappears against the dark-mode canvas, so flip to gray-200 in
-    // dark mode. The settings store's theme value is what drives the
-    // `dark` class on <html>, so we read it directly.
-    const ink = settings.theme === "dark" ? "#e5e7eb" : "#1f2937";
+    // Theme-aware ink. The settings store's theme value is what drives
+    // the `dark` class on <html>, so we read it directly.
+    const { ink } = hanziInk(settings.theme);
     const w = HanziWriter.create(canvasRef.value, char, {
       width: 200,
       height: 200,

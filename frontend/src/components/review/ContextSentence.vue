@@ -4,9 +4,10 @@
  * the word highlighted, where the sentence came from, and a button that
  * reads the whole sentence aloud.
  */
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed } from "vue";
 
 import * as api from "@/api/client";
+import { useTtsPlayer } from "@/composables/use-tts-player";
 
 const props = defineProps<{
   sentence: string;
@@ -24,34 +25,11 @@ const parts = computed(() => {
   };
 });
 
-const loading = ref(false);
-let audio: HTMLAudioElement | null = null;
-let audioUrl: string | null = null;
+const { loading, play: playAudio } = useTtsPlayer();
 
-function stop() {
-  audio?.pause();
-  if (audioUrl) URL.revokeObjectURL(audioUrl);
-  audio = null;
-  audioUrl = null;
+function play() {
+  void playAudio(() => api.ttsSentence(props.sentence));
 }
-
-async function play() {
-  stop();
-  loading.value = true;
-  try {
-    const r = await api.ttsSentence(props.sentence);
-    if (!r.ok) throw new Error("TTS failed");
-    audioUrl = URL.createObjectURL(await r.blob());
-    audio = new Audio(audioUrl);
-    await audio.play();
-  } catch {
-    /* the sentence stays readable without audio */
-  } finally {
-    loading.value = false;
-  }
-}
-
-onBeforeUnmount(stop);
 </script>
 
 <template>

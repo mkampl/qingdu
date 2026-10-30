@@ -14,6 +14,7 @@ import {
 } from "@capacitor/local-notifications";
 
 import { isNative } from "@/services/native";
+import { storageGet, storageRemove, storageSet } from "@/utils/storage";
 
 const CHANNEL_ID = "qingdu-daily-reminder";
 const NOTIFICATION_BASE_ID = 71700;
@@ -34,50 +35,28 @@ const STREAK_KEY = "qingdu.notif.lastStreak";
 /** Cache the most recent due-count so the reminder body has something
  *  current-ish to show. Called from the review store after every refresh. */
 export function rememberDueCount(n: number): void {
-  try {
-    localStorage.setItem(CACHE_KEY, String(Math.max(0, Math.floor(n))));
-  } catch {
-    // ignore
-  }
+  storageSet(CACHE_KEY, String(Math.max(0, Math.floor(n))));
 }
 
 function lastDueCount(): number {
-  try {
-    return Math.max(0, parseInt(localStorage.getItem(CACHE_KEY) ?? "0", 10));
-  } catch {
-    return 0;
-  }
+  return Math.max(0, parseInt(storageGet(CACHE_KEY) ?? "0", 10));
 }
 
 /** Cache the streak count alongside the due count so the reminder body
  *  can lead with a live streak. */
 export function rememberStreak(n: number): void {
-  try {
-    localStorage.setItem(STREAK_KEY, String(Math.max(0, Math.floor(n))));
-  } catch {
-    // ignore
-  }
+  storageSet(STREAK_KEY, String(Math.max(0, Math.floor(n))));
 }
 
 function lastStreak(): number {
-  try {
-    return Math.max(0, parseInt(localStorage.getItem(STREAK_KEY) ?? "0", 10));
-  } catch {
-    return 0;
-  }
+  return Math.max(0, parseInt(storageGet(STREAK_KEY) ?? "0", 10));
 }
 
 /** Drop the cached due-count / streak of the signed-in
  *  account, so the next account's reminder doesn't quote someone else's
  *  numbers. Called from resetUserScopedStores on logout / user switch. */
 export function forgetUserCaches(): void {
-  for (const key of [CACHE_KEY, STREAK_KEY]) {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      // ignore
-    }
-  }
+  for (const key of [CACHE_KEY, STREAK_KEY]) storageRemove(key);
 }
 
 async function requestPermission(): Promise<boolean> {

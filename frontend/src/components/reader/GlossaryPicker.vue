@@ -15,14 +15,14 @@
  * Hidden entirely when the user has no glossary lists — there's nothing
  * to pick.
  */
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 
 import { onAuthReady } from "@/composables/use-auth-ready";
+import { useDismiss } from "@/composables/use-dismiss";
 import * as api from "@/api/client";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useToastStore } from "@/stores/toast";
 import { useVocabListsStore } from "@/stores/vocab-lists";
-import { hasOpenOverlay } from "@/utils/modal-stack";
 
 const analysis = useAnalysisStore();
 const vocabLists = useVocabListsStore();
@@ -103,33 +103,9 @@ function close() {
   open.value = false;
 }
 
-function onDocClick(e: MouseEvent) {
-  if (!open.value) return;
-  const target = e.target as Node;
-  if (containerRef.value && !containerRef.value.contains(target)) close();
-}
-
-function onKey(e: KeyboardEvent) {
-  if (e.key === "Escape" && open.value && !hasOpenOverlay()) close();
-}
-
-function unlisten() {
-  document.removeEventListener("click", onDocClick);
-  document.removeEventListener("keydown", onKey);
-}
-
-watch(open, (isOpen) => {
-  if (typeof document === "undefined") return;
-  if (isOpen) {
-    document.addEventListener("click", onDocClick);
-    document.addEventListener("keydown", onKey);
-  } else {
-    unlisten();
-  }
-});
-
-// Leaving the page with the menu open.
-onBeforeUnmount(unlisten);
+// Listens only while open; leaving the page with the menu open removes
+// the listeners too.
+useDismiss(open, containerRef, close, { yieldToOverlays: true });
 </script>
 
 <template>

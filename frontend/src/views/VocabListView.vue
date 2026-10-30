@@ -16,6 +16,7 @@ import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 import { useVocabListsStore } from "@/stores/vocab-lists";
+import type { LoadState } from "@/utils/load-state";
 import { createEditGate, listCounts } from "@/utils/vocab-lists";
 
 import HskChip from "@/components/reader/HskChip.vue";
@@ -38,14 +39,9 @@ const router = useRouter();
 
 const listId = computed(() => Number(props.id));
 
-type LoadState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "ok"; list: VocabularyListSummary }
-  | { status: "notfound" }
-  | { status: "error"; message: string };
-
-const state = ref<LoadState>({ status: "idle" });
+const state = ref<LoadState<{ list: VocabularyListSummary }, { status: "notfound" }>>({
+  status: "idle",
+});
 const busy = ref(false);
 
 async function load() {

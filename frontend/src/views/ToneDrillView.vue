@@ -11,6 +11,7 @@ import { RouterLink } from "vue-router";
 import * as api from "@/api/client";
 import type { ToneDrillItem } from "@/api/client";
 import Button from "@/components/ui/Button.vue";
+import { useTtsPlayer } from "@/composables/use-tts-player";
 import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 
@@ -23,41 +24,15 @@ const picked = ref<number | null>(null);
 const results = ref<boolean[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
-const playing = ref(false);
+const { loading: playing, play: playAudio } = useTtsPlayer();
 
 const item = computed(() => items.value[index.value] ?? null);
 const done = computed(() => items.value.length > 0 && index.value >= items.value.length);
 const score = computed(() => results.value.filter(Boolean).length);
 const misses = computed(() => items.value.filter((_, i) => results.value[i] === false));
 
-let audio: HTMLAudioElement | null = null;
-let audioUrl: string | null = null;
-let seq = 0;
-
-function stopAudio() {
-  audio?.pause();
-  if (audioUrl) URL.revokeObjectURL(audioUrl);
-  audio = null;
-  audioUrl = null;
-}
-
-async function play(text: string) {
-  stopAudio();
-  const mine = ++seq;
-  playing.value = true;
-  try {
-    const r = await api.tts(text);
-    if (!r.ok) throw new Error("TTS failed");
-    const blob = await r.blob();
-    if (mine !== seq) return;
-    audioUrl = URL.createObjectURL(blob);
-    audio = new Audio(audioUrl);
-    await audio.play();
-  } catch {
-    /* the play button stays available */
-  } finally {
-    if (mine === seq) playing.value = false;
-  }
+function play(text: string) {
+  return playAudio(() => api.tts(text));
 }
 
 async function load() {
@@ -122,8 +97,6 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onKey);
-  seq++;
-  stopAudio();
 });
 </script>
 
