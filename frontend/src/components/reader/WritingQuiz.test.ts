@@ -18,6 +18,8 @@ vi.mock("hanzi-writer", () => ({
   },
 }));
 
+import HanziWriter from "hanzi-writer";
+
 import WritingQuiz from "./WritingQuiz.vue";
 
 type Payload = { totalMistakes: number; totalStrokes: number; skipped: boolean };
@@ -52,5 +54,12 @@ describe("WritingQuiz stroke accounting", () => {
     await skip!.trigger("click");
     const [payload] = w.emitted("complete")![0] as [Payload];
     expect(payload).toEqual({ totalMistakes: 4, totalStrokes: 8, skipped: true });
+  });
+  it("says so when a character has no stroke data", async () => {
+    vi.mocked(HanziWriter.loadCharacterData).mockRejectedValueOnce(new Error("404"));
+    const w = mount(WritingQuiz, { props: { word: "玅" } });
+    await flushPromises();
+    expect(w.text()).toContain("No stroke data for 玅 (a rare character) — skip it.");
+    expect(quizzes.length).toBe(0);
   });
 });

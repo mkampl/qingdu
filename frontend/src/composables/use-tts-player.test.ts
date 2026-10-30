@@ -91,4 +91,37 @@ describe("useTtsPlayer", () => {
     expect(player.loading.value).toBe(false);
     w.unmount();
   });
+  it("drops an older fetch that resolves after a newer play", async () => {
+    const w = mount(Host);
+    let first!: (r: Response) => void;
+    let second!: (r: Response) => void;
+    const a = player.play(() => new Promise((r) => (first = r)));
+    const b = player.play(() => new Promise((r) => (second = r)));
+    first(new Response("a"));
+    await a;
+    expect(playSpy).not.toHaveBeenCalled();
+    expect(player.loading.value).toBe(true);
+    second(new Response("b"));
+    await b;
+    expect(playSpy).toHaveBeenCalledTimes(1);
+    expect(player.loading.value).toBe(false);
+    w.unmount();
+  });
+
+  it("resets loading when the fetch rejects or playback is blocked", async () => {
+    const w = mount(Host);
+    await expect(
+      player.play(() => Promise.reject(new Error("offline"))),
+    ).resolves.toBeUndefined();
+    expect(player.loading.value).toBe(false);
+    playSpy.mockImplementationOnce(() =>
+      Promise.reject(new DOMException("blocked", "NotAllowedError")),
+    );
+    await expect(player.play(async () => new Response("x"))).resolves.toBeUndefined();
+    expect(player.loading.value).toBe(false);
+    // The blocked clip is still stopped and revoked by the next play.
+    await player.play(async () => new Response("y"));
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:1");
+    w.unmount();
+  });
 });
