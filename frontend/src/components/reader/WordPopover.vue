@@ -36,20 +36,6 @@ const word = computed(() => reader.selectedWord);
 const anchor = computed(() => reader.selectedAnchor);
 
 const isMobile = ref(false);
-function checkMobile() {
-  isMobile.value = window.innerWidth < 640;
-}
-onMounted(() => {
-  checkMobile();
-  window.addEventListener("resize", checkMobile);
-  document.addEventListener("keydown", onKey);
-  document.addEventListener("click", onDocumentClick, true);
-});
-onBeforeUnmount(() => {
-  window.removeEventListener("resize", checkMobile);
-  document.removeEventListener("keydown", onKey);
-  document.removeEventListener("click", onDocumentClick, true);
-});
 
 function onKey(e: KeyboardEvent) {
   // A dialog on top (share, settings) gets Escape first.
@@ -74,8 +60,8 @@ const viewport = ref({ width: 1024, height: 800 });
 let contentObserver: ResizeObserver | null = null;
 
 function measureViewport() {
-  if (typeof window === "undefined") return;
   viewport.value = { width: window.innerWidth, height: window.innerHeight };
+  isMobile.value = window.innerWidth < 640;
 }
 
 watch(contentRef, (el) => {
@@ -121,10 +107,14 @@ onMounted(() => {
   measureViewport();
   window.addEventListener("resize", onResize);
   document.addEventListener("scroll", onAnyScroll, { capture: true, passive: true });
+  document.addEventListener("keydown", onKey);
+  document.addEventListener("click", onDocumentClick, true);
 });
 onBeforeUnmount(() => {
   window.removeEventListener("resize", onResize);
   document.removeEventListener("scroll", onAnyScroll, { capture: true });
+  document.removeEventListener("keydown", onKey);
+  document.removeEventListener("click", onDocumentClick, true);
   if (scrollFrame) cancelAnimationFrame(scrollFrame);
   contentObserver?.disconnect();
 });
@@ -160,12 +150,10 @@ watch(word, (next) => {
   }
 });
 
-// --- Add-to-vocab-list ----------------------------------------------------
-//
-// Inline expanding panel inside the popover. First click loads the user's
-// vocab lists (cached in the store), shows them as a picker. Section field
-// defaults to 'Main' but uses the first existing section if the picked list
-// already has one.
+// --- Add to vocab list ---
+// Inline panel inside the popover. The first click loads the user's lists
+// (cached in the store). The section defaults to the picked list's first
+// section, or 'Main'.
 
 const addToListExpanded = ref(false);
 const addToListSelectedId = ref<number | null>(null);
@@ -185,7 +173,7 @@ async function expandAddToList() {
   addToListError.value = null;
   addToListNotice.value = null;
   await vocabLists.ensureLoaded();
-  // Pre-select a sensible default: the only list, or the first one.
+  // Pre-select the first list.
   if (addToListSelectedId.value === null && vocabLists.lists.length > 0) {
     selectList(vocabLists.lists[0].id);
   }
@@ -263,7 +251,6 @@ function translateSentenceFromWord() {
   void reader.translateSentence(sentenceText);
 }
 
-
 // Tokens that are not dictionary words (texts analysed before phrases were
 // split, or leftovers) carry their dictionary parts instead of a meaning.
 // They can't be saved as words; the learner saves the parts instead.
@@ -322,6 +309,12 @@ async function learnPart(part: string) {
   }
 }
 
+// Source pill in the footer; hsk/linebreak/parts are not worth naming.
+const shownSource = computed(() => {
+  const src = word.value?.translation_source;
+  return src && !["hsk", "linebreak", "parts"].includes(src) ? src : null;
+});
+
 const wordLevel = computed(() =>
   word.value ? levelForVersion(word.value, settings.hskVersion) : null,
 );
@@ -339,11 +332,9 @@ watch(word, () => {
   strokeOrderOpen.value = false;
 });
 
-// --- Word-state control ----------------------------------------------------
-//
-// LingQ-style: opening the popover for a 'new' word implicitly promotes it
-// to 'learning' so the next time it appears the reader can color it as
-// known-in-progress. Explicit known/ignored choices come from the buttons.
+// --- Word-state control ---
+// With autoLearnOnClick on, opening the popover for a 'new' word promotes it
+// to 'learning'. Explicit choices come from the state buttons.
 
 // Before the user-words store hydrates, the analysis token's own state is
 // the best we have — without it a known word looks new and auto-learn would
@@ -385,10 +376,7 @@ watch(word, async (next) => {
   if (!next || !auth.isAuthed) return;
   // Skip linebreaks and other non-CJK tokens — we keep state for words only.
   if (!next.text || next.text === "\n") return;
-  // Opt-in: by default a click is just "what does this mean", not "schedule
-  // this for review". The user can still flip it to learning via the
-  // explicit Learning/Known/Ignored buttons in the popover footer, or turn
-  // the auto-promote back on in Settings → Reader.
+  // Opt-in (Settings → Review): by default a click only shows the meaning.
   if (!settings.autoLearnOnClick) return;
   if (next.parts?.length) return;
   if (currentState.value === null) {
@@ -550,12 +538,10 @@ async function setWordState(state: UserWordState) {
             {{ word.glossary_source }}
           </div>
 
-          <!-- Meaning(s). Phase #120: when the user has any tagged
-               glosses (= they've clicked this word in a package context),
-               show every gloss with its provenance chip so dictionary
-               and package meanings sit side-by-side. Falls back to the
-               flat meaning + meanings list for words the user hasn't
-               touched yet. -->
+          <!-- Meaning(s). With tagged glosses (the user clicked this word in
+               a package context), show each with its provenance chip so
+               dictionary and package meanings sit side by side; otherwise
+               the flat meaning + meanings list. -->
           <div
             v-if="word.user_glosses && word.user_glosses.length"
             class="mt-4 space-y-2"
@@ -977,23 +963,10 @@ async function setWordState(state: UserWordState) {
               Translate sentence
             </button>
             <span
-              v-else-if="
-                word.translation_source &&
-                !['hsk', 'linebreak', 'parts'].includes(word.translation_source)
-              "
+              v-if="shownSource"
               class="font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
             >
-              via {{ word.translation_source }}
-            </span>
-            <span
-              v-if="
-                reader.selectedSentenceText &&
-                word.translation_source &&
-                !['hsk', 'linebreak', 'parts'].includes(word.translation_source)
-              "
-              class="font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
-            >
-              via {{ word.translation_source }}
+              via {{ shownSource }}
             </span>
           </div>
 

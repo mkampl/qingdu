@@ -17,10 +17,9 @@ const modals = useAuthModalsStore();
 const route = useRoute();
 const router = useRouter();
 
-// If the URL carries an invite token, auto-open the signup modal (mirrors the
-// legacy app's ?invite= flow) and strip the param so reloading doesn't re-open
-// the modal after the user has signed in. Waits for the session check:
-// deciding on mount opened the signup form for already-signed-in users.
+// If the URL carries an invite token, auto-open the signup modal and strip
+// the param so reloading doesn't re-open it after the user has signed in.
+// Waits for the session check so signed-in users don't get the form.
 async function handleInviteLink() {
   await router.isReady();
   const token = route.query.invite;

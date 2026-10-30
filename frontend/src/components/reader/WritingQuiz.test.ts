@@ -13,7 +13,6 @@ vi.mock("hanzi-writer", () => ({
         quizzes.push(opts);
       },
       cancelQuiz: vi.fn(),
-      animateStroke: vi.fn(),
       animateCharacter: (o?: { onComplete?: () => void }) => o?.onComplete?.(),
     })),
   },

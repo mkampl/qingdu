@@ -8,9 +8,9 @@
 import { computed, ref, watch } from "vue";
 
 import * as api from "@/api/client";
-import { useUserWordsStore } from "@/stores/userWords";
 import { ApiError } from "@/api/client";
 import type { LibraryProgressEntry, LibraryQuizQuestion } from "@/api/client";
+import { useUserWordsStore } from "@/stores/userWords";
 
 import Button from "@/components/ui/Button.vue";
 import Modal from "@/components/ui/Modal.vue";

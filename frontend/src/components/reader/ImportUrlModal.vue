@@ -56,7 +56,7 @@ const scanPreviewUrl = ref<string | null>(null);
 const ocrRunning = ref(false);
 const ocrProgress = ref(0); // 0-1, from tesseract.js progress events
 
-// Package import (Phase #100) — file upload OR raw JSON paste.
+// Package import — file upload OR raw JSON paste.
 const packageFile = ref<File | null>(null);
 const packageJson = ref("");
 const packageStrict = ref(true);
@@ -68,18 +68,15 @@ const sampleLoading = ref(false);
 watch(
   () => props.open,
   (open) => {
+    resetScan();
+    resetPackage();
     if (open) {
       mode.value = "url";
       url.value = "";
       file.value = null;
       error.value = null;
       preview.value = null;
-      resetScan();
-      resetPackage();
       void loadSamples();
-    } else {
-      resetScan();
-      resetPackage();
     }
   },
 );
@@ -363,8 +360,7 @@ async function runOcr() {
       </div>
     </template>
 
-    <!-- Mode tabs — sit at the top of every step so the user can switch
-         without losing the preview if they've already fetched something. -->
+    <!-- Mode tabs, hidden while a preview is showing. -->
     <div
       v-if="!preview"
       class="mb-4 flex gap-1 border-b border-border-subtle"

@@ -7,20 +7,17 @@ const props = defineProps<{
 }>();
 
 /**
- * Estimated analyse time, in seconds. Calibrated against typical Wikipedia-
- * imported articles after the concurrent-lookup speedup: roughly 50 chars/sec
- * for short cached texts, slower for long ones with many novel terms. We
- * don't need to be precise — the goal is "looks like progress, not a hang".
+ * Estimated analyse time, in seconds, calibrated against typical imported
+ * Wikipedia articles. It need not be precise — the goal is "looks like
+ * progress, not a hang".
  */
 const estimatedSeconds = computed(() => {
   const len = Math.max(props.textLength, 1);
-  // Floor: 1.5s for anything > 0 chars (rough cold-start overhead).
-  // Slope: ~1s per 250 chars after that.
-  return Math.max(1.5, 1.5 + len / 250);
+  // 1.5s of cold-start overhead, then ~1s per 250 chars.
+  return 1.5 + len / 250;
 });
 
 const elapsed = ref(0);
-let timer: ReturnType<typeof setInterval> | null = null;
 const startedAt = ref<number | null>(null);
 
 function reset() {
@@ -34,14 +31,12 @@ watch(
   { immediate: true },
 );
 
-timer = setInterval(() => {
+const timer = setInterval(() => {
   if (startedAt.value === null) return;
   elapsed.value = (performance.now() - startedAt.value) / 1000;
 }, 80);
 
-onBeforeUnmount(() => {
-  if (timer) clearInterval(timer);
-});
+onBeforeUnmount(() => clearInterval(timer));
 
 /**
  * Bar fills smoothly to ~90% over the estimated duration, then creeps the

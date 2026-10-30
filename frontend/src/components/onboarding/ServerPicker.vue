@@ -9,14 +9,12 @@ import Modal from "@/components/ui/Modal.vue";
 const DEMO_URL = "https://qingdu.itvoodoo.at";
 
 const open = ref(true);
-const choice = ref<"demo" | "custom" | null>(null);
 const customUrl = ref("");
 const testing = ref(false);
 const error = ref<string | null>(null);
 const toasts = useToastStore();
 
-async function pickDemo() {
-  choice.value = "demo";
+function pickDemo() {
   setApiBase(DEMO_URL);
   open.value = false;
   setTimeout(() => window.location.reload(), 250);

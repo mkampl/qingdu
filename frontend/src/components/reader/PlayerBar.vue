@@ -1,9 +1,8 @@
 <script setup lang="ts">
 /**
- * Continuous narration player. Sticks to the bottom of the reader on
- * desktop, sits in the natural flow on mobile. Subscribes to the analysis
- * store so the queue auto-syncs to whatever the current text is; sentence
- * boundaries are derived once via groupIntoSentences().
+ * Continuous narration player, sticky at the bottom of the reader. The
+ * queue follows the `analysis` prop; sentence boundaries come from
+ * groupIntoSentences().
  */
 import { computed, watch } from "vue";
 

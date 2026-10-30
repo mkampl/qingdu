@@ -6,8 +6,8 @@
  * example, and to surface a "Jump to first use" button that scrolls the
  * reader to the matching span and pulses it briefly.
  *
- * Hidden entirely when the analysis carries no `grammar` payload (older
- * saved texts pre-Phase D) or no matches were found.
+ * Hidden entirely when the analysis carries no `grammar` payload or no
+ * matches were found.
  */
 import { computed, nextTick, ref } from "vue";
 import { RouterLink } from "vue-router";
@@ -16,6 +16,7 @@ import type { GrammarPayload } from "@/api/types";
 import { useAuthStore } from "@/stores/auth";
 
 const props = defineProps<{ grammar: GrammarPayload | undefined }>();
+const auth = useAuthStore();
 
 const expandedId = ref<string | null>(null);
 const collapsed = ref(false);
@@ -41,8 +42,7 @@ async function jumpToFirstMatch(patternId: string) {
   const match = props.grammar.matches.find((m) => m.pattern_id === patternId);
   if (!match) return;
   await nextTick();
-  // Reader words are rendered with `data-word-idx` (see ReadingText.vue
-  // — we add the attribute as part of Phase D so this lookup works).
+  // Reader words carry `data-word-idx` (see ReadingText.vue).
   const el = document.querySelector(
     `[data-word-idx="${match.start_word_idx}"]`,
   ) as HTMLElement | null;
@@ -53,7 +53,6 @@ async function jumpToFirstMatch(patternId: string) {
   span.classList.add("grammar-pulse");
   setTimeout(() => span.classList.remove("grammar-pulse"), 1800);
 }
-const auth = useAuthStore();
 </script>
 
 <template>

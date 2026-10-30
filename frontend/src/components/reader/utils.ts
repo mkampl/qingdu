@@ -15,8 +15,8 @@ export interface Sentence {
   text: string;
   /** Sentences derived from a soft line break are rendered on their own line. */
   endsWithLineBreak: boolean;
-  /** Absolute index of `words[0]` within the parent analysis.words array.
-   *  Used by Phase D grammar matches to address tokens globally. */
+  /** Absolute index of `words[0]` within the parent analysis.words array;
+   *  grammar matches address tokens by it. */
   baseIdx: number;
 }
 
@@ -133,10 +133,9 @@ export function groupIntoSentences(words: WordInfo[]): Sentence[] {
 
   for (const w of words) {
     if (w.translation_source === "linebreak" || w.text === "\n") {
-      // A linebreak after a sentence-ender (e.g. "。\n") used to disappear
-      // because the period already flushed the sentence with
-      // endsWithLineBreak=false. Promote the just-flushed sentence so
-      // section detection sees the paragraph boundary it actually was.
+      // After a sentence-ender (e.g. "。\n") the period has already flushed
+      // the sentence with endsWithLineBreak=false. Promote it so section
+      // detection sees the paragraph boundary.
       if (current.length) {
         flush(true);
       } else if (sentences.length) {
@@ -216,16 +215,11 @@ export function shouldShowPinyin(
   return wordNum > estNum;
 }
 
-/**
- * Build the HSK distribution data for the strata bar. Returns ordered entries
- * with computed percentages — segments below a minimum threshold are merged
- * into "Other" so the bar stays readable.
- */
 export interface DistributionSegment {
-  /** "HSK1".."HSK9" or "Other" / "Unknown" */
+  /** "HSK 1".."HSK 9" */
   label: string;
-  /** Numeric level (1-9) or null for special segments. */
-  level: number | null;
+  /** Numeric level (1-9). */
+  level: number;
   /** Count of words in this bucket. */
   count: number;
   /** Percentage of the total HSK-tagged words. */
@@ -234,6 +228,10 @@ export interface DistributionSegment {
   color: string;
 }
 
+/**
+ * Build the HSK distribution data for the strata bar: one entry per level
+ * that has words, in level order, with its share of `total`.
+ */
 export function buildDistribution(
   distribution: Record<string, number>,
   total: number,
@@ -308,8 +306,7 @@ const MIN_SECTION_COUNT = 3;
  *
  *  Negative lookahead rejects a *second* numeric prefix straight after the
  *  first one ("九、八、七外…"): that pattern is a back-reference to earlier
- *  chapters inside running prose, not a heading. The previous regex saw
- *  the leading "九、" and falsely opened a chapter anchor on that sentence. */
+ *  chapters inside running prose, not a heading. */
 const CN_HEADING_RE = /^[一二三四五六七八九十百千万]+[、.,．：:](?!\s*[一二三四五六七八九十百千万0-9]+[、.,．：:])/;
 /** Arabic-numeral prefix like "1.", "10、". Weaker signal — only counts
  *  when the sentence sits at the start of a paragraph so we don't grab

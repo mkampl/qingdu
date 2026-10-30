@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Phase 2.10 — Account lifecycle banner.
+ * Account lifecycle banner.
  *
  * Renders a soft warning at the top of the app when the current user is
  * close to the instance's soft-delete threshold. The server populates

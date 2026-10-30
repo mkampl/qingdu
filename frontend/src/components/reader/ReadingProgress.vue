@@ -73,8 +73,6 @@ watch(toRef(props, "target"), () => {
   everCompleted.value = false;
   compute();
 });
-
-defineExpose({ recompute: compute });
 </script>
 
 <template>
@@ -90,8 +88,8 @@ defineExpose({ recompute: compute });
       }"
     />
     <!-- Completion chop — appears at the bottom of the spine when the reader
-         finishes the text, then stays. Stamp-settle animation reuses the chop
-         keyframes from global.css via the ChopMark `settled` prop. -->
+         finishes the text, then stays. `settled` plays ChopMark's stamp
+         animation. -->
     <Transition
       enter-active-class="transition duration-500 ease-out"
       enter-from-class="opacity-0"

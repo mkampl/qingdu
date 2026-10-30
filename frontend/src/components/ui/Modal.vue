@@ -31,8 +31,7 @@ function handleKeydown(e: KeyboardEvent) {
     return;
   }
   // Focus trap. aria-modal alone doesn't stop Tab from walking the
-  // obscured page behind the backdrop; every one of the app's ~12 modals
-  // inherits this single trap.
+  // obscured page behind the backdrop.
   if (e.key === "Tab" && shell.value) {
     const focusables = Array.from(
       shell.value.querySelectorAll<HTMLElement>(FOCUSABLE),
@@ -122,13 +121,7 @@ const sizeClasses = {
              the modal instead of pushing past the screen edge. The flex
              column keeps the header / footer pinned while only the body
              slot scrolls. On mobile the modal sits at the bottom as a
-             sheet — the same cap works there too.
-
-             The mobile max-h subtracts both safe-area insets so the
-             dialog can't grow taller than the visible area between
-             status bar and gesture nav bar. Without this the bottom-
-             anchored sheet pushes its header above the status bar and
-             the close button becomes unreachable. -->
+             sheet; its cap is in the scoped <style> below. -->
         <div
           ref="shell"
           role="dialog"
@@ -183,8 +176,8 @@ const sizeClasses = {
    the top-anchored close button stays under the status bar.
 
    Desktop / mobile-web: env() returns 0 → no visual change. We only
-   apply this below the sm: breakpoint; on sm+ the existing sm:p-6
-   provides the visual gutter and the safe-area insets are 0 anyway. */
+   apply this below the sm: breakpoint; on sm+ sm:p-6 provides the
+   visual gutter and the safe-area insets are 0 anyway. */
 @media (max-width: 639px) {
   .modal-overlay {
     padding-top: env(safe-area-inset-top);

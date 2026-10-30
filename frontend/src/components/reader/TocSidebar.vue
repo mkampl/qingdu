@@ -12,11 +12,9 @@ const props = defineProps<{
 
 /**
  * Key of the section the user is currently reading. Updated by an
- * IntersectionObserver watching all section <h2 id="sec-N">…</h2> headings.
- * We pick "current" as the topmost section whose anchor has scrolled into
- * the upper half of the viewport — that matches the intuitive "this is the
- * part I'm reading right now" mental model rather than "the next heading
- * the user will hit".
+ * IntersectionObserver watching all section <h2 id="sec-N">…</h2> headings:
+ * the heading that last entered a band near the top of the viewport is
+ * "the part I'm reading", not "the next heading I'll hit".
  */
 const currentKey = ref<string | null>(null);
 
@@ -43,7 +41,7 @@ function attach() {
   // dual-state thrashing you get when two anchors are visible at once.
   observer = new IntersectionObserver(
     (entries) => {
-      // Update from the entry with the highest top intersection ratio.
+      // The last intersecting entry wins.
       for (const entry of entries) {
         if (entry.isIntersecting) {
           const key = (entry.target as HTMLElement).dataset.sectionKey;

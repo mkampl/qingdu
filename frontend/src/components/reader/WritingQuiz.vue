@@ -1,14 +1,14 @@
 <script setup lang="ts">
 /**
- * hanzi-writer quiz card for Phase #94 review mode.
+ * hanzi-writer quiz card for review mode.
  *
  * The user is shown the pinyin + meaning of a word and has to draw each
  * character correctly on the canvas. hanzi-writer tracks per-stroke
  * accuracy + direction; we count total mistakes across all characters
  * and emit `complete` so ReviewView can derive a suggested FSRS grade.
  *
- * Multi-character words run sequentially. The user can "Show stroke"
- * to get a hint (counts as a mistake — same as hanzi-writer's default).
+ * Multi-character words run sequentially. "Show me" plays the strokes
+ * and scores the character worse than a skip.
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
@@ -67,7 +67,7 @@ const emit = defineEmits<{
   /**
    * Fires once the user has finished drawing every character in the
    * word (or skipped each one). totalMistakes + totalStrokes are summed
-   * ReviewView turns this into a suggested grade.
+   * over all characters; ReviewView turns them into a suggested grade.
    */
   (e: "complete", payload: { totalMistakes: number; totalStrokes: number; skipped: boolean }): void;
 }>();
@@ -77,14 +77,6 @@ const cjkChars = computed(() =>
 );
 
 /**
- * Bridge for the case where the browser fires PointerEvents but
- * suppresses the legacy MouseEvent compatibility layer (Firefox with
- * strict tracking protection, certain privacy extensions). hanzi-writer
- * v3.7.3 only listens for legacy mouse events, so without this shim
- * pointer-only browsers see no quiz response at all. Skips touch input
- * — touch already fires touchstart/move/end which hanzi-writer handles.
- */
-/**
  * hanzi-writer 3.7.3 attaches listeners only for legacy MouseEvent +
  * TouchEvent (node_modules/.../index.esm.js line ~1734).
  *
@@ -93,8 +85,7 @@ const cjkChars = computed(() =>
  * pointers. Doing so would synthesize a mousedown AND let the native
  * touchstart fire, causing hanzi-writer's mouse + touch handlers to
  * both run for the same input — which corrupts the quiz state and
- * silently swallows every stroke (verified on user's Firefox Android
- * on a standalone test page).
+ * silently swallows every stroke (seen on Firefox Android).
  *
  * Desktop with a privacy mode that suppresses the legacy MouseEvent
  * compat layer (Firefox with strict tracking protection, etc.): the
@@ -133,23 +124,20 @@ const canvasRef = ref<HTMLDivElement | null>(null);
 const currentIdx = ref(0);
 // One entry per character: its stroke count (recorded once, when its
 // data first loads) and its final mistakes. Re-creating the writer for
-// an outline/theme change must not count a character's strokes again —
-// that halved the mistake ratio and made the suggested grade lenient.
+// an outline/theme change must not count a character's strokes again,
+// or the mistake ratio (and so the suggested grade) gets too lenient.
 const scores = ref<CharScore[]>([]);
 const totalMistakes = computed(() => scoreTotals(scores.value).mistakes);
 const totalStrokes = computed(() => scoreTotals(scores.value).strokes);
 const currentMistakes = ref(0);
 const completed = ref(false);
-const skipped = ref(false);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
-// Hold the active hanzi-writer instance so we can call .hideCharacter()
-// for the hint button and tear it down between chars.
+// The active hanzi-writer instance, for "Show me" and teardown.
 type AnyHanziWriter = {
   quiz: (opts: Record<string, unknown>) => void;
   cancelQuiz: () => void;
-  animateStroke: (n: number) => void;
   animateCharacter: (opts?: { onComplete?: () => void }) => void;
 } | null;
 const writer = ref<AnyHanziWriter>(null);
@@ -178,7 +166,6 @@ function setScore(idx: number, patch: Partial<CharScore>) {
 
 function finish(wasSkipped: boolean) {
   completed.value = true;
-  skipped.value = wasSkipped;
   emit("complete", {
     totalMistakes: totalMistakes.value,
     totalStrokes: totalStrokes.value,
@@ -223,11 +210,8 @@ async function startCharQuiz(idx: number) {
     inputListeners = new AbortController();
     const { signal } = inputListeners;
 
-    // The shim MUST be attached BEFORE HanziWriter.create() — that's
-    // the order that worked on the standalone test page, and
-    // we mirror it here verbatim. Attaching after create() left the
-    // quiz silently unresponsive on mobile despite identical-looking
-    // code.
+    // The shim MUST be attached BEFORE HanziWriter.create(): attached
+    // after it, the quiz stays silently unresponsive on mobile.
     canvasRef.value.addEventListener("pointerdown", forwardPointerAsMouse, {
       capture: true,
       signal,
@@ -245,9 +229,8 @@ async function startCharQuiz(idx: number) {
     // is to register interest in those events at capture phase with
     // passive: false, which keeps the browser from optimizing the
     // dispatch in a way that hides input from hanzi-writer's bubble-
-    // phase touchstart handler. Canvas 2 in the diagnostic page has
-    // equivalent listeners (as logging) and works on mobile; without
-    // them WritingQuiz.vue did not.
+    // phase touchstart handler; without them the quiz gets no touch
+    // input on mobile.
     const noop = () => {};
     canvasRef.value.addEventListener("touchstart", noop, {
       capture: true,
@@ -260,8 +243,8 @@ async function startCharQuiz(idx: number) {
       signal,
     });
 
-    // Theme-aware ink: slate-800 reads cleanly on light backgrounds but
-    // disappears against the dark-mode canvas, so flip to slate-200 in
+    // Theme-aware ink: gray-800 reads cleanly on light backgrounds but
+    // disappears against the dark-mode canvas, so flip to gray-200 in
     // dark mode. The settings store's theme value is what drives the
     // `dark` class on <html>, so we read it directly.
     const ink = settings.theme === "dark" ? "#e5e7eb" : "#1f2937";
@@ -338,7 +321,7 @@ function showCurrentChar() {
 }
 
 /** Skip — the char counts as every stroke wrong, on the same ratio
- *  scale the grade uses (a flat +5 used to be lenient on long words). */
+ *  scale the grade uses. */
 function skipCurrentChar() {
   const idx = currentIdx.value;
   setScore(idx, skippedScore(scores.value[idx]?.strokes ?? null));
@@ -353,11 +336,9 @@ watch(currentIdx, (idx) => {
   void startCharQuiz(idx);
 });
 
-// Kick off the very first quiz from onMounted so canvasRef.value is
-// guaranteed to be populated. An `immediate: true` watcher would have
-// fired synchronously during setup — before mount — and the function's
-// `!canvasRef.value` guard would bail silently, which is exactly what
-// left the first word of a fresh session unresponsive on mobile.
+// Start the first quiz from onMounted so canvasRef.value is populated.
+// An `immediate: true` watcher would fire during setup, before mount, and
+// the `!canvasRef.value` guard would bail silently.
 onMounted(() => void startCharQuiz(0));
 
 // Subsequent word changes (parent advanced to the next card).
@@ -370,7 +351,6 @@ watch(
     resetScores();
     currentMistakes.value = 0;
     completed.value = false;
-    skipped.value = false;
     if (currentIdx.value === 0) void startCharQuiz(0);
     else currentIdx.value = 0;
   },
@@ -386,7 +366,7 @@ watch(
 );
 
 // Same idea for theme: re-create so the ink color picks up the new
-// foreground value (slate-200 on dark, slate-800 on light).
+// foreground value (gray-200 on dark, gray-800 on light).
 watch(
   () => settings.theme,
   () => {

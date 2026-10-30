@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Phase 2.9 — Open-registration signup.
+ * Open-registration signup.
  *
  * Sibling of `SignupWithInviteModal.vue`. Triggered from `LoginModal`
  * when `/api/auth/registration-status` reports `open=true`. Honours the
@@ -10,7 +10,7 @@
  *
  * The captcha input must stay `type="text"`: with `type="number"` Vue
  * auto-casts the v-model to a number and every `.trim()` on it throws,
- * unmounting the whole dialog mid-typing (shipped bug, 2026-07-02).
+ * unmounting the whole dialog mid-typing.
  * `inputmode="numeric"` alone is what brings up the phone numpad.
  */
 
@@ -54,7 +54,7 @@ const canSubmit = computed(() => {
   if (password.value !== confirm.value) return false;
   if (captchaRequired.value) {
     if (captcha.value.status !== "ready") return false;
-    if (!String(captchaAnswer.value).trim()) return false;
+    if (!captchaAnswer.value.trim()) return false;
   }
   return true;
 });
@@ -104,7 +104,7 @@ async function onSubmit(e: Event) {
   try {
     const captchaPayload =
       captchaRequired.value && captcha.value.status === "ready"
-        ? { token: captcha.value.token, answer: String(captchaAnswer.value).trim() }
+        ? { token: captcha.value.token, answer: captchaAnswer.value.trim() }
         : undefined;
     await auth.openRegister(username.value.trim(), password.value, captchaPayload);
     toasts.success(`Welcome, ${auth.user?.username ?? "friend"}.`);

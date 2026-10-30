@@ -108,11 +108,8 @@ const hskOptions: { value: HskVersion; label: string; hint: string }[] = [
 ];
 
 // --- Onboarding shortcut: bulk-mark HSK levels as known ---
-//
-// Two-step button: click once to surface a confirm row showing the
-// expected count (calls /api/words/import-hsk's "dry run" semantics is
-// overkill here; we estimate from the in-memory dict instead — see
-// roughCount below).
+// Two-step button: the first click shows a confirm row with an estimated
+// count (roughCount); the real count comes back from the import.
 const importLevel = ref<number>(4);
 const importing = ref(false);
 const pendingConfirm = ref(false);
@@ -124,9 +121,7 @@ const lastResult = ref<{
 
 const importMaxLevel = computed(() => (settings.hskVersion === "new" ? 9 : 6));
 
-// HSK 1 ≈ 150 words, HSK 2 ≈ 300, ..., HSK 6 ≈ 5k, HSK 9 ≈ 11k. Used just
-// for the "about N words" hint; the real count comes back in the API
-// response after the import lands.
+// Approximate new words per level, only for the "about N words" hint.
 function roughCount(level: number, version: "new" | "old"): number {
   if (version === "new") {
     return [0, 500, 770, 1000, 1100, 1500, 1500, 1600, 1700, 1800][level] ?? 0;
@@ -150,7 +145,7 @@ async function download(path: string) {
   }
 }
 
-// --- Account deletion (audit trust item) ---
+// --- Account deletion ---
 // Two-step inline confirm + password re-entry; irreversible.
 const deleteArmed = ref(false);
 const deletePassword = ref("");
@@ -174,7 +169,7 @@ async function confirmDeleteAccount() {
   }
 }
 
-// --- Phase #121 — API tokens for external integrations ---
+// --- API tokens for external integrations ---
 // Read/write access to word state for outside apps (e.g. a speaking
 // companion's own whisper/LLM/TTS stack), scoped and revocable. Loaded
 // lazily on first modal open rather than at import time, since most
@@ -245,12 +240,9 @@ async function copyRevealedToken() {
   }
 }
 
-// --- Phase #96: daily auto-enrol target ---
-//
-// Bound from auth.user so the UI always reflects the server's truth; on
-// change, optimistic-update the local user then call the PATCH. 0 means
-// auto-enrol is disabled; the toggle below flips between 0 and the user's
-// chosen target (default 5 the first time they enable it).
+// --- Daily auto-enrol target ---
+// Bound to auth.user so the UI shows the server's value; 0 means
+// auto-enrol is off.
 const dailyNewWords = computed<number>({
   get: () => auth.user?.daily_new_words ?? 0,
   set: (v) => {
@@ -262,15 +254,13 @@ const dailyNewWords = computed<number>({
 
 const dailyEnabled = computed<boolean>({
   get: () => dailyNewWords.value > 0,
+  // On sets the recommended default of 5; off sets 0.
   set: (v) => {
-    // Toggling on restores to 5 (the recommended default); toggling off
-    // zeroes the target without losing the user's chosen number while
-    // they're in this session (they can flip back on without retyping).
     dailyNewWords.value = v ? 5 : 0;
   },
 });
 
-// --- Phase #96 follow-up: Simplified vs Traditional display ---
+// --- Simplified vs Traditional display ---
 const displayScript = computed<"auto" | "simp" | "trad">({
   get: () => auth.user?.display_script ?? "auto",
   set: (v) => {
@@ -280,12 +270,12 @@ const displayScript = computed<"auto" | "simp" | "trad">({
   },
 });
 
-// --- Phase #117 — FSRS retention target ---
-// Three bands map to FSRS desired_retention values that the SRS library
-// actually accepts (the meaningful tuning range is 0.85-0.97):
+// --- FSRS retention target ---
+// Three bands map to FSRS desired_retention values (the meaningful tuning
+// range is 0.85-0.97):
 //   relaxed → 0.90 — the FSRS library default. Fewer reviews, more
 //             forgetting; review 3 of a "Good" streak lands at ~10d.
-//   normal  → 0.95 — qingdu's default since Phase #117. Lines up with
+//   normal  → 0.95 — qingdu's default. Lines up with
 //             classic Anki SM-2 intuition; review 3 ≈ 4d.
 //   strict  → 0.97 — keeps almost everything fresh; review 3 ≈ 2d.
 type ReviewBand = "relaxed" | "normal" | "strict";
@@ -309,7 +299,7 @@ const reviewBand = computed<ReviewBand>({
   },
 });
 
-// --- Phase #119 — Review window ---
+// --- Review window ---
 type ReviewWindow = "now" | "today" | "tomorrow";
 const reviewWindow = computed<ReviewWindow>({
   get: () => (auth.user?.review_window as ReviewWindow) ?? "today",
@@ -446,19 +436,14 @@ async function runImport() {
   }
 }
 
-// --- Phase 1.6: server-switcher --------------------------------------------
-//
-// Runtime override for the API base URL. Set to the empty string here when
-// the user is on the default; the input doubles as the override field. The
-// "Test" button hits /health on whatever URL is in the field so a
-// typo'd server doesn't strand the user mid-config.
+// --- Server switcher ---
+// Runtime override for the API base URL. "Test" probes whatever URL is in
+// the field so a typo'd server doesn't strand the user.
 
 const apiBaseDefault = getDefaultApiBase();
-// The Server section shows wherever switching servers makes sense: web
-// builds with a baked-in default (demo-hosted SPA) and EVERY native build.
-// F-Droid builds ship with an empty default on purpose (first-launch
-// ServerPicker), and that picker promises "switch later in Settings" —
-// hiding the section on exactly those builds broke the promise.
+// The Server section shows on web builds with a baked-in default and on
+// every native build. F-Droid builds ship an empty default (first-launch
+// ServerPicker), and that picker promises "switch later in Settings".
 const serverSectionVisible = apiBaseDefault !== "" || isNative();
 // On native-with-no-default there is no "default server" to name in the
 // copy; show the server currently in use instead.
@@ -503,10 +488,8 @@ function saveApiBase() {
   // Empty input is interpreted as "reset to default" so the user can
   // wipe the override by clearing the field.
   setApiBase(target === apiBaseDefault || target === "" ? null : target);
-  // Phase 2.11 — clear the auth token explicitly. The JWT is signed by
-  // the previous server's SECRET_KEY, so it would fail validation on
-  // the new one anyway; clearing it keeps localStorage tidy and makes
-  // the "sign in again" toast match reality.
+  // The JWT is signed by the old server's SECRET_KEY and would fail on
+  // the new one; clearing it makes the "sign in again" toast true.
   setToken(null);
   toasts.success(
     "Server updated. Sign in again on the new server.",
@@ -548,10 +531,8 @@ function resetApiBase() {
     </template>
 
     <div class="space-y-3">
-      <!-- Phase 1.9 v2 — group fieldsets into five collapsible sections.
-           Cuts the 15-fieldset wall to a five-tap surface; the two most
-           common groups (Display, Review) open by default. Native
-           <details> keeps the keyboard / a11y story simple. -->
+      <!-- Five collapsible sections; the two most used (Display, Review)
+           open by default. Native <details> handles keyboard and a11y. -->
       <details class="group rounded-md" open>
         <summary class="flex cursor-pointer list-none items-center justify-between rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 hover:bg-bg-sunken">
           <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle">Display</span>
@@ -694,7 +675,7 @@ function resetApiBase() {
         </div>
       </fieldset>
 
-      <!-- Phase #119 — Review window -->
+      <!-- Review window -->
       <fieldset v-if="auth.isAuthed">
         <legend
           class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
@@ -758,7 +739,7 @@ function resetApiBase() {
         </div>
       </fieldset>
 
-      <!-- Phase #117 — FSRS retention -->
+      <!-- FSRS retention -->
       <fieldset v-if="auth.isAuthed">
         <legend
           class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
@@ -908,9 +889,9 @@ function resetApiBase() {
         </div>
       </fieldset>
 
-      <!-- Phase #116 — native-only daily reminder. Shown on all platforms;
-           on web the toggle saves the preference but never schedules anything
-           (the native plugin is a no-op outside the Capacitor wrapper). -->
+      <!-- Daily reminder. Shown on all platforms; on web the toggle saves
+           the preference but never schedules anything (the native plugin is
+           a no-op outside the Capacitor wrapper). -->
       <fieldset>
         <legend
           class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
@@ -971,7 +952,7 @@ function resetApiBase() {
         </label>
       </fieldset>
 
-      <!-- Phase #96 follow-up — global trad/simp toggle. Auth-gated since
+      <!-- Global trad/simp toggle. Auth-gated since
            it lives on the user row server-side; the conversion is applied
            at every endpoint that returns Chinese. -->
       <fieldset v-if="auth.isAuthed">
@@ -1014,11 +995,9 @@ function resetApiBase() {
           <svg class="size-3 text-fg-subtle transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </summary>
         <div class="mt-4 space-y-7 pl-1">
-      <!-- Phase #96 — daily systematic-learning target. Auth-gated because
-           the value lives on the user row server-side. Off by default;
-           the checkbox flips the target between 0 and 5 (default), with a
-           numeric input revealed when on. -->
-      <fieldset v-if="auth.isAuthed">
+      <!-- Daily auto-enrol target. Off by default; the checkbox flips the
+           target between 0 and 5, with a numeric input revealed when on. -->
+      <fieldset>
         <legend
           class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
         >
@@ -1058,9 +1037,9 @@ function resetApiBase() {
         </label>
       </fieldset>
 
-      <!-- Onboarding shortcuts — auth-gated. Single batch mark-as-known
-           pass to skip the cold-start grind for intermediate learners. -->
-      <fieldset v-if="auth.isAuthed">
+      <!-- Onboarding shortcut: one batch mark-as-known pass so intermediate
+           learners skip the cold start. -->
+      <fieldset>
         <legend
           class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
         >
@@ -1171,7 +1150,7 @@ function resetApiBase() {
         <template v-else>No AI help configured</template>
         · translation via {{ capabilities.caps.translation.join(", ") }}
       </p>
-      <!-- Phase G4 — data export. Each button opens the download as a
+      <!-- Data export. Each button opens the download as a
            plain link with a short-lived ticket (api.openDownload), so the
            browser handles the file natively and no session token lands in
            a URL. -->
@@ -1256,7 +1235,7 @@ function resetApiBase() {
         </div>
       </fieldset>
 
-      <!-- Phase #121 — personal API tokens for external integrations,
+      <!-- Personal API tokens for external integrations,
            e.g. a speaking-companion app that wants to read which words
            you already know and report newly-encountered ones back. -->
       <fieldset v-if="auth.isAuthed">
@@ -1366,7 +1345,7 @@ function resetApiBase() {
         </div>
       </fieldset>
 
-      <!-- Phase 1.6 — server-switcher for self-hosters. Shown on every
+      <!-- Server switcher for self-hosters. Shown on every
            native build (F-Droid ships no baked-in default — the first-
            launch ServerPicker promises "switch later in Settings") and on
            web builds that carry a default URL. Hidden only on same-origin
@@ -1444,7 +1423,7 @@ function resetApiBase() {
         </p>
       </fieldset>
 
-      <!-- Self-service account deletion (audit trust item). Inline two-step
+      <!-- Self-service account deletion. Inline two-step
            confirm + password re-entry; there is no email, so there is no
            undo path once this runs. -->
       <fieldset v-if="auth.isAuthed && !auth.isAdmin">

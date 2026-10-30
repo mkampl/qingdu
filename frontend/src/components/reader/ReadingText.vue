@@ -2,8 +2,12 @@
 import { computed, nextTick, ref, watch } from "vue";
 
 import type { AnalysisResponse, WordInfo } from "@/api/types";
+import { tap as hapticTap } from "@/services/native";
+import { useAudioPlayerStore } from "@/stores/audio-player";
+import { useAuthStore } from "@/stores/auth";
 import { useReaderStore } from "@/stores/reader";
 import { useSettingsStore } from "@/stores/settings";
+import { useToastStore } from "@/stores/toast";
 import { useUserWordsStore } from "@/stores/userWords";
 
 import SentenceTranslation from "./SentenceTranslation.vue";
@@ -25,11 +29,6 @@ const emit = defineEmits<{
   /** Fires whenever the section list changes — ReaderView passes it to the TOC. */
   (e: "sections", value: Section[]): void;
 }>();
-
-import { useAudioPlayerStore } from "@/stores/audio-player";
-import { useAuthStore } from "@/stores/auth";
-import { useToastStore } from "@/stores/toast";
-import { tap as hapticTap } from "@/services/native";
 
 const reader = useReaderStore();
 const settings = useSettingsStore();
@@ -72,17 +71,8 @@ const sentences = computed<Sentence[]>(() =>
 
 const sections = computed<Section[]>(() => detectSections(sentences.value));
 
-watch(
-  sections,
-  (next) => {
-    // Let the TOC pick up section changes (text replaced, re-analysed, etc.).
-    emit("sections", next);
-    // The DOM-anchor IDs are stable across renders, so we don't need to
-    // resync scroll position here — Vue's diff keeps positions intact.
-    void nextTick();
-  },
-  { immediate: true },
-);
+// Let the TOC pick up section changes (text replaced, re-analysed, etc.).
+watch(sections, (next) => emit("sections", next), { immediate: true });
 
 /** Map from sentence index -> section index, for the "this sentence starts
  *  a new section" lookup in the template. */
@@ -132,10 +122,9 @@ function collectUnknownWordsInRange(start: number, end: number): string[] {
 }
 
 const bulkMarkingRange = ref<string | null>(null);
-// One tap used to mark a whole section known instantly — prime mis-tap
-// territory right above the audio player on mobile, with no undo and
-// silent damage to level estimation. Arm first, confirm second, like
-// every other bulk action in the app.
+// Arm first, confirm second, like every other bulk action: the button sits
+// right above the audio player on mobile, and a mis-tap has no undo and
+// skews the level estimate.
 const bulkConfirm = ref<{ key: string; start: number; end: number; count: number } | null>(
   null,
 );
@@ -200,12 +189,10 @@ function wordHskColor(word: WordInfo): string | null {
  *   - 'off'      → no color, ever.
  *   - 'hsk'      → corpus-level rainbow by HSK band.
  *   - 'progress' → LingQ-style three-state: new=blue, learning=accent
- *                  (warm amber/coral), known/ignored=plain text. The three
- *                  modes must be visually distinguishable at a glance —
- *                  earlier this branch fell back to HSK colors for "new",
- *                  which made progress and hsk look identical until the
- *                  user had marked many words. (Punctuation and other
- *                  non-CJK tokens stay uncolored.)
+ *                  (warm amber/coral), known/ignored=plain text. "new" is
+ *                  not HSK-coloured, so progress and hsk modes stay
+ *                  distinguishable. (Punctuation and other non-CJK tokens
+ *                  stay uncolored.)
  */
 function washColor(word: WordInfo): string | null {
   if (word.translation_source === "linebreak") return null;
@@ -269,14 +256,9 @@ function onSentenceClick(sentence: Sentence) {
   void reader.translateSentence(sentence.text);
 }
 
-function selectedWordKey(): string | null {
-  return reader.selectedWord?.text ?? null;
-}
-
 /** Clicked from the highlighted sentence to jump playback there. */
 function onJumpSentence(sentenceKey: string, event: MouseEvent) {
-  // Only intercept Alt-click as "jump here" so plain click still opens
-  // the translation card (existing behavior).
+  // Only Alt-click jumps; a plain click opens the translation card.
   if (!event.altKey) return;
   event.preventDefault();
   event.stopPropagation();
@@ -376,10 +358,7 @@ watch(
             <span class="pinyin">{{ word.pinyin ?? '' }}</span>
             <span
               class="hanzi hsk-wash"
-              :data-selected="
-                (selectedWordKey() === word.text &&
-                  reader.selectedWord === word) || undefined
-              "
+              :data-selected="reader.selectedWord === word || undefined"
               :style="hskStyle(word)"
             >
               {{ word.text }}
