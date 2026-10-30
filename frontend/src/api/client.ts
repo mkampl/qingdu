@@ -414,7 +414,7 @@ export interface SentenceGrammar {
 export const explainSentence = (sentence: string) =>
   request<SentenceGrammar>("/api/grammar/explain", { body: { sentence } });
 
-/** A short reading text that practises a point, written by the LLM. */
+/** A short reading text that practices a point, written by the LLM. */
 export const getPracticeText = (id: string) =>
   request<{ title: string; text: string; known_pct: number; point: GrammarPointSummary }>(
     `/api/grammar/${encodeURIComponent(id)}/text`,

@@ -184,8 +184,11 @@ onBeforeUnmount(() => {
         <p v-else-if="loading" class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
           Loading…
         </p>
-        <p v-else class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">
-          Tap a character on the left for multi-char words.
+        <p
+          v-else-if="cjkChars.length > 1"
+          class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
+        >
+          Tap a character above to see its strokes.
         </p>
       </div>
     </div>

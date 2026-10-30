@@ -145,14 +145,14 @@ onBeforeUnmount(() => {
     </header>
 
     <div v-if="!auth.isAuthed" class="rounded-lg border border-border-subtle bg-bg-elevated p-8 text-center">
-      <p class="font-display italic text-fg-muted">Sign in to practise with your own words.</p>
+      <p class="font-display italic text-fg-muted">Sign in to practice with your own words.</p>
       <Button variant="primary" size="sm" class="mt-4" @click="authModals.openLogin()">Sign in</Button>
     </div>
 
     <p v-else-if="loading" class="font-display italic text-fg-muted">Picking words…</p>
     <p v-else-if="error" class="text-sm text-red-700 dark:text-red-300" role="alert">{{ error }}</p>
     <p v-else-if="!items.length" class="font-display italic text-fg-muted">
-      No words to practise yet.
+      No words to practice yet.
     </p>
 
     <!-- Result -->

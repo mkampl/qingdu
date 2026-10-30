@@ -475,8 +475,8 @@ async function runOcr() {
     <div v-if="!preview && mode === 'file'" class="space-y-4">
       <p class="font-display text-sm italic leading-relaxed text-fg-muted">
         Drop an EPUB or PDF — we'll pull out the text body, drop images and
-        page furniture, and import the first ~50 000 characters. Scanned
-        PDFs need OCR (coming soon). Subtitles (.srt, .vtt, .ass) come in
+        page furniture, and import the first ~50 000 characters. For a
+        scanned PDF or a photo, use the Scan tab. Subtitles (.srt, .vtt, .ass) come in
         as one line per subtitle, keeping only the Chinese lines.
       </p>
 
@@ -875,7 +875,7 @@ async function runOcr() {
         </div>
       </div>
       <div class="flex items-center justify-end gap-2">
-        <Button variant="ghost" size="sm" @click="back">Try a different URL</Button>
+        <Button variant="ghost" size="sm" @click="back">Choose something else</Button>
         <Button variant="primary" size="sm" @click="importNow">
           Use this text
         </Button>

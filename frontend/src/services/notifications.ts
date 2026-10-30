@@ -113,7 +113,7 @@ async function ensureChannel(): Promise<void> {
     await LocalNotifications.createChannel({
       id: CHANNEL_ID,
       name: "Daily reminders",
-      description: "Time-to-read pings — one tap per slot, dismissible.",
+      description: "Daily review reminder.",
       importance: 3, // IMPORTANCE_DEFAULT — sound on lock screen, no peek
       visibility: 1, // VISIBILITY_PUBLIC
       lights: false,

@@ -96,9 +96,7 @@ const elapsedDisplay = computed(() => {
     </div>
 
     <p class="mt-3 text-xs leading-relaxed text-fg-muted">
-      Long articles take longer because every word that isn't already in HSK
-      gets a fresh translation lookup. After the first analysis those words
-      are cached, so re-analysing this text will be near-instant.
+      Long texts take a few seconds longer.
     </p>
   </div>
 </template>

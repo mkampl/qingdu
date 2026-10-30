@@ -119,7 +119,7 @@ const FILTERS: { id: Filter; label: string }[] = [
       <h1 class="font-display text-2xl font-medium tracking-tight text-fg">Grammar</h1>
       <p class="mt-1 max-w-2xl text-sm text-fg-muted">
         The HSK 3.0 grammar points, with the ones you met in texts you read
-        to the end and your own sentences to look at and practise.
+        to the end and your own sentences to look at and practice.
         <template v-if="data">
           {{ data.read_texts }} text{{ data.read_texts === 1 ? "" : "s" }} read so far.
         </template>
@@ -221,7 +221,7 @@ const FILTERS: { id: Filter; label: string }[] = [
                 </template>
                 <template v-else>not met yet</template>
                 <template v-if="p.progress">
-                  · practised {{ p.progress.correct }}/{{ p.progress.total }}
+                  · practiced {{ p.progress.correct }}/{{ p.progress.total }}
                 </template>
               </span>
             </RouterLink>
