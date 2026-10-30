@@ -1,6 +1,3 @@
-import os
-
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -10,7 +7,7 @@ from app.auth import (
     require_admin,
     validate_new_credentials,
 )
-from app.core.constants import API_TIMEOUT, MIN_PASSWORD_LENGTH
+from app.core.constants import MIN_PASSWORD_LENGTH
 from app.database import User, get_db
 from app.schemas import (
     CreateUserRequest,
@@ -18,7 +15,7 @@ from app.schemas import (
     ResetPasswordRequest,
     UpdateInviteQuotaRequest,
 )
-from app.services import lifecycle
+from app.services import lifecycle, translation
 from app.services.timestamps import iso_utc
 
 router = APIRouter(tags=["Admin"])
@@ -210,71 +207,6 @@ async def update_user_invite_quota(
     }
 
 
-# --- Translation-provider healthcheck ----------------------------------------
-#
-# Probes each provider with a known phrase so an admin can confirm DeepL,
-# Google and MyMemory are reachable and accept the auth we send. The
-# translation chain falls through silently, so a bad key or an API change
-# shows up here first.
-
-_PROBE_TEXT = "你好"
-
-
-async def _probe(send, translation_of) -> dict:
-    """Run one provider request; `translation_of` reads the JSON reply."""
-    try:
-        async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
-            response = await send(client)
-        if response.is_success:
-            translation = translation_of(response.json())
-            return {"status": "ok", "http_status": response.status_code, "translation": translation}
-        return {
-            "status": "error",
-            "http_status": response.status_code,
-            "detail": response.text[:300],
-        }
-    except Exception as e:
-        return {"status": "error", "detail": str(e)[:300]}
-
-
-async def _probe_deepl() -> dict:
-    key = os.getenv("DEEPL_API_KEY")
-    if not key:
-        return {"status": "not_configured", "detail": "DEEPL_API_KEY is empty"}
-    return await _probe(
-        lambda client: client.post(
-            "https://api-free.deepl.com/v2/translate",
-            headers={"Authorization": f"DeepL-Auth-Key {key}"},
-            data={"text": _PROBE_TEXT, "target_lang": "EN", "source_lang": "ZH"},
-        ),
-        lambda data: (data.get("translations") or [{}])[0].get("text", ""),
-    )
-
-
-async def _probe_google() -> dict:
-    key = os.getenv("GOOGLE_TRANSLATE_API_KEY")
-    if not key:
-        return {"status": "not_configured", "detail": "GOOGLE_TRANSLATE_API_KEY is empty"}
-    return await _probe(
-        lambda client: client.post(
-            "https://translation.googleapis.com/language/translate/v2",
-            params={"key": key, "q": _PROBE_TEXT, "target": "en", "source": "zh"},
-        ),
-        lambda data: ((data.get("data") or {}).get("translations") or [{}])[0].get(
-            "translatedText", ""
-        ),
-    )
-
-
-async def _probe_mymemory() -> dict:
-    return await _probe(
-        lambda client: client.get(
-            f"https://api.mymemory.translated.net/get?q={_PROBE_TEXT}&langpair=zh|en"
-        ),
-        lambda data: (data.get("responseData") or {}).get("translatedText", ""),
-    )
-
-
 @router.get("/api/admin/translate-providers")
 async def translate_providers_healthcheck(
     admin: User = Depends(require_admin),
@@ -282,16 +214,4 @@ async def translate_providers_healthcheck(
     """Probe each translation provider (DeepL, Google, MyMemory) with the
     same Chinese phrase and report which ones work."""
     _ = admin
-    deepl, google, mymemory = (
-        await _probe_deepl(),
-        await _probe_google(),
-        await _probe_mymemory(),
-    )
-    return {
-        "probe": _PROBE_TEXT,
-        "providers": {
-            "deepl": deepl,
-            "google": google,
-            "mymemory": mymemory,
-        },
-    }
+    return await translation.probe_providers()

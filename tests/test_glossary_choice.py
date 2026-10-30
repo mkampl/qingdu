@@ -3,7 +3,7 @@
 import json
 
 from app.database import User, VocabularyList
-from app.routers.analyze import _build_glossary
+from app.services.word_lists import build_glossary
 
 
 def _list(s, list_id, flagged, words):
@@ -25,11 +25,11 @@ def test_only_the_texts_chosen_lists_apply(words_client):
     s.commit()
     user = s.get(User, 1)
     # No choice = no glossary, even with a flagged list.
-    assert _build_glossary(s, user, None) == {}
-    assert _build_glossary(s, user, []) == {}
+    assert build_glossary(s, user, None) == {}
+    assert build_glossary(s, user, []) == {}
     # A chosen list applies whether it is flagged or not.
-    assert set(_build_glossary(s, user, [2])) == {"守窍"}
-    assert set(_build_glossary(s, user, [1, 2])) == {"自然", "守窍"}
+    assert set(build_glossary(s, user, [2])) == {"守窍"}
+    assert set(build_glossary(s, user, [1, 2])) == {"自然", "守窍"}
     # Without an account there is none.
-    assert _build_glossary(s, None, [1]) == {}
+    assert build_glossary(s, None, [1]) == {}
     s.close()

@@ -14,7 +14,8 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth, require_auth_flexible
 from app.core.paths import DATA_DIR
-from app.database import User, VocabularyList, get_db
+from app.database import User, get_db
+from app.services import word_lists
 from app.services.gloss_refresh import refresh_vocab_list
 
 router = APIRouter(tags=["Anki Export"])
@@ -24,17 +25,6 @@ logger = logging.getLogger(__name__)
 # gTTS network calls (with time.sleep pacing), file IO and genanki
 # packaging. Starlette runs sync handlers in its threadpool, so a long
 # export does not block the event loop for other requests.
-
-
-def _owned_list(db: Session, user: User, list_id: int) -> VocabularyList:
-    vocab_list = (
-        db.query(VocabularyList)
-        .filter(VocabularyList.id == list_id, VocabularyList.user_id == user.id)
-        .first()
-    )
-    if not vocab_list:
-        raise HTTPException(status_code=404, detail="List not found")
-    return vocab_list
 
 
 def _cache_path_for(hanzi: str):
@@ -52,8 +42,8 @@ def check_audio_status(
     db: Session = Depends(get_db),
 ):
     """How many of the list's TTS clips are already cached."""
-    vocab_list = _owned_list(db, user, list_id)
-    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    vocab_list = word_lists.owned_list(db, user, list_id)
+    sections = word_lists.load_sections(vocab_list)
 
     total_words = 0
     cached_count = 0
@@ -89,8 +79,8 @@ def prepare_export_audio(
     db: Session = Depends(get_db),
 ):
     """Generate missing TTS clips before the actual Anki export."""
-    vocab_list = _owned_list(db, user, list_id)
-    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    vocab_list = word_lists.owned_list(db, user, list_id)
+    sections = word_lists.load_sections(vocab_list)
 
     total_words = 0
     generated_count = 0
@@ -143,9 +133,9 @@ def export_vocabulary_list_anki(
     db: Session = Depends(get_db),
 ):
     """Export a vocabulary list as an Anki .apkg file with stroke animations + subdecks."""
-    vocab_list = _owned_list(db, user, list_id)
+    vocab_list = word_lists.owned_list(db, user, list_id)
     refresh_vocab_list(db, vocab_list)
-    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    sections = word_lists.load_sections(vocab_list)
 
     temp_dir = tempfile.mkdtemp(prefix="qingdu_anki_")
     media_files: list = []
@@ -188,7 +178,7 @@ def export_vocabulary_list_anki(
         deck_id_base = vocab_list.anki_deck_id or (2000000 + list_id)
 
         for section in sections:
-            section_name = section.get("name", "Main")
+            section_name = section.get("name") or "Main"
             words = section.get("words", [])
             if not words:
                 continue
@@ -308,9 +298,9 @@ def export_vocabulary_list_csv(
     db: Session = Depends(get_db),
 ):
     """Export a vocabulary list as CSV (`hanzi;pinyin;meaning;level`)."""
-    vocab_list = _owned_list(db, user, list_id)
+    vocab_list = word_lists.owned_list(db, user, list_id)
     refresh_vocab_list(db, vocab_list)
-    sections = json.loads(vocab_list.sections) if vocab_list.sections else []
+    sections = word_lists.load_sections(vocab_list)
     csv_lines = [
         f"{w.get('hanzi', '')};{w.get('pinyin', '')};{w.get('meaning', '')};{w.get('level', '')}"
         for section in sections

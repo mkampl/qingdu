@@ -9,13 +9,14 @@ from sqlalchemy.orm import Session
 from app.auth import require_auth
 from app.core.rate_limit import limiter
 from app.database import SavedText, User, get_db
-from app.routers.analyze import _user_glosses_map
 from app.services import cloze, dict_data, readability, text_folders
 from app.services.gloss_refresh import DICT_VERSION_KEY, refresh_analysis
 from app.services.migrations import migrate_analysis_data
+from app.services.reading_progress import READ_THROUGH, progress_fraction
 from app.services.script import convert_analysis_data, to_user_script
 from app.services.streak import record_activity
 from app.services.timestamps import iso_utc
+from app.services.user_words import user_glosses_map
 
 router = APIRouter(tags=["Saved Texts"])
 logger = logging.getLogger(__name__)
@@ -94,19 +95,6 @@ def _strip_dict_version(analysis_data: dict) -> dict:
     the server has now, never against a version the client claims."""
     analysis_data.pop(DICT_VERSION_KEY, None)
     return analysis_data
-
-
-# Reading progress at which a saved text counts as read through.
-READ_THROUGH = 0.99
-
-
-def _progress_fraction(raw) -> float:
-    """reading_progress as 0..1; older rows hold 0..100."""
-    try:
-        value = float(raw or 0)
-    except (TypeError, ValueError):
-        return 0.0
-    return value / 100 if value > 1 else value
 
 
 def _glossary_ids(text: SavedText) -> list[int] | None:
@@ -253,7 +241,7 @@ def get_text(
     # The user's tagged glosses per word, so the popover shows package and
     # dictionary meanings side by side without re-running /api/analyze.
     # Before the script conversion: UserWord rows are simp-keyed.
-    _attach_user_glosses(migrated_data, _user_glosses_map(db, user))
+    _attach_user_glosses(migrated_data, user_glosses_map(db, user))
     # Then convert the analysis_data (and the raw `content`) to the
     # user's display script. analysis_data is walked in place: every
     # word.text and grammar sentence.text gets converted.
@@ -356,9 +344,9 @@ async def update_text(
     if "tags" in data:
         text.tags = json.dumps(data["tags"]) if data["tags"] else None
     if "reading_progress" in data:
-        before = _progress_fraction(text.reading_progress)
+        before = progress_fraction(text.reading_progress)
         text.reading_progress = data["reading_progress"]
-        if before < READ_THROUGH <= _progress_fraction(text.reading_progress):
+        if before < READ_THROUGH <= progress_fraction(text.reading_progress):
             # Read to the end: counts for the streak like a review does.
             record_activity(user, db)
     if "content" in data:

@@ -6,9 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import User, get_db
-from app.routers.words import import_hsk_known
-from app.schemas import ImportHskRequest
-from app.services import placement
+from app.services import placement, user_words
 
 router = APIRouter(tags=["Placement"])
 
@@ -43,6 +41,4 @@ async def placement_finish(
     if result.level == 0:
         return {"inserted": 0, "skipped": 0, "total_eligible": 0}
     up_to = 9 if result.level == 7 else result.level
-    return await import_hsk_known(
-        ImportHskRequest(up_to_level=up_to, hsk_version="new"), user=user, db=db
-    )
+    return user_words.import_hsk_known(db, user, up_to, "new")

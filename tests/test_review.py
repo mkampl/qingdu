@@ -9,9 +9,9 @@ the queue stops returning it, and stats reflect the action.
 from datetime import UTC, datetime, timedelta
 
 from app.database import User, UserWord, UserWordEvent
-from app.routers.review import KNOWN_STABILITY_THRESHOLD_DAYS, next_state_after_grade
 from app.services import srs
 from app.services.timestamps import iso_utc
+from app.services.user_words import KNOWN_STABILITY_THRESHOLD_DAYS, next_state_after_grade
 
 
 def test_queue_returns_only_due_active_cards(review_client):

@@ -14,7 +14,6 @@ Mode hints in the queue payload:
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -23,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import User, UserWord, UserWordEvent, get_db
-from app.services import cloze, readability, review_scope, srs, tone_drill
+from app.services import cloze, readability, review_scope, srs, tone_drill, user_words
 from app.services.cedict_loader import cap_meanings
 from app.services.due import (
     ACTIVE_REVIEW_STATES,
@@ -42,25 +41,6 @@ from app.services.word_info import cedict_entry, lookup_pinyin_meaning
 from app.state import hsk_vocab
 
 router = APIRouter(tags=["Review"])
-
-# ACTIVE_REVIEW_STATES (from services.due) are the states in the review
-# rotation. Auto-transitions in grade_card move rows between 'learning'
-# and 'known' based on the FSRS stability after grading.
-KNOWN_STABILITY_THRESHOLD_DAYS = 90.0
-
-
-def next_state_after_grade(state: str, stability: float | None, grade: int) -> str:
-    """Learning/known transition after one grade (hysteresis).
-
-    learning → known once stability reaches KNOWN_STABILITY_THRESHOLD_DAYS.
-    known → learning only on Again; Hard/Good/Easy keep a known card known.
-    """
-    if state == "known":
-        return "learning" if grade == 1 else "known"
-    if (stability or 0) >= KNOWN_STABILITY_THRESHOLD_DAYS:
-        return "known"
-    return "learning"
-
 
 ReviewMode = Literal["recognition", "dictation", "writing", "cloze"]
 # Queue can also be fetched in "mixed" — one queue that carries the data for
@@ -302,44 +282,7 @@ def grade_card(
     if row.state not in ACTIVE_REVIEW_STATES:
         raise HTTPException(status_code=409, detail="This word is not in your review rotation")
 
-    updated = srs.apply_grade(row.fsrs_state, payload.grade, retention=user.review_retention)
-    row.fsrs_state = updated["fsrs_state"]
-    row.stability = updated["stability"]
-    row.difficulty = updated["difficulty"]
-    row.due_at = updated["due_at"]
-    row.last_reviewed_at = updated["last_reviewed_at"]
-    row.updated_at = datetime.utcnow()
-
-    # Auto-transition between 'learning' and 'known' based on the new
-    # FSRS stability. Crossing into 'known' = mastered (renders as
-    # known-color in the reader). The way back is deliberately narrower:
-    # only a lapse (Again) demotes a known card. FSRS's same-day formula
-    # can drop stability far below the threshold on a plain Hard (90 →
-    # ~41), and that is not the user saying "I forgot this word".
-    # State flips are emitted as state_change events so the log captures
-    # the inflection (helps with stats + undo).
-    new_state_for_row = next_state_after_grade(row.state, row.stability, payload.grade)
-    if new_state_for_row != row.state:
-        row.state = new_state_for_row
-        db.add(
-            UserWordEvent(
-                user_id=user.id,
-                word=word_simp,
-                event_type="state_change",
-                new_state=new_state_for_row,
-            )
-        )
-
-    db.add(
-        UserWordEvent(
-            user_id=user.id,
-            word=word_simp,
-            event_type="review",
-            new_state=row.state,
-            grade=payload.grade,
-            mode=payload.mode,
-        )
-    )
+    user_words.grade_word(db, row, payload.grade, payload.mode, user.review_retention)
     record_activity(user, db)
     db.commit()
     return {

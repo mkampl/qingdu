@@ -1,5 +1,4 @@
 import json
-import logging
 import random
 from typing import Annotated
 
@@ -10,16 +9,15 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import User, UserWord, VocabularyList, get_db
-from app.routers.words import _ensure_gloss, _upsert, may_create_word
 from app.services import dict_data
 from app.services.gloss_refresh import is_user_meaning, refresh_vocab_list
 from app.services.migrations import migrate_vocabulary_sections
-from app.services.review_scope import list_words
 from app.services.script import convert_vocab_sections, to_canonical, to_user_script
 from app.services.streak import record_activity
+from app.services.user_words import ensure_gloss, may_create_word, upsert_word
+from app.services.word_lists import list_words, load_sections, owned_list
 
 router = APIRouter(tags=["Vocabulary Lists"])
-logger = logging.getLogger(__name__)
 
 
 # Request bodies. Words and sections allow extra keys because the SPA
@@ -90,42 +88,6 @@ def _dump_sections(sections: list[ListSection]) -> str:
     return json.dumps([s.model_dump(exclude_none=True) for s in sections])
 
 
-def _load_sections(vocab_list: VocabularyList) -> list[dict]:
-    """Stored sections, defensively: lists saved before request validation
-    can hold sections without a name or words, which would KeyError every
-    later mutation."""
-    try:
-        raw = json.loads(vocab_list.sections) if vocab_list.sections else []
-    except (TypeError, ValueError):
-        logger.warning("vocab list %s has unreadable sections; treating as empty", vocab_list.id)
-        return []
-    sections = []
-    for section in raw if isinstance(raw, list) else []:
-        if not isinstance(section, dict):
-            continue
-        section.setdefault("name", "")
-        words = section.get("words")
-        section["words"] = [
-            w for w in (words if isinstance(words, list) else []) if isinstance(w, dict)
-        ]
-        for w in section["words"]:
-            w.setdefault("hanzi", "")
-        sections.append(section)
-    return sections
-
-
-def _owned_list(db: Session, user: User, list_id: int) -> VocabularyList:
-    """Return the list if it belongs to `user`, else 404."""
-    vocab_list = (
-        db.query(VocabularyList)
-        .filter(VocabularyList.id == list_id, VocabularyList.user_id == user.id)
-        .first()
-    )
-    if not vocab_list:
-        raise HTTPException(status_code=404, detail="List not found")
-    return vocab_list
-
-
 @router.post("/api/vocabulary-lists")
 async def create_vocabulary_list(
     list_data: CreateListRequest,
@@ -182,7 +144,7 @@ async def get_vocabulary_list(
     db: Session = Depends(get_db),
 ):
     """One list, same shape as an entry of the list endpoint."""
-    vocab_list = _owned_list(db, user, list_id)
+    vocab_list = owned_list(db, user, list_id)
     refresh_vocab_list(db, vocab_list)
     return _serialize_list(vocab_list, user)
 
@@ -194,7 +156,7 @@ async def update_vocabulary_list(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    vocab_list = _owned_list(db, user, list_id)
+    vocab_list = owned_list(db, user, list_id)
     # PATCH-style: only the fields the caller sent change, so the glossary
     # toggle can send just `apply_as_glossary`.
     if list_data.name is not None:
@@ -213,7 +175,7 @@ async def delete_vocabulary_list(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    vocab_list = _owned_list(db, user, list_id)
+    vocab_list = owned_list(db, user, list_id)
     db.delete(vocab_list)
     db.commit()
     return {"message": "List deleted"}
@@ -231,8 +193,8 @@ async def add_word_to_list(
     A word that is already anywhere in the list is a 409 naming the
     section it sits in, so the client can say so instead of "Added".
     """
-    vocab_list = _owned_list(db, user, list_id)
-    sections = _load_sections(vocab_list)
+    vocab_list = owned_list(db, user, list_id)
+    sections = load_sections(vocab_list)
     hanzi = word_data.hanzi
     for existing in sections:
         if any(w["hanzi"] == hanzi for w in existing["words"]):
@@ -272,8 +234,8 @@ async def add_section_to_list(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    vocab_list = _owned_list(db, user, list_id)
-    sections = _load_sections(vocab_list)
+    vocab_list = owned_list(db, user, list_id)
+    sections = load_sections(vocab_list)
     section_name = section_data.name
     if any(s["name"] == section_name for s in sections):
         raise HTTPException(status_code=409, detail="Section already exists")
@@ -295,11 +257,11 @@ async def rename_section(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    vocab_list = _owned_list(db, user, list_id)
+    vocab_list = owned_list(db, user, list_id)
     old_name = section_data.old_name
     new_name = section_data.new_name
 
-    sections = _load_sections(vocab_list)
+    sections = load_sections(vocab_list)
     section = next((s for s in sections if s["name"] == old_name), None)
     if not section:
         raise HTTPException(status_code=404, detail="Section not found")
@@ -319,8 +281,8 @@ async def delete_section(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    vocab_list = _owned_list(db, user, list_id)
-    sections = _load_sections(vocab_list)
+    vocab_list = owned_list(db, user, list_id)
+    sections = load_sections(vocab_list)
     section = next((s for s in sections if s["name"] == section_name), None)
     if not section:
         raise HTTPException(status_code=404, detail="Section not found")
@@ -341,12 +303,12 @@ async def update_word_in_list(
     db: Session = Depends(get_db),
 ):
     """Update one word in a section. Forces level back to 'Custom' on edit."""
-    vocab_list = _owned_list(db, user, list_id)
+    vocab_list = owned_list(db, user, list_id)
     section_name = word_data.section_name
     old_hanzi = word_data.old_hanzi
     new_word = word_data.word
 
-    sections = _load_sections(vocab_list)
+    sections = load_sections(vocab_list)
     section = next((s for s in sections if s["name"] == section_name), None)
     if not section:
         raise HTTPException(status_code=404, detail="Section not found")
@@ -389,11 +351,11 @@ async def delete_word_from_list(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    vocab_list = _owned_list(db, user, list_id)
+    vocab_list = owned_list(db, user, list_id)
     section_name = word_data.section_name
     hanzi = word_data.hanzi
 
-    sections = _load_sections(vocab_list)
+    sections = load_sections(vocab_list)
     section = next((s for s in sections if s["name"] == section_name), None)
     if not section:
         raise HTTPException(status_code=404, detail="Section not found")
@@ -428,11 +390,11 @@ def learn_list(
     it (first, in a session focused on this list). Words the user already
     has keep their state.
     """
-    vocab_list = _owned_list(db, user, list_id)
+    vocab_list = owned_list(db, user, list_id)
     section_name = payload.section_name if payload else None
     entries = list_words(vocab_list)
     if section_name:
-        sections = _load_sections(vocab_list)
+        sections = load_sections(vocab_list)
         section = next((s for s in sections if s["name"] == section_name), None)
         if section is None:
             raise HTTPException(status_code=404, detail="Section not found")
@@ -453,13 +415,13 @@ def learn_list(
             if not may_create_word(db, user.id, word, is_pkg=True):
                 skipped.append(to_user_script(word, user))
                 continue
-            row = _upsert(db, user.id, word, "learning", None)
+            row = upsert_word(db, user.id, word, "learning", None)
             added.append(to_user_script(word, user))
         else:
             tracked += 1
         meaning = (entry.get("meaning") or "").strip()
         if is_user_meaning(word, meaning):
-            _ensure_gloss(
+            ensure_gloss(
                 db,
                 row,
                 pinyin=entry.get("pinyin") or None,

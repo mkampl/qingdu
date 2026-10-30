@@ -8,17 +8,16 @@ meaning that text or list gives each word, so the card can lead with it
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.database import TextWord, User, UserWord, VocabularyList
+from app.database import TextWord, User, UserWord
 from app.services.gloss_refresh import is_user_meaning
 from app.services.script import to_canonical
+from app.services.word_lists import list_words, owned_list
 
 
 @dataclass
@@ -28,20 +27,6 @@ class Scope:
     clause: ColumnElement[bool]
     # word -> (gloss source, gloss tag) of the text's or list's own meaning.
     focus: dict[str, tuple[str, str | None]] = field(default_factory=dict)
-
-
-def list_words(vocab_list: VocabularyList) -> list[dict]:
-    """Every word entry of a list, in section order."""
-    try:
-        sections = json.loads(vocab_list.sections) if vocab_list.sections else []
-    except (TypeError, ValueError):
-        return []
-    out: list[dict] = []
-    for section in sections if isinstance(sections, list) else []:
-        for w in (section or {}).get("words") or [] if isinstance(section, dict) else []:
-            if isinstance(w, dict) and (w.get("hanzi") or "").strip():
-                out.append(w)
-    return out
 
 
 def resolve(
@@ -63,13 +48,7 @@ def resolve(
             focus={r.word: (r.gloss_source, r.gloss_tag) for r in rows if r.gloss_source},
         )
     if list_id is not None:
-        vocab_list = (
-            db.query(VocabularyList)
-            .filter(VocabularyList.id == list_id, VocabularyList.user_id == user.id)
-            .first()
-        )
-        if vocab_list is None:
-            raise HTTPException(status_code=404, detail="List not found")
+        vocab_list = owned_list(db, user, list_id)
         focus: dict[str, tuple[str, str | None]] = {}
         words: set[str] = set()
         for w in list_words(vocab_list):
@@ -105,4 +84,4 @@ def focus_gloss(scope: Scope | None, row: UserWord) -> dict | None:
     return None
 
 
-__all__ = ["Scope", "focus_gloss", "list_words", "resolve"]
+__all__ = ["Scope", "focus_gloss", "resolve"]

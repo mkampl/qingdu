@@ -17,9 +17,9 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_api_scope
 from app.database import User, UserWord, get_db
-from app.routers.words import _upsert, may_create_word
 from app.services.script import to_canonical
 from app.services.streak import record_activity
+from app.services.user_words import may_create_word, upsert_word
 from app.state import hsk_vocab
 
 router = APIRouter(prefix="/api/external", tags=["External API"])
@@ -95,7 +95,7 @@ async def report_encountered_words(
         if existing is None and not may_create_word(db, user.id, word):
             rejected.append(word)
             continue
-        _upsert(db, user.id, word, "learning", None)
+        upsert_word(db, user.id, word, "learning", None)
         accepted.append(word)
 
     if accepted:

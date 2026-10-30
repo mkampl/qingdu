@@ -1,15 +1,15 @@
-import json
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.core.constants import ANALYZE_RATE_LIMIT, MAX_ANALYZE_CHARS
 from app.core.rate_limit import limiter
-from app.database import User, UserWord, UserWordGloss, VocabularyList, get_db
+from app.database import User, UserWord, get_db
 from app.schemas import TextAnalysisRequest
+from app.services import word_lists
 from app.services.script import to_canonical, to_user_script, user_script
 from app.services.segmentation import analyze_chinese_text
+from app.services.user_words import user_glosses_map
 from app.state import hsk_vocab
 
 router = APIRouter(tags=["Analysis"])
@@ -21,83 +21,6 @@ def _user_state_map(db: Session, user: User | None) -> dict[str, str]:
         return {}
     rows = db.query(UserWord.word, UserWord.state).filter(UserWord.user_id == user.id).all()
     return dict(rows)
-
-
-def _user_glosses_map(db: Session, user: User | None) -> dict[str, list[dict]]:
-    """For each word the user has touched, the glosses they've collected
-    with provenance. The popover shows them, so a Daoist 道 shows both the
-    dictionary primary and the Daodejing package gloss. One indexed join."""
-    if user is None:
-        return {}
-    rows = (
-        db.query(
-            UserWord.word,
-            UserWordGloss.source,
-            UserWordGloss.source_tag,
-            UserWordGloss.meaning,
-            UserWordGloss.pinyin,
-        )
-        .join(UserWordGloss, UserWordGloss.user_word_id == UserWord.id)
-        .filter(UserWord.user_id == user.id)
-        .order_by(UserWord.word, UserWordGloss.created_at)
-        .all()
-    )
-    out: dict[str, list[dict]] = {}
-    for word, source, tag, meaning, pinyin in rows:
-        out.setdefault(word, []).append(
-            {"source": source, "tag": tag, "meaning": meaning, "pinyin": pinyin}
-        )
-    return out
-
-
-def _build_glossary(
-    db: Session,
-    user: User | None,
-    list_ids: list[int] | None,
-) -> dict[str, dict]:
-    """
-    Resolve a text's glossary choice to a {word: {pinyin, meaning, list_name}} map.
-
-    Each text picks its own glossaries (the reader's Glossaries picker);
-    a list's glossary flag only offers it there. So:
-      - user is None              -> empty map (anonymous can't use a glossary)
-      - list_ids None or []       -> no glossary (a new text starts without)
-      - list_ids == [3, 5]        -> those of the user's lists
-
-    Multi-list conflicts: later-created lists win (ORDER BY created_at ASC,
-    so the most recently-curated glossary takes priority).
-    """
-    if user is None or not list_ids:
-        return {}
-
-    lists = (
-        db.query(VocabularyList)
-        .filter(VocabularyList.user_id == user.id, VocabularyList.id.in_(list_ids))
-        .order_by(VocabularyList.created_at.asc())
-        .all()
-    )
-
-    out: dict[str, dict] = {}
-    for vl in lists:
-        try:
-            sections = json.loads(vl.sections) if vl.sections else []
-        except (ValueError, TypeError):
-            continue
-        for section in sections:
-            for word in section.get("words", []) or []:
-                hanzi = (word.get("hanzi") or "").strip()
-                if not hanzi:
-                    continue
-                # Iteration order is oldest-list first, so newer lists
-                # naturally overwrite. Inside one list, last word wins.
-                out[hanzi] = {
-                    "pinyin": (word.get("pinyin") or "").strip(),
-                    "meaning": (word.get("meaning") or "").strip(),
-                    "meanings": word.get("meanings") or [],
-                    "list_name": vl.name,
-                    "list_id": vl.id,
-                }
-    return out
 
 
 @router.post(
@@ -167,7 +90,7 @@ async def analyze_text(
     # works whether they pasted simp or trad text.
     text_simp = to_canonical(text, user)
 
-    glossary = _build_glossary(db, user, data.glossary_list_ids)
+    glossary = word_lists.build_glossary(db, user, data.glossary_list_ids)
     result = await analyze_chinese_text(text_simp, glossary=glossary)
 
     # Enrich words with per-user state when the request is authenticated.
@@ -175,7 +98,7 @@ async def analyze_text(
     # the canonical (simp) text before we convert anything to the user's
     # display script.
     states = _user_state_map(db, user)
-    glosses_map = _user_glosses_map(db, user)
+    glosses_map = user_glosses_map(db, user)
     pref = user_script(user)
     for word in result.get("words", []):
         canonical_text = word.get("text", "")
