@@ -3,34 +3,7 @@
 import asyncio
 import json
 
-import httpx
-import pytest
-
 from app.services import grammar_ai, llm
-from tests.test_user_words import words_client as _words_client
-
-words_client = _words_client
-
-
-@pytest.fixture
-def fake_llm(monkeypatch):
-    replies: list[str] = []
-    real = httpx.AsyncClient
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        content = replies.pop(0) if replies else '{"ok": true}'
-        return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
-
-    monkeypatch.setattr(
-        llm.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler), **kw)
-    )
-    monkeypatch.setenv("LLM_BASE_URL", "http://llm.test/v1")
-    monkeypatch.setenv("LLM_MODEL", "m")
-    llm.reset()
-    asyncio.run(llm.probe())
-    grammar_ai._explained.clear()
-    yield replies
-    llm.reset()
 
 
 def test_explain_keeps_only_offered_points_with_real_spans(fake_llm):

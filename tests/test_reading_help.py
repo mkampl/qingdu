@@ -6,10 +6,6 @@ import json
 from app.database import SavedText
 from app.services import word_sense
 from app.state import hsk_vocab
-from tests.test_grammar_ai import fake_llm  # noqa: F401
-from tests.test_user_words import words_client as _words_client
-
-words_client = _words_client
 
 QUESTIONS = {
     "questions": [
@@ -45,7 +41,7 @@ def _text(client, content="小明早上骑自行车去学校。", text_id=1):
     s.close()
 
 
-def test_questions_are_written_graded_and_keep_the_key_on_the_server(words_client, fake_llm):  # noqa: F811
+def test_questions_are_written_graded_and_keep_the_key_on_the_server(words_client, fake_llm):
     _text(words_client)
     assert words_client.get("/api/texts/1/quiz").json() == {"questions": []}
     fake_llm.append(json.dumps(QUESTIONS))
@@ -75,7 +71,7 @@ def test_questions_are_written_graded_and_keep_the_key_on_the_server(words_clien
     s.close()
 
 
-def test_an_edited_text_has_no_questions(words_client, fake_llm):  # noqa: F811
+def test_an_edited_text_has_no_questions(words_client, fake_llm):
     _text(words_client)
     fake_llm.append(json.dumps(QUESTIONS))
     words_client.post("/api/texts/1/quiz/write")
@@ -84,7 +80,7 @@ def test_an_edited_text_has_no_questions(words_client, fake_llm):  # noqa: F811
     assert words_client.post("/api/texts/1/quiz", json={"answers": [0]}).status_code == 404
 
 
-def test_word_sense_keeps_only_the_dictionarys_readings(words_client, fake_llm, monkeypatch):  # noqa: F811
+def test_word_sense_keeps_only_the_dictionarys_readings(words_client, fake_llm, monkeypatch):
     monkeypatch.setitem(
         hsk_vocab,
         "行",

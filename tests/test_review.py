@@ -8,51 +8,10 @@ the queue stops returning it, and stats reflect the action.
 
 from datetime import UTC, datetime, timedelta
 
-import pytest
-
 from app.database import User, UserWord, UserWordEvent
 from app.routers.review import KNOWN_STABILITY_THRESHOLD_DAYS, next_state_after_grade
 from app.services import srs
 from app.services.timestamps import iso_utc
-
-
-@pytest.fixture
-def review_client(memory_db, open_client):
-    TestingSession = memory_db
-
-    db = TestingSession()
-    db.add(
-        User(
-            id=1,
-            username="alice",
-            password_hash="x",
-            is_admin=False,
-            must_change_password=False,
-            invite_quota=0,
-        )
-    )
-    # Seed: two due cards (no due_at means brand-new in queue), one already
-    # due in the past, one due far in the future (should NOT appear), one
-    # ignored (should NOT appear). Known-with-due-in-the-past also appears
-    # in the queue: 'known' is a high-stability SRS state.
-    now = datetime.utcnow()
-    db.add(UserWord(user_id=1, word="一", state="learning"))
-    db.add(UserWord(user_id=1, word="二", state="learning", due_at=now - timedelta(hours=2)))
-    db.add(UserWord(user_id=1, word="三", state="learning", due_at=now + timedelta(days=30)))
-    db.add(UserWord(user_id=1, word="忽略", state="ignored"))
-    db.add(
-        UserWord(
-            user_id=1,
-            word="远期",
-            state="known",
-            stability=180,
-            due_at=now + timedelta(days=120),
-        )
-    )
-    db.commit()
-    db.close()
-
-    return open_client(TestingSession), TestingSession
 
 
 def test_queue_returns_only_due_active_cards(review_client):

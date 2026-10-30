@@ -2,6 +2,7 @@
 
 import os
 from contextlib import ExitStack
+from datetime import datetime, timedelta
 
 import pytest
 from sqlalchemy import create_engine
@@ -92,6 +93,96 @@ def open_client(app_module):
     finally:
         stack.close()
         app_module.dependency_overrides.clear()
+
+
+@pytest.fixture
+def alice_db(memory_db):
+    """`memory_db` with one plain user, alice (id 1)."""
+    from app.database import User
+
+    db = memory_db()
+    db.add(
+        User(
+            id=1,
+            username="alice",
+            password_hash="x",
+            is_admin=False,
+            must_change_password=False,
+            invite_quota=0,
+        )
+    )
+    db.commit()
+    db.close()
+    return memory_db
+
+
+@pytest.fixture
+def words_client(alice_db, open_client):
+    """TestClient signed in as alice; `words_client.session_factory` opens the database."""
+    return open_client(alice_db)
+
+
+@pytest.fixture
+def ext_client(alice_db, open_client):
+    """TestClient on alice's database with real authentication (JWTs and access tokens)."""
+    return open_client(alice_db, override_auth=False)
+
+
+@pytest.fixture
+def review_client(alice_db, open_client):
+    """(client, Session) signed in as alice, with review cards in several states."""
+    from app.database import UserWord
+
+    # Two due cards (no due_at means brand-new in queue), one already due
+    # in the past, one due far in the future (not in the queue), one
+    # ignored (not in the queue). A known card due in the past is in the
+    # queue too: 'known' is a high-stability SRS state.
+    db = alice_db()
+    now = datetime.utcnow()
+    db.add(UserWord(user_id=1, word="一", state="learning"))
+    db.add(UserWord(user_id=1, word="二", state="learning", due_at=now - timedelta(hours=2)))
+    db.add(UserWord(user_id=1, word="三", state="learning", due_at=now + timedelta(days=30)))
+    db.add(UserWord(user_id=1, word="忽略", state="ignored"))
+    db.add(
+        UserWord(
+            user_id=1,
+            word="远期",
+            state="known",
+            stability=180,
+            due_at=now + timedelta(days=120),
+        )
+    )
+    db.commit()
+    db.close()
+    return open_client(alice_db), alice_db
+
+
+@pytest.fixture
+def fake_llm(monkeypatch):
+    """A mocked OpenAI-compatible LLM; append to the yielded list to set its next replies."""
+    import asyncio
+
+    import httpx
+
+    from app.services import grammar_ai, llm
+
+    replies: list[str] = []
+    real = httpx.AsyncClient
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        content = replies.pop(0) if replies else '{"ok": true}'
+        return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+
+    monkeypatch.setattr(
+        llm.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(handler), **kw)
+    )
+    monkeypatch.setenv("LLM_BASE_URL", "http://llm.test/v1")
+    monkeypatch.setenv("LLM_MODEL", "m")
+    llm.reset()
+    asyncio.run(llm.probe())
+    grammar_ai._explained.clear()
+    yield replies
+    llm.reset()
 
 
 @pytest.fixture

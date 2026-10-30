@@ -6,9 +6,6 @@ import pytest
 
 from app import state
 from app.services import tone_drill
-from tests.test_user_words import words_client as _words_client
-
-words_client = _words_client
 
 VOCAB = {
     "买": {"pinyin": "mǎi", "meaning": "to buy", "level_new": "new-1"},

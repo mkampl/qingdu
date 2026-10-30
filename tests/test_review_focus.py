@@ -6,9 +6,6 @@ import pytest
 
 from app.database import UserWord
 from app.services import srs
-from tests.test_review import review_client as _review_client
-
-review_client = _review_client  # the fixture, under the name the tests ask for
 
 
 @pytest.mark.parametrize(

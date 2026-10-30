@@ -7,30 +7,7 @@ Uses an in-memory SQLite engine + dependency overrides so the tests are
 hermetic and do not depend on the deployed data directory.
 """
 
-import pytest
-
-from app.database import User, UserWord
-
-
-@pytest.fixture
-def words_client(memory_db, open_client):
-    TestingSession = memory_db
-
-    # Seed a single user; both auth dependencies return it.
-    db = TestingSession()
-    test_user = User(
-        id=1,
-        username="alice",
-        password_hash="x",
-        is_admin=False,
-        must_change_password=False,
-        invite_quota=0,
-    )
-    db.add(test_user)
-    db.commit()
-    db.close()
-
-    return open_client(TestingSession)
+from app.database import UserWord
 
 
 def test_set_state_then_list_roundtrip(words_client):

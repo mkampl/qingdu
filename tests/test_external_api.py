@@ -6,30 +6,8 @@ JWT-vs-PAT branch in app.auth.require_api_scope gets exercised, along with
 real token hashing and scope checks.
 """
 
-import pytest
-
 from app.auth import create_access_token, generate_api_token, hash_api_token
-from app.database import ApiToken, User, UserWord
-
-
-@pytest.fixture
-def ext_client(memory_db, open_client):
-    TestingSession = memory_db
-
-    db = TestingSession()
-    user = User(
-        id=1,
-        username="alice",
-        password_hash="x",
-        is_admin=False,
-        must_change_password=False,
-        invite_quota=0,
-    )
-    db.add(user)
-    db.commit()
-    db.close()
-
-    return open_client(TestingSession, override_auth=False)
+from app.database import ApiToken, UserWord
 
 
 def _mint_token(client, *, scopes: str) -> str:

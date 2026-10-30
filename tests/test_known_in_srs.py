@@ -13,28 +13,12 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from app.database import User, UserWord
+from app.database import UserWord
 
 
 @pytest.fixture
-def client_db(memory_db, open_client):
-    TestingSession = memory_db
-
-    db = TestingSession()
-    db.add(
-        User(
-            id=1,
-            username="alice",
-            password_hash="x",
-            is_admin=False,
-            must_change_password=False,
-            invite_quota=0,
-        )
-    )
-    db.commit()
-    db.close()
-
-    return open_client(TestingSession), TestingSession
+def client_db(alice_db, open_client):
+    return open_client(alice_db), alice_db
 
 
 def test_marking_known_seeds_fsrs_state(client_db):

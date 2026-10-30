@@ -3,9 +3,6 @@
 import json
 
 from app.database import UserWord, VocabularyList
-from tests.test_user_words import words_client as _words_client
-
-words_client = _words_client
 
 TOKENS = ["我", "喜欢", "看书", "。", "道", "可", "道", "。"]
 

@@ -24,26 +24,10 @@ def _utcnow():
 
 
 @pytest.fixture
-def queue_client(memory_db, open_client):
-    TestingSession = memory_db
-
-    db = TestingSession()
-    db.add(
-        User(
-            id=1,
-            username="alice",
-            password_hash="x",
-            is_admin=False,
-            must_change_password=False,
-            invite_quota=0,
-        )
-    )
-    db.commit()
-    db.close()
-
+def queue_client(alice_db, open_client):
     # Startup refills state.hsk_vocab, so swap it only after the client
     # has entered, and restore it afterwards.
-    c = open_client(TestingSession)
+    c = open_client(alice_db)
     saved_vocab = dict(state.hsk_vocab)
     state.hsk_vocab.clear()
     try:

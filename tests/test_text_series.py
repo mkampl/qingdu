@@ -9,9 +9,6 @@ import pytest
 
 from app.database import SavedText, TextFolder, User
 from app.services import llm, text_series
-from tests.test_user_words import words_client as _words_client
-
-words_client = _words_client
 
 TEXT = {
     "title": "去公园",

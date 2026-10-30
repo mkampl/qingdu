@@ -7,9 +7,6 @@ import pytest
 from app import state
 from app.database import UserWord
 from app.services import placement
-from tests.test_user_words import words_client as _words_client
-
-words_client = _words_client
 
 VOCAB = {
     w: {"level_new": f"new-{lvl}", "level": f"new-{lvl}", "pinyin": p, "meaning": m}

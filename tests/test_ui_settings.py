@@ -1,9 +1,6 @@
 """Reader/review preferences on the account (services/ui_settings)."""
 
 from app.services import ui_settings
-from tests.test_user_words import words_client as _words_client
-
-words_client = _words_client
 
 
 def test_only_known_keys_with_valid_values_are_kept():
