@@ -24,17 +24,12 @@ def _utcnow():
 
 
 @pytest.fixture
-def queue_client(alice_db, open_client):
-    # Startup refills state.hsk_vocab, so swap it only after the client
-    # has entered, and restore it afterwards.
+def queue_client(alice_db, open_client, swap_dictionaries):
+    # Startup refills state.hsk_vocab, so empty it only after the client
+    # has entered.
     c = open_client(alice_db)
-    saved_vocab = dict(state.hsk_vocab)
-    state.hsk_vocab.clear()
-    try:
-        yield c
-    finally:
-        state.hsk_vocab.clear()
-        state.hsk_vocab.update(saved_vocab)
+    swap_dictionaries(hsk={})
+    return c
 
 
 def _add(client, rows):

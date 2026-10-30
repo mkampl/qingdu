@@ -13,25 +13,19 @@ import pytest
 
 from app.database import UserWord, VocabularyList
 from app.services import lexicon
-from app.state import cedict_vocab
 from tests.test_external_api import _mint_token
 
 
 @pytest.fixture
-def small_cedict():
+def small_cedict(swap_dictionaries):
     """A few CC-CEDICT entries; the full dictionary is not loaded in tests,
     and without any CC-CEDICT the gate stays open."""
-    saved = dict(cedict_vocab)
-    cedict_vocab.clear()
-    cedict_vocab.update(
-        {
+    swap_dictionaries(
+        cedict={
             "大卫": {"pinyin": "dà wèi", "meaning": "David", "meanings": ["David"]},
             "一个": {"pinyin": "yī ge", "meaning": "a; an; one", "meanings": ["a; an; one"]},
         }
     )
-    yield
-    cedict_vocab.clear()
-    cedict_vocab.update(saved)
 
 
 def _row(client, word):
@@ -100,13 +94,9 @@ def test_existing_phrase_row_can_still_change_state(words_client, small_cedict):
     assert _row(words_client, "很多").state == "ignored"
 
 
-def test_gate_open_without_cedict(words_client):
-    saved = dict(cedict_vocab)
-    cedict_vocab.clear()
-    try:
-        r = words_client.post("/api/words/state", json={"word": "很多", "state": "learning"})
-    finally:
-        cedict_vocab.update(saved)
+def test_gate_open_without_cedict(words_client, swap_dictionaries):
+    swap_dictionaries(cedict={})
+    r = words_client.post("/api/words/state", json={"word": "很多", "state": "learning"})
     assert r.status_code == 200
 
 

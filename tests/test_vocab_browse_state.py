@@ -3,7 +3,6 @@ state ("which HSK 3 words do I know?") and report per-state counts."""
 
 import pytest
 
-from app import state
 from app.database import User, UserWord
 
 VOCAB = {
@@ -29,27 +28,20 @@ def _seed(Session):
     db.close()
 
 
-def _open(memory_db, open_client, user_id):
+@pytest.fixture
+def client(memory_db, open_client, swap_dictionaries):
     _seed(memory_db)
-    c = open_client(memory_db, user_id)
-    saved = dict(state.hsk_vocab)
-    state.hsk_vocab.clear()
-    state.hsk_vocab.update(VOCAB)
-    try:
-        yield c
-    finally:
-        state.hsk_vocab.clear()
-        state.hsk_vocab.update(saved)
+    c = open_client(memory_db, user_id=1)
+    swap_dictionaries(hsk=VOCAB)
+    return c
 
 
 @pytest.fixture
-def client(memory_db, open_client):
-    yield from _open(memory_db, open_client, user_id=1)
-
-
-@pytest.fixture
-def anon_client(memory_db, open_client):
-    yield from _open(memory_db, open_client, user_id=None)
+def anon_client(memory_db, open_client, swap_dictionaries):
+    _seed(memory_db)
+    c = open_client(memory_db, user_id=None)
+    swap_dictionaries(hsk=VOCAB)
+    return c
 
 
 def _words(body):

@@ -7,7 +7,6 @@ import pytest
 
 from app.database import User, UserWord
 from app.services import snapshot_backfill
-from app.state import cedict_vocab, hsk_vocab
 
 
 @pytest.fixture
@@ -20,29 +19,20 @@ def db_session(memory_db):
 
 
 @pytest.fixture
-def fake_dictionaries():
+def fake_dictionaries(swap_dictionaries):
     """Stub hsk_vocab + cedict_vocab so the backfill has a known target
-    to rewrite to. Restores on teardown so subsequent tests aren't
-    polluted by the test fixture."""
-    saved_hsk = dict(hsk_vocab)
-    saved_cedict = dict(cedict_vocab)
-    hsk_vocab.clear()
-    cedict_vocab.clear()
-    hsk_vocab.update(
-        {
+    to rewrite to."""
+    swap_dictionaries(
+        hsk={
             "地": {
                 "pinyin": "dì",
                 "meaning": "earth",
                 "meanings": ["earth", "ground"],
                 "level_new": "new-1",
             },
-        }
+        },
+        cedict={},
     )
-    yield
-    hsk_vocab.clear()
-    hsk_vocab.update(saved_hsk)
-    cedict_vocab.clear()
-    cedict_vocab.update(saved_cedict)
 
 
 def test_backfill_overwrites_stale_meaning(db_session, fake_dictionaries):

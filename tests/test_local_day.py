@@ -16,7 +16,6 @@ from app.database import User, UserWord, UserWordEvent
 from app.services import enrollment, localday
 from app.services.due import end_of_day
 from app.services.streak import current_streak, rebase_for_timezone, record_activity
-from app.state import hsk_vocab
 
 ZONES = ["UTC", "Europe/Vienna", "Asia/Shanghai", "America/Los_Angeles"]
 DAY = date(2026, 10, 10)
@@ -302,14 +301,13 @@ def test_last_active_ahead_of_today_counts_as_today(make_session):
 
 
 @pytest.fixture
-def hsk_fixture():
-    original = dict(hsk_vocab)
-    hsk_vocab.clear()
-    for i, w in enumerate("一二三四五六"):
-        hsk_vocab[w] = {"level_new": "new-1", "pinyin": f"p{i}", "meaning": f"m{i}"}
-    yield
-    hsk_vocab.clear()
-    hsk_vocab.update(original)
+def hsk_fixture(swap_dictionaries):
+    swap_dictionaries(
+        hsk={
+            w: {"level_new": "new-1", "pinyin": f"p{i}", "meaning": f"m{i}"}
+            for i, w in enumerate("一二三四五六")
+        }
+    )
 
 
 @pytest.mark.parametrize("tz", ZONES)

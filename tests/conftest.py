@@ -216,6 +216,40 @@ def no_learner_glosses(monkeypatch, tmp_path):
     monkeypatch.setattr(learner_glosses, "LEARNER_GLOSSES_FILE", tmp_path / "no-glosses.json")
 
 
+@pytest.fixture
+def swap_dictionaries():
+    """Replace the shared dictionaries for one test.
+
+    `swap_dictionaries(hsk=..., cedict=..., variants=...)` empties each
+    dictionary that is passed and fills it with the given entries; the
+    others keep their contents. The first call snapshots hsk_vocab,
+    hsk_lists_original, cedict_vocab and cedict_variants, and they get
+    those contents back after the test. Call it after a TestClient has
+    started, because startup refills hsk_vocab."""
+    from app import state
+
+    targets = {
+        "hsk": state.hsk_vocab,
+        "cedict": state.cedict_vocab,
+        "variants": state.cedict_variants,
+        "hsk_lists": state.hsk_lists_original,
+    }
+    saved = {}
+
+    def _swap(*, hsk=None, cedict=None, variants=None):
+        if not saved:
+            saved.update({key: dict(target) for key, target in targets.items()})
+        for key, entries in (("hsk", hsk), ("cedict", cedict), ("variants", variants)):
+            if entries is not None:
+                targets[key].clear()
+                targets[key].update(entries)
+
+    yield _swap
+    for key, copy in saved.items():
+        targets[key].clear()
+        targets[key].update(copy)
+
+
 @pytest.fixture(scope="module")
 def pinned_dictionaries():
     """Load the vendored HSK list and CC-CEDICT exactly as startup does,

@@ -4,7 +4,6 @@ import random
 
 import pytest
 
-from app import state
 from app.services import tone_drill
 
 VOCAB = {
@@ -19,15 +18,9 @@ VOCAB = {
 
 
 @pytest.fixture
-def vocab(words_client):
-    saved = dict(state.hsk_vocab)
-    state.hsk_vocab.clear()
-    state.hsk_vocab.update(VOCAB)
-    try:
-        yield words_client
-    finally:
-        state.hsk_vocab.clear()
-        state.hsk_vocab.update(saved)
+def vocab(words_client, swap_dictionaries):
+    swap_dictionaries(hsk=VOCAB)
+    return words_client
 
 
 def test_words_whose_tones_the_audio_would_not_match_are_left_out(vocab):

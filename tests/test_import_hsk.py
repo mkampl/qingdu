@@ -6,7 +6,6 @@ data or on real-world counts.
 
 import pytest
 
-from app import state as _state
 from app.database import User, UserWord
 
 # A few canonical HSK entries spanning levels.
@@ -24,7 +23,7 @@ _SAMPLE_VOCAB = {
 
 
 @pytest.fixture
-def import_client(memory_db, open_client):
+def import_client(memory_db, open_client, swap_dictionaries):
     """Stand up an isolated DB + auth + seeded HSK vocab for these tests."""
     TestingSession = memory_db
 
@@ -36,14 +35,8 @@ def import_client(memory_db, open_client):
     # Opening the client runs startup, which refills hsk_vocab from the
     # loader, so the seeded vocab goes in afterwards.
     c = open_client(TestingSession)
-    saved = dict(_state.hsk_vocab)
-    _state.hsk_vocab.clear()
-    _state.hsk_vocab.update(_SAMPLE_VOCAB)
-    try:
-        yield c, TestingSession
-    finally:
-        _state.hsk_vocab.clear()
-        _state.hsk_vocab.update(saved)
+    swap_dictionaries(hsk=_SAMPLE_VOCAB)
+    return c, TestingSession
 
 
 def test_import_hsk_level_2_includes_levels_1_and_2(import_client):

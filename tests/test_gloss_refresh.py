@@ -10,7 +10,7 @@ from app.auth import require_auth, require_auth_flexible
 from app.database import SavedText, User, VocabularyList
 from app.services import dict_data
 from app.services.gloss_refresh import DICT_VERSION_KEY, refresh_analysis, resolve_token
-from app.state import cedict_vocab, hsk_vocab
+from app.state import hsk_vocab
 
 V1 = "r1-test-v1"
 V2 = "r1-test-v2"
@@ -84,28 +84,18 @@ def _words():
 
 
 @pytest.fixture
-def dictionaries():
-    saved_hsk, saved_cedict = dict(hsk_vocab), dict(cedict_vocab)
-    hsk_vocab.clear()
-    cedict_vocab.clear()
-    hsk_vocab.update(
-        {
+def dictionaries(swap_dictionaries):
+    swap_dictionaries(
+        hsk={
             "十": _hsk("shí", "ten"),
             "点": _hsk("diǎn", "o'clock"),
             "苹果": _hsk("píng guǒ", "apple"),
             "一": _hsk("yī", "one"),
             "个": _hsk("gè", "individual"),
             "道": _hsk("dào", "road"),
-        }
+        },
+        cedict={"一个": {"pinyin": "yī gè", "meaning": "one; a", "meanings": ["one", "a"]}},
     )
-    cedict_vocab.update(
-        {"一个": {"pinyin": "yī gè", "meaning": "one; a", "meanings": ["one", "a"]}}
-    )
-    yield
-    hsk_vocab.clear()
-    hsk_vocab.update(saved_hsk)
-    cedict_vocab.clear()
-    cedict_vocab.update(saved_cedict)
 
 
 @pytest.fixture
