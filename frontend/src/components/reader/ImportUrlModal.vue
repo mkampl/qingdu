@@ -476,7 +476,7 @@ async function runOcr() {
       <p class="font-display text-sm italic leading-relaxed text-fg-muted">
         Drop an EPUB or PDF — we'll pull out the text body, drop images and
         page furniture, and import the first ~50 000 characters. For a
-        scanned PDF or a photo, use the Scan tab. Subtitles (.srt, .vtt, .ass) come in
+        scanned page or a photo, use the Scan tab. Subtitles (.srt, .vtt, .ass) come in
         as one line per subtitle, keeping only the Chinese lines.
       </p>
 
