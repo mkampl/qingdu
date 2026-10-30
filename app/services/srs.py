@@ -12,7 +12,6 @@ Storage shape (per UserWord row):
 
 from __future__ import annotations
 
-import copy
 import random
 from datetime import UTC, datetime, timedelta
 
@@ -91,14 +90,13 @@ def apply_grade(state_json: str | None, grade: int, retention: float | None = No
 def next_intervals(
     state_json: str | None, retention: float | None = None, now: datetime | None = None
 ) -> dict[int, int]:
-    """Seconds until the card is due again after each grade, as the grade
-    buttons show them ("Good · 5d")."""
+    """Seconds until the card is due again after each grade. Nothing is stored."""
     card = card_from_state(state_json)
     scheduler = _scheduler_for(retention)
-    at = now.replace(tzinfo=UTC) if now else datetime.now(UTC)
+    at = now or datetime.now(UTC)
     out = {}
     for grade in VALID_GRADES:
-        new_card, _log = scheduler.review_card(copy.deepcopy(card), _to_rating(grade), at)
+        new_card, _log = scheduler.review_card(card, _to_rating(grade), at)
         out[grade] = max(0, round((new_card.due - at).total_seconds()))
     return out
 

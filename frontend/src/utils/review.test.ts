@@ -2,10 +2,10 @@ process.env.TZ = "America/New_York";
 
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  formatInterval,
   autoGradeForWriting,
   dueCountForWindow,
   formatHskLevel,
+  formatInterval,
   normalizeAutoGradeDelay,
   reviewShortcutBlocked,
   shouldReinsert,
