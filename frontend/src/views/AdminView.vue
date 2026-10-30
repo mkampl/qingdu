@@ -615,8 +615,7 @@ watch(
               Open registration
             </span>
             <span class="block text-xs text-fg-muted">
-              Lets anyone create an account on this instance. Off by default;
-              the maintainer's demo at qingdu.itvoodoo.at runs it on.
+              Lets anyone create an account on this instance. Off by default.
             </span>
           </span>
         </label>

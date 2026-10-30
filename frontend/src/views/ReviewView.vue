@@ -602,8 +602,9 @@ onMounted(() => {
       <div class="flex-1 leading-snug">
         <p class="font-medium">Practice mode — nothing is graded.</p>
         <p class="text-xs opacity-80">
-          Grade buttons don't advance FSRS. Streak, due date, and stats
-          all stay put. End practice any time to return to your list.
+          Grading here doesn't change your reviews: due dates, streak and
+          stats stay as they are. End practice any time to return to your
+          list.
         </p>
       </div>
       <button
@@ -1430,7 +1431,7 @@ onMounted(() => {
           <p
             class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
           >
-            soon
+            sooner
           </p>
         </button>
         <button
@@ -1456,7 +1457,7 @@ onMounted(() => {
           <p
             class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
           >
-            schedule
+            on schedule
           </p>
         </button>
         <button
@@ -1482,7 +1483,7 @@ onMounted(() => {
           <p
             class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
           >
-            push back
+            later
           </p>
         </button>
       </div>

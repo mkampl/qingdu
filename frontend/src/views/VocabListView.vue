@@ -635,7 +635,7 @@ function sectionWordCount(section: VocabularySection): number {
         class="rounded-lg border border-border-subtle bg-bg-elevated p-8"
       >
         <p class="font-display text-lg italic leading-relaxed text-fg-muted">
-          We couldn't find that vocab list.
+          This list doesn't exist or isn't yours.
         </p>
         <Button
           variant="primary"
