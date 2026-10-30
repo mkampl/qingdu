@@ -20,6 +20,7 @@ import WeeklySparkline from "@/components/reader/WeeklySparkline.vue";
 import StrokeOrder from "@/components/reader/StrokeOrder.vue";
 import WritingQuiz from "@/components/reader/WritingQuiz.vue";
 import ContextSentence from "@/components/review/ContextSentence.vue";
+import RevealedAnswer from "@/components/review/RevealedAnswer.vue";
 import WordDetails from "@/components/reader/WordDetails.vue";
 import WordReadings from "@/components/reader/WordReadings.vue";
 import { customGlosses, leadGloss } from "@/utils/glosses";
@@ -1134,7 +1135,7 @@ onMounted(() => {
               </button>
             </div>
           </template>
-          <div v-else class="mt-4 space-y-1.5 sm:mt-6">
+          <RevealedAnswer v-else :card="card" :focus="cardFocus">
             <p
               v-if="readVerdict"
               class="font-mono text-[11px] uppercase tracking-wider"
@@ -1148,28 +1149,7 @@ onMounted(() => {
             >
               {{ READ_VERDICT[readVerdict] }}
             </p>
-            <p class="font-sans text-base text-fg-muted">{{ card.pinyin }}</p>
-            <WordReadings
-              class="mx-auto max-w-md"
-              :meaning="card.meaning"
-              :meanings="card.meanings"
-              :meaning-tags="card.meaning_tags"
-              :readings="card.readings"
-              :glosses="card.glosses"
-              :focus="cardFocus"
-              headline-class="font-display text-xl text-fg"
-              list-class="mt-1 space-y-0.5 text-sm text-fg-muted"
-              :max-meanings="3"
-              collapse-others
-            />
-            <WordDetails :word="card.word" collapsible class="mx-auto max-w-md pt-2" />
-            <ContextSentence
-              v-if="card.cloze_sentence"
-              :sentence="card.cloze_sentence"
-              :word="card.word"
-              :source="card.sentence_source"
-            />
-          </div>
+          </RevealedAnswer>
         </template>
 
         <!-- Recognition mode -->
@@ -1186,29 +1166,7 @@ onMounted(() => {
           >
             {{ card.word }}
           </p>
-          <div v-if="revealed" class="mt-4 space-y-1.5 sm:mt-6">
-            <p class="font-sans text-base text-fg-muted">{{ card.pinyin }}</p>
-            <WordReadings
-              class="mx-auto max-w-md"
-              :meaning="card.meaning"
-              :meanings="card.meanings"
-              :meaning-tags="card.meaning_tags"
-              :readings="card.readings"
-              :glosses="card.glosses"
-              :focus="cardFocus"
-              headline-class="font-display text-xl text-fg"
-              list-class="mt-1 space-y-0.5 text-sm text-fg-muted"
-              :max-meanings="3"
-              collapse-others
-            />
-            <WordDetails :word="card.word" collapsible class="mx-auto max-w-md pt-2" />
-            <ContextSentence
-              v-if="card.cloze_sentence"
-              :sentence="card.cloze_sentence"
-              :word="card.word"
-              :source="card.sentence_source"
-            />
-          </div>
+          <RevealedAnswer v-if="revealed" :card="card" :focus="cardFocus" />
 
           <button
             v-if="!revealed"
