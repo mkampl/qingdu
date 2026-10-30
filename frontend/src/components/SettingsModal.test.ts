@@ -54,6 +54,22 @@ describe("SettingsModal", () => {
     expect(settings.showLegend).toBe(true);
   });
 
+  it("keeps section state and loaded tokens across close and reopen", async () => {
+    useAuthStore().user = { username: "a", daily_new_words: 0 } as never;
+    const w = await mountOpen();
+    const modals = useAppModalsStore();
+    const markButton = () => w.findAll("button").find((b) => b.text() === "Mark as known");
+    await markButton()!.trigger("click");
+    expect(markButton()).toBeUndefined();
+    modals.settingsOpen = false;
+    await flushPromises();
+    modals.settingsOpen = true;
+    await flushPromises();
+    expect(markButton()).toBeUndefined();
+    expect(w.findAll("button").some((b) => b.text() === "Confirm")).toBe(true);
+    expect(api.listApiTokens).toHaveBeenCalledTimes(1);
+  });
+
   it("a review window option saves to the account", async () => {
     const auth = useAuthStore();
     auth.user = { username: "a", review_window: "today" } as never;
