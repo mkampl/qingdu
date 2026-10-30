@@ -8,12 +8,8 @@ from datetime import datetime, timedelta
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.database import (
-    Base,
     InvitationToken,
     SavedText,
     SignupAttempt,
@@ -27,15 +23,8 @@ from app.services import captcha, lifecycle
 
 
 @pytest.fixture
-def db_session():
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = TestingSession()
+def db_session(memory_db):
+    session = memory_db()
     yield session
     session.close()
 

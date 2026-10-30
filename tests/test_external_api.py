@@ -7,24 +7,14 @@ real token hashing and scope checks.
 """
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.auth import create_access_token, generate_api_token, hash_api_token
-from app.database import ApiToken, Base, User, UserWord, get_db
+from app.database import ApiToken, User, UserWord
 
 
 @pytest.fixture
-def ext_client(app_module):
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def ext_client(memory_db, open_client):
+    TestingSession = memory_db
 
     db = TestingSession()
     user = User(
@@ -39,20 +29,7 @@ def ext_client(app_module):
     db.commit()
     db.close()
 
-    def _override_get_db():
-        s = TestingSession()
-        try:
-            yield s
-        finally:
-            s.close()
-
-    app_module.dependency_overrides[get_db] = _override_get_db
-    try:
-        with TestClient(app_module) as c:
-            c.session_factory = TestingSession  # type: ignore[attr-defined]
-            yield c
-    finally:
-        app_module.dependency_overrides.clear()
+    return open_client(TestingSession, override_auth=False)
 
 
 def _mint_token(client, *, scopes: str) -> str:

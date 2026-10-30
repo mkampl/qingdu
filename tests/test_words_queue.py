@@ -9,14 +9,9 @@ other no matter how many rows the user has.
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app import state
-from app.auth import get_current_user, require_auth
-from app.database import Base, User, UserWord, get_db
+from app.database import User, UserWord
 from app.services.due import end_of_day
 from app.services.word_search import pinyin_key
 
@@ -29,14 +24,8 @@ def _utcnow():
 
 
 @pytest.fixture
-def queue_client(app_module):
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def queue_client(memory_db, open_client):
+    TestingSession = memory_db
 
     db = TestingSession()
     db.add(
@@ -52,37 +41,16 @@ def queue_client(app_module):
     db.commit()
     db.close()
 
-    def _override_get_db():
-        s = TestingSession()
-        try:
-            yield s
-        finally:
-            s.close()
-
-    def _override_user():
-        s = TestingSession()
-        try:
-            return s.query(User).filter(User.id == 1).first()
-        finally:
-            s.close()
-
-    app_module.dependency_overrides[get_db] = _override_get_db
-    app_module.dependency_overrides[require_auth] = _override_user
-    app_module.dependency_overrides[get_current_user] = _override_user
+    # Startup refills state.hsk_vocab, so swap it only after the client
+    # has entered, and restore it afterwards.
+    c = open_client(TestingSession)
+    saved_vocab = dict(state.hsk_vocab)
+    state.hsk_vocab.clear()
     try:
-        with TestClient(app_module) as c:
-            # Startup refills state.hsk_vocab, so swap it only after the
-            # client has entered, and restore it afterwards.
-            saved_vocab = dict(state.hsk_vocab)
-            state.hsk_vocab.clear()
-            c.session_factory = TestingSession  # type: ignore[attr-defined]
-            try:
-                yield c
-            finally:
-                state.hsk_vocab.clear()
-                state.hsk_vocab.update(saved_vocab)
+        yield c
     finally:
-        app_module.dependency_overrides.clear()
+        state.hsk_vocab.clear()
+        state.hsk_vocab.update(saved_vocab)
 
 
 def _add(client, rows):

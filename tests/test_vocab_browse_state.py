@@ -2,14 +2,9 @@
 state ("which HSK 3 words do I know?") and report per-state counts."""
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app import state
-from app.auth import get_current_user, require_auth
-from app.database import Base, User, UserWord, get_db
+from app.database import User, UserWord
 
 VOCAB = {
     "你": {"pinyin": "nǐ", "meaning": "you", "level_new": "new-1", "level_old": "old-1"},
@@ -22,14 +17,7 @@ VOCAB = {
 STATES = {"你": "known", "猫": "known", "狗": "learning", "鸟": "ignored"}
 
 
-def _make_client(app_module, authed: bool):
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def _seed(Session):
     db = Session()
     db.add(User(id=1, username="alice", password_hash="x", invite_quota=0))
     db.add(User(id=2, username="bob", password_hash="x", invite_quota=0))
@@ -40,60 +28,28 @@ def _make_client(app_module, authed: bool):
     db.commit()
     db.close()
 
-    def _db():
-        s = Session()
-        try:
-            yield s
-        finally:
-            s.close()
 
-    def _user():
-        if not authed:
-            return None
-        s = Session()
-        try:
-            return s.query(User).filter(User.id == 1).first()
-        finally:
-            s.close()
-
-    app_module.dependency_overrides[get_db] = _db
-    app_module.dependency_overrides[get_current_user] = _user
-    app_module.dependency_overrides[require_auth] = _user
-    return TestClient(app_module)
+def _open(memory_db, open_client, user_id):
+    _seed(memory_db)
+    c = open_client(memory_db, user_id)
+    saved = dict(state.hsk_vocab)
+    state.hsk_vocab.clear()
+    state.hsk_vocab.update(VOCAB)
+    try:
+        yield c
+    finally:
+        state.hsk_vocab.clear()
+        state.hsk_vocab.update(saved)
 
 
 @pytest.fixture
-def client(app_module):
-    c = _make_client(app_module, authed=True)
-    try:
-        with c:
-            saved = dict(state.hsk_vocab)
-            state.hsk_vocab.clear()
-            state.hsk_vocab.update(VOCAB)
-            try:
-                yield c
-            finally:
-                state.hsk_vocab.clear()
-                state.hsk_vocab.update(saved)
-    finally:
-        app_module.dependency_overrides.clear()
+def client(memory_db, open_client):
+    yield from _open(memory_db, open_client, user_id=1)
 
 
 @pytest.fixture
-def anon_client(app_module):
-    c = _make_client(app_module, authed=False)
-    try:
-        with c:
-            saved = dict(state.hsk_vocab)
-            state.hsk_vocab.clear()
-            state.hsk_vocab.update(VOCAB)
-            try:
-                yield c
-            finally:
-                state.hsk_vocab.clear()
-                state.hsk_vocab.update(saved)
-    finally:
-        app_module.dependency_overrides.clear()
+def anon_client(memory_db, open_client):
+    yield from _open(memory_db, open_client, user_id=None)
 
 
 def _words(body):

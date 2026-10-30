@@ -12,24 +12,13 @@
 from datetime import datetime, timedelta
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.auth import get_current_user, require_auth
-from app.database import Base, User, UserWord, get_db
+from app.database import User, UserWord
 
 
 @pytest.fixture
-def client_db(app_module):
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def client_db(memory_db, open_client):
+    TestingSession = memory_db
 
     db = TestingSession()
     db.add(
@@ -45,28 +34,7 @@ def client_db(app_module):
     db.commit()
     db.close()
 
-    def _override_get_db():
-        s = TestingSession()
-        try:
-            yield s
-        finally:
-            s.close()
-
-    def _override_user():
-        s = TestingSession()
-        try:
-            return s.query(User).filter(User.id == 1).first()
-        finally:
-            s.close()
-
-    app_module.dependency_overrides[get_db] = _override_get_db
-    app_module.dependency_overrides[require_auth] = _override_user
-    app_module.dependency_overrides[get_current_user] = _override_user
-    try:
-        with TestClient(app_module) as c:
-            yield c, TestingSession
-    finally:
-        app_module.dependency_overrides.clear()
+    return open_client(TestingSession), TestingSession
 
 
 def test_marking_known_seeds_fsrs_state(client_db):

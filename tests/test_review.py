@@ -9,27 +9,16 @@ the queue stops returning it, and stats reflect the action.
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.auth import get_current_user, require_auth
-from app.database import Base, User, UserWord, UserWordEvent, get_db
+from app.database import User, UserWord, UserWordEvent
 from app.routers.review import KNOWN_STABILITY_THRESHOLD_DAYS, next_state_after_grade
 from app.services import srs
 from app.services.timestamps import iso_utc
 
 
 @pytest.fixture
-def review_client(app_module):
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def review_client(memory_db, open_client):
+    TestingSession = memory_db
 
     db = TestingSession()
     db.add(
@@ -63,28 +52,7 @@ def review_client(app_module):
     db.commit()
     db.close()
 
-    def _override_get_db():
-        s = TestingSession()
-        try:
-            yield s
-        finally:
-            s.close()
-
-    def _override_user():
-        s = TestingSession()
-        try:
-            return s.query(User).filter(User.id == 1).first()
-        finally:
-            s.close()
-
-    app_module.dependency_overrides[get_db] = _override_get_db
-    app_module.dependency_overrides[require_auth] = _override_user
-    app_module.dependency_overrides[get_current_user] = _override_user
-    try:
-        with TestClient(app_module) as c:
-            yield c, TestingSession
-    finally:
-        app_module.dependency_overrides.clear()
+    return open_client(TestingSession), TestingSession
 
 
 def test_queue_returns_only_due_active_cards(review_client):

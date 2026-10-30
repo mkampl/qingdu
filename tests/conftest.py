@@ -1,8 +1,12 @@
 """Pytest fixtures shared across the test suite."""
 
 import os
+from contextlib import ExitStack
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 # These must be set BEFORE importing the app — main.py reads them at import time.
 os.environ.setdefault("SECRET_KEY", "test-secret")
@@ -21,6 +25,73 @@ def app_module():
     from app.main import app
 
     return app
+
+
+@pytest.fixture
+def memory_db():
+    """Session factory for a fresh in-memory SQLite database with the app schema.
+
+    StaticPool keeps one shared connection; without it every connection
+    would see its own empty ':memory:' database."""
+    from app.database import Base
+
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    yield sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    engine.dispose()
+
+
+@pytest.fixture
+def open_client(app_module):
+    """Factory for TestClients on a test database.
+
+    `open_client(Session, user_id=1)` points get_db at `Session` and makes
+    require_auth / get_current_user return that user (None for
+    `user_id=None`). With `override_auth=False` the real authentication
+    runs. The client is already entered (startup has run) and carries the
+    factory as `client.session_factory`. Clients close and all dependency
+    overrides are cleared after the test."""
+    from fastapi.testclient import TestClient
+
+    from app.auth import get_current_user, require_auth
+    from app.database import User, get_db
+
+    stack = ExitStack()
+
+    def _open(Session, user_id=1, *, override_auth=True):
+        def _get_db():
+            s = Session()
+            try:
+                yield s
+            finally:
+                s.close()
+
+        def _user():
+            if user_id is None:
+                return None
+            s = Session()
+            try:
+                return s.query(User).filter(User.id == user_id).first()
+            finally:
+                s.close()
+
+        app_module.dependency_overrides[get_db] = _get_db
+        if override_auth:
+            app_module.dependency_overrides[require_auth] = _user
+            app_module.dependency_overrides[get_current_user] = _user
+        client = stack.enter_context(TestClient(app_module))
+        client.session_factory = Session
+        return client
+
+    try:
+        yield _open
+    finally:
+        stack.close()
+        app_module.dependency_overrides.clear()
 
 
 @pytest.fixture

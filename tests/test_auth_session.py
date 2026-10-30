@@ -8,10 +8,6 @@ so nothing here overrides get_current_user.
 from datetime import datetime, timedelta
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.auth import (
     create_access_token,
@@ -21,20 +17,14 @@ from app.auth import (
     hash_api_token,
 )
 from app.core.rate_limit import limiter
-from app.database import ApiToken, Base, InvitationToken, User, get_db
+from app.database import ApiToken, InvitationToken, User
 
 PASSWORD = "correct-horse"
 
 
 @pytest.fixture
-def auth_client(app_module):
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def auth_client(memory_db, open_client):
+    TestingSession = memory_db
 
     db = TestingSession()
     db.add_all(
@@ -58,21 +48,8 @@ def auth_client(app_module):
     db.commit()
     db.close()
 
-    def _override_get_db():
-        s = TestingSession()
-        try:
-            yield s
-        finally:
-            s.close()
-
-    app_module.dependency_overrides[get_db] = _override_get_db
     limiter.reset()
-    try:
-        with TestClient(app_module) as c:
-            c.session_factory = TestingSession  # type: ignore[attr-defined]
-            yield c
-    finally:
-        app_module.dependency_overrides.clear()
+    return open_client(TestingSession, override_auth=False)
 
 
 def _login(client, username="alice", password=PASSWORD) -> str:

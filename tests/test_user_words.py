@@ -8,27 +8,13 @@ hermetic and do not depend on the deployed data directory.
 """
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.auth import get_current_user, require_auth
-from app.database import Base, User, UserWord, get_db
+from app.database import User, UserWord
 
 
 @pytest.fixture
-def words_client(app_module, monkeypatch):
-    # StaticPool keeps a single shared connection, which is required for
-    # SQLite ':memory:' — otherwise every new SQLAlchemy connection sees a
-    # fresh empty database and 'no such table: users' fires.
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def words_client(memory_db, open_client):
+    TestingSession = memory_db
 
     # Seed a single user; both auth dependencies return it.
     db = TestingSession()
@@ -44,32 +30,7 @@ def words_client(app_module, monkeypatch):
     db.commit()
     db.close()
 
-    def _override_get_db():
-        s = TestingSession()
-        try:
-            yield s
-        finally:
-            s.close()
-
-    def _override_user():
-        s = TestingSession()
-        try:
-            return s.query(User).filter(User.id == 1).first()
-        finally:
-            s.close()
-
-    app_module.dependency_overrides[get_db] = _override_get_db
-    app_module.dependency_overrides[require_auth] = _override_user
-    app_module.dependency_overrides[get_current_user] = _override_user
-    try:
-        with TestClient(app_module) as c:
-            # Expose the session factory so package-snapshot tests can
-            # peek at UserWord rows directly (the API surfaces state but
-            # not the snapshot columns).
-            c.session_factory = TestingSession  # type: ignore[attr-defined]
-            yield c
-    finally:
-        app_module.dependency_overrides.clear()
+    return open_client(TestingSession)
 
 
 def test_set_state_then_list_roundtrip(words_client):

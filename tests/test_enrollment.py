@@ -11,25 +11,15 @@ asserting which specific (random) word came out.
 from datetime import datetime, timedelta
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.database import Base, User, UserWord, UserWordEvent
+from app.database import User, UserWord, UserWordEvent
 from app.services import enrollment
 from app.state import hsk_vocab
 
 
 @pytest.fixture
-def db_session():
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = TestingSession()
+def db_session(memory_db):
+    session = memory_db()
     yield session
     session.close()
 
