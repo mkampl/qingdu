@@ -178,7 +178,7 @@ def export_vocabulary_list_anki(
         deck_id_base = vocab_list.anki_deck_id or (2000000 + list_id)
 
         for section in sections:
-            section_name = section.get("name", "Main")
+            section_name = section.get("name") or "Main"
             words = section.get("words", [])
             if not words:
                 continue
