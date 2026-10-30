@@ -46,6 +46,23 @@ class SaveTextRequest(BaseModel):
         return _check_analysis_data(value)
 
 
+class UpdateTextRequest(BaseModel):
+    """Every field is optional; only the fields sent are changed."""
+
+    title: str | None = None
+    tags: list[str] | None = None
+    reading_progress: float | None = None
+    content: str | None = None
+    analysis_data: dict | None = None
+    glossary_list_ids: list[int] | None = None
+    folder_id: int | None = None
+
+    @field_validator("analysis_data")
+    @classmethod
+    def _valid_analysis(cls, value: dict | None) -> dict:
+        return _check_analysis_data(value)
+
+
 def _load_analysis(text: SavedText) -> dict | None:
     """The stored analysis blob, or None when the row is damaged (e.g. a
     'null' written by an unvalidated save). Damaged rows are skipped
@@ -324,7 +341,7 @@ async def get_shared_text(
 @router.patch("/api/texts/{text_id}")
 async def update_text(
     text_id: int,
-    data: dict,
+    body: UpdateTextRequest,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
@@ -333,6 +350,7 @@ async def update_text(
     if not text:
         raise HTTPException(status_code=404, detail="Text not found")
 
+    data = body.model_dump(exclude_unset=True)
     if "title" in data:
         text.title = data["title"]
     if "tags" in data:
@@ -347,18 +365,12 @@ async def update_text(
         text.content = data["content"]
         cloze.forget_misses(user.id)
     if "analysis_data" in data:
-        try:
-            analysis_data = _check_analysis_data(data["analysis_data"])
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e)) from e
-        text.analysis_data = json.dumps(_strip_dict_version(analysis_data))
+        text.analysis_data = json.dumps(_strip_dict_version(data["analysis_data"]))
     if "glossary_list_ids" in data:
         ids = data["glossary_list_ids"]
         text.glossary_list_ids = json.dumps(ids) if ids is not None else None
     if "folder_id" in data:
         folder_id = data["folder_id"]
-        if folder_id is not None and not isinstance(folder_id, int):
-            raise HTTPException(status_code=422, detail="folder_id must be a number or null")
         text_folders.owned(db, user.id, folder_id)
         if folder_id != text.folder_id:
             # Moved: it goes to the end of its new folder.

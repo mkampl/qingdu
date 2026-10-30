@@ -15,6 +15,7 @@ from app.database import User, get_db
 from app.schemas import (
     CreateUserRequest,
     RegistrationSettingsUpdate,
+    ResetPasswordRequest,
     UpdateInviteQuotaRequest,
 )
 from app.services import lifecycle
@@ -145,15 +146,15 @@ async def delete_user(
 @router.post("/api/admin/users/{user_id}/reset-password")
 async def reset_user_password(
     user_id: int,
-    data: dict,
+    data: ResetPasswordRequest,
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    new_password = data.get("new_password")
-    if not new_password or len(new_password) < MIN_PASSWORD_LENGTH:
+    new_password = data.new_password
+    if len(new_password) < MIN_PASSWORD_LENGTH:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters",

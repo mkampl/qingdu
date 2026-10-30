@@ -1,4 +1,4 @@
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import { defineStore } from "pinia";
 
 import * as api from "@/api/client";
@@ -14,11 +14,12 @@ import type {
  * in `states` means 'new' (the user has never interacted with it).
  *
  * The Reader reads this thousands of times per render via `stateOf(word)`, so
- * the map is a plain object with O(1) lookups, replaced wholesale on every
- * change rather than mutated in place.
+ * the map is a plain object with O(1) lookups in a shallowRef (no proxy per
+ * read). It is replaced wholesale on every change, never mutated in place,
+ * since in-place writes would not trigger updates.
  */
 export const useUserWordsStore = defineStore("userWords", () => {
-  const states = ref<Record<string, UserWordState>>({});
+  const states = shallowRef<Record<string, UserWordState>>({});
   const stats = ref<WordStatsResponse>({
     learning: 0,
     known: 0,

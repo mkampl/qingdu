@@ -1,6 +1,6 @@
 """
 Request validation for the write endpoints that take JSON bodies:
-vocabulary lists, saved texts, snooze, review grading, and the input caps
+vocabulary lists, saved texts, snooze, review-now, review grading, and the input caps
 on analyze / translate / TTS.
 """
 
@@ -318,6 +318,42 @@ def test_delete_missing_text_is_404(api):
     assert client.delete("/api/texts/999").status_code == 404
 
 
+def _saved_text(Session) -> int:
+    s = Session()
+    s.add(SavedText(id=9, user_id=1, title="t", content="学习。", analysis_data="{}"))
+    s.commit()
+    s.close()
+    return 9
+
+
+def test_update_text_changes_only_sent_fields(api):
+    client, Session = api
+    text_id = _saved_text(Session)
+    r = client.patch(f"/api/texts/{text_id}", json={"title": "new", "tags": ["a"]})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"id": text_id, "title": "new", "message": "Text updated"}
+    s = Session()
+    text = s.get(SavedText, text_id)
+    assert (text.title, text.tags, text.content) == ("new", '["a"]', "学习。")
+    s.close()
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"tags": "a"},
+        {"reading_progress": "half"},
+        {"folder_id": "x"},
+        {"analysis_data": None},
+        {"analysis_data": {"statistics": {}}},
+    ],
+)
+def test_update_text_rejects_bad_fields(api, body):
+    client, Session = api
+    text_id = _saved_text(Session)
+    assert client.patch(f"/api/texts/{text_id}", json=body).status_code == 422
+
+
 # ---- snooze -------------------------------------------------------------
 
 
@@ -340,6 +376,20 @@ def test_snooze_accepts_valid_days(api):
 def test_snooze_requires_word(api):
     client, _ = api
     assert client.post("/api/words/snooze", json={"days": 3}).status_code == 422
+
+
+def test_review_now_sets_word_due(api):
+    client, _ = api
+    r = client.post("/api/words/review-now", json={"word": "学习"})
+    assert r.status_code == 200, r.text
+    assert r.json()["word"] == "学习"
+    assert r.json()["due_at"]
+
+
+@pytest.mark.parametrize("body", [{}, {"word": 3}])
+def test_review_now_rejects_bad_body(api, body):
+    client, _ = api
+    assert client.post("/api/words/review-now", json=body).status_code == 422
 
 
 # ---- review grading -----------------------------------------------------

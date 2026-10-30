@@ -1,9 +1,12 @@
 """
-Chunk-splitting for long-sentence TTS. The actual HTTP fetch isn't covered
-here (Google Translate); we just verify the splitter respects the cap,
-honors punctuation, and handles edge cases.
+Chunk-splitting for long-sentence TTS: the splitter respects the cap,
+honors punctuation and handles edge cases; chunk fetches (mocked) run
+with bounded concurrency and keep their order.
 """
 
+import asyncio
+
+from app.services import tts
 from app.services.tts import _MAX_CHARS_PER_REQUEST, _split_for_tts
 
 
@@ -40,3 +43,26 @@ def test_pathological_long_run_hard_slices():
     assert len(chunks) >= 3
     assert all(len(c) <= _MAX_CHARS_PER_REQUEST for c in chunks)
     assert "".join(chunks) == text
+
+
+def test_chunk_fetches_are_limited_and_keep_order(monkeypatch):
+    running = 0
+    peak = 0
+
+    async def fake_fetch(chunk):
+        nonlocal running, peak
+        running += 1
+        peak = max(peak, running)
+        await asyncio.sleep(0.01)
+        running -= 1
+        return chunk.encode()
+
+    monkeypatch.setattr(tts, "_fetch_single", fake_fetch)
+    text = "中文。" * 500  # well over the limit's worth of chunks
+    chunks = _split_for_tts(text)
+    assert len(chunks) > tts._MAX_CONCURRENT_CHUNKS
+
+    audio = asyncio.run(tts.fetch_chinese_tts(text))
+
+    assert peak == tts._MAX_CONCURRENT_CHUNKS
+    assert audio == text.encode()

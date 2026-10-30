@@ -26,6 +26,7 @@ from app.schemas import (
     VALID_WORD_STATES,
     BulkMarkKnownRequest,
     ImportHskRequest,
+    ReviewNowRequest,
     SnoozeRequest,
     WordStateUpdate,
 )
@@ -658,12 +659,12 @@ async def snooze_word(
 
 @router.post("/api/words/review-now")
 async def review_now(
-    payload: dict,
+    payload: ReviewNowRequest,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
 ) -> dict:
     """Set due_at = now so the word surfaces immediately in /review."""
-    word_raw = (payload.get("word") or "").strip()
+    word_raw = payload.word.strip()
     if not word_raw:
         raise HTTPException(400, "word is required")
     word = to_canonical(word_raw, user)

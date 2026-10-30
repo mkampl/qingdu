@@ -56,6 +56,7 @@ def due_clause(cutoff: datetime) -> ColumnElement[bool]:
 # user.review_window: "today"/"tomorrow" look ahead to the end of that
 # local day so a once-a-day session covers everything coming due; "now"
 # is the strict FSRS pull (due_at <= now).
+REVIEW_WINDOWS = ("now", "today", "tomorrow")
 DEFAULT_REVIEW_WINDOW = "today"
 
 
