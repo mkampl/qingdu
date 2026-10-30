@@ -15,7 +15,7 @@
  * Hidden entirely when the user has no glossary lists — there's nothing
  * to pick.
  */
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 
 import { onAuthReady } from "@/composables/use-auth-ready";
 import * as api from "@/api/client";
@@ -113,16 +113,23 @@ function onKey(e: KeyboardEvent) {
   if (e.key === "Escape" && open.value && !hasOpenOverlay()) close();
 }
 
+function unlisten() {
+  document.removeEventListener("click", onDocClick);
+  document.removeEventListener("keydown", onKey);
+}
+
 watch(open, (isOpen) => {
   if (typeof document === "undefined") return;
   if (isOpen) {
     document.addEventListener("click", onDocClick);
     document.addEventListener("keydown", onKey);
   } else {
-    document.removeEventListener("click", onDocClick);
-    document.removeEventListener("keydown", onKey);
+    unlisten();
   }
 });
+
+// Leaving the page with the menu open.
+onBeforeUnmount(unlisten);
 </script>
 
 <template>
