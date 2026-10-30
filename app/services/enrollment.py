@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.database import User, UserWord, UserWordEvent
 from app.services import localday
+from app.services.levels import level_number
 from app.services.word_info import lookup_pinyin_meaning
 from app.state import hsk_vocab
 
@@ -29,18 +30,9 @@ def _candidates_at_level(level: int, hsk_version: str) -> list[str]:
     """HSK words at exactly the given level, in the requested version's space."""
     field = "level_new" if hsk_version == "new" else "level_old"
     prefix = "new-" if hsk_version == "new" else "old-"
-    out: list[str] = []
-    for word, entry in hsk_vocab.items():
-        raw_level = entry.get(field)
-        if not raw_level or not raw_level.startswith(prefix):
-            continue
-        try:
-            n = int(raw_level[len(prefix) :].replace("+", ""))
-        except ValueError:
-            continue
-        if n == level:
-            out.append(word)
-    return out
+    return [
+        w for w, entry in hsk_vocab.items() if level_number(entry.get(field), (prefix,)) == level
+    ]
 
 
 def _max_level(hsk_version: str) -> int:

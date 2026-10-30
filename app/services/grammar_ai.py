@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.database import UserWord
 from app.services import grammar_catalog, grammar_tagging, llm, readability
+from app.services.levels import level_number
 from app.services.segmentation import segment_text
 from app.services.text_series import plain
 from app.services.word_info import lookup_pinyin_meaning
@@ -154,15 +155,11 @@ def with_pinyin(text: str) -> list[dict]:
     return parts
 
 
-def _level_number(level: str) -> int:
-    return 7 if level == "7-9" else int(level)
-
-
 async def practice_text(db: Session, user_id: int, point_id: str) -> dict:
     e = grammar_catalog.get(point_id)
     if e is None:
         raise llm.LlmError("Unknown grammar point")
-    level = _level_number(e["level"])
+    level = level_number(e["level"], ("",))
     words = _known_words(db, user_id, level)
     best: dict | None = None
     for attempt in range(2):

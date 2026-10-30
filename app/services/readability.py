@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from sqlalchemy.orm import Session
 
 from app.database import UserWord
+from app.services.levels import level_number
 from app.services.lexicon import (
     is_cjk_word,
     is_lexical_word,
@@ -241,12 +242,8 @@ def sentence_for(split: list[tuple[str, frozenset[str]]], word: str) -> str | No
 
 
 def hsk_level_number(word: str) -> int | None:
-    """3 for "new-3", 7 for "new-7-9"; None outside the HSK list."""
-    level = (hsk_vocab.get(word) or {}).get("level_new") or ""
-    if not level.startswith("new-"):
-        return None
-    head = level[4:].split("-")[0]
-    return int(head) if head.isdigit() else None
+    """New-HSK band of `word` (7 = HSK 7-9); None outside the HSK list."""
+    return level_number((hsk_vocab.get(word) or {}).get("level_new"))
 
 
 def missing_payload(word: str, count: int) -> dict:

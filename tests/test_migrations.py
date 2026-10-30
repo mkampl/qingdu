@@ -30,6 +30,32 @@ def test_legacy_old_level_assigns_level_old():
     assert out["level_new"] is None
 
 
+def test_unlisted_word_takes_levels_and_radicals_from_its_characters(swap_dictionaries):
+    from app.services.word_lookup import char_components
+
+    swap_dictionaries(
+        hsk={
+            "好": {"pinyin": "hǎo", "level_new": "new-1", "level_old": "old-1", "radical": "女"},
+            "汉": {"pinyin": "hàn", "level_new": "new-7+", "level_old": None, "radical": "氵"},
+            "女": {"pinyin": "nǚ", "level_new": "new-1"},
+        }
+    )
+    out = migrate_word_data({"text": "好汉", "hsk_level": "custom"})
+    assert out == {
+        "text": "好汉",
+        "hsk_level": "new-7",
+        "level_new": "new-7",
+        "level_old": "old-1",
+        "radical": "女 + 氵",
+        "radical_pinyin": "nǚ + shuǐ",
+    }
+    stats = char_components(["好", "汉"])
+    assert {k: stats[k] for k in ("level_new", "level_old", "radical", "radical_pinyin")} == {
+        k: out[k] for k in ("level_new", "level_old", "radical", "radical_pinyin")
+    }
+    assert (stats["pinyin"], stats["level"]) == ("hǎo hàn", "new-7")
+
+
 # ---- init_db schema migrations ----------------------------------------
 
 

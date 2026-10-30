@@ -75,19 +75,13 @@ def plain(text: str) -> str:
     return _MARKUP.sub("", text).strip()
 
 
-def _level_of(word: str) -> int:
-    raw = str((hsk_vocab.get(word) or {}).get("level_new") or "")
-    m = re.match(r"new-(\d)", raw)
-    return int(m.group(1)) if m else 99
-
-
 def _known_words(db: Session, user_id: int, level: int, limit: int = 250) -> list[str]:
     known = [
         w
         for (w,) in db.query(UserWord.word).filter(
             UserWord.user_id == user_id, UserWord.state.in_(("known", "learning"))
         )
-        if _level_of(w) <= max(level, 2)
+        if (readability.hsk_level_number(w) or 99) <= max(level, 2)
     ]
     known.sort(key=lambda w: -int((hsk_vocab.get(w) or {}).get("frequency") or 0))
     return known[:limit]
