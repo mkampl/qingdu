@@ -12,7 +12,7 @@ import jieba
 from app.core.constants import HSK_WORD_BASE_FREQ, TRANSLATION_SOURCE_HSK
 from app.schemas import WordInfo
 from app.services import grammar
-from app.services.levels import estimate_text_level, level_number
+from app.services.levels import hsk_statistics
 from app.services.lexicon import (
     dictionaries_loaded,
     in_dictionary,
@@ -40,20 +40,6 @@ def prime_jieba() -> int:
             jieba.add_word(word, freq=max(data.get("frequency", 0) * 100, HSK_WORD_BASE_FREQ))
             added += 1
     return added
-
-
-def _increment_level(stats: dict, total: int, level: str | None, prefix: str) -> int:
-    """
-    Increment the stats bucket for `level` (e.g. "new-3" -> "hsk3").
-    Returns the new total (caller does `total = _increment_level(...)`).
-    """
-    n = level_number(level, (prefix, ""))
-    if n is None:
-        return total
-    key = f"hsk{n}"
-    if key in stats:
-        stats[key] += 1
-    return total + 1
 
 
 def _refine_token(token: str, glossary: dict) -> list[str]:
@@ -202,10 +188,7 @@ async def analyze_chinese_text(
     resolved = _resolve_non_hsk(segments, glossary)
 
     words: list = []
-    hsk_stats_new = {f"hsk{i}": 0 for i in range(1, 10)}
-    hsk_stats_old = {f"hsk{i}": 0 for i in range(1, 7)}  # Old HSK has 6 levels
-    total_hsk_words_new = 0
-    total_hsk_words_old = 0
+    hsk_levels: list[tuple[str | None, str | None]] = []
 
     for segment in segments:
         if segment == "\n":
@@ -264,12 +247,7 @@ async def analyze_chinese_text(
             word_info.translation_source = TRANSLATION_SOURCE_HSK
             word_info.radical = vocab_entry.get("radical", "")
             word_info.radical_pinyin = vocab_entry.get("radical_pinyin", "")
-            total_hsk_words_new = _increment_level(
-                hsk_stats_new, total_hsk_words_new, vocab_entry.get("level_new"), "new-"
-            )
-            total_hsk_words_old = _increment_level(
-                hsk_stats_old, total_hsk_words_old, vocab_entry.get("level_old"), "old-"
-            )
+            hsk_levels.append((vocab_entry.get("level_new"), vocab_entry.get("level_old")))
         else:
             info = resolved.get(segment)
             if info:
@@ -292,18 +270,7 @@ async def analyze_chinese_text(
                     word_info.translation_source = info.get("translation_source")
                     word_info.radical = info.get("radical", "")
                     word_info.radical_pinyin = info.get("radical_pinyin", "")
-                    total_hsk_words_new = _increment_level(
-                        hsk_stats_new,
-                        total_hsk_words_new,
-                        info.get("level_new"),
-                        "new-",
-                    )
-                    total_hsk_words_old = _increment_level(
-                        hsk_stats_old,
-                        total_hsk_words_old,
-                        info.get("level_old"),
-                        "old-",
-                    )
+                    hsk_levels.append((info.get("level_new"), info.get("level_old")))
                 else:
                     word_info.hsk_level = "unknown"
                     word_info.level_new = None
@@ -318,9 +285,6 @@ async def analyze_chinese_text(
                     word_info.translation_source = info.get("translation_source")
 
         words.append(word_info.dict())
-
-    estimated_level_new = estimate_text_level(hsk_stats_new, total_hsk_words_new)
-    estimated_level_old = estimate_text_level(hsk_stats_old, total_hsk_words_old)
 
     # Grammar patterns: rule-based, cheap, runs after segmentation. Spans
     # carry absolute word indices so the SPA can map them straight onto
@@ -346,15 +310,6 @@ async def analyze_chinese_text(
         "statistics": {
             "total_characters": len(text),
             "total_words": len(segments),
-            "hsk_words_new": total_hsk_words_new,
-            "hsk_distribution_new": hsk_stats_new,
-            "estimated_level_new": estimated_level_new,
-            "hsk_words_old": total_hsk_words_old,
-            "hsk_distribution_old": hsk_stats_old,
-            "estimated_level_old": estimated_level_old,
-            # Aliases of the new-HSK fields.
-            "hsk_words": total_hsk_words_new,
-            "hsk_distribution": hsk_stats_new,
-            "estimated_level": estimated_level_new,
+            **hsk_statistics(hsk_levels),
         },
     }

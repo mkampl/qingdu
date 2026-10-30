@@ -5,7 +5,7 @@ read time so old user content keeps working.
 """
 
 from app.core.radicals import CHAR_TO_RADICAL, RADICAL_PINYIN
-from app.services.levels import estimate_text_level, level_number
+from app.services.levels import hsk_statistics, level_number
 from app.state import hsk_vocab
 
 
@@ -103,41 +103,12 @@ def migrate_analysis_data(analysis_data: dict) -> dict:
     migrated_words = [migrate_word_data(w) for w in analysis_data["words"]]
     analysis_data["words"] = migrated_words
 
-    hsk_stats_new = {f"hsk{i}": 0 for i in range(1, 10)}
-    hsk_stats_old = {f"hsk{i}": 0 for i in range(1, 7)}
-    total_hsk_words_new = 0
-    total_hsk_words_old = 0
-
-    for word in migrated_words:
-        if not word.get("is_hsk"):
-            continue
-
-        n = level_number(word.get("level_new"), ("new-", ""))
-        if n is not None:
-            if f"hsk{n}" in hsk_stats_new:
-                hsk_stats_new[f"hsk{n}"] += 1
-            total_hsk_words_new += 1
-
-        n = level_number(word.get("level_old"), ("old-", ""))
-        if n is not None:
-            if f"hsk{n}" in hsk_stats_old:
-                hsk_stats_old[f"hsk{n}"] += 1
-            total_hsk_words_old += 1
-
-    estimated_level_new = estimate_text_level(hsk_stats_new, total_hsk_words_new)
-    estimated_level_old = estimate_text_level(hsk_stats_old, total_hsk_words_old)
-
     stats = analysis_data.setdefault("statistics", {})
-    stats["hsk_words_new"] = total_hsk_words_new
-    stats["hsk_distribution_new"] = hsk_stats_new
-    stats["estimated_level_new"] = estimated_level_new
-    stats["hsk_words_old"] = total_hsk_words_old
-    stats["hsk_distribution_old"] = hsk_stats_old
-    stats["estimated_level_old"] = estimated_level_old
-    # Aliases of the new-HSK fields.
-    stats["hsk_words"] = total_hsk_words_new
-    stats["hsk_distribution"] = hsk_stats_new
-    stats["estimated_level"] = estimated_level_new
+    stats.update(
+        hsk_statistics(
+            (w.get("level_new"), w.get("level_old")) for w in migrated_words if w.get("is_hsk")
+        )
+    )
 
     return analysis_data
 

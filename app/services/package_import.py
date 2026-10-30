@@ -13,8 +13,7 @@ from __future__ import annotations
 
 from app.schemas import PackageToken, QingduPackage, WordInfo
 from app.services import grammar
-from app.services.levels import estimate_text_level
-from app.services.segmentation import _increment_level
+from app.services.levels import hsk_statistics
 from app.state import hsk_vocab
 
 
@@ -65,11 +64,6 @@ def _first_diff(a: str, b: str) -> int:
     return min(len(a), len(b))
 
 
-def _hsk_level_buckets() -> tuple[dict, dict, int, int]:
-    """Empty buckets for the dual HSK distribution stats."""
-    return ({f"hsk{i}": 0 for i in range(1, 10)}, {f"hsk{i}": 0 for i in range(1, 7)}, 0, 0)
-
-
 def _build_word_info(tok: PackageToken, package_source: str | None) -> WordInfo:
     """Build a single WordInfo from a package token, layering HSK metadata."""
     if tok.is_punct:
@@ -112,7 +106,7 @@ def transform(package: QingduPackage) -> dict:
     same shape as `analyze_chinese_text` produces. The SPA renders the
     result through the existing ReadingText component unchanged.
     """
-    hsk_stats_new, hsk_stats_old, total_new, total_old = _hsk_level_buckets()
+    hsk_levels: list[tuple[str | None, str | None]] = []
     words: list[dict] = []
 
     for tok in package.tokens:
@@ -121,12 +115,8 @@ def transform(package: QingduPackage) -> dict:
         # recognises, so the headline difficulty stays honest about the
         # corpus (the package author's translation choices are independent).
         if not tok.is_punct:
-            total_new = _increment_level(hsk_stats_new, total_new, wi.level_new, "new-")
-            total_old = _increment_level(hsk_stats_old, total_old, wi.level_old, "old-")
+            hsk_levels.append((wi.level_new, wi.level_old))
         words.append(wi.dict())
-
-    estimated_new = estimate_text_level(hsk_stats_new, total_new)
-    estimated_old = estimate_text_level(hsk_stats_old, total_old)
 
     # Classical text rarely matches the modern-Chinese patterns; the
     # detector then finds nothing.
@@ -157,16 +147,7 @@ def transform(package: QingduPackage) -> dict:
         "statistics": {
             "total_characters": len(package.text),
             "total_words": len(package.tokens),
-            "hsk_words_new": total_new,
-            "hsk_distribution_new": hsk_stats_new,
-            "estimated_level_new": estimated_new,
-            "hsk_words_old": total_old,
-            "hsk_distribution_old": hsk_stats_old,
-            "estimated_level_old": estimated_old,
-            # Aliases of the new-HSK fields.
-            "hsk_words": total_new,
-            "hsk_distribution": hsk_stats_new,
-            "estimated_level": estimated_new,
+            **hsk_statistics(hsk_levels),
         },
     }
 
