@@ -147,6 +147,20 @@ def test_admin_reset_invalidates_user_tokens(auth_client):
     assert _me(auth_client, admin)
 
 
+def test_admin_reset_rejects_bad_body(auth_client):
+    alice = _login(auth_client)
+    admin = _login(auth_client, "root")
+    url = "/api/admin/users/1/reset-password"
+    assert auth_client.post(url, json={}, headers=_h(admin)).status_code == 422
+    assert (
+        auth_client.post(url, json={"new_password": 12345678}, headers=_h(admin)).status_code == 422
+    )
+    assert (
+        auth_client.post(url, json={"new_password": "short"}, headers=_h(admin)).status_code == 400
+    )
+    assert _me(auth_client, alice)
+
+
 def test_token_without_version_claim_is_rejected(auth_client):
     legacy = create_access_token({"sub": "alice"})
     assert not _me(auth_client, legacy)

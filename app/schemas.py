@@ -88,6 +88,10 @@ class UpdateInviteQuotaRequest(BaseModel):
     invite_quota: int
 
 
+class ResetPasswordRequest(BaseModel):
+    new_password: str
+
+
 class OpenRegisterRequest(BaseModel):
     """Phase 2.7 — payload for `POST /api/auth/register` (open registration).
     The captcha pair is required when the instance has captcha enabled; the
@@ -191,6 +195,10 @@ class SnoozeRequest(BaseModel):
 
     word: str = Field(min_length=1)
     days: int = Field(3, ge=1, le=365)
+
+
+class ReviewNowRequest(BaseModel):
+    word: str
 
 
 class ImportHskRequest(BaseModel):
