@@ -571,7 +571,7 @@ def test_next_intervals_grow_with_the_grade():
     assert fresh[1] < 3600  # a new card comes back within the session
     reviewed = srs.apply_grade(None, 3)["fsrs_state"]
     again = srs.next_intervals(reviewed, now=now + timedelta(days=3))
-    assert again[1] < min(again[3], again[4])  # Good/Easy are fuzzed
+    assert again[1] < again[3] < again[4]
 
 
 def test_queue_cards_carry_the_intervals(review_client):
