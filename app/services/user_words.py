@@ -13,9 +13,10 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.database import SavedText, User, UserWord, UserWordEvent, UserWordGloss
-from app.services import library
+from app.services import library, srs
 from app.services.levels import level_number
-from app.services.lexicon import is_lexical_word
+from app.services.lexicon import is_lexical_word, user_word_sources
+from app.services.script import to_canonical
 from app.services.srs import ALREADY_KNOWN_STABILITY_DAYS, already_known_state
 from app.services.streak import record_activity
 from app.services.word_info import lookup_pinyin_meaning
@@ -174,7 +175,7 @@ def upsert_word(
         db.add(row)
         db.flush()  # row.id needed for gloss FK
     else:
-        # Same guard as bulk_mark_known: a mature card (stability already
+        # Same guard as mark_known: a mature card (stability already
         # past the "known" seed) keeps its FSRS history instead of being
         # reseeded to 90 days.
         if state == "known" and (row.stability or 0) < ALREADY_KNOWN_STABILITY_DAYS:
@@ -234,6 +235,76 @@ def user_glosses_map(db: Session, user: User | None) -> dict[str, list[dict]]:
             {"source": source, "tag": tag, "meaning": meaning, "pinyin": pinyin}
         )
     return out
+
+
+def mark_known(
+    db: Session,
+    user: User,
+    words_in: list[str],
+    snapshots: dict | None,
+    source_text_id: int | None,
+) -> dict:
+    """Promote a batch of words to 'known' (see POST /api/words/bulk-mark-known)."""
+    # Dedup at the boundary — callers may include the same word twice (e.g.
+    # multiple sentences in the same section). Without this we'd try to
+    # insert the same (user_id, word) row twice and trip the unique index.
+    seen: set[str] = set()
+    words: list[str] = []
+    for w in words_in:
+        if not w:
+            continue
+        stripped = to_canonical(w.strip(), user)
+        if not stripped or stripped in seen:
+            continue
+        seen.add(stripped)
+        words.append(stripped)
+    if not words:
+        return {"updated": 0, "total": 0, "skipped": []}
+
+    existing = {
+        r.word: r
+        for r in db.query(UserWord)
+        .filter(UserWord.user_id == user.id, UserWord.word.in_(words))
+        .all()
+    }
+    # Resolve a per-word package snapshot, if one was supplied. The
+    # mapping is keyed by canonical surface form so it survives the
+    # to_canonical() pass above.
+    snapshots = snapshots or {}
+    updated = 0
+    skipped: list[str] = []
+    own_words: set[str] | None = None
+    for word in words:
+        snap = snapshots.get(word)
+        pkg_meaning = snap.meaning if snap else None
+        pkg_pinyin = snap.pinyin if snap else None
+        pkg_source = snap.translation_source if snap else None
+        pkg_tag = snap.package_source if snap else None
+        is_pkg = pkg_source == "package" and (pkg_meaning or pkg_pinyin) is not None
+
+        row = existing.get(word)
+        if row is None and not is_pkg and not is_lexical_word(word):
+            if own_words is None:
+                own_words = user_word_sources(db, user.id)
+            if word not in own_words:
+                skipped.append(word)
+                continue
+        if row is None:
+            row = UserWord(user_id=user.id, word=word, state="learning", seen_count=1)
+            apply_known_scheduling(row)
+            db.add(row)
+            db.flush()
+            updated += 1
+        elif (row.stability or 0) < ALREADY_KNOWN_STABILITY_DAYS:
+            apply_known_scheduling(row)
+            row.updated_at = datetime.utcnow()
+            updated += 1
+
+        seed_glosses(db, row, word, is_pkg, pkg_pinyin, pkg_meaning, pkg_tag)
+        record_event(db, user.id, word, "bulk_mark_known", "known", source_text_id)
+    record_activity(user, db)
+    db.commit()
+    return {"updated": updated, "total": len(words), "skipped": skipped}
 
 
 def _hsk_words_at_or_below(up_to_level: int, hsk_version: str) -> list[str]:
@@ -300,3 +371,64 @@ def import_hsk_known(db: Session, user: User, up_to_level: int, hsk_version: str
         "skipped": len(existing),
         "total_eligible": len(candidates),
     }
+
+
+# grade_word moves review rows between 'learning' and 'known' based on the
+# FSRS stability after grading.
+KNOWN_STABILITY_THRESHOLD_DAYS = 90.0
+
+
+def next_state_after_grade(state: str, stability: float | None, grade: int) -> str:
+    """Learning/known transition after one grade (hysteresis).
+
+    learning → known once stability reaches KNOWN_STABILITY_THRESHOLD_DAYS.
+    known → learning only on Again; Hard/Good/Easy keep a known card known.
+    """
+    if state == "known":
+        return "learning" if grade == 1 else "known"
+    if (stability or 0) >= KNOWN_STABILITY_THRESHOLD_DAYS:
+        return "known"
+    return "learning"
+
+
+def grade_word(db: Session, row: UserWord, grade: int, mode: str, retention: float | None) -> None:
+    """One FSRS step for a graded review card, its learning/known transition
+    and the review events."""
+    updated = srs.apply_grade(row.fsrs_state, grade, retention=retention)
+    row.fsrs_state = updated["fsrs_state"]
+    row.stability = updated["stability"]
+    row.difficulty = updated["difficulty"]
+    row.due_at = updated["due_at"]
+    row.last_reviewed_at = updated["last_reviewed_at"]
+    row.updated_at = datetime.utcnow()
+
+    # Auto-transition between 'learning' and 'known' based on the new
+    # FSRS stability. Crossing into 'known' = mastered (renders as
+    # known-color in the reader). The way back is deliberately narrower:
+    # only a lapse (Again) demotes a known card. FSRS's same-day formula
+    # can drop stability far below the threshold on a plain Hard (90 →
+    # ~41), and that is not the user saying "I forgot this word".
+    # State flips are emitted as state_change events so the log captures
+    # the inflection (helps with stats + undo).
+    new_state_for_row = next_state_after_grade(row.state, row.stability, grade)
+    if new_state_for_row != row.state:
+        row.state = new_state_for_row
+        db.add(
+            UserWordEvent(
+                user_id=row.user_id,
+                word=row.word,
+                event_type="state_change",
+                new_state=new_state_for_row,
+            )
+        )
+
+    db.add(
+        UserWordEvent(
+            user_id=row.user_id,
+            word=row.word,
+            event_type="review",
+            new_state=row.state,
+            grade=grade,
+            mode=mode,
+        )
+    )

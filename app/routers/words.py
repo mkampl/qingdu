@@ -32,10 +32,8 @@ from app.schemas import (
 from app.services import cloze, user_words
 from app.services.due import due_clause, end_of_day, utcnow
 from app.services.levels import level_number
-from app.services.lexicon import is_lexical_word, user_word_sources
 from app.services.localday import user_tz
 from app.services.script import to_canonical, to_user_script
-from app.services.srs import ALREADY_KNOWN_STABILITY_DAYS
 from app.services.streak import current_streak, record_activity
 from app.services.timestamps import iso_utc
 from app.services.word_search import search_clause
@@ -130,68 +128,7 @@ async def bulk_mark_known(
     dictionary words (phrases from texts analysed before they were split)
     are skipped and listed under `skipped`.
     """
-    # Dedup at the boundary — callers may include the same word twice (e.g.
-    # multiple sentences in the same section). Without this we'd try to
-    # insert the same (user_id, word) row twice and trip the unique index.
-    seen: set[str] = set()
-    words: list[str] = []
-    for w in payload.words:
-        if not w:
-            continue
-        stripped = to_canonical(w.strip(), user)
-        if not stripped or stripped in seen:
-            continue
-        seen.add(stripped)
-        words.append(stripped)
-    if not words:
-        return {"updated": 0, "total": 0, "skipped": []}
-
-    existing = {
-        r.word: r
-        for r in db.query(UserWord)
-        .filter(UserWord.user_id == user.id, UserWord.word.in_(words))
-        .all()
-    }
-    # Resolve a per-word package snapshot, if one was supplied. The
-    # mapping is keyed by canonical surface form so it survives the
-    # to_canonical() pass above.
-    snapshots = payload.snapshots or {}
-    updated = 0
-    skipped: list[str] = []
-    own_words: set[str] | None = None
-    for word in words:
-        snap = snapshots.get(word)
-        pkg_meaning = snap.meaning if snap else None
-        pkg_pinyin = snap.pinyin if snap else None
-        pkg_source = snap.translation_source if snap else None
-        pkg_tag = snap.package_source if snap else None
-        is_pkg = pkg_source == "package" and (pkg_meaning or pkg_pinyin) is not None
-
-        row = existing.get(word)
-        if row is None and not is_pkg and not is_lexical_word(word):
-            if own_words is None:
-                own_words = user_word_sources(db, user.id)
-            if word not in own_words:
-                skipped.append(word)
-                continue
-        if row is None:
-            row = UserWord(user_id=user.id, word=word, state="learning", seen_count=1)
-            user_words.apply_known_scheduling(row)
-            db.add(row)
-            db.flush()
-            updated += 1
-        elif (row.stability or 0) < ALREADY_KNOWN_STABILITY_DAYS:
-            user_words.apply_known_scheduling(row)
-            row.updated_at = datetime.utcnow()
-            updated += 1
-
-        user_words.seed_glosses(db, row, word, is_pkg, pkg_pinyin, pkg_meaning, pkg_tag)
-        user_words.record_event(
-            db, user.id, word, "bulk_mark_known", "known", payload.source_text_id
-        )
-    record_activity(user, db)
-    db.commit()
-    return {"updated": updated, "total": len(words), "skipped": skipped}
+    return user_words.mark_known(db, user, payload.words, payload.snapshots, payload.source_text_id)
 
 
 @router.get("/api/words/stats")
