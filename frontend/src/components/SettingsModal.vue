@@ -21,6 +21,9 @@ import { browserTimeZone, timeZoneOptions } from "@/utils/timezone";
 import type { AutoGradeDelay } from "@/utils/review";
 
 import Modal from "@/components/ui/Modal.vue";
+import DownloadIcon from "@/components/settings/DownloadIcon.vue";
+import OptionFieldset from "@/components/settings/OptionFieldset.vue";
+import SettingsSection from "@/components/settings/SettingsSection.vue";
 
 const modals = useAppModalsStore();
 const settings = useSettingsStore();
@@ -533,179 +536,49 @@ function resetApiBase() {
     <div class="space-y-3">
       <!-- Five collapsible sections; the two most used (Display, Review)
            open by default. Native <details> handles keyboard and a11y. -->
-      <details class="group rounded-md" open>
-        <summary class="flex cursor-pointer list-none items-center justify-between rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 hover:bg-bg-sunken">
-          <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle">Display</span>
-          <svg class="size-3 text-fg-subtle transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </summary>
-        <div class="mt-4 space-y-7 pl-1">
+      <SettingsSection title="Display" open>
       <!-- Word color mode -->
-      <fieldset>
-        <legend
-          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
-        >
-          Word coloring
-        </legend>
-        <div class="space-y-2">
-          <label
-            v-for="opt in colorOptions"
-            :key="opt.value"
-            class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
-            :class="{
-              'border-accent bg-bg-sunken': colorMode === opt.value,
-            }"
-          >
-            <input
-              v-model="colorMode"
-              type="radio"
-              :value="opt.value"
-              class="mt-1 accent-accent"
-            />
-            <span class="flex-1">
-              <span class="block font-display text-base text-fg">
-                {{ opt.label }}
-              </span>
-              <span class="block text-xs text-fg-muted">{{ opt.hint }}</span>
-            </span>
-          </label>
-        </div>
-      </fieldset>
+      <OptionFieldset
+        v-model="colorMode"
+        :options="colorOptions"
+      >
+        Word coloring
+      </OptionFieldset>
 
       <!-- Pinyin -->
-      <fieldset>
-        <legend
-          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
-        >
-          Pinyin display
-        </legend>
-        <div class="space-y-2">
-          <label
-            v-for="opt in pinyinOptions"
-            :key="opt.value"
-            class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
-            :class="{
-              'border-accent bg-bg-sunken': pinyinMode === opt.value,
-            }"
-          >
-            <input
-              v-model="pinyinMode"
-              type="radio"
-              :value="opt.value"
-              class="mt-1 accent-accent"
-            />
-            <span class="flex-1">
-              <span class="block font-display text-base text-fg">
-                {{ opt.label }}
-              </span>
-              <span class="block text-xs text-fg-muted">{{ opt.hint }}</span>
-            </span>
-          </label>
-        </div>
-      </fieldset>
+      <OptionFieldset
+        v-model="pinyinMode"
+        :options="pinyinOptions"
+      >
+        Pinyin display
+      </OptionFieldset>
 
       <!-- HSK version -->
-      <fieldset>
-        <legend
-          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
-        >
-          HSK version
-        </legend>
-        <div class="grid grid-cols-2 gap-2">
-          <label
-            v-for="opt in hskOptions"
-            :key="opt.value"
-            class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
-            :class="{
-              'border-accent bg-bg-sunken': hskVersion === opt.value,
-            }"
-          >
-            <input
-              v-model="hskVersion"
-              type="radio"
-              :value="opt.value"
-              class="mt-1 accent-accent"
-            />
-            <span class="flex-1">
-              <span class="block font-display text-base text-fg">
-                {{ opt.label }}
-              </span>
-              <span class="block text-xs text-fg-muted">{{ opt.hint }}</span>
-            </span>
-          </label>
-        </div>
-      </fieldset>
+      <OptionFieldset
+        v-model="hskVersion"
+        :options="hskOptions"
+        grid
+      >
+        HSK version
+      </OptionFieldset>
 
-        </div>
-      </details>
+      </SettingsSection>
 
-      <details class="group rounded-md" open>
-        <summary class="flex cursor-pointer list-none items-center justify-between rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 hover:bg-bg-sunken">
-          <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle">Review</span>
-          <svg class="size-3 text-fg-subtle transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </summary>
-        <div class="mt-4 space-y-7 pl-1">
-      <fieldset v-if="auth.isAuthed">
-        <legend
-          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
-        >
-          Review focus
-        </legend>
-        <div class="space-y-2">
-          <label
-            v-for="opt in reviewFocusOptions"
-            :key="opt.value"
-            class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
-            :class="{
-              'border-accent bg-bg-sunken': reviewFocus === opt.value,
-            }"
-          >
-            <input
-              v-model="reviewFocus"
-              type="radio"
-              :value="opt.value"
-              class="mt-1 accent-accent"
-            />
-            <span class="flex-1">
-              <span class="block font-display text-base text-fg">
-                {{ opt.label }}
-              </span>
-              <span class="block text-xs text-fg-muted">{{ opt.hint }}</span>
-            </span>
-          </label>
-        </div>
-      </fieldset>
+      <SettingsSection title="Review" open>
+      <OptionFieldset v-if="auth.isAuthed"
+        v-model="reviewFocus"
+        :options="reviewFocusOptions"
+      >
+        Review focus
+      </OptionFieldset>
 
       <!-- Review window -->
-      <fieldset v-if="auth.isAuthed">
-        <legend
-          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
-        >
-          Review window
-        </legend>
-        <div class="space-y-2">
-          <label
-            v-for="opt in reviewWindowOptions"
-            :key="opt.value"
-            class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
-            :class="{
-              'border-accent bg-bg-sunken': reviewWindow === opt.value,
-            }"
-          >
-            <input
-              v-model="reviewWindow"
-              type="radio"
-              :value="opt.value"
-              class="mt-1 accent-accent"
-            />
-            <span class="flex-1">
-              <span class="block font-display text-base text-fg">
-                {{ opt.label }}
-              </span>
-              <span class="block text-xs text-fg-muted">{{ opt.hint }}</span>
-            </span>
-          </label>
-        </div>
-      </fieldset>
+      <OptionFieldset v-if="auth.isAuthed"
+        v-model="reviewWindow"
+        :options="reviewWindowOptions"
+      >
+        Review window
+      </OptionFieldset>
 
       <!-- Local day boundary -->
       <fieldset v-if="auth.isAuthed">
@@ -740,36 +613,12 @@ function resetApiBase() {
       </fieldset>
 
       <!-- FSRS retention -->
-      <fieldset v-if="auth.isAuthed">
-        <legend
-          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
-        >
-          Review challenge
-        </legend>
-        <div class="space-y-2">
-          <label
-            v-for="opt in reviewBandOptions"
-            :key="opt.value"
-            class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
-            :class="{
-              'border-accent bg-bg-sunken': reviewBand === opt.value,
-            }"
-          >
-            <input
-              v-model="reviewBand"
-              type="radio"
-              :value="opt.value"
-              class="mt-1 accent-accent"
-            />
-            <span class="flex-1">
-              <span class="block font-display text-base text-fg">
-                {{ opt.label }}
-              </span>
-              <span class="block text-xs text-fg-muted">{{ opt.hint }}</span>
-            </span>
-          </label>
-        </div>
-      </fieldset>
+      <OptionFieldset v-if="auth.isAuthed"
+        v-model="reviewBand"
+        :options="reviewBandOptions"
+      >
+        Review challenge
+      </OptionFieldset>
 
       <!-- Auto-grade delay after a writing quiz (device-local) -->
       <fieldset>
@@ -844,15 +693,9 @@ function resetApiBase() {
         </span>
       </label>
 
-        </div>
-      </details>
+      </SettingsSection>
 
-      <details class="group rounded-md">
-        <summary class="flex cursor-pointer list-none items-center justify-between rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 hover:bg-bg-sunken">
-          <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle">Appearance &amp; reminders</span>
-          <svg class="size-3 text-fg-subtle transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </summary>
-        <div class="mt-4 space-y-7 pl-1">
+      <SettingsSection title="Appearance & reminders">
       <!-- Theme — same toggle as the header crescent, included here for
            discoverability. -->
       <fieldset>
@@ -954,46 +797,16 @@ function resetApiBase() {
       <!-- Global trad/simp toggle. Auth-gated since
            it lives on the user row server-side; the conversion is applied
            at every endpoint that returns Chinese. -->
-      <fieldset v-if="auth.isAuthed">
-        <legend
-          class="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
-        >
-          Script
-        </legend>
-        <div class="space-y-2">
-          <label
-            v-for="opt in scriptOptions"
-            :key="opt.value"
-            class="flex cursor-pointer items-start gap-3 rounded-md border border-border-subtle px-3 py-2 transition-colors hover:bg-bg-sunken"
-            :class="{
-              'border-accent bg-bg-sunken': displayScript === opt.value,
-            }"
-          >
-            <input
-              v-model="displayScript"
-              type="radio"
-              :value="opt.value"
-              class="mt-1 accent-accent"
-            />
-            <span class="flex-1">
-              <span class="block font-display text-base text-fg">
-                {{ opt.label }}
-              </span>
-              <span class="block text-xs text-fg-muted">{{ opt.hint }}</span>
-            </span>
-          </label>
-        </div>
-      </fieldset>
+      <OptionFieldset v-if="auth.isAuthed"
+        v-model="displayScript"
+        :options="scriptOptions"
+      >
+        Script
+      </OptionFieldset>
 
-        </div>
-      </details>
+      </SettingsSection>
 
-      <details v-if="auth.isAuthed" class="group rounded-md">
-        <summary class="flex cursor-pointer list-none items-center justify-between rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 hover:bg-bg-sunken">
-          <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle">Learning</span>
-          <svg class="size-3 text-fg-subtle transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </summary>
-        <div class="mt-4 space-y-7 pl-1">
+      <SettingsSection v-if="auth.isAuthed" title="Learning">
       <!-- Daily auto-enrol target. Off by default; the checkbox flips the
            target between 0 and 5, with a numeric input revealed when on. -->
       <fieldset>
@@ -1125,17 +938,11 @@ function resetApiBase() {
         </p>
       </fieldset>
 
-        </div>
-      </details>
+      </SettingsSection>
 
       <!-- Everything inside is auth-gated or server-related; logged-out on
            a same-origin web build the section would expand to nothing. -->
-      <details v-if="auth.isAuthed || serverSectionVisible" class="group rounded-md">
-        <summary class="flex cursor-pointer list-none items-center justify-between rounded-md border border-border-subtle bg-bg-elevated px-3 py-2 hover:bg-bg-sunken">
-          <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle">Data &amp; account</span>
-          <svg class="size-3 text-fg-subtle transition-transform group-open:rotate-90" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </summary>
-        <div class="mt-4 space-y-7 pl-1">
+      <SettingsSection v-if="auth.isAuthed || serverSectionVisible" title="Data & account">
       <!-- What the server this app talks to offers (GET /api/capabilities). -->
       <p v-if="capabilities.caps" class="text-xs text-fg-muted">
         <span class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle">This server</span>
@@ -1170,21 +977,7 @@ function resetApiBase() {
             @click="download(api.FULL_EXPORT_PATH)"
             class="inline-flex items-center gap-1.5 rounded-md border border-accent/40 bg-bg-elevated px-3 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-bg-sunken"
           >
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 11 11"
-              fill="none"
-              aria-hidden="true"
-            >
-              <path
-                d="M5.5 1.5v6M3 5l2.5 2.5L8 5M2 9.5h7"
-                stroke="currentColor"
-                stroke-width="1.4"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+            <DownloadIcon />
             everything.json
           </button>
           <button
@@ -1192,21 +985,7 @@ function resetApiBase() {
             @click="download(api.WORDS_CSV_PATH)"
             class="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
           >
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 11 11"
-              fill="none"
-              aria-hidden="true"
-            >
-              <path
-                d="M5.5 1.5v6M3 5l2.5 2.5L8 5M2 9.5h7"
-                stroke="currentColor"
-                stroke-width="1.4"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+            <DownloadIcon />
             words.csv
           </button>
           <button
@@ -1214,21 +993,7 @@ function resetApiBase() {
             @click="download(api.WORDS_ANKI_PATH)"
             class="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
           >
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 11 11"
-              fill="none"
-              aria-hidden="true"
-            >
-              <path
-                d="M5.5 1.5v6M3 5l2.5 2.5L8 5M2 9.5h7"
-                stroke="currentColor"
-                stroke-width="1.4"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+            <DownloadIcon />
             words.apkg
           </button>
         </div>
@@ -1475,8 +1240,7 @@ function resetApiBase() {
           </div>
         </div>
       </fieldset>
-        </div>
-      </details>
+      </SettingsSection>
     </div>
   </Modal>
 </template>
