@@ -46,9 +46,9 @@ def test_clean_gloss_renders_single_word_trad_simp_pair():
 def test_clean_gloss_multi_clause_idiom_trad_simp_pair_not_duplicated():
     """A multi-clause proverb's trad|simp pair spans the whole phrase,
     commas included — not one pair per clause. A hanzi-only character
-    class in _TRAD_SIMP_RE stopped at the internal fullwidth comma and
-    matched across clause boundaries instead of across the pair
-    boundary, duplicating a clause in the output."""
+    class in _TRAD_SIMP_RE would stop at the internal fullwidth comma and
+    match across clause boundaries instead of across the pair boundary,
+    duplicating a clause in the output."""
     raw = (
         "see 丈二和尚，摸不著頭腦|丈二和尚，摸不着头脑"
         "[zhang4 er4 he2 shang5 , mo1 bu5 zhao2 tou2 nao3]"
@@ -61,20 +61,19 @@ def test_clean_gloss_multi_clause_idiom_trad_simp_pair_not_duplicated():
 def test_parser_prefers_real_word_over_variant_character_padded_with_senses():
     """秊 (a variant character of 年) lists three senses — "grain /
     harvest (old) / variant of 年" — while 年 itself has just one
-    ("year"). The stub-gloss penalty hits "year" for being short, and
-    the sense-count bonus used to reward 秊's padding enough to win,
-    because the "variant of 年" sense sat third and _pick_learner_primary
-    only inspects the picked headline, not the full list. 年 (HSK-1!)
-    displayed "grain" on review cards until this was caught."""
+    ("year"). The stub-gloss penalty hits "year" for being short, and the
+    sense-count bonus must not let 秊's padding win: the "variant of 年"
+    sense sits third, and _pick_learner_primary only inspects the picked
+    headline, not the full list. Otherwise 年 (HSK 1) reads "grain"."""
     sample = "年 年 [nian2] /year/\n秊 年 [nian2] /grain/harvest (old)/variant of 年[nian2]/\n"
     parsed = cedict_loader._parse_text(sample)
     assert parsed["年"]["meaning"] == "year"
 
 
 def test_parser_prefers_real_word_over_variant_character_trailing_marker():
-    """Same bug, marker in a trailing parenthetical instead of leading a
+    """Same case, marker in a trailing parenthetical instead of leading a
     sense: 驩 (a variant character of 歡|欢) is "a breed of horse /
-    variant of 歡|欢" and used to beat 歡's "joyous / happy / pleased"."""
+    variant of 歡|欢" and must not beat 歡's "joyous / happy / pleased"."""
     sample = (
         "歡 欢 [huan1] /joyous/happy/pleased/\n"
         "驩 欢 [huan1] /a breed of horse/variant of 歡|欢[huan1]/\n"
@@ -145,8 +144,8 @@ def test_parser_resolves_used_in_pointer_through_a_chain():
 def test_preferred_reading_override_wins_regardless_of_heuristic_score(monkeypatch):
     """汉's rich Han4 entry (Han ethnic group / Chinese language / the
     Han dynasty) loses to its bare han4 "man" entry under the heuristic
-    alone -- the capitalized-pinyin proper-noun penalty (added to stop
-    Apple-the-company beating apple-the-fruit) fires on 汉 too, since
+    alone -- the capitalized-pinyin proper-noun penalty (which keeps
+    Apple-the-company from beating apple-the-fruit) fires on 汉 too, since
     CC-CEDICT capitalizes pinyin for named concepts generally. The
     hand-curated override should force Han4 to win outright."""
     monkeypatch.setattr(
@@ -237,12 +236,11 @@ def test_parser_prefers_real_gloss_over_surname_collision():
 
 
 def test_parser_prefers_common_noun_over_proper_noun_collision():
-    """苹果 the fruit must beat 苹果 the tech company (2026-07 audit).
+    """苹果 the fruit must beat 苹果 the tech company.
 
     The company's long parenthesised gloss dodges the stub-gloss penalty
-    that the fruit's bare "apple" eats, so file order used to decide —
-    and drilled "Apple (American tech company)" into HSK-3 review cards.
-    CC-CEDICT's capitalized-pinyin convention marks the proper noun.
+    that the fruit's bare "apple" eats, so without a tie-breaker file order
+    decides. CC-CEDICT's capitalized-pinyin convention marks the proper noun.
     """
     sample = (
         "蘋果 苹果 [Ping2 guo3] /Apple (American multinational technology company)/\n"
@@ -320,8 +318,8 @@ def test_merge_overlays_meanings_on_existing_hsk_entries():
         # Meaning + meanings come from CC-CEDICT.
         assert hsk_vocab["地"]["meaning"] == "earth"
         assert hsk_vocab["地"]["meanings"] == ["earth", "ground", "field"]
-        # Pinyin now also tracks the CC-CEDICT reading so it matches the
-        # gloss we just overlaid.
+        # Pinyin follows the CC-CEDICT reading so it matches the overlaid
+        # gloss.
         assert hsk_vocab["地"]["pinyin"] == "dì"
         # Level info from HSK is preserved.
         assert hsk_vocab["地"]["level_new"] == "new-1"
@@ -334,10 +332,8 @@ def test_merge_overlays_meanings_on_existing_hsk_entries():
 
 def test_pick_learner_primary_skips_bare_pronunciation_note():
     """迹's only real sense is tagged "(bound form)"; CC-CEDICT's trailing
-    "Taiwan pr. [ji1]" carries no register tag, so it used to slip past
-    the filter and get displayed as if it were the definition. It should
-    still lose to the tagged sense now that pronunciation notes are
-    recognized as non-content."""
+    "Taiwan pr. [ji1]" carries no register tag, but as a pronunciation
+    note it is not content and must still lose to the tagged sense."""
     meanings = ["(bound form) trace; mark; vestige; clue", "Taiwan pr. [ji1]"]
     assert cedict_loader._pick_learner_primary(meanings) == meanings[0]
 
@@ -367,7 +363,7 @@ def test_pick_learner_primary_falls_back_to_first_sense_when_everything_disquali
 
 def test_preferred_sense_override_fixes_nan_baron_misfire(monkeypatch):
     """男's only two senses are "(bound form) male" and an obscure
-    Kangxi-nobility-rank gloss; skipping the tagged sense left "baron,
+    Kangxi-nobility-rank gloss; skipping the tagged sense leaves "baron,
     the lowest of the five ranks of nobility" as the displayed meaning
     for an HSK-1 character meaning "male"."""
     monkeypatch.setattr(
@@ -389,7 +385,7 @@ def test_preferred_sense_override_fixes_nan_baron_misfire(monkeypatch):
 def test_preferred_sense_override_fixes_yuan2_military_generals_misfire(monkeypatch):
     """员 is the everyday suffix in 服务员/演员/队员 ("person engaged in a
     field" / "member"); both its real senses are tagged bound-form, so
-    the heuristic fell through to the one remaining untagged sense,
+    the heuristic falls through to the one remaining untagged sense,
     "classifier for military generals" -- correct CC-CEDICT content, but
     a badly misleading primary for this extremely common character."""
     monkeypatch.setattr(
@@ -431,7 +427,7 @@ def test_preferred_sense_override_fixes_hao4_misfire(monkeypatch):
 
 def test_preferred_sense_override_fixes_shang4_bound_form_misfire(monkeypatch):
     """上's core "on/above" sense is tagged bound-form, so the heuristic
-    fell through to verb fragments ("first (of multiple parts)") for
+    falls through to verb fragments ("first (of multiple parts)") for
     this HSK-1 character. The override substring is matched against the
     already-cleaned senses; a substring of the sense is enough to pick
     it, and the headline keeps the whole sense minus its register tag."""

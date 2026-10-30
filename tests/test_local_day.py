@@ -1,5 +1,5 @@
 """
-Local-day boundaries (L22): "today" rolls over at the user's local
+Local-day boundaries: "today" rolls over at the user's local
 midnight for due today, reviewed today, streaks, the daily auto-enrol
 batch and the weekly sparkline. Storage stays naive UTC.
 

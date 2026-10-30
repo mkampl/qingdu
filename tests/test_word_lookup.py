@@ -1,12 +1,10 @@
 """
-`resolve_from_cedict` — regression coverage for a real bug found in the
-bundled library: multi-character words jieba correctly segments as one
-token (e.g. "一个", "变得") but that aren't themselves a key in `hsk_vocab`
-used to fall through to `create_compound_from_hsk`'s per-character glue
-("one + used in 自個兒|自个儿[zi4 ge3 r5]") — nonsense to a reader, and
-easy to mistake for a segmentation bug rather than a lookup-priority one.
-`resolve_from_cedict` must be checked (and win) before that glue fallback
-whenever CC-CEDICT already has a proper entry for the whole word.
+`resolve_from_cedict` for multi-character words jieba segments as one
+token (e.g. "一个", "变得") but that aren't themselves a key in `hsk_vocab`.
+They must not fall through to `create_compound_from_hsk`'s per-character
+glue ("one + used in 自個兒|自个儿[zi4 ge3 r5]"), which is nonsense to a
+reader: `resolve_from_cedict` is checked (and wins) before that fallback
+whenever CC-CEDICT has a proper entry for the whole word.
 """
 
 import pytest
@@ -19,7 +17,7 @@ from app.state import cedict_variants, cedict_vocab, hsk_vocab
 @pytest.fixture
 def vocab():
     """Isolated hsk_vocab/cedict_vocab so this test doesn't depend on
-    whatever a prior test session's startup event happened to download."""
+    whatever another test left in the shared dictionaries."""
     original_hsk = dict(hsk_vocab)
     original_cedict = dict(cedict_vocab)
     hsk_vocab.clear()
@@ -59,7 +57,7 @@ def vocab():
 
 
 def test_cedict_hit_wins_over_per_character_glue(vocab):
-    """The bug: 一个's per-character glue ("one + used in 自個兒...") is
+    """一个's per-character glue ("one + used in 自個兒...") is
     strictly worse than CEDICT's own entry for the whole word."""
     info = resolve_from_cedict("一个")
     assert info is not None

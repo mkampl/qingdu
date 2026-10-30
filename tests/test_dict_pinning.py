@@ -188,7 +188,7 @@ def test_backfill_runs_when_no_version_stored_then_skips(temp_db, saved_state, m
     monkeypatch.setitem(dict_data.loaded_sources, "cedict", "b" * 64)
     _add_word(temp_db, "地", "-ly")
 
-    # First boot after the upgrade: nothing stored yet, so it must run.
+    # First boot: nothing stored yet, so it must run.
     s = temp_db()
     assert dict_data.get_stored_version(s) is None
     s.close()

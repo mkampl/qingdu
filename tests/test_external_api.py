@@ -1,9 +1,9 @@
 """
-Phase #121 — personal access tokens + the external read/write vocab API.
+Personal access tokens and the external read/write vocab API.
 
 Uses a real in-memory DB (not dependency-overridden auth) so the actual
 JWT-vs-PAT branch in app.auth.require_api_scope gets exercised, along with
-real token hashing/scope checks — that logic is the whole point here.
+real token hashing and scope checks.
 """
 
 import pytest

@@ -1,4 +1,4 @@
-"""Endpoints that used to be public and are gone or admin-only now."""
+"""Endpoints that do not exist or need an admin login."""
 
 from app.auth import get_current_user, require_auth
 from app.database import User

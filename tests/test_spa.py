@@ -1,8 +1,8 @@
 """
 SPA catch-all (app/routers/spa.py): history-mode routes get index.html,
 but API / static / asset paths that matched nothing must 404 instead of
-answering 200 text/html (which surfaced as `Unexpected token '<'` in the
-client and made `curl /api/health` look healthy).
+answering 200 text/html (the client would fail with `Unexpected token '<'`
+and `curl /api/health` would look healthy).
 """
 
 import pytest

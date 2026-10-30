@@ -1,4 +1,4 @@
-"""Pure-logic tests for the watch-and-read prototype's caption handling.
+"""Pure-logic tests for caption handling.
 
 No network calls — extract_video_id and the sentence-merge logic are
 plain string/list manipulation, so they're tested directly against
@@ -97,10 +97,10 @@ class TestMergeIntoSentences:
 
     def test_long_unpunctuated_single_cue_is_hard_chunked(self):
         """
-        A single cue with no punctuation at all used to pass through
-        whole regardless of length (merging can't split *within* a cue,
-        only cap how many cues get glued together) — the hard-chunking
-        tier in _split_cue_into_sentences now closes that gap too.
+        A single cue with no punctuation at all is still capped: merging
+        can't split *within* a cue, only cap how many cues get glued
+        together, so the hard-chunking tier in _split_cue_into_sentences
+        covers this case.
         """
         long_word = "字" * 70
         cues = [{"text": long_word, "start": 0.0, "duration": 1.0}]
@@ -123,12 +123,11 @@ class TestMergeIntoSentences:
 
     def test_comma_forces_an_early_split_with_no_terminal_punctuation(self):
         """
-        Real-world regression: a fansubbed episode's "manually created"
-        track had zero punctuation of any kind for long stretches, which
-        let unrelated clauses glue into one 60+-char, 14s+ highlighted
-        block. Treating a comma as a soft close (once the buffer already
-        has content) fixes the common case where clauses ARE comma-
-        separated even without a final full stop.
+        Real-world shape: "manually created" fansub tracks can go without
+        any full stop for long stretches, so unrelated clauses would glue
+        into one 60+-char, 14s+ highlighted block. A comma is a soft close
+        (once the buffer already has content), which covers the common
+        case where clauses ARE comma-separated without a final full stop.
         """
         cues = [
             {"text": "你好，世界", "start": 0.0, "duration": 1.0},
@@ -141,9 +140,9 @@ class TestMergeIntoSentences:
 
     def test_char_cap_never_overshoots_across_multiple_cues(self):
         """
-        The cap must be checked *before* appending, not after — checking
-        after let a block grow to 31 chars against a 25-char cap, since by
-        the time the overshoot was noticed the cue was already glued on.
+        The cap must be checked *before* appending, not after: checking
+        after lets a block grow to 31 chars against a 25-char cap, since by
+        the time the overshoot is noticed the cue is already glued on.
         """
         cues = [{"text": "字" * 10, "start": float(i), "duration": 1.0} for i in range(5)]
         sentences = _merge_into_sentences(cues)
@@ -151,9 +150,9 @@ class TestMergeIntoSentences:
 
     def test_time_cap_forces_a_cut_across_a_long_silent_gap(self):
         """
-        Real-world regression: a scene-change gap of ~170s between two
-        cues with sparse text produced one sentence spanning 168 seconds,
-        because only character count was capped. A short span of dialogue
+        Real-world shape: a scene-change gap of ~170s between two cues
+        with sparse text must not become one sentence spanning 168 seconds,
+        so time is capped as well as character count. A short span of dialogue
         followed by a huge time jump must not be merged with what comes
         after it, even though the combined text is well under the char cap.
         """
@@ -170,10 +169,10 @@ class TestMergeIntoSentences:
 
     def test_backward_jumping_cues_are_dropped_not_merged(self):
         """
-        Real-world regression: a fansubbed episode's caption track had a
-        chunk of duplicate/corrupt cues jumping backward by hundreds of
-        seconds partway through, which produced a sentence with
-        end < start when trusted blindly.
+        Real-world shape: a fansub caption track can carry a chunk of
+        duplicate/corrupt cues jumping backward by hundreds of seconds
+        partway through; trusted blindly, they give a sentence with
+        end < start.
         """
         cues = [
             {"text": "正常的对话", "start": 1410.0, "duration": 4.7},
@@ -187,12 +186,12 @@ class TestMergeIntoSentences:
 
     def test_multi_sentence_cue_splits_with_proportional_timing(self):
         """
-        Real-world regression: a Whisper/SRT segment (transcribe-
-        orchestrator's ASR output) bundled two complete sentences into
-        one multi-second block, since ASR timestamps only exist at the
-        segment level — the highlight then lagged a full sentence behind
-        the audio. A cue's own text must be split at real sentence-ending
-        punctuation before the merge/cap logic ever sees it. Both
+        Real-world shape: a Whisper/SRT segment (ASR output) can bundle
+        two complete sentences into one multi-second block, since ASR
+        timestamps only exist at the segment level; unsplit, the highlight
+        lags a full sentence behind the audio. A cue's own text must be
+        split at real sentence-ending punctuation before the merge/cap logic
+        ever sees it. Both
         sentences here are individually under the char cap, so this
         isolates the sentence-boundary tier itself — a case where one
         piece is still too long after this split is covered separately
@@ -237,9 +236,9 @@ class TestMergeIntoSentences:
 
     def test_long_comma_only_cue_falls_back_to_comma_split(self):
         """
-        Real-world regression: a Peppa Pig dialogue line ran 21.5s/96
-        chars on commas alone with zero terminal punctuation anywhere —
-        the sentence-boundary tier alone left it as one giant block.
+        Real-world shape: a Peppa Pig dialogue line runs 21.5s/96 chars
+        on commas alone with zero terminal punctuation anywhere; the
+        sentence-boundary tier alone would leave it as one giant block.
         """
         text = (
             "好的，等一下，佩奇，蔬菜皮不能直接扔进普通的垃圾桶，"
@@ -256,12 +255,11 @@ class TestMergeIntoSentences:
 
     def test_partial_punctuation_still_escalates_the_leftover_remainder(self):
         """
-        Real-world regression: a single cue carried two short, properly
+        Real-world shape: a single cue carries two short, properly
         question-marked sentences followed by a 21.5s/96-char comma-only
-        run-on — splitting once at the sentence-boundary tier produced 3
-        pieces (>1), which short-circuited any further escalation before
-        this was recursive, leaving that trailing remainder as one giant
-        piece untouched.
+        run-on. Splitting once at the sentence-boundary tier gives 3 pieces
+        (>1); the split is recursive, so that trailing remainder is still
+        split further instead of staying one giant piece.
         """
         text = (
             "要我帮忙吗？谢谢佩奇，你能把这些削下来的皮清理掉吗？"
@@ -280,14 +278,14 @@ class TestMergeIntoSentences:
 
     def test_punctuation_free_cue_falls_back_to_hard_chunking(self):
         """
-        Real-world regression: sung dialogue ran 23.7s/52 chars with
+        Real-world shape: sung dialogue runs 23.7s/52 chars with
         *zero* punctuation of any kind (no commas, no full stops) —
         neither the sentence nor comma tier can split this at all, so
         the last-resort character-count chunker has to engage. Chunk
         count must satisfy both caps: this text is well under the char
         cap in total but badly exceeds the time cap (slow singing), so
-        char-count alone (round(52/25)=2 chunks of ~12s each) wouldn't
-        have been enough on its own.
+        char-count alone (round(52/25)=2 chunks of ~12s each) is not
+        enough.
         """
         text = "一条蚯蚓虫子 虫子你是小虫子你是小虫子你好吗我爱你你是小虫子干得好你要做条好虫子哦把这些都变成堆肥哦好吗"
         cues = [{"text": text, "start": 165.9, "duration": 23.7}]

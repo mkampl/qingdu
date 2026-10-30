@@ -1,7 +1,7 @@
 """
 POST /api/words/import-hsk — bulk-mark HSK levels as known. We seed a
-small in-memory HSK vocab so the test doesn't depend on the GitHub
-download path or on real-world counts.
+small in-memory HSK vocab so the test doesn't depend on the bundled
+data or on real-world counts.
 """
 
 import pytest

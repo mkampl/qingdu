@@ -37,7 +37,7 @@ def test_entry_glosses_follow_the_current_dictionary(client, pinned_dictionaries
     body = client.get(f"/api/library/{SLUG}").json()
     toks = _tokens(body, "社会")
     assert toks, "fixture text should contain 社会"
-    # The stored file was built with the old -ui tone placement (hùi).
+    # The stored file carries a stale -ui tone placement (hùi).
     assert all(t["pinyin"] == "shè huì" for t in toks)
     assert body["analyzed"]["dict_version"] == "test-version"
 

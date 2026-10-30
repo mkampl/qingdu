@@ -1,6 +1,5 @@
 """
-Phase #96 follow-up: 'known' is a high-stability SRS state, not a
-terminal opt-out. These tests pin down the new behaviour:
+'known' is a high-stability SRS state, not a terminal opt-out:
 
 - Setting/bulk-marking known seeds an FSRS Review-phase card with
   ~90d stability and a scattered first-review date.

@@ -14,12 +14,9 @@ from app.state import cedict_vocab, hsk_vocab
 def hsk_chars():
     """A handful of single-char HSK entries we can compose into compounds.
 
-    Also clears cedict_vocab for the duration of the test — without
-    this, an earlier test session that triggered the FastAPI startup
-    event (which downloads CC-CEDICT) would leave entries for words
-    like 你好 / 道德 in the cache and the lookup chain would short-
-    circuit on those before reaching the fallback paths these tests
-    are exercising.
+    Also clears cedict_vocab for the duration of the test: entries
+    another test left there (e.g. 你好 / 道德) would short-circuit the
+    lookup chain before the fallback paths these tests exercise.
     """
     original_hsk = dict(hsk_vocab)
     original_cedict = dict(cedict_vocab)

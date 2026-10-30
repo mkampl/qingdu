@@ -1,5 +1,5 @@
 """
-Phase #96 — daily HSK auto-enrollment.
+Daily HSK auto-enrollment.
 
 We don't want to depend on the real HSK vocab being loaded in tests, so
 each test patches `app.state.hsk_vocab` with a small fixture covering
@@ -78,7 +78,7 @@ def test_enrolls_up_to_target_from_lowest_level(db_session, hsk_fixture):
     assert {r.word for r in rows} == set(enrolled)
     # All inserted as 'learning' with no due_at (front of queue).
     assert all(r.state == "learning" and r.due_at is None for r in rows)
-    # Phase #96 — pinyin + meaning snapshotted at insert time.
+    # Pinyin and meaning are snapshotted at insert time.
     assert all(r.pinyin and r.meaning for r in rows)
 
 

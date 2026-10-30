@@ -7,64 +7,18 @@ def test_app_imports(app_module):
 
 
 def test_route_count(app_module):
-    """The route count is a coarse regression detector — bump intentionally.
+    """A coarse check on the route table; change it on purpose, in the same
+    commit that adds or removes an endpoint.
 
-    96 = API routes alone (Phase 2.7 added 6, practice-mode 1, the
-    2026-07 audit's trust pair 2: GET /api/auth/export, DELETE /api/auth/me,
-    library reading-progress added 5: GET /api/library/progress,
-    POST + DELETE /api/library/{slug}/read, GET + POST /api/library/{slug}/quiz,
-    and GET /api/legal for the configurable Impressum/privacy pages).
-    +5 = 101 when the Vite frontend is built into `frontend/dist/`:
-    /v2 redirect, /v2/{rest} redirect, / SPA shell, /{rest:path} SPA shell,
-    /assets mount.
-    +5 = 101/106 for Phase #121's external-integration API: GET + POST +
-    DELETE /api/tokens[/{id}] and GET /api/external/words, POST
-    /api/external/words/encountered.
-    -1 = 100/105 for the 2026-08-06 removal of POST /api/pronounce (the
-    Whisper + librosa pronunciation-check feature — retired for its
-    dependency weight; see the qingdu-pronunciation-check.md writeup in
-    the companion project for the retrospective).
-    +1 = 101/106 for the 2026-09-03 watch-and-read prototype's
-    POST /api/media/youtube (spike, not a shipped feature yet).
-    +1 = 102/107 for GET /api/texts/{id}: the list endpoint now returns
-    summaries and the full text is fetched when one is opened.
-    +1 = 103/108 for GET /api/vocabulary-lists/{id}: the list detail page
-    loads one list instead of every list with every word.
-    -3 = 100/105 for the 2026-10 removal of the unused public dictionary
-    dumps (GET /api/get-hsk-vocabulary, /api/get-hsk-lists-original) and
-    GET /api/debug/vocab-sample.
-    +2 = 102/107 for POST /api/readability (how much of a text the user
-    can read, and which words are missing) and POST
-    /api/readability/prelearn (take a text's missing words into review).
-    +1 = 103/108 for POST /api/vocabulary-lists/{id}/learn (take a list's
-    words into review).
-    +1 = 104/109 for GET /api/library/readability (how readable each
-    library text is for the caller).
-    +1 = 105/110 for POST /api/auth/download-ticket (open a download as a
-    plain link without the session token in the URL).
-    +5 = 110/115 for text folders: GET + POST /api/folders, PATCH + DELETE
-    /api/folders/{id}, POST /api/texts/order.
-    +1 = 111/116 for GET /api/review/tones (tone practice).
-    +1 = 112/117 for GET /api/vocab/details/{word} (measure words and
-    character components).
-    +2 = 114/119 for GET /api/capabilities (what the server offers, e.g.
-    an LLM) and POST /api/admin/llm/probe.
-    +4 = 118/123 for the grammar section: GET /api/grammar, GET
-    /api/grammar/{id}, GET + POST /api/grammar/{id}/practice.
-    +2 = 120/125 for POST /api/grammar/explain and POST
-    /api/grammar/{id}/text (LLM).
-    +2 = 122/127 for the placement test: GET /api/placement/items, POST
-    /api/placement/finish.
-    +5 = 127/132 for topic series: GET + POST /api/series, GET + PATCH
-    /api/series/{id}, POST /api/series/{id}/next.
-    +1 = 133/138 for POST /api/readability/senses (what a text's words mean
-    in their sentences, LLM, for pre-learning).
+    133 = API routes alone. +5 = 138 when the Vite frontend is built into
+    `frontend/dist/`: /v2 redirect, /v2/{rest} redirect, / SPA shell,
+    /{rest:path} SPA shell, /assets mount.
     """
     assert len(app_module.routes) in (133, 138)
 
 
 def test_router_tags_present(app_module):
-    """The 13 API routers should be wired (Pages was retired at cutover)."""
+    """Every API router is wired, by tag."""
     tags = set()
     for r in app_module.routes:
         if hasattr(r, "tags") and r.tags:

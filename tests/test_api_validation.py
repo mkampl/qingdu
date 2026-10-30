@@ -1,5 +1,5 @@
 """
-Request validation for the write endpoints that used to take raw dicts:
+Request validation for the write endpoints that take JSON bodies:
 vocabulary lists, saved texts, snooze, review grading, and the input caps
 on analyze / translate / TTS.
 """
@@ -215,7 +215,7 @@ def test_delete_word_requires_fields(api):
 
 
 def test_list_mutation_survives_legacy_nameless_section(api):
-    """A section stored without a name (pre-validation data) must not
+    """A section stored without a name must not
     KeyError every later mutation."""
     client, Session = api
     s = Session()

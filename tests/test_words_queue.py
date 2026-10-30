@@ -550,7 +550,7 @@ def _row(client, word):
 def due_fixture(queue_client):
     now = _utcnow()
     midnight = end_of_day(now)
-    # Due later today (UTC) — the case the old "due now" cutoff missed.
+    # Due later today (UTC): due today, though not yet due now.
     later_today = max(now + timedelta(seconds=1), midnight - timedelta(seconds=1))
     _add(
         queue_client,
@@ -701,7 +701,7 @@ def test_hsk_version_is_validated(hsk_versions):
     assert r.status_code == 400
 
 
-# --- display script (L7) --------------------------------------------------------
+# --- display script -------------------------------------------------------------
 
 
 def test_queue_returns_words_in_display_script(queue_client):
@@ -721,7 +721,7 @@ def test_actions_accept_display_script(queue_client):
     assert r.json()["card"]["word"] == "學習"
 
 
-# --- server state in responses (L2) / known keeps history (L3) -------------------
+# --- server state in responses / known keeps history -----------------------------
 
 
 def test_mark_known_returns_new_schedule(queue_client):
