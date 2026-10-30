@@ -7,13 +7,8 @@ monkeypatched per-test via app.services.library).
 """
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.auth import get_current_user, require_auth
-from app.database import Base, SavedText, User, UserLibraryProgress, get_db
+from app.database import SavedText, User, UserLibraryProgress
 from app.services import library
 
 QUIZ_ENTRY = {
@@ -34,7 +29,7 @@ PLAIN_ENTRY = {**QUIZ_ENTRY, "slug": "hsk1_98_plain", "questions": []}
 
 
 @pytest.fixture
-def library_client(app_module, monkeypatch):
+def library_client(monkeypatch, memory_db, open_client):
     entries = {QUIZ_ENTRY["slug"]: QUIZ_ENTRY, PLAIN_ENTRY["slug"]: PLAIN_ENTRY}
     monkeypatch.setattr(library, "get", lambda slug: entries.get(slug))
     monkeypatch.setattr(
@@ -52,41 +47,14 @@ def library_client(app_module, monkeypatch):
         ),
     )
 
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    TestingSession = memory_db
 
     db = TestingSession()
     db.add(User(id=1, username="alice", password_hash="x", must_change_password=False))
     db.commit()
     db.close()
 
-    def _override_get_db():
-        s = TestingSession()
-        try:
-            yield s
-        finally:
-            s.close()
-
-    def _override_user():
-        s = TestingSession()
-        try:
-            return s.query(User).filter(User.id == 1).first()
-        finally:
-            s.close()
-
-    app_module.dependency_overrides[get_db] = _override_get_db
-    app_module.dependency_overrides[require_auth] = _override_user
-    app_module.dependency_overrides[get_current_user] = _override_user
-    try:
-        with TestClient(app_module) as c:
-            yield c, TestingSession
-    finally:
-        app_module.dependency_overrides.clear()
+    return open_client(TestingSession), TestingSession
 
 
 def test_mark_read_creates_progress_row(library_client):

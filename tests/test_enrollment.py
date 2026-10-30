@@ -11,45 +11,29 @@ asserting which specific (random) word came out.
 from datetime import datetime, timedelta
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.database import Base, User, UserWord, UserWordEvent
+from app.database import User, UserWord, UserWordEvent
 from app.services import enrollment
-from app.state import hsk_vocab
 
 
 @pytest.fixture
-def db_session():
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = TestingSession()
+def db_session(memory_db):
+    session = memory_db()
     yield session
     session.close()
 
 
 @pytest.fixture
-def hsk_fixture():
-    """Stub two HSK-1 words and two HSK-2 words, then restore."""
-    original = dict(hsk_vocab)
-    hsk_vocab.clear()
-    hsk_vocab.update(
-        {
+def hsk_fixture(swap_dictionaries):
+    """Stub two HSK-1 words and two HSK-2 words."""
+    swap_dictionaries(
+        hsk={
             "我": {"level_new": "new-1", "pinyin": "wǒ", "meaning": "I"},
             "你": {"level_new": "new-1", "pinyin": "nǐ", "meaning": "you"},
             "他": {"level_new": "new-2", "pinyin": "tā", "meaning": "he"},
             "她": {"level_new": "new-2", "pinyin": "tā", "meaning": "she"},
         }
     )
-    yield
-    hsk_vocab.clear()
-    hsk_vocab.update(original)
 
 
 def _make_user(db, daily_new_words=5, hsk_focus_version="new"):

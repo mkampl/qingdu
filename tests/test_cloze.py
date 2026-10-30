@@ -3,24 +3,14 @@ Cloze-mode review: sentence extraction + blanking + lazy population.
 """
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.database import Base, SavedText, User, UserWord
+from app.database import SavedText, User, UserWord
 from app.services import cloze
 
 
 @pytest.fixture
-def db_session():
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    s = Session()
+def db_session(memory_db):
+    s = memory_db()
     s.add(User(id=1, username="alice", password_hash="x", invite_quota=0))
     s.commit()
     yield s

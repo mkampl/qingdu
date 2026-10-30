@@ -8,9 +8,6 @@ from datetime import datetime, timedelta
 from app.database import SavedText
 from app.services import grammar_book
 from app.services.segmentation import segment_text
-from tests.test_user_words import words_client as _words_client
-
-words_client = _words_client
 
 READ = "我把书放在桌子上了。他被老师批评了。"
 UNREAD = "苹果被他吃了。"

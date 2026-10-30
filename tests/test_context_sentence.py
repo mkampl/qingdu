@@ -1,9 +1,6 @@
 """The sentence a word was marked in travels with it into review."""
 
 from app.database import SavedText, UserWord
-from tests.test_user_words import words_client as _words_client
-
-words_client = _words_client  # the fixture, under the name the tests ask for
 
 
 def _row(client, word):

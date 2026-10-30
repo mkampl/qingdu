@@ -2,10 +2,6 @@
 
 from app.database import UserWord
 from app.services import readability
-from tests.test_grammar_ai import fake_llm  # noqa: F401
-from tests.test_user_words import words_client as _words_client
-
-words_client = _words_client
 
 
 def _seed(client, **rows):
@@ -141,7 +137,7 @@ def test_prelearn_stores_the_meaning_in_the_text(words_client):
     s.close()
 
 
-def test_senses_one_request_for_all_words_then_cached(words_client, fake_llm):  # noqa: F811
+def test_senses_one_request_for_all_words_then_cached(words_client, fake_llm):
     import json
 
     from app.services import text_senses

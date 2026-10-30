@@ -289,45 +289,36 @@ def test_pure_marker_entry_still_wins_against_surname_only():
     assert parsed["X"]["meaning"] == "-ly"
 
 
-def test_merge_overlays_meanings_on_existing_hsk_entries():
-    # Snapshot + clear shared dicts so the test is hermetic.
-    original_hsk = dict(hsk_vocab)
-    original_cedict = dict(cedict_vocab)
-    hsk_vocab.clear()
-    cedict_vocab.clear()
-    try:
-        # Simulate the 地 case: HSK source has the particle-reading pinyin
-        # but our CC-CEDICT primary-pick chose the content reading. Both
-        # pinyin AND meaning need to come from CC-CEDICT or the displayed
-        # gloss would mismatch the rendered reading.
-        hsk_vocab["地"] = {
-            "pinyin": "de",
-            "meaning": "-ly",
-            "meanings": ["-ly"],
-            "level_new": "new-1",
-        }
-        cedict_vocab["地"] = {
-            "pinyin": "dì",
-            "meaning": "earth",
-            "meanings": ["earth", "ground", "field"],
-            "traditional": "地",
-        }
-        overlaid, missing = cedict_loader._merge_into_hsk_vocab()
-        assert overlaid == 1
-        assert missing == 0
-        # Meaning + meanings come from CC-CEDICT.
-        assert hsk_vocab["地"]["meaning"] == "earth"
-        assert hsk_vocab["地"]["meanings"] == ["earth", "ground", "field"]
-        # Pinyin follows the CC-CEDICT reading so it matches the overlaid
-        # gloss.
-        assert hsk_vocab["地"]["pinyin"] == "dì"
-        # Level info from HSK is preserved.
-        assert hsk_vocab["地"]["level_new"] == "new-1"
-    finally:
-        hsk_vocab.clear()
-        hsk_vocab.update(original_hsk)
-        cedict_vocab.clear()
-        cedict_vocab.update(original_cedict)
+def test_merge_overlays_meanings_on_existing_hsk_entries(swap_dictionaries):
+    # Clear the shared dicts so the test is hermetic.
+    swap_dictionaries(hsk={}, cedict={})
+    # Simulate the 地 case: HSK source has the particle-reading pinyin
+    # but our CC-CEDICT primary-pick chose the content reading. Both
+    # pinyin AND meaning need to come from CC-CEDICT or the displayed
+    # gloss would mismatch the rendered reading.
+    hsk_vocab["地"] = {
+        "pinyin": "de",
+        "meaning": "-ly",
+        "meanings": ["-ly"],
+        "level_new": "new-1",
+    }
+    cedict_vocab["地"] = {
+        "pinyin": "dì",
+        "meaning": "earth",
+        "meanings": ["earth", "ground", "field"],
+        "traditional": "地",
+    }
+    overlaid, missing = cedict_loader._merge_into_hsk_vocab()
+    assert overlaid == 1
+    assert missing == 0
+    # Meaning + meanings come from CC-CEDICT.
+    assert hsk_vocab["地"]["meaning"] == "earth"
+    assert hsk_vocab["地"]["meanings"] == ["earth", "ground", "field"]
+    # Pinyin follows the CC-CEDICT reading so it matches the overlaid
+    # gloss.
+    assert hsk_vocab["地"]["pinyin"] == "dì"
+    # Level info from HSK is preserved.
+    assert hsk_vocab["地"]["level_new"] == "new-1"
 
 
 def test_pick_learner_primary_skips_bare_pronunciation_note():

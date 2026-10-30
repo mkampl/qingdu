@@ -9,13 +9,9 @@ from PIL import Image
 
 from app.database import VocabularyList
 from app.services import image_ocr, translation
-from tests.test_grammar_ai import fake_llm  # noqa: F401
-from tests.test_user_words import words_client as _words_client
-
-words_client = _words_client
 
 
-def test_the_llm_translates_first_and_gets_the_glossary_terms(fake_llm):  # noqa: F811
+def test_the_llm_translates_first_and_gets_the_glossary_terms(fake_llm):
     fake_llm.append("Guarding an aperture serves only to treat illness.")
     out = asyncio.run(
         translation.get_translation_with_source(
@@ -28,7 +24,7 @@ def test_the_llm_translates_first_and_gets_the_glossary_terms(fake_llm):  # noqa
     }
 
 
-def test_a_chinese_answer_is_no_translation(fake_llm, monkeypatch):  # noqa: F811
+def test_a_chinese_answer_is_no_translation(fake_llm, monkeypatch):
     fake_llm.append("守窍只能用于治病。")
 
     async def mymemory(*a, **kw):
@@ -76,7 +72,7 @@ def _photo() -> bytes:
     return out.getvalue()
 
 
-def test_a_photo_is_read_by_the_llm(words_client, fake_llm):  # noqa: F811
+def test_a_photo_is_read_by_the_llm(words_client, fake_llm):
     fake_llm.append(
         "```\n上个月开了一家茶馆。\n茶很好喝。\n茶很好喝。\n茶很好喝。\n茶很好喝。\n```"
     )
@@ -87,7 +83,7 @@ def test_a_photo_is_read_by_the_llm(words_client, fake_llm):  # noqa: F811
     assert r.json()["url"] == "scan://p.png"
 
 
-def test_a_photo_without_chinese_or_no_image_is_refused(words_client, fake_llm):  # noqa: F811
+def test_a_photo_without_chinese_or_no_image_is_refused(words_client, fake_llm):
     fake_llm.append("")
     r = words_client.post("/api/extract/image", files={"file": ("p.png", _photo(), "image/png")})
     assert r.status_code == 422

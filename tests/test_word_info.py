@@ -7,33 +7,24 @@ columns on UserWord at insert time.
 import pytest
 
 from app.services.word_info import lookup_pinyin_meaning, word_parts
-from app.state import cedict_vocab, hsk_vocab
 
 
 @pytest.fixture
-def hsk_chars():
+def hsk_chars(swap_dictionaries):
     """A handful of single-char HSK entries we can compose into compounds.
 
     Also clears cedict_vocab for the duration of the test: entries
     another test left there (e.g. 你好 / 道德) would short-circuit the
     lookup chain before the fallback paths these tests exercise.
     """
-    original_hsk = dict(hsk_vocab)
-    original_cedict = dict(cedict_vocab)
-    hsk_vocab.clear()
-    hsk_vocab.update(
-        {
+    swap_dictionaries(
+        hsk={
             "我": {"pinyin": "wǒ", "meaning": "I", "level_new": "new-1"},
             "你": {"pinyin": "nǐ", "meaning": "you", "level_new": "new-1"},
             "好": {"pinyin": "hǎo", "meaning": "good", "level_new": "new-1"},
-        }
+        },
+        cedict={},
     )
-    cedict_vocab.clear()
-    yield
-    hsk_vocab.clear()
-    hsk_vocab.update(original_hsk)
-    cedict_vocab.clear()
-    cedict_vocab.update(original_cedict)
 
 
 def test_direct_hsk_entry(hsk_chars):

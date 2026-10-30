@@ -4,11 +4,7 @@ import random
 
 import pytest
 
-from app import state
 from app.services import tone_drill
-from tests.test_user_words import words_client as _words_client
-
-words_client = _words_client
 
 VOCAB = {
     "买": {"pinyin": "mǎi", "meaning": "to buy", "level_new": "new-1"},
@@ -22,15 +18,9 @@ VOCAB = {
 
 
 @pytest.fixture
-def vocab(words_client):
-    saved = dict(state.hsk_vocab)
-    state.hsk_vocab.clear()
-    state.hsk_vocab.update(VOCAB)
-    try:
-        yield words_client
-    finally:
-        state.hsk_vocab.clear()
-        state.hsk_vocab.update(saved)
+def vocab(words_client, swap_dictionaries):
+    swap_dictionaries(hsk=VOCAB)
+    return words_client
 
 
 def test_words_whose_tones_the_audio_would_not_match_are_left_out(vocab):

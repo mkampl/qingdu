@@ -39,14 +39,9 @@ def glosses_file(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def saved_dicts():
-    saved = (dict(state.hsk_vocab), dict(state.hsk_lists_original), dict(state.cedict_vocab))
-    yield
-    for target, copy in zip(
-        (state.hsk_vocab, state.hsk_lists_original, state.cedict_vocab), saved, strict=True
-    ):
-        target.clear()
-        target.update(copy)
+def saved_dicts(swap_dictionaries):
+    """The shared dictionaries get their contents back after the test."""
+    swap_dictionaries()
 
 
 def _main(entry):

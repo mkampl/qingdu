@@ -11,18 +11,15 @@ import pytest
 
 from app.services.segmentation import _resolve_non_hsk
 from app.services.word_lookup import describe_non_word, resolve_from_cedict
-from app.state import cedict_variants, cedict_vocab, hsk_vocab
+from app.state import cedict_variants, cedict_vocab
 
 
 @pytest.fixture
-def vocab():
+def vocab(swap_dictionaries):
     """Isolated hsk_vocab/cedict_vocab so this test doesn't depend on
     whatever another test left in the shared dictionaries."""
-    original_hsk = dict(hsk_vocab)
-    original_cedict = dict(cedict_vocab)
-    hsk_vocab.clear()
-    hsk_vocab.update(
-        {
+    swap_dictionaries(
+        hsk={
             "一": {
                 "pinyin": "yī",
                 "meaning": "one",
@@ -36,24 +33,13 @@ def vocab():
                 "level_old": "old-1",
             },
             "变": {"pinyin": "biàn", "meaning": "to change", "level_new": "new-2"},
-        }
-    )
-    cedict_vocab.clear()
-    cedict_vocab.update(
-        {
+        },
+        cedict={
             "一个": {"pinyin": "yī ge", "meaning": "a; an; one", "meanings": ["a; an; one"]},
             "变得": {"pinyin": "biàn de", "meaning": "to become", "meanings": ["to become"]},
-        }
+        },
+        variants={},
     )
-    original_variants = dict(cedict_variants)
-    cedict_variants.clear()
-    yield
-    cedict_variants.clear()
-    cedict_variants.update(original_variants)
-    hsk_vocab.clear()
-    hsk_vocab.update(original_hsk)
-    cedict_vocab.clear()
-    cedict_vocab.update(original_cedict)
 
 
 def test_cedict_hit_wins_over_per_character_glue(vocab):

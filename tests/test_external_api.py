@@ -6,53 +6,8 @@ JWT-vs-PAT branch in app.auth.require_api_scope gets exercised, along with
 real token hashing and scope checks.
 """
 
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
 from app.auth import create_access_token, generate_api_token, hash_api_token
-from app.database import ApiToken, Base, User, UserWord, get_db
-
-
-@pytest.fixture
-def ext_client(app_module):
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-    db = TestingSession()
-    user = User(
-        id=1,
-        username="alice",
-        password_hash="x",
-        is_admin=False,
-        must_change_password=False,
-        invite_quota=0,
-    )
-    db.add(user)
-    db.commit()
-    db.close()
-
-    def _override_get_db():
-        s = TestingSession()
-        try:
-            yield s
-        finally:
-            s.close()
-
-    app_module.dependency_overrides[get_db] = _override_get_db
-    try:
-        with TestClient(app_module) as c:
-            c.session_factory = TestingSession  # type: ignore[attr-defined]
-            yield c
-    finally:
-        app_module.dependency_overrides.clear()
+from app.database import ApiToken, UserWord
 
 
 def _mint_token(client, *, scopes: str) -> str:

@@ -4,12 +4,8 @@ import random
 
 import pytest
 
-from app import state
 from app.database import UserWord
 from app.services import placement
-from tests.test_user_words import words_client as _words_client
-
-words_client = _words_client
 
 VOCAB = {
     w: {"level_new": f"new-{lvl}", "level": f"new-{lvl}", "pinyin": p, "meaning": m}
@@ -29,15 +25,9 @@ VOCAB = {
 
 
 @pytest.fixture
-def vocab(words_client):
-    saved = dict(state.hsk_vocab)
-    state.hsk_vocab.clear()
-    state.hsk_vocab.update(VOCAB)
-    try:
-        yield words_client
-    finally:
-        state.hsk_vocab.clear()
-        state.hsk_vocab.update(saved)
+def vocab(words_client, swap_dictionaries):
+    swap_dictionaries(hsk=VOCAB)
+    return words_client
 
 
 def test_items_ask_one_level_with_four_meanings(vocab):

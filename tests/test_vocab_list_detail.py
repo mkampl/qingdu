@@ -4,24 +4,13 @@ of every list with every word."""
 import json
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.auth import get_current_user, require_auth
-from app.database import Base, User, VocabularyList, get_db
+from app.database import User, VocabularyList
 
 
 @pytest.fixture
-def client(app_module):
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def client(memory_db, open_client):
+    Session = memory_db
 
     db = Session()
     db.add(User(id=1, username="alice", password_hash="x", invite_quota=0))
@@ -45,28 +34,7 @@ def client(app_module):
     db.commit()
     db.close()
 
-    def _db():
-        s = Session()
-        try:
-            yield s
-        finally:
-            s.close()
-
-    def _user():
-        s = Session()
-        try:
-            return s.query(User).filter(User.id == 1).first()
-        finally:
-            s.close()
-
-    app_module.dependency_overrides[get_db] = _db
-    app_module.dependency_overrides[require_auth] = _user
-    app_module.dependency_overrides[get_current_user] = _user
-    try:
-        with TestClient(app_module) as c:
-            yield c
-    finally:
-        app_module.dependency_overrides.clear()
+    return open_client(Session)
 
 
 def test_get_single_list(client):

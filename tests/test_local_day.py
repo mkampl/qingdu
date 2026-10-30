@@ -11,17 +11,11 @@ from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.auth import get_current_user, require_auth
-from app.database import Base, User, UserWord, UserWordEvent, get_db
+from app.database import User, UserWord, UserWordEvent
 from app.services import enrollment, localday
 from app.services.due import end_of_day
 from app.services.streak import current_streak, rebase_for_timezone, record_activity
-from app.state import hsk_vocab
 
 ZONES = ["UTC", "Europe/Vienna", "Asia/Shanghai", "America/Los_Angeles"]
 DAY = date(2026, 10, 10)
@@ -46,14 +40,8 @@ def clock(monkeypatch):
 
 
 @pytest.fixture
-def make_session():
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    return sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def make_session(memory_db):
+    return memory_db
 
 
 def _add_user(Session, tz: str | None, **extra) -> None:
@@ -90,24 +78,8 @@ def _user(Session) -> User:
 
 
 @pytest.fixture
-def api(app_module, make_session):
-    Session = make_session
-
-    def _override_get_db():
-        s = Session()
-        try:
-            yield s
-        finally:
-            s.close()
-
-    app_module.dependency_overrides[get_db] = _override_get_db
-    app_module.dependency_overrides[require_auth] = lambda: _user(Session)
-    app_module.dependency_overrides[get_current_user] = lambda: _user(Session)
-    try:
-        with TestClient(app_module) as c:
-            yield c, Session
-    finally:
-        app_module.dependency_overrides.clear()
+def api(make_session, open_client):
+    return open_client(make_session), make_session
 
 
 # ---- localday helpers ------------------------------------------------------
@@ -329,14 +301,13 @@ def test_last_active_ahead_of_today_counts_as_today(make_session):
 
 
 @pytest.fixture
-def hsk_fixture():
-    original = dict(hsk_vocab)
-    hsk_vocab.clear()
-    for i, w in enumerate("一二三四五六"):
-        hsk_vocab[w] = {"level_new": "new-1", "pinyin": f"p{i}", "meaning": f"m{i}"}
-    yield
-    hsk_vocab.clear()
-    hsk_vocab.update(original)
+def hsk_fixture(swap_dictionaries):
+    swap_dictionaries(
+        hsk={
+            w: {"level_new": "new-1", "pinyin": f"p{i}", "meaning": f"m{i}"}
+            for i, w in enumerate("一二三四五六")
+        }
+    )
 
 
 @pytest.mark.parametrize("tz", ZONES)

@@ -4,9 +4,6 @@ import json
 
 from app.database import User, VocabularyList
 from app.routers.analyze import _build_glossary
-from tests.test_user_words import words_client as _words_client
-
-words_client = _words_client
 
 
 def _list(s, list_id, flagged, words):

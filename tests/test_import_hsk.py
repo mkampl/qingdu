@@ -5,14 +5,8 @@ data or on real-world counts.
 """
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app import state as _state
-from app.auth import get_current_user, require_auth
-from app.database import Base, User, UserWord, get_db
+from app.database import User, UserWord
 
 # A few canonical HSK entries spanning levels.
 _SAMPLE_VOCAB = {
@@ -29,53 +23,20 @@ _SAMPLE_VOCAB = {
 
 
 @pytest.fixture
-def import_client(app_module):
+def import_client(memory_db, open_client, swap_dictionaries):
     """Stand up an isolated DB + auth + seeded HSK vocab for these tests."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    TestingSession = memory_db
 
     db = TestingSession()
     db.add(User(id=1, username="alice", password_hash="x", invite_quota=0))
     db.commit()
     db.close()
 
-    def _override_get_db():
-        s = TestingSession()
-        try:
-            yield s
-        finally:
-            s.close()
-
-    def _override_user():
-        s = TestingSession()
-        try:
-            return s.query(User).filter(User.id == 1).first()
-        finally:
-            s.close()
-
-    app_module.dependency_overrides[get_db] = _override_get_db
-    app_module.dependency_overrides[require_auth] = _override_user
-    app_module.dependency_overrides[get_current_user] = _override_user
-    try:
-        # TestClient's __enter__ runs the FastAPI startup event, which
-        # repopulates hsk_vocab from the loader. We swap our seeded vocab
-        # in AFTER startup so the route handlers see our small fixture.
-        with TestClient(app_module) as c:
-            saved = dict(_state.hsk_vocab)
-            _state.hsk_vocab.clear()
-            _state.hsk_vocab.update(_SAMPLE_VOCAB)
-            try:
-                yield c, TestingSession
-            finally:
-                _state.hsk_vocab.clear()
-                _state.hsk_vocab.update(saved)
-    finally:
-        app_module.dependency_overrides.clear()
+    # Opening the client runs startup, which refills hsk_vocab from the
+    # loader, so the seeded vocab goes in afterwards.
+    c = open_client(TestingSession)
+    swap_dictionaries(hsk=_SAMPLE_VOCAB)
+    return c, TestingSession
 
 
 def test_import_hsk_level_2_includes_levels_1_and_2(import_client):

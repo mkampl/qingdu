@@ -13,26 +13,19 @@ import pytest
 
 from app.database import UserWord, VocabularyList
 from app.services import lexicon
-from app.state import cedict_vocab
-from tests.test_external_api import _mint_token, ext_client  # noqa: F401
-from tests.test_user_words import words_client  # noqa: F401
+from tests.test_external_api import _mint_token
 
 
 @pytest.fixture
-def small_cedict():
+def small_cedict(swap_dictionaries):
     """A few CC-CEDICT entries; the full dictionary is not loaded in tests,
     and without any CC-CEDICT the gate stays open."""
-    saved = dict(cedict_vocab)
-    cedict_vocab.clear()
-    cedict_vocab.update(
-        {
+    swap_dictionaries(
+        cedict={
             "大卫": {"pinyin": "dà wèi", "meaning": "David", "meanings": ["David"]},
             "一个": {"pinyin": "yī ge", "meaning": "a; an; one", "meanings": ["a; an; one"]},
         }
     )
-    yield
-    cedict_vocab.clear()
-    cedict_vocab.update(saved)
 
 
 def _row(client, word):
@@ -43,7 +36,7 @@ def _row(client, word):
         db.close()
 
 
-def test_phrase_is_rejected(words_client, small_cedict):  # noqa: F811
+def test_phrase_is_rejected(words_client, small_cedict):
     r = words_client.post("/api/words/state", json={"word": "很多", "state": "learning"})
     assert r.status_code == 422
     assert "很多" in r.json()["detail"]
@@ -52,7 +45,7 @@ def test_phrase_is_rejected(words_client, small_cedict):  # noqa: F811
 
 @pytest.mark.parametrize("word", ["衣服", "大卫", "一个", "龘"])
 def test_dictionary_words_and_single_chars_are_accepted(
-    words_client,  # noqa: F811
+    words_client,
     small_cedict,
     word,
 ):
@@ -61,7 +54,7 @@ def test_dictionary_words_and_single_chars_are_accepted(
     assert _row(words_client, word) is not None
 
 
-def test_own_list_word_is_accepted(words_client, small_cedict):  # noqa: F811
+def test_own_list_word_is_accepted(words_client, small_cedict):
     db = words_client.session_factory()
     db.add(
         VocabularyList(
@@ -77,7 +70,7 @@ def test_own_list_word_is_accepted(words_client, small_cedict):  # noqa: F811
     assert r.status_code == 200, r.text
 
 
-def test_package_click_is_accepted(words_client, small_cedict):  # noqa: F811
+def test_package_click_is_accepted(words_client, small_cedict):
     r = words_client.post(
         "/api/words/state",
         json={
@@ -91,7 +84,7 @@ def test_package_click_is_accepted(words_client, small_cedict):  # noqa: F811
     assert r.status_code == 200, r.text
 
 
-def test_existing_phrase_row_can_still_change_state(words_client, small_cedict):  # noqa: F811
+def test_existing_phrase_row_can_still_change_state(words_client, small_cedict):
     db = words_client.session_factory()
     db.add(UserWord(user_id=1, word="很多", state="learning"))
     db.commit()
@@ -101,17 +94,13 @@ def test_existing_phrase_row_can_still_change_state(words_client, small_cedict):
     assert _row(words_client, "很多").state == "ignored"
 
 
-def test_gate_open_without_cedict(words_client):  # noqa: F811
-    saved = dict(cedict_vocab)
-    cedict_vocab.clear()
-    try:
-        r = words_client.post("/api/words/state", json={"word": "很多", "state": "learning"})
-    finally:
-        cedict_vocab.update(saved)
+def test_gate_open_without_cedict(words_client, swap_dictionaries):
+    swap_dictionaries(cedict={})
+    r = words_client.post("/api/words/state", json={"word": "很多", "state": "learning"})
     assert r.status_code == 200
 
 
-def test_bulk_mark_known_skips_phrases(words_client, small_cedict):  # noqa: F811
+def test_bulk_mark_known_skips_phrases(words_client, small_cedict):
     r = words_client.post("/api/words/bulk-mark-known", json={"words": ["很多", "衣服", "大卫"]})
     assert r.status_code == 200, r.text
     body = r.json()
@@ -121,7 +110,7 @@ def test_bulk_mark_known_skips_phrases(words_client, small_cedict):  # noqa: F81
     assert _row(words_client, "衣服").state == "known"
 
 
-def test_external_encountered_rejects_phrases(ext_client, small_cedict):  # noqa: F811
+def test_external_encountered_rejects_phrases(ext_client, small_cedict):
     token = _mint_token(ext_client, scopes="write:words")
     r = ext_client.post(
         "/api/external/words/encountered",
@@ -132,7 +121,7 @@ def test_external_encountered_rejects_phrases(ext_client, small_cedict):  # noqa
     assert r.json() == {"accepted": ["衣服"], "rejected": ["很多"]}
 
 
-def test_is_lexical_word_rules(words_client, small_cedict):  # noqa: F811
+def test_is_lexical_word_rules(words_client, small_cedict):
     assert lexicon.is_lexical_word("大卫")
     assert lexicon.is_lexical_word("我")
     assert not lexicon.is_lexical_word("很多")

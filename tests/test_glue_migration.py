@@ -22,31 +22,27 @@ from app.database import (
     VocabularyList,
 )
 from app.services import dict_data, glue_migration
-from app.state import cedict_vocab, hsk_vocab
 
 DUE = datetime(2026, 11, 1, 8, 0, 0)
 REVIEWED = datetime(2026, 10, 1, 8, 0, 0)
 
 
 @pytest.fixture
-def small_dicts():
-    saved = dict(hsk_vocab), dict(cedict_vocab)
-    hsk_vocab.clear()
-    for w, py, m in [
-        ("很", "hěn", "very"),
-        ("多", "duō", "many"),
-        ("洗", "xǐ", "to wash"),
-        ("衣服", "yī fu", "clothes"),
-        ("我", "wǒ", "I"),
-        ("来", "lái", "to come"),
-    ]:
-        hsk_vocab[w] = {"pinyin": py, "meaning": m, "is_original_hsk": True}
-    cedict_vocab.clear()
-    cedict_vocab["大卫"] = {"pinyin": "dà wèi", "meaning": "David"}
-    yield
-    for target, copy in zip((hsk_vocab, cedict_vocab), saved, strict=True):
-        target.clear()
-        target.update(copy)
+def small_dicts(swap_dictionaries):
+    swap_dictionaries(
+        hsk={
+            w: {"pinyin": py, "meaning": m, "is_original_hsk": True}
+            for w, py, m in [
+                ("很", "hěn", "very"),
+                ("多", "duō", "many"),
+                ("洗", "xǐ", "to wash"),
+                ("衣服", "yī fu", "clothes"),
+                ("我", "wǒ", "I"),
+                ("来", "lái", "to come"),
+            ]
+        },
+        cedict={"大卫": {"pinyin": "dà wèi", "meaning": "David"}},
+    )
 
 
 @pytest.fixture
@@ -203,14 +199,10 @@ def test_second_run_finds_nothing(db_path, small_dicts):
     assert (_rows(db_path, 1), _rows(db_path, 2)) == after_first
 
 
-def test_refuses_without_dictionaries(db_path):
-    saved = dict(cedict_vocab)
-    cedict_vocab.clear()
-    try:
-        with pytest.raises(RuntimeError):
-            _run(db_path, do_apply=False)
-    finally:
-        cedict_vocab.update(saved)
+def test_refuses_without_dictionaries(db_path, swap_dictionaries):
+    swap_dictionaries(cedict={})
+    with pytest.raises(RuntimeError):
+        _run(db_path, do_apply=False)
 
 
 def test_cli_dry_run_and_json(db_path, small_dicts, monkeypatch, capsys):

@@ -5,16 +5,12 @@ version changes, while package, glossary and user-edited meanings stay."""
 import json
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.auth import get_current_user, require_auth, require_auth_flexible
-from app.database import Base, SavedText, User, VocabularyList, get_db
+from app.auth import require_auth, require_auth_flexible
+from app.database import SavedText, User, VocabularyList
 from app.services import dict_data
 from app.services.gloss_refresh import DICT_VERSION_KEY, refresh_analysis, resolve_token
-from app.state import cedict_vocab, hsk_vocab
+from app.state import hsk_vocab
 
 V1 = "r1-test-v1"
 V2 = "r1-test-v2"
@@ -88,28 +84,18 @@ def _words():
 
 
 @pytest.fixture
-def dictionaries():
-    saved_hsk, saved_cedict = dict(hsk_vocab), dict(cedict_vocab)
-    hsk_vocab.clear()
-    cedict_vocab.clear()
-    hsk_vocab.update(
-        {
+def dictionaries(swap_dictionaries):
+    swap_dictionaries(
+        hsk={
             "十": _hsk("shí", "ten"),
             "点": _hsk("diǎn", "o'clock"),
             "苹果": _hsk("píng guǒ", "apple"),
             "一": _hsk("yī", "one"),
             "个": _hsk("gè", "individual"),
             "道": _hsk("dào", "road"),
-        }
+        },
+        cedict={"一个": {"pinyin": "yī gè", "meaning": "one; a", "meanings": ["one", "a"]}},
     )
-    cedict_vocab.update(
-        {"一个": {"pinyin": "yī gè", "meaning": "one; a", "meanings": ["one", "a"]}}
-    )
-    yield
-    hsk_vocab.clear()
-    hsk_vocab.update(saved_hsk)
-    cedict_vocab.clear()
-    cedict_vocab.update(saved_cedict)
 
 
 @pytest.fixture
@@ -120,14 +106,8 @@ def version(monkeypatch):
 
 
 @pytest.fixture
-def env(app_module, version):
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def env(app_module, version, memory_db, open_client):
+    Session = memory_db
 
     db = Session()
     db.add(User(id=1, username="alice", password_hash="x", invite_quota=0))
@@ -164,29 +144,10 @@ def env(app_module, version):
     db.commit()
     db.close()
 
-    def _db():
-        s = Session()
-        try:
-            yield s
-        finally:
-            s.close()
-
-    def _user():
-        s = Session()
-        try:
-            return s.query(User).filter(User.id == 1).first()
-        finally:
-            s.close()
-
-    app_module.dependency_overrides[get_db] = _db
-    app_module.dependency_overrides[require_auth] = _user
-    app_module.dependency_overrides[get_current_user] = _user
-    app_module.dependency_overrides[require_auth_flexible] = _user
-    try:
-        with TestClient(app_module) as c:
-            yield c, Session
-    finally:
-        app_module.dependency_overrides.clear()
+    c = open_client(Session)
+    overrides = app_module.dependency_overrides
+    overrides[require_auth_flexible] = overrides[require_auth]
+    return c, Session
 
 
 @pytest.fixture
