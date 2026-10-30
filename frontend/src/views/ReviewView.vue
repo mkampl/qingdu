@@ -178,6 +178,53 @@ function gradeCaption(g: ReviewGrade): string {
   const s = card.value?.intervals?.[g];
   return s == null || review.practiceMode ? GRADE_WORDS[g] : formatInterval(s);
 }
+// The grade row, Again to Easy; each button's grade is its 1-4 key.
+const GRADE_BUTTONS: {
+  grade: ReviewGrade;
+  label: string;
+  hover: string;
+  darkHover: string;
+  ring: string;
+  bar: string;
+  text: string;
+}[] = [
+  {
+    grade: 1,
+    label: "Again",
+    hover: "hover:border-red-500 hover:bg-red-50",
+    darkHover: "dark:hover:bg-red-500/10",
+    ring: "ring-2 ring-red-400/60",
+    bar: "bg-red-500",
+    text: "text-red-700 dark:text-red-300",
+  },
+  {
+    grade: 2,
+    label: "Hard",
+    hover: "hover:border-amber-500 hover:bg-amber-50",
+    darkHover: "dark:hover:bg-amber-500/10",
+    ring: "ring-2 ring-amber-400/60",
+    bar: "bg-amber-500",
+    text: "text-amber-700 dark:text-amber-300",
+  },
+  {
+    grade: 3,
+    label: "Good",
+    hover: "hover:border-emerald-500 hover:bg-emerald-50",
+    darkHover: "dark:hover:bg-emerald-500/10",
+    ring: "ring-2 ring-emerald-400/60",
+    bar: "bg-emerald-500",
+    text: "text-emerald-700 dark:text-emerald-300",
+  },
+  {
+    grade: 4,
+    label: "Easy",
+    hover: "hover:border-sky-500 hover:bg-sky-50",
+    darkHover: "dark:hover:bg-sky-500/10",
+    ring: "ring-2 ring-sky-400/60",
+    bar: "bg-sky-500",
+    text: "text-sky-700 dark:text-sky-300",
+  },
+];
 // The meaning the card leads with: the focused text's or list's, else the
 // learner's own (glossary, then a text's, then a package's), else none
 // (the dictionary's headline leads).
@@ -1391,107 +1438,32 @@ onMounted(() => {
         class="sticky bottom-0 z-10 -mx-3 grid grid-cols-4 gap-2 bg-bg/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur sm:static sm:mx-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
       >
         <button
+          v-for="b in GRADE_BUTTONS"
+          :key="b.grade"
           type="button"
           :disabled="review.grading"
           :class="[
-            'relative overflow-hidden rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-red-500 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-500/10',
-            autoGradePending === 1 ? 'ring-2 ring-red-400/60' : '',
+            'relative overflow-hidden rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors',
+            b.hover,
+            'disabled:opacity-50',
+            b.darkHover,
+            autoGradePending === b.grade ? b.ring : '',
           ]"
-          @click="gradeAndAdvance(1)"
+          @click="gradeAndAdvance(b.grade)"
         >
           <span
-            v-if="autoGradePending === 1"
+            v-if="autoGradePending === b.grade"
             :style="{ animationDuration: `${autoGradeDelayMs}ms` }"
-            class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-red-500"
+            :class="['qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5', b.bar]"
           />
 
-          <p
-            class="font-display text-base font-medium text-red-700 dark:text-red-300"
-          >
-            Again
+          <p :class="['font-display text-base font-medium', b.text]">
+            {{ b.label }}
           </p>
           <p
             class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
           >
-            {{ gradeCaption(1) }}
-          </p>
-        </button>
-        <button
-          type="button"
-          :disabled="review.grading"
-          :class="[
-            'relative overflow-hidden rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-amber-500 hover:bg-amber-50 disabled:opacity-50 dark:hover:bg-amber-500/10',
-            autoGradePending === 2 ? 'ring-2 ring-amber-400/60' : '',
-          ]"
-          @click="gradeAndAdvance(2)"
-        >
-          <span
-            v-if="autoGradePending === 2"
-            :style="{ animationDuration: `${autoGradeDelayMs}ms` }"
-            class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-amber-500"
-          />
-
-          <p
-            class="font-display text-base font-medium text-amber-700 dark:text-amber-300"
-          >
-            Hard
-          </p>
-          <p
-            class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
-          >
-            {{ gradeCaption(2) }}
-          </p>
-        </button>
-        <button
-          type="button"
-          :disabled="review.grading"
-          :class="[
-            'relative overflow-hidden rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-emerald-500 hover:bg-emerald-50 disabled:opacity-50 dark:hover:bg-emerald-500/10',
-            autoGradePending === 3 ? 'ring-2 ring-emerald-400/60' : '',
-          ]"
-          @click="gradeAndAdvance(3)"
-        >
-          <span
-            v-if="autoGradePending === 3"
-            :style="{ animationDuration: `${autoGradeDelayMs}ms` }"
-            class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-emerald-500"
-          />
-
-          <p
-            class="font-display text-base font-medium text-emerald-700 dark:text-emerald-300"
-          >
-            Good
-          </p>
-          <p
-            class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
-          >
-            {{ gradeCaption(3) }}
-          </p>
-        </button>
-        <button
-          type="button"
-          :disabled="review.grading"
-          :class="[
-            'relative overflow-hidden rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-sky-500 hover:bg-sky-50 disabled:opacity-50 dark:hover:bg-sky-500/10',
-            autoGradePending === 4 ? 'ring-2 ring-sky-400/60' : '',
-          ]"
-          @click="gradeAndAdvance(4)"
-        >
-          <span
-            v-if="autoGradePending === 4"
-            :style="{ animationDuration: `${autoGradeDelayMs}ms` }"
-            class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-sky-500"
-          />
-
-          <p
-            class="font-display text-base font-medium text-sky-700 dark:text-sky-300"
-          >
-            Easy
-          </p>
-          <p
-            class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
-          >
-            {{ gradeCaption(4) }}
+            {{ gradeCaption(b.grade) }}
           </p>
         </button>
       </div>
