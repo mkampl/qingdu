@@ -5,7 +5,9 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    "types": ["vite/client", "vitest/globals"]
+    "types": ["vite/client", "vitest/globals"],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
   },
   "include": ["src/**/*", "src/**/*.vue", "vite.config.ts"]
 }
