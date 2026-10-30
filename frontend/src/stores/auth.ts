@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 
 import * as api from "@/api/client";
 import { ApiError } from "@/api/client";
-import type { User } from "@/api/types";
+import type { LoginResponse, User } from "@/api/types";
 import { useReviewStore } from "@/stores/review";
 import { useSettingsStore, type SyncedSettings } from "@/stores/settings";
 import { resetUserScopedStores } from "@/stores/user-scope";
@@ -81,10 +81,9 @@ export const useAuthStore = defineStore("auth", () => {
       }
     } catch (e) {
       // Only a server-side rejection means the token is bad. A network
-      // failure (offline app start, server blip) must NOT clear it —
-      // that logged phone users out every time they opened the app in
-      // airplane mode. Stay logged-out for this session but keep the
-      // token for the next launch.
+      // failure (offline app start, server blip) must NOT clear it, or
+      // opening the app offline logs the user out. Stay logged-out for
+      // this session but keep the token for the next launch.
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         api.setToken(null);
       }
@@ -100,9 +99,9 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   // --- Preferences on the account ------------------------------------------
-  // The account's copy wins when the user signs in; the first device to
-  // sign in after the update sends its own. After that every change is
-  // sent (debounced), so the other devices get it on their next start.
+  // The account's copy wins when the user signs in; an account with none
+  // yet takes this device's. After that every change is sent (debounced),
+  // so the other devices get it on their next start.
   let applyingRemote = false;
   let sendTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -188,16 +187,19 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
+  function startSession(result: LoginResponse) {
+    api.setToken(result.access_token);
+    adoptUser(result.user);
+    useUserWordsStore().hydrate(true);
+    useReviewStore().refreshStats();
+    void loadProfile();
+  }
+
   async function login(username: string, password: string) {
     loading.value = true;
     error.value = null;
     try {
-      const result = await api.login(username, password);
-      api.setToken(result.access_token);
-      adoptUser(result.user);
-      useUserWordsStore().hydrate(true);
-      useReviewStore().refreshStats();
-      void loadProfile();
+      startSession(await api.login(username, password));
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Login failed";
       throw e;
@@ -214,12 +216,7 @@ export const useAuthStore = defineStore("auth", () => {
     loading.value = true;
     error.value = null;
     try {
-      const result = await api.signupWithInvite(token, username, password);
-      api.setToken(result.access_token);
-      adoptUser(result.user);
-      useUserWordsStore().hydrate(true);
-      useReviewStore().refreshStats();
-      void loadProfile();
+      startSession(await api.signupWithInvite(token, username, password));
     } catch (e) {
       error.value = e instanceof Error ? e.message : "Signup failed";
       throw e;
@@ -228,7 +225,7 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
-  // Phase 2.9 — public open-registration signup. Returns nothing; the caller
+  // Public open-registration signup. Returns nothing; the caller
   // catches ApiError to display field-specific errors. The captcha pair is
   // optional from the client's perspective — the server ignores it when the
   // instance has captcha turned off.

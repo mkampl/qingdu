@@ -89,8 +89,8 @@ export function apiUrl(path: string): string {
 /**
  * Verify that `baseUrl` is actually a Qingdu backend, not just any web
  * server. Hits /health (NOT /api/health — the SPA catch-all answers that
- * with 200 + index.html, which made "Connect" false-positive against any
- * website) and requires the JSON shape. Shared by the first-launch
+ * with 200 + index.html, so any website would pass) and requires the JSON
+ * shape. Shared by the first-launch
  * ServerPicker and the Settings server switcher so the two can't disagree.
  */
 export async function testServer(
@@ -152,8 +152,8 @@ interface RequestOptions {
 // Fired when an authenticated request comes back 401 — the token expired
 // or was revoked server-side. The auth store registers a handler that
 // clears the session and reopens the login modal; without it, a mid-session
-// expiry surfaced as a trickle of raw "Not authenticated" toasts while
-// optimistic UI kept accepting edits that rolled back one by one.
+// expiry shows as a trickle of raw "Not authenticated" toasts while
+// optimistic UI keeps accepting edits that roll back one by one.
 let unauthorizedHandler: (() => void) | null = null;
 
 // A 401 from these means "wrong credentials", never "session died": login /
@@ -170,14 +170,30 @@ export function setUnauthorizedHandler(fn: (() => void) | null) {
   unauthorizedHandler = fn;
 }
 
+function authHeader(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/** The ApiError for a non-2xx response; FastAPI's `detail` becomes the message. */
+async function apiError(response: Response): Promise<ApiError> {
+  let detail: unknown = null;
+  try {
+    detail = await response.json();
+  } catch {
+    detail = await response.text().catch(() => null);
+  }
+  const message =
+    typeof detail === "object" && detail && "detail" in detail
+      ? String((detail as { detail: unknown }).detail)
+      : `API ${response.status}`;
+  return new ApiError(response.status, detail, message);
+}
+
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = opts.anonymous ? {} : authHeader();
   if (opts.body !== undefined) {
     headers["Content-Type"] = "application/json";
-  }
-  if (!opts.anonymous) {
-    const token = getToken();
-    if (token) headers["Authorization"] = `Bearer ${token}`;
   }
 
   const method = opts.method ?? (opts.body !== undefined ? "POST" : "GET");
@@ -197,17 +213,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     ) {
       unauthorizedHandler?.();
     }
-    let detail: unknown = null;
-    try {
-      detail = await response.json();
-    } catch {
-      detail = await response.text().catch(() => null);
-    }
-    const message =
-      typeof detail === "object" && detail && "detail" in detail
-        ? String((detail as { detail: unknown }).detail)
-        : `API ${response.status}`;
-    throw new ApiError(response.status, detail, message);
+    throw await apiError(response);
   }
 
   if (response.status === 204) return undefined as T;
@@ -603,7 +609,7 @@ export const generateInvitation = () =>
 export const myInvitations = () =>
   request<MyInvitationsResponse>("/api/invitations/my-invitations");
 
-// --- Open registration (Phase 2.9) -------------------------------------------
+// --- Open registration -------------------------------------------------------
 
 export interface RegistrationStatus {
   open: boolean;
@@ -658,7 +664,7 @@ export const adminToggleAdmin = (id: number) =>
     method: "POST",
   });
 
-// Phase 2.7 — open-registration + lifecycle settings (admin-only).
+// Open-registration + lifecycle settings (admin-only).
 export interface RegistrationSettings {
   "registration.open": boolean;
   "registration.per_ip_24h": number;
@@ -895,23 +901,8 @@ async function downloadBlob(url: string): Promise<{
   stats?: string;
   rateLimited?: boolean;
 }> {
-  const headers: Record<string, string> = {};
-  const token = getToken();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const response = await fetch(apiUrl(url), { headers });
-  if (!response.ok) {
-    let detail: unknown = null;
-    try {
-      detail = await response.json();
-    } catch {
-      detail = null;
-    }
-    const message =
-      typeof detail === "object" && detail && "detail" in detail
-        ? String((detail as { detail: unknown }).detail)
-        : `API ${response.status}`;
-    throw new ApiError(response.status, detail, message);
-  }
+  const response = await fetch(apiUrl(url), { headers: authHeader() });
+  if (!response.ok) throw await apiError(response);
   const disposition = response.headers.get("Content-Disposition") ?? "";
   const match = /filename=(?:"([^"]+)"|([^;]+))/.exec(disposition);
   const filename = (match?.[1] ?? match?.[2] ?? "download").trim();
@@ -943,7 +934,7 @@ export interface ExtractedArticle {
 export const extractArticle = (url: string) =>
   request<ExtractedArticle>("/api/extract", { body: { url } });
 
-// --- Watch & read prototype (spike, not a shipped feature yet) -------------
+// --- Watch & read prototype --------------------------------------------------
 
 export interface YoutubeSegment {
   start: number;
@@ -961,7 +952,7 @@ export interface YoutubeReadResponse {
 export const readYoutube = (url: string) =>
   request<YoutubeReadResponse>("/api/media/youtube", { body: { url } });
 
-// --- Pre-analyzed package import (Phase #100) ------------------------------
+// --- Pre-analyzed package import --------------------------------------------
 
 export interface PackageImportResponse {
   title: string | null;
@@ -997,29 +988,14 @@ export async function importPackageFile(
 ): Promise<PackageImportResponse> {
   const form = new FormData();
   form.append("file", file);
-  const token = getToken();
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
   // apiUrl() is load-bearing: a relative URL resolves against the Capacitor
   // WebView origin (bundled assets) on native builds and ignores a custom
   // server override on web.
   const r = await fetch(
     apiUrl(`/api/import/package/file?strict=${strict ? "true" : "false"}`),
-    { method: "POST", headers, body: form },
+    { method: "POST", headers: authHeader(), body: form },
   );
-  if (!r.ok) {
-    let detail: unknown = null;
-    try {
-      detail = await r.json();
-    } catch {
-      detail = await r.text().catch(() => null);
-    }
-    const message =
-      typeof detail === "object" && detail && "detail" in detail
-        ? String((detail as { detail: unknown }).detail)
-        : `API ${r.status}`;
-    throw new ApiError(r.status, detail, message);
-  }
+  if (!r.ok) throw await apiError(r);
   return (await r.json()) as PackageImportResponse;
 }
 
@@ -1314,31 +1290,16 @@ export const extractImage = (file: File) => uploadForExtract("/api/extract/image
 async function uploadForExtract(path: string, file: File): Promise<ExtractedArticle> {
   const form = new FormData();
   form.append("file", file);
-  const token = getToken();
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
   const r = await fetch(apiUrl(path), {
     method: "POST",
-    headers,
+    headers: authHeader(),
     body: form,
   });
-  if (!r.ok) {
-    let detail: unknown = null;
-    try {
-      detail = await r.json();
-    } catch {
-      detail = await r.text().catch(() => null);
-    }
-    const message =
-      typeof detail === "object" && detail && "detail" in detail
-        ? String((detail as { detail: unknown }).detail)
-        : `API ${r.status}`;
-    throw new ApiError(r.status, detail, message);
-  }
+  if (!r.ok) throw await apiError(r);
   return (await r.json()) as ExtractedArticle;
 }
 
-// --- User word state (Phase A) ---------------------------------------------
+// --- User word state ---------------------------------------------------------
 
 export type UserWordState = "learning" | "known" | "ignored";
 
@@ -1350,9 +1311,9 @@ export interface WordStatsResponse {
   learning: number;
   known: number;
   ignored: number;
-  /** Phase F2 — current daily streak (consecutive days with activity). */
+  /** Current daily streak (consecutive days with activity). */
   streak: number;
-  /** Phase F3 — banked streak freezes (earned every 7-day milestone, cap 2). */
+  /** Banked streak freezes (earned every 7-day milestone, cap 2). */
   streak_freezes: number;
 }
 
@@ -1370,7 +1331,7 @@ export interface WordSnapshot {
   meaning?: string | null;
   pinyin?: string | null;
   translation_source?: string | null;
-  /** Phase #120 — package name that owns this gloss. Backend uses it as
+  /** Package name that owns this gloss. Backend uses it as
    *  the source_tag on the resulting UserWordGloss row so the UI can
    *  show "[Dao De Jing]" next to the meaning. */
   package_source?: string | null;
@@ -1436,7 +1397,7 @@ export const importHskKnown = (
     { body: { up_to_level, hsk_version } },
   );
 
-// --- Sharing + export (Phase G3 / G4) -------------------------------------
+// --- Sharing + export --------------------------------------------------------
 
 export interface PublicSharedText {
   title: string | null;
@@ -1494,7 +1455,7 @@ export const deleteAccount = (password: string) =>
 export const getWordStats = () =>
   request<WordStatsResponse>("/api/words/stats");
 
-// --- API tokens (Phase #121 — external integrations) ------------------------
+// --- API tokens (external integrations) --------------------------------------
 
 export const API_TOKEN_SCOPES = ["read:words", "write:words"] as const;
 export type ApiTokenScope = (typeof API_TOKEN_SCOPES)[number];
@@ -1522,15 +1483,14 @@ export const createApiToken = (name: string, scopes: ApiTokenScope[]) =>
 export const revokeApiToken = (id: number) =>
   request<{ revoked: boolean }>(`/api/tokens/${id}`, { method: "DELETE" });
 
-// --- Review (Phase B) ------------------------------------------------------
+// --- Review ------------------------------------------------------------------
 
 export type ReviewMode = "recognition" | "dictation" | "writing" | "cloze";
-/** Phase 1.3b — the queue can also be fetched in "mixed", which is the
- *  default and returns cards with their server-assigned prompt_stage so
- *  the SPA can render intro/trace/produce per card. Advanced single-mode
- *  passes one of the four ReviewModes instead. */
+/** "mixed" is the default: cards carry their server-assigned prompt_stage
+ *  and the SPA renders intro/trace/produce/read per card. Advanced
+ *  single-mode passes one of the four ReviewModes instead. */
 export type QueueMode = ReviewMode | "mixed";
-/** Phase 1.3b — server-picked prompt stage based on FSRS stability.
+/** Server-picked prompt stage based on FSRS stability.
  *  Drives which review surface the SPA renders for the card. */
 export type PromptStage = "intro" | "trace" | "produce" | "read";
 export type ReviewGrade = 1 | 2 | 3 | 4;
@@ -1550,9 +1510,8 @@ export interface ReviewCard {
   stability: number | null;
   difficulty: number | null;
   due_at: string | null;
-  /** Phase #120 — every gloss this user has on the word, with
-   *  provenance. Review card renders them as chips so the same
-   *  character can carry CEDICT + multiple package meanings. */
+  /** Every gloss this user has on the word, with provenance, shown as
+   *  chips on the card. */
   glosses?: WordGloss[];
   /** In a session focused on one text or list: that text's or list's own
    *  meaning, which the card leads with. */
@@ -1568,10 +1527,9 @@ export interface ReviewCard {
   /** Title of the text cloze_sentence came from; null when unknown
    *  (unsaved reading, older rows). */
   sentence_source?: string | null;
-  /** Phase 1.3b — server-picked progressive prompt stage. */
+  /** Server-picked progressive prompt stage. */
   prompt_stage?: PromptStage;
-  /** Phase 1.3b — does this row have a sample sentence (for cloze
-   *  Advanced single-mode + future use)? */
+  /** Whether this row has a sample sentence (cloze needs one). */
   has_sample_sentence?: boolean;
 }
 
@@ -1593,8 +1551,7 @@ export interface ReviewGradeResponse {
   due_at: string | null;
   stability: number | null;
   difficulty: number | null;
-  /** Phase 1.3b — the card's new prompt stage given the updated
-   *  stability after this grade. Informational. */
+  /** The card's prompt stage given its stability after this grade. */
   prompt_stage: PromptStage;
 }
 
@@ -1607,9 +1564,9 @@ export interface ReviewStatsResponse {
   /** learning + known — every card that can come due. */
   in_rotation: number;
   reviewed_today: number;
-  /** Phase #96 — auto-enrolled HSK words since UTC midnight. */
+  /** Auto-enrolled HSK words since local midnight (users.timezone). */
   new_today: number;
-  /** Phase #96 — user's daily target (mirror of User.daily_new_words). */
+  /** User's daily target (mirror of User.daily_new_words). */
   daily_target: number;
   /** Only when asked for a scope: its title and counts. */
   scope?: ReviewScopeInfo | null;
@@ -1658,14 +1615,14 @@ export const getReviewStats = (scope: ReviewScope | null = null) =>
   );
 
 // Practice mode — fetch a single card by word without any queue side
-// effects. The client cycles modes locally; no /grade call happens
-// during practice, so FSRS / stats / streak stay untouched.
+// effects. No /grade call happens during practice, so FSRS / stats /
+// streak stay untouched.
 export const getPracticeCard = (word: string) =>
   request<{ card: ReviewCard }>(
     `/api/review/practice/${encodeURIComponent(word)}`,
   );
 
-// --- Activity stats (Phase F3) --------------------------------------------
+// --- Activity stats ----------------------------------------------------------
 
 export interface WeeklyActivityDay {
   date: string; // ISO YYYY-MM-DD
@@ -1676,7 +1633,7 @@ export interface WeeklyActivityDay {
 export const getWeeklyActivity = () =>
   request<{ days: WeeklyActivityDay[] }>("/api/stats/weekly");
 
-// --- Script conversion (Phase E1) ------------------------------------------
+// --- Script conversion -------------------------------------------------------
 
 export type ConvertDirection = "s2t" | "t2s";
 

@@ -3,9 +3,8 @@ import { ref } from "vue";
 
 /**
  * Open/close state for non-auth modals — Settings (always available) and My
- * Invitations (only useful when signed in). Living in a Pinia store lets the
- * header cog, the user menu, and any future "open settings" affordance all
- * trigger the same modal instance.
+ * Invitations (only useful when signed in). A store so the header cog and
+ * the user menu open the same modal instance.
  */
 export const useAppModalsStore = defineStore("appModals", () => {
   const settingsOpen = ref(false);

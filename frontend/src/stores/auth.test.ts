@@ -91,12 +91,10 @@ describe("auth store", () => {
     await auth.hydrate();
     localStorage.setItem("qingdu.notif.lastDueCount", "12");
     localStorage.setItem("qingdu.notif.lastStreak", "40");
-    localStorage.setItem("qingdu.notif.lastActiveDate", "2026-10-10");
 
     await auth.logout();
     expect(localStorage.getItem("qingdu.notif.lastDueCount")).toBeNull();
     expect(localStorage.getItem("qingdu.notif.lastStreak")).toBeNull();
-    expect(localStorage.getItem("qingdu.notif.lastActiveDate")).toBeNull();
   });
   describe("timezone", () => {
     function recordFetch(user: Record<string, unknown>) {

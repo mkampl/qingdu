@@ -17,7 +17,7 @@ describe("shouldReinsert", () => {
   const now = Date.UTC(2026, 0, 15, 23, 0);
 
   it("re-inserts a card FSRS schedules a minute out (naive UTC from old servers)", () => {
-    // Read as local time this was 23:01 EST = five hours away.
+    // Read as local time this would be 23:01 EST = five hours away.
     expect(shouldReinsert("2026-01-15T23:01:00", now)).toBe(true);
     expect(shouldReinsert("2026-01-15T23:01:00Z", now)).toBe(true);
   });
@@ -63,14 +63,14 @@ describe("auto-grade delay setting", () => {
 });
 
 describe("writing score", () => {
-  it("skip is scored on the ratio scale, not a flat +5", () => {
+  it("skip is scored on the ratio scale", () => {
     // 2-char word: first char perfect (15 strokes), second skipped (15).
     const scores = emptyScores(2);
     scores[0] = { strokes: 15, mistakes: 0 };
     scores[1] = skippedScore(15);
     const t = scoreTotals(scores);
     expect(t).toEqual({ strokes: 30, mistakes: 15 });
-    // Half the word unknown → Again. The old +5 gave 5/30 → Hard.
+    // Half the word unknown → Again. A flat +5 would give 5/30 → Hard.
     expect(suggestedGradeForMistakes(t.mistakes, t.strokes)).toBe(1);
     expect(suggestedGradeForMistakes(5, 30)).toBe(2);
   });

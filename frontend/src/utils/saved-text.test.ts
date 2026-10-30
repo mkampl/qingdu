@@ -17,7 +17,7 @@ describe("parseTags", () => {
 });
 
 describe("normalizeProgress", () => {
-  it("accepts both 0..1 and legacy 0..100 values", () => {
+  it("accepts both 0..1 and older 0..100 values", () => {
     expect(normalizeProgress(null)).toBe(0);
     expect(normalizeProgress(Number.NaN)).toBe(0);
     expect(normalizeProgress(0.4)).toBe(0.4);

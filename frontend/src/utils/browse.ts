@@ -1,9 +1,10 @@
 import type { HskVersion } from "@/stores/settings";
+import { maxHskLevel } from "@/utils/words-filters";
 
 /** Level chips for /vocab?tab=browse — "all" plus the levels of the HSK
  *  version the user picked in Settings (new: 1–9, old: 1–6). */
 export function browseLevels(version: HskVersion): { key: string; label: string }[] {
-  const count = version === "old" ? 6 : 9;
+  const count = maxHskLevel(version);
   const out = [{ key: "all", label: "All" }];
   for (let n = 1; n <= count; n++) out.push({ key: `${version}-${n}`, label: `HSK ${n}` });
   return out;
@@ -14,7 +15,7 @@ export function mapBrowseLevel(level: string, version: HskVersion): string {
   if (level === "all") return "all";
   const n = Number(level.split("-")[1]);
   if (!Number.isFinite(n)) return `${version}-1`;
-  const max = version === "old" ? 6 : 9;
+  const max = maxHskLevel(version);
   return `${version}-${Math.min(Math.max(n, 1), max)}`;
 }
 

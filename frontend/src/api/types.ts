@@ -56,16 +56,15 @@ export interface WordInfo {
   radical_pinyin?: string;
   /** Per-user state from /api/analyze when authenticated. Undefined = new. */
   user_state?: "learning" | "known" | "ignored";
-  /** Phase #99 — name of the user's glossary list this word came from
+  /** Name of the user's glossary list this word came from
    *  (translation_source === "glossary"). The popover surfaces it. */
   glossary_source?: string | null;
-  /** Phase #100 — when this word came from a pre-analyzed package, the
+  /** When this word came from a pre-analyzed package, the
    *  package name. Used as the source_tag when persisting the gloss. */
   package_source?: string | null;
-  /** Phase #120 — every gloss this user has accumulated for the word,
-   *  with provenance. Surfaced as chips in WordPopover and on the
-   *  review card so the same character can carry both a CEDICT default
-   *  and one or more package-specific meanings side-by-side. */
+  /** Every gloss this user has for the word, with provenance. Shown as
+   *  chips in WordPopover and on the review card, so a word can carry the
+   *  dictionary meaning and package-specific ones side by side. */
   user_glosses?: WordGloss[];
   /** Only for tokens that are not dictionary words: the dictionary words
    *  they are made of. Such a token has no meaning of its own and cannot
@@ -108,7 +107,7 @@ export interface AnalysisStatistics {
   hsk_words_old: number;
   hsk_distribution_old: Record<string, number>;
   estimated_level_old: string;
-  // Legacy aliases — point at the new-HSK numbers.
+  // Aliases of the new-HSK numbers.
   hsk_words: number;
   hsk_distribution: Record<string, number>;
   estimated_level: string;
@@ -142,9 +141,9 @@ export interface GrammarPayload {
 export interface AnalysisResponse {
   words: WordInfo[];
   statistics: AnalysisStatistics;
-  /** Optional — older saved analyses pre-Phase D won't have this. */
+  /** Absent in some older saved analyses. */
   grammar?: GrammarPayload;
-  /** Phase #100 — sentence-level translations baked in by the package
+  /** Sentence-level translations baked in by the package
    *  author. Keyed by the exact sentence text. Reader checks here BEFORE
    *  hitting /api/translate so curated translations always win and don't
    *  expire with the server's TTL cache. */
@@ -161,15 +160,15 @@ export interface User {
   username: string;
   is_admin: boolean;
   must_change_password: boolean;
-  /** Phase #96 — daily auto-enrol target for HSK words into the learning pool. */
+  /** Daily auto-enrol target for HSK words into the learning pool. */
   daily_new_words?: number;
-  /** Phase #96 — which HSK list the auto-enrol walks ('new' or 'old'). */
+  /** Which HSK list the auto-enrol walks ('new' or 'old'). */
   hsk_focus_version?: "new" | "old";
-  /** Phase #96 follow-up — Simplified vs Traditional display across the app. */
+  /** Simplified vs Traditional display across the app. */
   display_script?: "auto" | "simp" | "trad";
-  /** Phase #117 — FSRS desired retention. 0.85-0.97 valid range. */
+  /** FSRS desired retention, 0.85–0.97. */
   review_retention?: number;
-  /** Phase #119 — look-ahead window for the review queue. */
+  /** Look-ahead window for the review queue. */
   review_window?: "now" | "today" | "tomorrow";
   review_focus?: "both" | "reading" | "writing";
   /** IANA zone whose midnight starts the user's "today" on the server.
@@ -178,13 +177,13 @@ export interface User {
   /** Reader/review preferences kept on the account (stores/settings
    *  SYNCED_KEYS); null until a device has sent its own. */
   ui_settings?: Record<string, unknown> | null;
-  /** Phase 2.7 — lifecycle. `dormant` accounts get the in-app banner
+  /** Lifecycle. `dormant` accounts get the in-app banner
    *  prompting reactivation; `active` is the everyday case. */
   account_status?: "active" | "dormant";
-  /** Phase 2.7 — instant the soft-delete sweep will flip this account to
+  /** Instant the soft-delete sweep will flip this account to
    *  `dormant`. ISO string or null when the instance has no soft cleanup. */
   soft_delete_at?: string | null;
-  /** Phase 2.7 — instant the hard-delete sweep will delete this account
+  /** Instant the hard-delete sweep will delete this account
    *  and all its data. ISO string or null when disabled. */
   hard_delete_at?: string | null;
 }
@@ -226,7 +225,7 @@ export interface SavedTextSummary {
   date: string;
   tags: string | null;
   reading_progress: number;
-  /** Unique CJK words you've marked known/ignored (Phase F1). */
+  /** Unique CJK words marked known/ignored. */
   known_unique: number;
   /** Unique CJK words in the text. */
   total_unique: number;
@@ -236,7 +235,7 @@ export interface SavedTextSummary {
   /** Missing words still needed to make the text readable (95 %). */
   to_unlock?: number;
   unlocked?: boolean;
-  /** Public share token if this text has been shared (Phase G3). */
+  /** Public share token if this text has been shared. */
   share_token: string | null;
   /** The text's glossaries (reader picker): [3,5] = those lists;
    *  null / [] = none. */
@@ -278,7 +277,7 @@ export interface VocabularyListSummary {
   name: string;
   type: string;
   sections: VocabularySection[];
-  /** Phase #99 — when true, this list's entries override HSK lookup during
+  /** When true, this list's entries override HSK lookup during
    *  analysis. Toggled from the list's edit page. */
   apply_as_glossary?: boolean;
 }

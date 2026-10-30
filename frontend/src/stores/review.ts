@@ -32,7 +32,7 @@ const DEFAULT_STATS: ReviewStatsResponse = {
  * leave; grading peels cards off the front. Stats are refreshed on auth
  * hydrate so the nav badge is correct on cold load.
  *
- * Phase 1.3b — Mixed mode is the default queue source. Each card carries
+ * Mixed mode is the default queue source. Each card carries
  * a server-picked `prompt_stage` (intro / trace / produce) derived from
  * its FSRS stability; the SPA renders the right review surface per card
  * and a single grade advances FSRS in the usual single-step way. Power
@@ -53,8 +53,8 @@ export const useReviewStore = defineStore("review", () => {
   const errorKind = ref<"queue" | "grade" | "empty" | null>(null);
   let failedGrade: { grade: ReviewGrade; surface?: ReviewMode } | null = null;
   let failedPractice: { word: string; returnTo: string | null } | null = null;
-  // Phase #119 — mobile focus-mode flag (collapses header/footer during
-  // the result phase). Lives in the store so App.vue can read it.
+  // Mobile focus mode (collapses header/footer during the result phase).
+  // Lives in the store so App.vue can read it.
   const inFocus = ref(false);
   // A session focused on the words of one text or one vocab list (set
   // from /review?text=…|list=…). Its title and due count come from
@@ -73,33 +73,23 @@ export const useReviewStore = defineStore("review", () => {
   const current = computed<ReviewCard | null>(
     () => queue.value[cursor.value] ?? null,
   );
-  const hasNext = computed(() => cursor.value + 1 < queue.value.length);
   const remaining = computed(() =>
     Math.max(0, queue.value.length - cursor.value),
   );
   // What a session would open with right now under user.review_window.
   // The server counts it with the same window definition the queue uses
   // (stats.due_in_window), so the badge, the Start gate and the queue
-  // can't disagree — "tomorrow" used to read due_today and undercount.
+  // can't disagree.
   const dueNow = computed(() => {
     const auth = useAuthStore();
     return dueCountForWindow(stats.value, auth.user?.review_window ?? "today");
   });
 
-  // Back-compat alias — older components read `review.mode` expecting
-  // the modality currently rendered. In stage-based mixed mode the
-  // server picks the surface, so we surface a reasonable default for
-  // legacy paths; Advanced single-mode returns the locked mode.
-  const mode = computed<ReviewMode>(() => {
-    if (queueMode.value === "mixed") {
-      // The Advanced single-mode templates still key on this for the
-      // cloze/recognition/dictation/writing branches — but stage-based
-      // rendering uses card.prompt_stage instead, so this value is just
-      // a fallback for any legacy reference.
-      return "recognition";
-    }
-    return queueMode.value;
-  });
+  // Grade surface when the caller passes none: the locked mode in a
+  // single-mode session, "recognition" in mixed mode.
+  const mode = computed<ReviewMode>(() =>
+    queueMode.value === "mixed" ? "recognition" : queueMode.value,
+  );
 
   async function loadQueue(targetMode?: QueueMode) {
     const settings = useSettingsStore();
@@ -125,7 +115,7 @@ export const useReviewStore = defineStore("review", () => {
               ? "None of these words are due right now."
               : "Nothing to review right now.";
       }
-      // Phase #96 — fetching the queue triggers server-side auto-enrol,
+      // Fetching the queue triggers server-side auto-enrol,
       // which bumps `new_today` and may add to `due_now`. Refresh stats
       // so the SPA badges reflect what the backend just enrolled.
       void refreshStats();
@@ -167,10 +157,8 @@ export const useReviewStore = defineStore("review", () => {
   async function grade(g: ReviewGrade, surface?: ReviewMode): Promise<boolean> {
     const card = current.value;
     if (!card || grading.value) return false;
-    // Practice mode — no server call, no FSRS mutation, no streak update.
-    // Just count the modality attempt so the SPA's UI counter still ticks
-    // and the cursor advances so the session ends naturally after all
-    // modes have been tried.
+    // Practice mode: no server call, so FSRS state, streak and stats stay
+    // untouched. Count the attempt and move the cursor so the session ends.
     if (practiceMode.value) {
       sessionGraded.value += 1;
       cursor.value += 1;
@@ -179,14 +167,12 @@ export const useReviewStore = defineStore("review", () => {
     grading.value = true;
     clearError();
     try {
-      // `surface` is the modality the user actually just performed —
-      // ReviewView passes it in mixed mode. Without it every mixed-mode
-      // grade was logged as mode:"recognition" (the legacy fallback of
-      // `mode`), mislabelling per-modality stats server-side.
+      // `surface` is the modality the user just performed; ReviewView
+      // passes it so mixed-mode grades are logged per modality.
       const response = await api.gradeReviewCard(card.word, g, surface ?? mode.value);
       sessionGraded.value += 1;
 
-      // Phase #118 (5a) — Anki-style learning-queue re-insert. If FSRS
+      // Anki-style learning-queue re-insert. If FSRS
       // scheduled the card within the next 20 minutes (Again → +1min,
       // Hard → +6min, Good while still in learning → +10min), splice
       // it onto the back of the queue so the cursor reaches it again
@@ -262,7 +248,7 @@ export const useReviewStore = defineStore("review", () => {
   }
 
   // Only the newest stats response is applied: with fast grading several
-  // requests are in flight, and an older one landing last used to roll
+  // requests are in flight, and an older one landing last would roll
   // the counters back.
   let statsSeq = 0;
   async function refreshStats() {
@@ -276,15 +262,8 @@ export const useReviewStore = defineStore("review", () => {
       // dueNow (not the raw stats field) so the reminder body matches
       // what /review actually opens with per the user's window setting.
       notif.rememberDueCount(dueNow.value);
-      // Phase 1.8 — pipe streak into the notification cache too so the
-      // streak-at-risk ping has the right number to lead with.
+      // The reminder body leads with the streak.
       notif.rememberStreak(useUserWordsStore().stats.streak);
-      if (stats.value.reviewed_today > 0) {
-        // The user has reviewed at least once today — flag activity so
-        // the evening at-risk ping doesn't fire if streak isn't actually
-        // in danger.
-        notif.rememberActiveToday();
-      }
     } catch {
       // Anonymous calls hit 401 — leave defaults in place.
     }
@@ -326,7 +305,6 @@ export const useReviewStore = defineStore("review", () => {
   return {
     queue,
     queueMode,
-    mode,
     cursor,
     sessionGraded,
     stats,
@@ -335,7 +313,6 @@ export const useReviewStore = defineStore("review", () => {
     error,
     errorKind,
     current,
-    hasNext,
     remaining,
     dueNow,
     inFocus,

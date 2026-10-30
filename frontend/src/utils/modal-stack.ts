@@ -4,8 +4,8 @@
  * doesn't re-enable background scrolling, and Escape is handled only by the
  * overlay on top.
  *
- * Each overlay calls `openOverlay()` when it shows and the returned
- * function when it hides; keydown handlers check `isTopOverlay(id)`.
+ * Each overlay calls `openOverlay(id)` when it shows and `closeOverlay(id)`
+ * when it hides; keydown handlers check `isTopOverlay(id)`.
  * Anything underneath (word popover, sentence translation) checks
  * `hasOpenOverlay()` before reacting to Escape.
  */

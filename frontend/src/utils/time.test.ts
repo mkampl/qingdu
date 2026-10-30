@@ -1,5 +1,5 @@
-// Run these as a learner in New York would: naive UTC strings used to be
-// read as local time, which shifted everything by five hours.
+// Run these as a learner in New York would: naive UTC strings read as
+// local time would shift everything by five hours.
 process.env.TZ = "America/New_York";
 
 import { describe, expect, it } from "vitest";
@@ -18,7 +18,7 @@ describe("parseUtc under TZ=America/New_York", () => {
   it("reads naive timestamps as UTC, not local time", () => {
     const naive = "2026-01-15T23:30:00";
     expect(parseUtcMs(naive)).toBe(Date.UTC(2026, 0, 15, 23, 30));
-    // What the old `new Date(str)` did: five hours late.
+    // What plain `new Date(str)` does: five hours late.
     expect(new Date(naive).getTime() - Date.UTC(2026, 0, 15, 23, 30)).toBe(5 * 3600_000);
   });
 

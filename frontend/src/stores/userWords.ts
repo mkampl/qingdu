@@ -14,8 +14,8 @@ import type {
  * in `states` means 'new' (the user has never interacted with it).
  *
  * The Reader reads this thousands of times per render via `stateOf(word)`, so
- * the underlying structure is a plain object with O(1) lookups — not a Map,
- * not reactive deep — and is only swapped wholesale when remote data arrives.
+ * the map is a plain object with O(1) lookups, replaced wholesale on every
+ * change rather than mutated in place.
  */
 export const useUserWordsStore = defineStore("userWords", () => {
   const states = ref<Record<string, UserWordState>>({});

@@ -43,7 +43,7 @@ export const useAnalysisStore = defineStore("analysis", () => {
   const initialProgress = ref<number>(0);
   /**
    * Slug of the bundled library text currently loaded, or null when the
-   * user is reading a saved/fresh analysis. Set by LibraryView.open() so
+   * user is reading a saved/fresh analysis. Set by use-open-library-text so
    * ReaderView can show the mark-as-read / take-quiz control.
    */
   const librarySlug = ref<string | null>(null);
@@ -190,9 +190,8 @@ export const useAnalysisStore = defineStore("analysis", () => {
   }
 
   /**
-   * Hydrate the store from a previously-saved text without re-hitting
-   * /api/analyze. Used when opening a saved text from the library so the
-   * reader matches what the user actually saved.
+   * Load a stored analysis (saved text, library text, share) without
+   * calling /api/analyze, so the reader shows what was stored.
    */
   function loadSaved(
     text: string,
@@ -263,7 +262,6 @@ export const useAnalysisStore = defineStore("analysis", () => {
     hasResult,
     isEdited,
     analyze,
-    cancelPending,
     stash,
     restore,
     reset,

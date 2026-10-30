@@ -11,8 +11,7 @@ export const useAuthModalsStore = defineStore("authModals", () => {
   const loginOpen = ref(false);
   const signupOpen = ref(false);
   const signupInviteToken = ref<string | null>(null);
-  // Phase 2.9 — public open-registration signup state. Separate ref from
-  // signupOpen so the invite flow keeps its independent lifecycle.
+  // Public open-registration signup, separate from the invite flow.
   const openSignupOpen = ref(false);
   const changePasswordOpen = ref(false);
   const changePasswordForced = ref(false);
@@ -28,7 +27,7 @@ export const useAuthModalsStore = defineStore("authModals", () => {
     signupOpen.value = true;
   }
 
-  // Phase 2.9 — public signup (no invitation token).
+  // Public signup (no invitation token).
   function openOpenSignup() {
     closeAll();
     openSignupOpen.value = true;

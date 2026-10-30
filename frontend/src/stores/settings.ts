@@ -36,13 +36,9 @@ interface Persisted {
   // and the user's usual intent on tap is "what does this mean", not
   // "schedule a review of this word for the next decade".
   autoLearnOnClick: boolean;
-  // Phase 1.3 — when true, the review session uses a single modality
-  // (the one the user picks from the picker) and advances FSRS on every
-  // grade — the pre-Phase-1.3 behaviour. False (default) runs Mixed mode:
-  // each card cycles through Recognition → Cloze → Dictation → Writing
-  // and FSRS only advances when all four have been graded Good+. Power
-  // users who only want to drill one modality can flip this from the
-  // Review view's Advanced disclosure; we persist it across sessions.
+  // When true, the review session drills the one modality picked in the
+  // Review view's Advanced disclosure. False (default) runs Mixed mode,
+  // where the server picks each card's stage from its FSRS stability.
   reviewSingleMode: boolean;
   // How long the suggested grade waits before firing after a writing
   // quiz (ms). 0 turns auto-grading off; the user then always picks.
