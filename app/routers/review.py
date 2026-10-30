@@ -163,6 +163,8 @@ def _card(row: UserWord, user: User, db: Session) -> dict:
         # Progressive prompt stage from FSRS stability and the user's
         # review focus (intro / read / trace / produce; see srs.py).
         "prompt_stage": srs.stage_for_row(row, user),
+        # Seconds to the next review after each grade (1-4), for the buttons.
+        "intervals": srs.next_intervals(row.fsrs_state, user.review_retention),
         "has_sample_sentence": bool(sentence),
         **enriched,
     }

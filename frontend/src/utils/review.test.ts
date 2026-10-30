@@ -2,6 +2,7 @@ process.env.TZ = "America/New_York";
 
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  formatInterval,
   autoGradeForWriting,
   dueCountForWindow,
   formatHskLevel,
@@ -135,5 +136,16 @@ describe("autoGradeForWriting", () => {
   it("keeps lower grades as they are", () => {
     expect(autoGradeForWriting(2, 8, true)).toBe(2);
     expect(autoGradeForWriting(5, 8, true)).toBe(1);
+  });
+});
+
+describe("formatInterval", () => {
+  it("shows the next review in the largest whole unit", () => {
+    expect(formatInterval(20)).toBe("< 1m");
+    expect(formatInterval(600)).toBe("10m");
+    expect(formatInterval(3 * 3600)).toBe("3h");
+    expect(formatInterval(5 * 86400)).toBe("5d");
+    expect(formatInterval(70 * 86400)).toBe("2mo");
+    expect(formatInterval(550 * 86400)).toBe("1.5y");
   });
 });

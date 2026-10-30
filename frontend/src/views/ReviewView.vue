@@ -33,6 +33,7 @@ import { success as hapticSuccess, tap as hapticTap } from "@/services/native";
 import { checkPinyin, type PinyinVerdict } from "@/utils/pinyin-answer";
 import {
   formatHskLevel,
+  formatInterval,
   reviewShortcutBlocked,
   autoGradeForWriting,
   suggestedGradeForMistakes,
@@ -170,6 +171,13 @@ function onWritingComplete(payload: {
 }
 
 const card = computed(() => review.current);
+// Under each grade button: when the card comes back after that grade
+// (practice grades change nothing, so it keeps the words).
+const GRADE_WORDS = ["", "< 10m", "sooner", "on schedule", "later"];
+function gradeCaption(g: ReviewGrade): string {
+  const s = card.value?.intervals?.[g];
+  return s == null || review.practiceMode ? GRADE_WORDS[g] : formatInterval(s);
+}
 // The meaning the card leads with: the focused text's or list's, else the
 // learner's own (glossary, then a text's, then a package's), else none
 // (the dictionary's headline leads).
@@ -1405,7 +1413,7 @@ onMounted(() => {
           <p
             class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
           >
-            &lt; 10m
+            {{ gradeCaption(1) }}
           </p>
         </button>
         <button
@@ -1431,7 +1439,7 @@ onMounted(() => {
           <p
             class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
           >
-            sooner
+            {{ gradeCaption(2) }}
           </p>
         </button>
         <button
@@ -1457,7 +1465,7 @@ onMounted(() => {
           <p
             class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
           >
-            on schedule
+            {{ gradeCaption(3) }}
           </p>
         </button>
         <button
@@ -1483,7 +1491,7 @@ onMounted(() => {
           <p
             class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
           >
-            later
+            {{ gradeCaption(4) }}
           </p>
         </button>
       </div>
