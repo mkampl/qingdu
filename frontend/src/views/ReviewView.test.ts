@@ -234,6 +234,25 @@ describe("ReviewView", () => {
     }
   });
 
+  it("keeps the Advanced disclosure open after a session", async () => {
+    vi.spyOn(api, "getReviewQueue").mockResolvedValue({
+      mode: "mixed",
+      cards: [card("一", "produce")],
+    });
+    const w = mountView();
+    await flushPromises();
+    const details = w.find("details");
+    expect((details.element as HTMLDetailsElement).open).toBe(false);
+    (details.element as HTMLDetailsElement).open = true;
+    await details.trigger("toggle");
+    await w.find("button.group").trigger("click");
+    await flushPromises();
+    expect(w.find("details").exists()).toBe(false);
+    await w.findAll("button").find((b) => b.text() === "End session")!.trigger("click");
+    await flushPromises();
+    expect((w.find("details").element as HTMLDetailsElement).open).toBe(true);
+  });
+
   it("read stage: hanzi only, typed pinyin checked, audio after the reveal", async () => {
     vi.spyOn(api, "getReviewQueue").mockResolvedValue({
       mode: "mixed",

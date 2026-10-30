@@ -20,6 +20,11 @@ import WeeklySparkline from "@/components/reader/WeeklySparkline.vue";
 import StrokeOrder from "@/components/reader/StrokeOrder.vue";
 import WritingQuiz from "@/components/reader/WritingQuiz.vue";
 import ContextSentence from "@/components/review/ContextSentence.vue";
+import RevealedAnswer from "@/components/review/RevealedAnswer.vue";
+import ReviewStart from "@/components/review/ReviewStart.vue";
+import ScopeBanner from "@/components/review/ScopeBanner.vue";
+import SessionComplete from "@/components/review/SessionComplete.vue";
+import StatTiles from "@/components/review/StatTiles.vue";
 import WordDetails from "@/components/reader/WordDetails.vue";
 import WordReadings from "@/components/reader/WordReadings.vue";
 import { customGlosses, leadGloss } from "@/utils/glosses";
@@ -123,29 +128,6 @@ const DICTATION_VERDICT = {
 } as const;
 const ttsLoading = ref(false);
 
-const modes: { id: ReviewMode; label: string; hint: string }[] = [
-  {
-    id: "recognition",
-    label: "Recognition",
-    hint: "See the character, recall the meaning",
-  },
-  {
-    id: "dictation",
-    label: "Dictation",
-    hint: "Listen, type what you hear",
-  },
-  {
-    id: "writing",
-    label: "Writing",
-    hint: "Draw the character stroke by stroke",
-  },
-  {
-    id: "cloze",
-    label: "Cloze",
-    hint: "Fill the blank in a real sentence from your saved texts",
-  },
-];
-
 // Writing-quiz result for the card, turned into a suggested FSRS grade.
 const writingMistakes = ref(0);
 const writingStrokes = ref(0);
@@ -178,6 +160,53 @@ function gradeCaption(g: ReviewGrade): string {
   const s = card.value?.intervals?.[g];
   return s == null || review.practiceMode ? GRADE_WORDS[g] : formatInterval(s);
 }
+// The grade row, Again to Easy; each button's grade is its 1-4 key.
+const GRADE_BUTTONS: {
+  grade: ReviewGrade;
+  label: string;
+  hover: string;
+  darkHover: string;
+  ring: string;
+  bar: string;
+  text: string;
+}[] = [
+  {
+    grade: 1,
+    label: "Again",
+    hover: "hover:border-red-500 hover:bg-red-50",
+    darkHover: "dark:hover:bg-red-500/10",
+    ring: "ring-2 ring-red-400/60",
+    bar: "bg-red-500",
+    text: "text-red-700 dark:text-red-300",
+  },
+  {
+    grade: 2,
+    label: "Hard",
+    hover: "hover:border-amber-500 hover:bg-amber-50",
+    darkHover: "dark:hover:bg-amber-500/10",
+    ring: "ring-2 ring-amber-400/60",
+    bar: "bg-amber-500",
+    text: "text-amber-700 dark:text-amber-300",
+  },
+  {
+    grade: 3,
+    label: "Good",
+    hover: "hover:border-emerald-500 hover:bg-emerald-50",
+    darkHover: "dark:hover:bg-emerald-500/10",
+    ring: "ring-2 ring-emerald-400/60",
+    bar: "bg-emerald-500",
+    text: "text-emerald-700 dark:text-emerald-300",
+  },
+  {
+    grade: 4,
+    label: "Easy",
+    hover: "hover:border-sky-500 hover:bg-sky-50",
+    darkHover: "dark:hover:bg-sky-500/10",
+    ring: "ring-2 ring-sky-400/60",
+    bar: "bg-sky-500",
+    text: "text-sky-700 dark:text-sky-300",
+  },
+];
 // The meaning the card leads with: the focused text's or list's, else the
 // learner's own (glossary, then a text's, then a package's), else none
 // (the dictionary's headline leads).
@@ -238,7 +267,8 @@ async function start(mode: QueueMode) {
   await review.loadQueue(mode);
 }
 
-// Advanced disclosure with the four single modes. Choosing one persists
+// Open state of the start screen's Advanced disclosure (the four single
+// modes), kept here so it survives a session. Choosing a mode persists
 // settings.reviewSingleMode.
 const advancedOpen = ref(false);
 
@@ -685,61 +715,20 @@ onMounted(() => {
     </div>
 
     <!-- Focused session: only the words of one text or vocab list. -->
-    <div
+    <ScopeBanner
       v-if="auth.isAuthed && review.scope"
-      class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/40 bg-accent/5 px-4 py-2.5"
-    >
-      <p class="text-sm text-fg">
-        <span class="font-mono text-[10px] uppercase tracking-wider text-accent">
-          {{ review.scope.listId !== undefined ? "List" : "Text" }}
-        </span>
-        <span class="ml-2 font-medium">{{ review.scopeInfo?.title || "Focused review" }}</span>
-        <span v-if="review.scopeInfo" class="ml-2 text-xs text-fg-muted">
-          {{ review.scopeInfo.due }} due · {{ review.scopeInfo.total }} words
-        </span>
-      </p>
-      <span class="flex items-center gap-4">
-        <button
-          v-if="scopeText"
-          type="button"
-          class="font-mono text-[10px] uppercase tracking-wider text-accent hover:text-fg"
-          @click="backToText"
-        >
-          ← Back to text
-        </button>
-        <button
-          type="button"
-          class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle hover:text-fg"
-          @click="clearScope"
-        >
-          All reviews
-        </button>
-      </span>
-    </div>
+      :scope="review.scope"
+      :info="review.scopeInfo"
+      :can-go-back="scopeText !== null"
+      @back="backToText"
+      @clear="clearScope"
+    />
 
     <!-- 7-day activity sparkline, above the counter strip. -->
     <WeeklySparkline v-if="auth.isAuthed && !focusMode && !review.scope" class="mb-4" />
 
     <!-- Stats strip; smaller numbers on mobile. -->
-    <div
-      v-if="auth.isAuthed && !focusMode"
-      class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3"
-    >
-      <div
-        v-for="(stat, key) in statTiles"
-        :key="key"
-        class="rounded-lg border border-border-subtle bg-bg-elevated px-3 py-2 sm:px-4 sm:py-3"
-      >
-        <p
-          class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
-        >
-          {{ key }}
-        </p>
-        <p class="mt-0.5 font-display text-xl tabular-nums text-fg sm:mt-1 sm:text-2xl">
-          {{ stat.toLocaleString() }}
-        </p>
-      </div>
-    </div>
+    <StatTiles v-if="auth.isAuthed && !focusMode" :tiles="statTiles" />
 
     <!-- Daily-target progress. Hidden when the target is 0 (auto-enrol
          off in Settings). -->
@@ -757,104 +746,17 @@ onMounted(() => {
 
     <!-- Start screen. Mixed mode is the default button; the four single
          modes sit behind an Advanced disclosure. -->
-    <div
+    <ReviewStart
       v-if="auth.isAuthed && review.queue.length === 0 && !review.loading"
-      class="space-y-4"
-    >
-      <p
-        class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-subtle"
-      >
-        {{ settings.reviewSingleMode ? "Pick a mode to begin" : "Ready to review" }}
-      </p>
-
-      <!-- Mixed-mode Start. -->
-      <button
-        v-if="!settings.reviewSingleMode"
-        type="button"
-        :disabled="effectiveDueCount === 0"
-        class="group flex w-full items-center justify-between rounded-lg border border-accent/40 bg-accent/5 px-5 py-3.5 text-left transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-50"
-        @click="startMixed"
-      >
-        <span class="font-display text-lg font-medium text-fg">
-          <template v-if="review.scope">
-            Start these {{ effectiveDueCount }}
-          </template>
-          <template v-else>Start review</template>
-        </span>
-        <span class="font-mono text-[10px] uppercase tracking-wider text-fg-muted group-hover:text-fg">
-          →
-        </span>
-      </button>
-
-      <!-- Advanced disclosure — single-mode picks. Open while single mode
-           is the user's choice, so they can continue or switch back. -->
-      <details
-        v-if="!review.scope"
-        :open="settings.reviewSingleMode || advancedOpen"
-        class="group rounded-lg border border-border-subtle bg-bg-elevated"
-        @toggle="advancedOpen = ($event.target as HTMLDetailsElement).open"
-      >
-        <summary class="flex cursor-pointer items-center justify-between px-4 py-2.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted hover:text-fg">
-          {{ settings.reviewSingleMode ? "Single-mode picker" : "Advanced — drill one modality" }}
-          <span class="text-fg-subtle">⌃</span>
-        </summary>
-        <div class="border-t border-border-subtle px-4 py-3">
-          <button
-            v-if="settings.reviewSingleMode"
-            type="button"
-            class="mb-3 w-full rounded-md border border-accent/40 bg-accent/5 px-3 py-2 text-left text-xs font-medium text-accent transition-colors hover:bg-accent/10"
-            @click="switchToMixed"
-          >
-            ← Use Mixed mode (recommended)
-          </button>
-          <div class="grid gap-2 sm:grid-cols-2 sm:gap-3">
-            <button
-              v-for="m in modes"
-              :key="m.id"
-              type="button"
-              :disabled="effectiveDueCount === 0"
-              class="rounded-md border border-border-subtle bg-bg px-3 py-2.5 text-left transition-colors hover:border-accent hover:bg-bg-sunken disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border-subtle disabled:hover:bg-bg"
-              @click="startSingle(m.id)"
-            >
-              <span class="block font-display text-sm font-medium text-fg">
-                {{ m.label }}
-              </span>
-              <span class="block text-xs text-fg-muted">{{ m.hint }}</span>
-            </button>
-          </div>
-        </div>
-      </details>
-
-      <!-- Tone practice: hear a word, pick its tones (no grading). -->
-      <RouterLink
-        v-if="!review.scope"
-        to="/tones"
-        class="flex items-center justify-between rounded-lg border border-border-subtle bg-bg-elevated px-4 py-2.5 transition-colors hover:border-accent"
-      >
-        <span>
-          <span class="block font-display text-sm font-medium text-fg">Tone practice</span>
-          <span class="block text-xs text-fg-muted">Hear a word, pick its tones (mǎi or mài?)</span>
-        </span>
-        <span class="font-mono text-[10px] uppercase tracking-wider text-fg-muted">→</span>
-      </RouterLink>
-
-      <div
-        v-if="effectiveDueCount === 0 && review.stats.in_rotation > 0"
-        class="mt-2 rounded-lg border border-border-subtle bg-bg-elevated px-5 py-4 text-center text-sm text-fg-muted"
-      >
-        Nothing's due right now — come back later. Your
-        {{ review.stats.in_rotation.toLocaleString() }} Learning and Known
-        words come back on their own schedule.
-      </div>
-      <div
-        v-else-if="review.stats.in_rotation === 0"
-        class="mt-2 rounded-lg border border-border-subtle bg-bg-elevated px-5 py-4 text-center text-sm text-fg-muted"
-      >
-        Nothing to review yet. Click any word in the reader and choose
-        "Learning" (or "Known") from the popover — both join your review
-        rotation.
-      </div>
-    </div>
+      v-model:advanced-open="advancedOpen"
+      :due-count="effectiveDueCount"
+      :scoped="review.scope !== null"
+      :single-mode="settings.reviewSingleMode"
+      :in-rotation="review.stats.in_rotation"
+      @start-mixed="startMixed"
+      @start-single="startSingle"
+      @switch-to-mixed="switchToMixed"
+    />
 
     <!-- Loading state -->
     <div
@@ -1087,7 +989,7 @@ onMounted(() => {
               </button>
             </div>
           </template>
-          <div v-else class="mt-4 space-y-1.5 sm:mt-6">
+          <RevealedAnswer v-else :card="card" :focus="cardFocus">
             <p
               v-if="readVerdict"
               class="font-mono text-[11px] uppercase tracking-wider"
@@ -1101,28 +1003,7 @@ onMounted(() => {
             >
               {{ READ_VERDICT[readVerdict] }}
             </p>
-            <p class="font-sans text-base text-fg-muted">{{ card.pinyin }}</p>
-            <WordReadings
-              class="mx-auto max-w-md"
-              :meaning="card.meaning"
-              :meanings="card.meanings"
-              :meaning-tags="card.meaning_tags"
-              :readings="card.readings"
-              :glosses="card.glosses"
-              :focus="cardFocus"
-              headline-class="font-display text-xl text-fg"
-              list-class="mt-1 space-y-0.5 text-sm text-fg-muted"
-              :max-meanings="3"
-              collapse-others
-            />
-            <WordDetails :word="card.word" collapsible class="mx-auto max-w-md pt-2" />
-            <ContextSentence
-              v-if="card.cloze_sentence"
-              :sentence="card.cloze_sentence"
-              :word="card.word"
-              :source="card.sentence_source"
-            />
-          </div>
+          </RevealedAnswer>
         </template>
 
         <!-- Recognition mode -->
@@ -1139,29 +1020,7 @@ onMounted(() => {
           >
             {{ card.word }}
           </p>
-          <div v-if="revealed" class="mt-4 space-y-1.5 sm:mt-6">
-            <p class="font-sans text-base text-fg-muted">{{ card.pinyin }}</p>
-            <WordReadings
-              class="mx-auto max-w-md"
-              :meaning="card.meaning"
-              :meanings="card.meanings"
-              :meaning-tags="card.meaning_tags"
-              :readings="card.readings"
-              :glosses="card.glosses"
-              :focus="cardFocus"
-              headline-class="font-display text-xl text-fg"
-              list-class="mt-1 space-y-0.5 text-sm text-fg-muted"
-              :max-meanings="3"
-              collapse-others
-            />
-            <WordDetails :word="card.word" collapsible class="mx-auto max-w-md pt-2" />
-            <ContextSentence
-              v-if="card.cloze_sentence"
-              :sentence="card.cloze_sentence"
-              :word="card.word"
-              :source="card.sentence_source"
-            />
-          </div>
+          <RevealedAnswer v-if="revealed" :card="card" :focus="cardFocus" />
 
           <button
             v-if="!revealed"
@@ -1391,158 +1250,49 @@ onMounted(() => {
         class="sticky bottom-0 z-10 -mx-3 grid grid-cols-4 gap-2 bg-bg/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur sm:static sm:mx-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
       >
         <button
+          v-for="b in GRADE_BUTTONS"
+          :key="b.grade"
           type="button"
           :disabled="review.grading"
           :class="[
-            'relative overflow-hidden rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-red-500 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-500/10',
-            autoGradePending === 1 ? 'ring-2 ring-red-400/60' : '',
+            'relative overflow-hidden rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors',
+            b.hover,
+            'disabled:opacity-50',
+            b.darkHover,
+            autoGradePending === b.grade ? b.ring : '',
           ]"
-          @click="gradeAndAdvance(1)"
+          @click="gradeAndAdvance(b.grade)"
         >
           <span
-            v-if="autoGradePending === 1"
+            v-if="autoGradePending === b.grade"
             :style="{ animationDuration: `${autoGradeDelayMs}ms` }"
-            class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-red-500"
+            :class="['qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5', b.bar]"
           />
 
-          <p
-            class="font-display text-base font-medium text-red-700 dark:text-red-300"
-          >
-            Again
+          <p :class="['font-display text-base font-medium', b.text]">
+            {{ b.label }}
           </p>
           <p
             class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
           >
-            {{ gradeCaption(1) }}
-          </p>
-        </button>
-        <button
-          type="button"
-          :disabled="review.grading"
-          :class="[
-            'relative overflow-hidden rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-amber-500 hover:bg-amber-50 disabled:opacity-50 dark:hover:bg-amber-500/10',
-            autoGradePending === 2 ? 'ring-2 ring-amber-400/60' : '',
-          ]"
-          @click="gradeAndAdvance(2)"
-        >
-          <span
-            v-if="autoGradePending === 2"
-            :style="{ animationDuration: `${autoGradeDelayMs}ms` }"
-            class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-amber-500"
-          />
-
-          <p
-            class="font-display text-base font-medium text-amber-700 dark:text-amber-300"
-          >
-            Hard
-          </p>
-          <p
-            class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
-          >
-            {{ gradeCaption(2) }}
-          </p>
-        </button>
-        <button
-          type="button"
-          :disabled="review.grading"
-          :class="[
-            'relative overflow-hidden rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-emerald-500 hover:bg-emerald-50 disabled:opacity-50 dark:hover:bg-emerald-500/10',
-            autoGradePending === 3 ? 'ring-2 ring-emerald-400/60' : '',
-          ]"
-          @click="gradeAndAdvance(3)"
-        >
-          <span
-            v-if="autoGradePending === 3"
-            :style="{ animationDuration: `${autoGradeDelayMs}ms` }"
-            class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-emerald-500"
-          />
-
-          <p
-            class="font-display text-base font-medium text-emerald-700 dark:text-emerald-300"
-          >
-            Good
-          </p>
-          <p
-            class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
-          >
-            {{ gradeCaption(3) }}
-          </p>
-        </button>
-        <button
-          type="button"
-          :disabled="review.grading"
-          :class="[
-            'relative overflow-hidden rounded-lg border border-border bg-bg-elevated px-3 py-3 transition-colors hover:border-sky-500 hover:bg-sky-50 disabled:opacity-50 dark:hover:bg-sky-500/10',
-            autoGradePending === 4 ? 'ring-2 ring-sky-400/60' : '',
-          ]"
-          @click="gradeAndAdvance(4)"
-        >
-          <span
-            v-if="autoGradePending === 4"
-            :style="{ animationDuration: `${autoGradeDelayMs}ms` }"
-            class="qd-auto-grade-progress absolute inset-x-0 bottom-0 h-0.5 bg-sky-500"
-          />
-
-          <p
-            class="font-display text-base font-medium text-sky-700 dark:text-sky-300"
-          >
-            Easy
-          </p>
-          <p
-            class="mt-0.5 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
-          >
-            {{ gradeCaption(4) }}
+            {{ gradeCaption(b.grade) }}
           </p>
         </button>
       </div>
     </div>
 
     <!-- Session complete -->
-    <div
+    <SessionComplete
       v-else-if="
         auth.isAuthed && review.sessionGraded > 0 && review.queue.length > 0
       "
-      class="rounded-lg border border-border-subtle bg-bg-elevated px-6 py-10 text-center"
-    >
-      <p class="font-display text-xl font-medium text-fg">Session complete.</p>
-      <p class="mt-2 text-sm text-fg-muted">
-        {{ review.sessionGraded.toLocaleString() }} card{{
-          review.sessionGraded === 1 ? "" : "s"
-        }}
-        reviewed.
-        <template v-if="effectiveDueCount > 0">
-          {{ effectiveDueCount.toLocaleString() }} still due — keep going?
-        </template>
-        <template v-else>
-          Nothing else due right now. Come back later.
-        </template>
-      </p>
-      <div class="mt-6 flex justify-center gap-3">
-        <button
-          v-if="effectiveDueCount > 0"
-          type="button"
-          class="rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-fg transition-opacity hover:opacity-90"
-          @click="start(review.queueMode)"
-        >
-          Continue ({{ effectiveDueCount }})
-        </button>
-        <button
-          v-if="scopeText"
-          type="button"
-          class="rounded-full border border-accent px-4 py-1.5 text-sm text-accent transition-colors hover:bg-bg-sunken"
-          @click="backToText"
-        >
-          ← Back to text
-        </button>
-        <button
-          type="button"
-          class="rounded-full border border-border px-4 py-1.5 text-sm text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
-          @click="review.reset()"
-        >
-          Done
-        </button>
-      </div>
-    </div>
+      :graded="review.sessionGraded"
+      :due="effectiveDueCount"
+      :can-go-back="scopeText !== null"
+      @continue="start(review.queueMode)"
+      @back="backToText"
+      @done="review.reset()"
+    />
   </section>
 </template>
 
