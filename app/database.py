@@ -576,7 +576,6 @@ def init_db():
     Base.metadata.create_all(bind=engine)
 
     # Handle schema updates for existing databases
-    db = SessionLocal()
     try:
         # Check if invite_quota column exists in users table
         if inspector.has_table("users"):
@@ -835,8 +834,6 @@ def init_db():
         # failure: refuse to boot rather than serve on a half-migrated schema.
         logger.exception("Error updating database schema")
         raise
-    finally:
-        db.close()
 
 
 def get_db():
