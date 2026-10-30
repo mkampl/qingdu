@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-// `computed` is used by reasonLabel below — keep the import.
 
 import { ApiError, apiUrl } from "@/api/client";
 import { useAuthStore } from "@/stores/auth";

@@ -19,11 +19,7 @@ const props = defineProps<{
   /** Initial token if the text already had sharing enabled. */
   initialToken?: string | null;
 }>();
-const emit = defineEmits<{
-  (e: "close"): void;
-  /** Lets the parent persist the new state (e.g. update SavedTextSummary). */
-  (e: "tokenChange", token: string | null): void;
-}>();
+const emit = defineEmits<{ (e: "close"): void }>();
 
 const toasts = useToastStore();
 const token = ref<string | null>(props.initialToken ?? null);
@@ -55,7 +51,6 @@ async function ensureToken() {
   try {
     const r = await api.enableShare(props.textId);
     token.value = r.token;
-    emit("tokenChange", r.token);
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Couldn't create share link.";
   } finally {
@@ -69,7 +64,6 @@ async function revoke() {
   try {
     await api.disableShare(props.textId);
     token.value = null;
-    emit("tokenChange", null);
     toasts.success("Share link revoked.");
     emit("close");
   } catch (e) {

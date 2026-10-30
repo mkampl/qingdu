@@ -59,9 +59,8 @@ async function onSubmit(e: Event) {
   }
 }
 
-// Forced mode (after must_change_password login): hide the close button so the
-// user must complete the change. Modal's close-on-backdrop is gated by the
-// `close-on-backdrop` prop, which we don't pass when forced.
+// Forced mode (after a must_change_password login) ignores close requests and
+// hides Cancel, so the user must complete the change.
 </script>
 
 <template>

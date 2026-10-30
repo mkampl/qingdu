@@ -1,28 +1,25 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    char?: string;
     size?: number;
-    rotated?: boolean;
     settled?: boolean;
   }>(),
-  { char: "读", size: 28, rotated: true, settled: false },
+  { size: 28, settled: false },
 );
 </script>
 
 <template>
   <span
-    class="chop"
-    :class="{ rotated, settled }"
+    class="chop rotated"
+    :class="{ settled }"
     :style="{
       width: `${size}px`,
       height: `${size}px`,
       fontSize: `${Math.round(size * 0.72)}px`,
     }"
     aria-hidden="true"
+    >读</span
   >
-    {{ char }}
-  </span>
 </template>
 
 <style scoped>

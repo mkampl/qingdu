@@ -31,7 +31,7 @@ const cjkChars = computed(() =>
 const activeIdx = ref(0);
 const containerRef = ref<HTMLDivElement | null>(null);
 
-// Hold the live HanziWriter instance so we can replay / destroy it.
+// The live HanziWriter instance, for Replay.
 type AnyHanziWriter = {
   animateCharacter: (opts?: { onComplete?: () => void }) => void;
 } | null;

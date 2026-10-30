@@ -33,10 +33,9 @@ async function fetchTodayHooks() {
         .catch(() => ({ items: [] as LibraryForYouItem[] })),
     ]);
 
-    // "Continue reading" = most-recent saved text that's mid-read
-    // (0 < progress < 1). Falls back to the most recent saved text overall
-    // so a returning user always sees the entry-point — useful even if
-    // they never tracked progress in the first place.
+    // "Continue reading" = most recent saved text that's mid-read
+    // (0 < progress < 1), else the most recent saved text, so a returning
+    // user always sees an entry point.
     const inProgress = texts.filter(
       (t) => t.reading_progress > 0 && t.reading_progress < 1,
     );
@@ -102,12 +101,9 @@ async function openLibraryPick(slug: string) {
 </script>
 
 <template>
-  <!-- Reader landing for authed users. Surfaces the three actionable hooks
-       the app's expanded scope has — overdue review queue, the last text
-       you didn't finish, and a level-matched library pick — so the home
-       route isn't just "paste a paragraph" anymore. The italic paste
-       prompt still lives below this panel for anyone who actually arrived
-       to read fresh text. -->
+  <!-- Reader landing for authed users: due reviews, the last unfinished
+       text and a level-matched library pick. The paste prompt sits below
+       this panel. -->
   <div
     v-if="anyHook && !loading"
     class="space-y-3 border-t border-border-subtle pt-10"

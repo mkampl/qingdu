@@ -72,12 +72,10 @@ async function generateInvite() {
 }
 
 async function copyInviteUrl(invitation: InvitationSummary) {
-  // The SPA picks up the `invite` query param via AuthControls regardless of
-  // path; keep the URL on the root so it stays clean. (Legacy /v2/?invite=…
-  // links still resolve thanks to the backend's 301 redirect.)
-  // Use the server's URL, not the page origin: inside the Android app the
-  // origin is https://localhost. On the web build the API base is empty
-  // (same origin), so fall back to it there.
+  // AuthControls picks up the `invite` query param on any path; the root
+  // keeps the URL clean. Use the server's URL, not the page origin: inside
+  // the Android app the origin is https://localhost. On the web build the
+  // API base is empty (same origin), so fall back to it there.
   const origin = api.getApiBase() || window.location.origin;
   const url = `${origin}/?invite=${invitation.full_token}`;
   try {

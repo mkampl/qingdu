@@ -19,9 +19,8 @@ const username = ref("");
 const password = ref("");
 const submitting = ref(false);
 const error = ref<string | null>(null);
-// Phase 2.9 — whether the instance accepts open signups. Drives the "Create
-// account" link below the form. Refreshed every time the login modal opens
-// so the admin toggling it shows up immediately on the next open.
+// Whether the instance accepts open signups; drives the "Create account"
+// link. Refreshed on every open so an admin's toggle shows at once.
 const openRegistrationAvailable = ref(false);
 
 watch(
@@ -118,10 +117,8 @@ function switchToOpenSignup() {
         Sign in
       </Button>
 
-      <!-- Phase 2.9 — public signup link, only when the instance allows it.
-           The invite-token flow stays accessible underneath as the
-           "Have an invitation?" line so existing invite users keep their
-           shortcut. -->
+      <!-- Public signup link, only when the instance allows it. The
+           invite-token flow stays below as "Have an invitation?". -->
       <p
         v-if="openRegistrationAvailable"
         class="text-center text-xs text-fg-muted"

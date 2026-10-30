@@ -68,7 +68,7 @@ const markerPosition = computed(() => {
       </div>
     </div>
 
-    <!-- Tick labels below: HSK1, HSK2, … We only render labels for segments
+    <!-- Tick labels below ("level · count"). We only render labels for segments
          that are wide enough to fit (≥ 8%); the rest are revealed on hover via
          the title attribute. -->
     <div class="mt-1.5 flex w-full">

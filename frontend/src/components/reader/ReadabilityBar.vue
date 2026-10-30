@@ -96,8 +96,6 @@ const thresholdLeft = computed(() => `${(data.value?.threshold ?? 0.95) * 100}%`
 const showProgress = computed(
   () => !!data.value && data.value.in_progress > 0,
 );
-
-defineExpose({ refresh: load, data });
 </script>
 
 <template>

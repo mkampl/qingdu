@@ -56,17 +56,11 @@ async function refresh() {
 
 onMounted(refresh);
 
-// Re-fetch whenever the active review session ticks a grade through.
-// sessionGraded is the count of cards graded in the current session;
-// it bumps on every grade and resets on loadQueue / reset. We don't
-// need to react during the session — the user can't see the sparkline
-// then — but it's already in memory and the refetch is cheap, so we
-// keep it live for the eventual return to the overview.
+// Re-fetch whenever the review session grades a card (sessionGraded counts
+// the session's grades), so the overview is current on return.
 watch(
   () => review.sessionGraded,
-  (next, prev) => {
-    if (next !== prev) void refresh();
-  },
+  () => void refresh(),
 );
 </script>
 
