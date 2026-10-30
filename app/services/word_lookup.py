@@ -23,10 +23,11 @@ from app.services.word_info import cedict_entry, word_parts
 from app.state import hsk_vocab
 
 
-def _char_component_stats(chars: list[str]) -> dict:
+def char_components(chars: list[str]) -> dict:
     """
     Per-character pinyin/radical/level roll-up, used for the HSK-level
-    colouring of words that are not HSK headwords themselves. There is
+    colouring of words that are not HSK headwords themselves (the highest
+    character level in each HSK system). There is
     deliberately no meaning here: joined character glosses are not a gloss.
     Every char must already be confirmed present in `hsk_vocab` by the caller.
     """
@@ -38,7 +39,7 @@ def _char_component_stats(chars: list[str]) -> dict:
 
     for char in chars:
         char_data = hsk_vocab[char]
-        char_pinyins.append(char_data["pinyin"])
+        char_pinyins.append(char_data.get("pinyin", ""))
 
         char_radical = char_data.get("radical", "") or CHAR_TO_RADICAL.get(char, "")
         if char_radical:
@@ -50,8 +51,8 @@ def _char_component_stats(chars: list[str]) -> dict:
             else:
                 char_radical_pinyins.append("")
 
-        if char_data.get("level_new"):
-            char_levels_new.append(level_number(char_data["level_new"]) or 1)
+        if (n := level_number(char_data.get("level_new"))) is not None:
+            char_levels_new.append(n)
         if (n := level_number(char_data.get("level_old"), ("old-",))) is not None:
             char_levels_old.append(n)
 
@@ -89,7 +90,7 @@ def resolve_from_cedict(word: str) -> dict | None:
         tags.append(f"variant of {headword}")
 
     chars = list(word)
-    stats = _char_component_stats(chars) if all(c in hsk_vocab for c in chars) else {}
+    stats = char_components(chars) if all(c in hsk_vocab for c in chars) else {}
 
     return {
         "pinyin": entry.get("pinyin") or stats.get("pinyin", ""),
@@ -115,7 +116,7 @@ def describe_non_word(word: str, extra=()) -> dict | None:
     if not any(is_cjk_char(c) for c in word):
         return None
     chars = list(word)
-    stats = _char_component_stats(chars) if all(c in hsk_vocab for c in chars) else {}
+    stats = char_components(chars) if all(c in hsk_vocab for c in chars) else {}
     return {
         "pinyin": " ".join(lazy_pinyin(word, style=Style.TONE)),
         "meaning": "",

@@ -4,8 +4,8 @@ new-HSK / old-HSK shape. Run on saved texts and vocabulary lists at
 read time so old user content keeps working.
 """
 
-from app.core.radicals import CHAR_TO_RADICAL, RADICAL_PINYIN
-from app.services.levels import hsk_statistics, level_number
+from app.services.levels import hsk_statistics
+from app.services.word_lookup import char_components
 from app.state import hsk_vocab
 
 
@@ -33,41 +33,13 @@ def migrate_word_data(word_data: dict) -> dict:
     elif word_text and len(word_text) > 1:
         chars = list(word_text)
         if all(char in hsk_vocab for char in chars):
-            char_levels_new: list = []
-            char_levels_old: list = []
-            for char in chars:
-                char_data = hsk_vocab[char]
-                if (n := level_number(char_data.get("level_new"))) is not None:
-                    char_levels_new.append(n)
-                if (n := level_number(char_data.get("level_old"), ("old-",))) is not None:
-                    char_levels_old.append(n)
-
-            word_data["level_new"] = f"new-{max(char_levels_new)}" if char_levels_new else None
-            word_data["level_old"] = f"old-{max(char_levels_old)}" if char_levels_old else None
-
-            if word_data["level_new"]:
-                word_data["hsk_level"] = word_data["level_new"]
-            elif word_data["level_old"]:
-                word_data["hsk_level"] = word_data["level_old"]
-
-            char_radicals: list = []
-            char_radical_pinyins: list = []
-            for char in chars:
-                char_data = hsk_vocab[char]
-                char_radical = char_data.get("radical", "") or CHAR_TO_RADICAL.get(char, "")
-                if char_radical:
-                    char_radicals.append(char_radical)
-                    if char_radical in hsk_vocab:
-                        char_radical_pinyins.append(hsk_vocab[char_radical].get("pinyin", ""))
-                    elif char_radical in RADICAL_PINYIN:
-                        char_radical_pinyins.append(RADICAL_PINYIN[char_radical])
-                    else:
-                        char_radical_pinyins.append("")
-
-            word_data["radical"] = " + ".join(char_radicals) if char_radicals else ""
-            word_data["radical_pinyin"] = (
-                " + ".join(char_radical_pinyins) if char_radical_pinyins else ""
-            )
+            stats = char_components(chars)
+            word_data["level_new"] = stats["level_new"]
+            word_data["level_old"] = stats["level_old"]
+            if stats["level_new"] or stats["level_old"]:
+                word_data["hsk_level"] = stats["level"]
+            word_data["radical"] = stats["radical"]
+            word_data["radical_pinyin"] = stats["radical_pinyin"]
             return word_data
         else:
             _assign_legacy_level(word_data, old_level)
