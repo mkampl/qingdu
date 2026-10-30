@@ -331,8 +331,7 @@ const groups: Group[] = [
         </h2>
         <p class="mt-1.5 max-w-prose text-sm leading-relaxed text-fg-muted sm:mt-2">
           Short texts for every HSK level, bundled with the app. A taste
-          below; the full
-          collection lives on the
+          below; the full collection lives on the
           <RouterLink
             to="/library"
             class="font-medium text-accent hover:underline"

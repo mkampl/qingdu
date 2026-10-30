@@ -113,3 +113,18 @@ export function reviewShortcutBlocked(e: KeyboardEvent, doc: Document = document
   if (e.key === " " && el && el.closest(SPACE_OWNERS)) return true;
   return false;
 }
+
+/** A next-review interval for a grade button: "< 1m", "10m", "3h", "5d",
+ *  "2mo", "1.5y". */
+export function formatInterval(seconds: number): string {
+  const m = seconds / 60;
+  if (m < 1) return "< 1m";
+  if (m < 60) return `${Math.round(m)}m`;
+  const h = m / 60;
+  if (h < 24) return `${Math.round(h)}h`;
+  const d = h / 24;
+  if (d < 30) return `${Math.round(d)}d`;
+  if (d < 365) return `${Math.round(d / 30)}mo`;
+  const y = d / 365;
+  return `${y < 10 ? Math.round(y * 10) / 10 : Math.round(y)}y`;
+}

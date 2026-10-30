@@ -1557,6 +1557,8 @@ export interface ReviewCard {
   /** In a session focused on one text or list: that text's or list's own
    *  meaning, which the card leads with. */
   focus_gloss?: WordGloss | null;
+  /** Seconds until the next review after each grade ("1".."4"). */
+  intervals?: Record<string, number>;
   /** Cloze mode only — sentence with the target word replaced by "___". */
   cloze_template?: string;
   /** The word's sample sentence: the context it was marked in, else one

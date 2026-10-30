@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import random
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
 
 from fsrs import Card, Rating, Scheduler, State
 
@@ -85,6 +86,27 @@ def apply_grade(state_json: str | None, grade: int, retention: float | None = No
         if new_card.last_review
         else datetime.utcnow(),
     }
+
+
+@lru_cache(maxsize=8)
+def _preview_scheduler(retention: float) -> Scheduler:
+    return Scheduler(desired_retention=retention, enable_fuzzing=False)
+
+
+def next_intervals(
+    state_json: str | None, retention: float | None = None, now: datetime | None = None
+) -> dict[int, int]:
+    """Seconds until the card is due again after each grade. Nothing is stored.
+    Computed without fuzzing, so the four values always rise; the grade
+    itself is fuzzed by a few percent."""
+    card = card_from_state(state_json)
+    scheduler = _preview_scheduler(_scheduler_for(retention).desired_retention)
+    at = now or datetime.now(UTC)
+    out = {}
+    for grade in VALID_GRADES:
+        new_card, _log = scheduler.review_card(card, _to_rating(grade), at)
+        out[grade] = max(0, round((new_card.due - at).total_seconds()))
+    return out
 
 
 def initial_state() -> dict:

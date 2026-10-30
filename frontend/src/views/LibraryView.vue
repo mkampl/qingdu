@@ -147,7 +147,7 @@ const openLibraryText = useOpenLibraryText();
 
     <p class="mb-5 max-w-prose text-sm leading-relaxed text-fg-muted sm:mb-8">
       {{ items.length ? `${items.length} short texts` : "Short texts" }}
-      for each HSK level, written to demonstrate the
+      across the HSK levels, written to demonstrate the
       vocabulary and grammar of each level. Click one to open it in the
       reader — mark it as read or pass its quiz there to check it off. No
       login required to browse — sign in to track completion here and get

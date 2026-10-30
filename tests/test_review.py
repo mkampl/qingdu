@@ -562,3 +562,19 @@ def test_weekly_marked_known_counts_words_not_reviews(review_client):
     )
     today = client.get("/api/stats/weekly").json()["days"][-1]
     assert today["marked_known"] == 302
+
+
+def test_next_intervals_grow_with_the_grade():
+    now = datetime.now(UTC)
+    fresh = srs.next_intervals(None, now=now)
+    assert fresh[1] <= fresh[2] <= fresh[3] < fresh[4]
+    assert fresh[1] < 3600  # a new card comes back within the session
+    reviewed = srs.apply_grade(None, 3)["fsrs_state"]
+    again = srs.next_intervals(reviewed, now=now + timedelta(days=3))
+    assert again[1] < again[3] < again[4]
+
+
+def test_queue_cards_carry_the_intervals(review_client):
+    client, _ = review_client
+    cards = client.get("/api/review/queue").json()["cards"]
+    assert cards and all(set(c["intervals"]) == {"1", "2", "3", "4"} for c in cards)
