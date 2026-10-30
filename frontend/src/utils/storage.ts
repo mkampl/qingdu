@@ -20,3 +20,11 @@ export function storageSet(key: string, value: string): boolean {
     return false;
   }
 }
+
+export function storageRemove(key: string): void {
+  try {
+    if (typeof localStorage !== "undefined") localStorage.removeItem(key);
+  } catch {
+    // nothing stored, nothing to drop
+  }
+}
