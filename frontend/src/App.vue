@@ -150,10 +150,8 @@ onMounted(async () => {
   // Native hooks — all are no-ops on web.
   await syncStatusBar(settings.theme);
   await syncReminder(settings.reminderEnabled, settings.reminderTime);
-  // Phase #118 (#1) — deep-link the daily-reminder tap to /review. The
-  // listener returns a no-op on web so the call is safe everywhere; on
-  // Android, the user lands directly on the review queue instead of the
-  // Reader's empty-textarea cold start.
+  // A notification tap opens the route it carries (/review for the daily
+  // reminder) instead of the Reader.
   await onNotificationTap((dest) => {
     if (typeof dest === "string" && dest.startsWith("/")) {
       void router.push(dest);
@@ -183,7 +181,7 @@ watch(
   },
 );
 
-// Phase 2.10 — keep the account-lifecycle warnings in sync with the
+// Keep the account-lifecycle warnings in sync with the
 // server's stamp. Re-fires on login (auth.user populated), logout
 // (auth.user = null → cancels), and every app open via hydrate's
 // /me refresh (last_active moves forward → soft_delete_at moves
@@ -197,10 +195,9 @@ watch(
 );
 
 // Android hardware back button. Without a listener Capacitor navigates
-// browser history — which, with a modal open, left the modal floating
-// over a different page, and from the start route exited the activity
-// mid-flow. Order: close the topmost overlay, then route history, then
-// let Android background the app.
+// browser history, which leaves an open modal floating over another page
+// and exits the activity from the start route. Order: close the topmost
+// overlay, then route history, then let Android background the app.
 if (isNative()) {
   const authModals = useAuthModalsStore();
   void import("@capacitor/app").then(({ App: CapApp }) => {
@@ -328,14 +325,9 @@ if (isNative()) {
           </RouterLink>
         </nav>
         <div class="ml-auto flex items-center gap-1">
-          <!-- Daily streak badge — flame + day count. Sits before the
-               known-words badge so the prosocial habit signal lands first.
-               Hidden when streak is 0 to avoid demoralising a new user.
-               On mobile we tighten padding and drop the uppercase tracking
-               so the chip stays visible without crowding out the icons.
-               Tapping the chip takes the user to /review — the most
-               efficient way to put one more day on the streak when they
-               opened the app specifically to keep it alive. -->
+          <!-- Daily streak badge, hidden at 0. Tighter and not uppercase
+               below sm so it fits beside the icons. Links to /review, the
+               quickest way to extend the streak. -->
           <RouterLink
             v-if="auth.isAuthed && userWords.hydrated && userWords.stats.streak > 0"
             to="/review"
@@ -453,7 +445,7 @@ if (isNative()) {
         </div>
       </div>
     </header>
-    <!-- Phase 2.9 — lifecycle warning. Renders nothing when the user is
+    <!-- Lifecycle warning. Renders nothing when the user is
          active or when the instance has no inactivity cleanup. Stays
          out of the header itself so the reader content keeps its
          breathing room. -->

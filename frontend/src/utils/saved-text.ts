@@ -1,8 +1,7 @@
 /**
  * Helpers for working with `SavedTextSummary` objects returned from
  * /api/texts. The backend stores `tags` as a JSON-encoded string (or null) and
- * `reading_progress` in a range we have to be defensive about — legacy data
- * was 0-100, the Vue reader writes 0-1.
+ * `reading_progress` as 0-1 from the reader but 0-100 in older records.
  */
 
 import type { SavedTextSummary } from "@/api/types";

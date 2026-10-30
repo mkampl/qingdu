@@ -1,9 +1,9 @@
 /**
- * Timestamps from the API are UTC. The server now sends them with a
- * trailing `Z`, but older servers (and old cached payloads) sent naive
- * strings like "2026-03-01T23:30:00", which `new Date()` reads as *local*
- * time — west of UTC a card due in one minute looked hours away. Every
- * API timestamp goes through parseUtc().
+ * Timestamps from the API are UTC. Most carry a trailing `Z`, but older
+ * servers and cached payloads send naive strings like
+ * "2026-03-01T23:30:00", which `new Date()` reads as *local* time — west
+ * of UTC a card due in one minute would look hours away. Every API
+ * timestamp goes through parseUtc().
  */
 
 // A trailing Z or ±HH:MM / ±HHMM offset.

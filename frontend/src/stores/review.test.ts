@@ -10,7 +10,6 @@ import { useReviewStore } from "@/stores/review";
 vi.mock("@/services/notifications", () => ({
   rememberDueCount: vi.fn(),
   rememberStreak: vi.fn(),
-  rememberActiveToday: vi.fn(),
 }));
 
 function card(word: string): ReviewCard {
@@ -52,7 +51,7 @@ describe("review store", () => {
   it("re-inserts an Again card although due_at arrives as naive UTC", async () => {
     const review = useReviewStore();
     review.queue = [card("一")];
-    // One minute from now, written the way old servers did (no offset).
+    // One minute from now, written the way older servers do (no offset).
     const soon = new Date(Date.now() + 60_000).toISOString().replace("Z", "");
     vi.spyOn(api, "gradeReviewCard").mockResolvedValue({
       word: "一",

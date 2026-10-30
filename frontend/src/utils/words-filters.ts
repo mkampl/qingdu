@@ -7,11 +7,11 @@
  */
 
 import type { WordsQueueParams } from "@/api/client";
+import type { HskVersion } from "@/stores/settings";
 
 export type StateFilter = "all" | "learning" | "known" | "ignored";
 export type DueFilter = "all" | "today" | "week" | "month";
 export type SortKey = "due" | "recent" | "hsk";
-export type HskVersion = "new" | "old";
 
 export interface WordsFilters {
   state: StateFilter;
@@ -97,7 +97,7 @@ export function filtersToQuery(f: WordsFilters): Record<string, string> {
   return q;
 }
 
-/** True when two queries describe the same filters (key order, defaults ignored). */
+/** True when two filter sets give the same query (key order, defaults ignored). */
 export function sameFilters(a: WordsFilters, b: WordsFilters): boolean {
   const qa = filtersToQuery(a);
   const qb = filtersToQuery(b);
@@ -110,7 +110,7 @@ export function hasActiveFilters(f: WordsFilters): boolean {
   return f.state !== "all" || f.due !== "all" || f.hsk.length > 0 || f.search.trim() !== "";
 }
 
-/** Anything differing from the defaults, sort included — enables "Reset filters". */
+/** True when nothing differs from the defaults, sort included ("Reset filters" is off). */
 export function isDefaultFilters(f: WordsFilters): boolean {
   return sameFilters(f, { ...DEFAULT_FILTERS, hsk: [] });
 }

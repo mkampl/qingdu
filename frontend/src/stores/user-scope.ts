@@ -23,7 +23,7 @@ export function resetUserScopedStores(options: { keepReading?: boolean } = {}) {
   useUserWordsStore().reset();
   useReviewStore().resetAll();
   useVocabListsStore().clear();
-  // Reminder caches (due count, streak, last active day) are per account;
+  // Reminder caches (due count, streak) are per account;
   // they are rewritten on the next review-stats refresh.
   forgetUserCaches();
   if (!options.keepReading) {

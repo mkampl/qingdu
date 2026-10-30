@@ -9,8 +9,8 @@ import { useAuthStore } from "@/stores/auth";
  * `onSignedOut` runs when the settled state is anonymous, including after
  * a logout, so views can drop their per-user data.
  *
- * Replaces the per-view `onMounted(load)` + `if (!auth.isAuthed) return`
- * pattern, which raced App.vue's async auth.hydrate() on deep links.
+ * A plain `onMounted(load)` + `if (!auth.isAuthed) return` would race
+ * App.vue's async auth.hydrate() on deep links.
  */
 export function onAuthReady(onAuthed: () => void, onSignedOut?: () => void) {
   const auth = useAuthStore();

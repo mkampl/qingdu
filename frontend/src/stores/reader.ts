@@ -94,11 +94,9 @@ export const useReaderStore = defineStore("reader", () => {
     if (existing && (existing.status === "ok" || existing.status === "loading")) {
       return;
     }
-    // Phase #100 — curated sentence translations from a pre-analyzed
-    // package live on analysis.result.sentence_translations. Check there
-    // FIRST so the user's package translations always win and don't
-    // expire with the server's TTL cache. Falls through to /api/translate
-    // for sentences not in the curated map.
+    // Curated sentence translations from a pre-analyzed package live on
+    // analysis.result.sentence_translations. They win over /api/translate
+    // and don't expire with the server's TTL cache.
     const curated =
       useAnalysisStore().result?.sentence_translations?.[text];
     if (curated) {

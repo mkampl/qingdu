@@ -15,7 +15,6 @@ vi.mock("vue-router", () => ({
 vi.mock("@/services/notifications", () => ({
   rememberDueCount: vi.fn(),
   rememberStreak: vi.fn(),
-  rememberActiveToday: vi.fn(),
 }));
 
 import ReviewView from "./ReviewView.vue";

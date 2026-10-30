@@ -4,7 +4,7 @@ import { createRouter, createWebHistory } from "vue-router";
 // viewport height and <main id="app-scroll"> scrolls internally instead
 // (see src/utils/scroll.ts) — window itself never scrolls, so Vue
 // Router's window-scroll-based scrollBehavior would be a silent no-op.
-// The actual reset-on-navigate lives in App.vue's route watcher.
+// App.vue's router hooks handle scroll on navigation.
 export const router = createRouter({
   history: createWebHistory("/"),
   routes: [
@@ -23,10 +23,8 @@ export const router = createRouter({
       name: "vocab-index",
       component: () => import("@/views/VocabView.vue"),
     },
-    // Path-style deep links — older docs / external links promised
-    // /vocab/browse and /vocab/lists, but the Vocab view uses ?tab=…
-    // query strings instead. Without these the strings get caught by
-    // /vocab/:id below and render "we couldn't find that list".
+    // Path-style links to the Vocab tabs, which use ?tab=…. Without these
+    // /vocab/:id below catches them as a list id.
     { path: "/vocab/browse", redirect: { name: "vocab-index", query: { tab: "browse" } } },
     { path: "/vocab/lists", redirect: { name: "vocab-index", query: { tab: "lists" } } },
     {
@@ -87,8 +85,7 @@ export const router = createRouter({
       props: true,
     },
     {
-      // Prototype spike, deliberately not linked from nav — see the
-      // 2026-09-03 Discover conversation for the feasibility analysis.
+      // Prototype, deliberately not linked from the nav.
       path: "/watch",
       name: "watch",
       component: () => import("@/views/WatchView.vue"),
