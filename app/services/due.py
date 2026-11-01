@@ -30,11 +30,6 @@ from app.services import localday
 ACTIVE_REVIEW_STATES = ("learning", "known")
 
 
-def utcnow() -> datetime:
-    """Naive UTC, matching how due_at is stored."""
-    return localday.utcnow()
-
-
 def end_of_day(now: datetime, days_ahead: int = 0, tz: ZoneInfo | None = None) -> datetime:
     """Local midnight (as naive UTC) that ends the day `days_ahead` days after `now`.
 

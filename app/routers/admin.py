@@ -209,9 +209,8 @@ async def update_user_invite_quota(
 
 @router.get("/api/admin/translate-providers")
 async def translate_providers_healthcheck(
-    admin: User = Depends(require_admin),
+    _admin: User = Depends(require_admin),
 ):
     """Probe each translation provider (DeepL, Google, MyMemory) with the
     same Chinese phrase and report which ones work."""
-    _ = admin
     return await translation.probe_providers()

@@ -18,6 +18,8 @@ from bs4 import BeautifulSoup
 from ebooklib import epub
 from pypdf import PdfReader
 
+from app.services.lexicon import has_cjk
+
 # Cap to mirror the URL-extract cap. Users importing a whole novel will hit
 # this; we'd rather they chapter-split than we OOM jieba on a 500k-char job.
 _MAX_CHARS = 50_000
@@ -53,7 +55,6 @@ def extract_document(filename: str, data: bytes) -> ExtractedDocument:
 # --- Subtitles (SRT / WebVTT / ASS) ------------------------------------------
 
 SUBTITLE_SUFFIXES = (".srt", ".vtt", ".ass", ".ssa")
-_CJK_RE = re.compile(r"[\u3400-\u9fff]")
 _TIMING_RE = re.compile(r"\d+:\d+[:.,]\d+.*-->")
 _TAG_RE = re.compile(r"<[^>]+>|\{[^}]*\}")
 
@@ -102,7 +103,7 @@ def _extract_subtitles(filename: str, data: bytes) -> ExtractedDocument:
     text = _decode_text(data)
     lines: list[str] = []
     for line in _subtitle_lines(text, ass=filename.lower().endswith((".ass", ".ssa"))):
-        if not _CJK_RE.search(line):
+        if not has_cjk(line):
             continue
         if lines and lines[-1] == line:
             continue

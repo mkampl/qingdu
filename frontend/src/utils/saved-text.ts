@@ -1,7 +1,6 @@
 /**
  * Helpers for working with `SavedTextSummary` objects returned from
- * /api/texts. The backend stores `tags` as a JSON-encoded string (or null) and
- * `reading_progress` as 0-1 from the reader but 0-100 in older records.
+ * /api/texts. The backend stores `tags` as a JSON-encoded string (or null).
  */
 
 import type { SavedTextSummary } from "@/api/types";
@@ -15,13 +14,6 @@ export function parseTags(raw: string | null | undefined): string[] {
   } catch {
     return [];
   }
-}
-
-/** Returns a 0..1 fraction, regardless of whether the backend gave 0..1 or 0..100. */
-export function normalizeProgress(raw: number | null | undefined): number {
-  if (!raw || Number.isNaN(raw)) return 0;
-  if (raw <= 1) return Math.max(0, raw);
-  return Math.min(1, raw / 100);
 }
 
 export function previewSnippet(content: string | undefined, len = 80): string {

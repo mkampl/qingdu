@@ -3,7 +3,6 @@ import { computed, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 
 import * as api from "@/api/client";
-import { isNative } from "@/services/native";
 import { ApiError } from "@/api/client";
 import type {
   VocabularyListSummary,
@@ -469,31 +468,11 @@ const exportProgress = ref<{
 } | null>(null);
 const exportError = ref<string | null>(null);
 
-function triggerDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-  // Slight delay so the browser has time to start the download before we
-  // revoke the URL.
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 async function exportCsv() {
   if (!list.value) return;
   busy.value = true;
   try {
-    if (isNative()) {
-      // The app's web view can't save a blob; the system browser opens
-      // the download link instead.
-      await api.openDownload(`/api/vocabulary-lists/${list.value.id}/export`);
-    } else {
-      const { blob, filename } = await api.exportVocabularyListCsv(list.value.id);
-      triggerDownload(blob, filename || `${list.value.name}.csv`);
-    }
+    await api.openDownload(`/api/vocabulary-lists/${list.value.id}/export`);
     toasts.success("CSV downloaded.");
   } catch (e) {
     toasts.error(
@@ -531,16 +510,9 @@ async function exportAnki() {
       };
     }
     exportPhase.value = "downloading";
-    let rateLimited = false;
-    if (isNative()) {
-      await api.openDownload(`/api/vocabulary-lists/${list.value.id}/export-anki`);
-    } else {
-      const r = await api.exportVocabularyListAnki(list.value.id);
-      rateLimited = !!r.rateLimited;
-      triggerDownload(r.blob, r.filename || `${list.value.name}.apkg`);
-    }
+    await api.openDownload(`/api/vocabulary-lists/${list.value.id}/export-anki`);
     exportPhase.value = "done";
-    if (rateLimited) {
+    if (exportProgress.value?.rate_limited) {
       toasts.info("Anki package downloaded — some cards lack audio (rate limit).");
     } else {
       toasts.success("Anki package downloaded.");

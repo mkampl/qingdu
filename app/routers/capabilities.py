@@ -29,8 +29,7 @@ def get_capabilities() -> dict:
 
 
 @router.post("/api/admin/llm/probe")
-async def probe_llm(user: User = Depends(require_admin)) -> dict:
+async def probe_llm(_user: User = Depends(require_admin)) -> dict:
     """Check the LLM endpoint now (admin): reachability, latency, error."""
-    _ = user
     st = await llm.probe()
     return {**llm.capabilities(), "latency_ms": st.latency_ms, "error": st.error}

@@ -20,10 +20,9 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.database import SavedText, SessionLocal, TextFolder, TextSeries, User, UserWord
+from app.database import SavedText, SessionLocal, TextFolder, TextSeries, User
 from app.services import llm, readability, text_folders
 from app.services.segmentation import analyze_chinese_text, segment_text
-from app.state import hsk_vocab
 
 logger = logging.getLogger(__name__)
 
@@ -73,18 +72,6 @@ _MARKUP = re.compile(r"[*_#`~]+")
 def plain(text: str) -> str:
     """Text without markdown marks (models like to bold the new words)."""
     return _MARKUP.sub("", text).strip()
-
-
-def _known_words(db: Session, user_id: int, level: int, limit: int = 250) -> list[str]:
-    known = [
-        w
-        for (w,) in db.query(UserWord.word).filter(
-            UserWord.user_id == user_id, UserWord.state.in_(("known", "learning"))
-        )
-        if (readability.hsk_level_number(w) or 99) <= max(level, 2)
-    ]
-    known.sort(key=lambda w: -int((hsk_vocab.get(w) or {}).get("frequency") or 0))
-    return known[:limit]
 
 
 def _series_texts(db: Session, series: TextSeries) -> list[SavedText]:
@@ -171,7 +158,9 @@ async def _write(db: Session, series: TextSeries) -> dict:
         if last_new
         else ""
     )
-    known = _known_words(db, series.user_id, series.level)
+    known = readability.known_words(
+        db, series.user_id, series.level, ("known", "learning"), limit=250
+    )
     target = series.new_words
     best = None
     feedback = ""

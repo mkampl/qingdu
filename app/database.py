@@ -34,8 +34,8 @@ class User(Base):
     last_active = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
     invite_quota = Column(Integer, default=5)  # How many invites this user can send
-    # Daily activity streak. `streak_last_active` is the date (UTC) of the
-    # most recent qualifying action; `streak_count` is the length of the
+    # Daily activity streak. `streak_last_active` is the user's local date
+    # (services.localday) of the most recent qualifying action; `streak_count` is the length of the
     # contiguous run leading up to that date.
     streak_count = Column(Integer, default=0)
     streak_last_active = Column(Date, nullable=True)
@@ -119,7 +119,7 @@ class SavedText(Base):
     title = Column(String(500))
     content = Column(Text)
     tags = Column(Text, nullable=True)
-    reading_progress = Column(Integer, default=0)  # 0-100%
+    reading_progress = Column(Float, default=0)  # 0..1 fraction of the text read
     analysis_data = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     # Public sharing. NULL means "not shared"; a UUID4 means the text is
@@ -561,156 +561,92 @@ def init_db():
     # Create all tables if they don't exist
     Base.metadata.create_all(bind=engine)
 
+    def _add_columns(table: str, columns: list[tuple[str, str]]) -> set[str]:
+        """Add each (name, ddl) column the table lacks. Returns the names added."""
+        if not inspector.has_table(table):
+            return set()
+        existing = {col["name"] for col in inspector.get_columns(table)}
+        added = set()
+        with engine.connect() as conn:
+            for name, ddl in columns:
+                if name not in existing:
+                    logger.info("Adding %s column to %s", name, table)
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
+                    added.add(name)
+            conn.commit()
+        return added
+
     # Handle schema updates for existing databases
     try:
-        # Check if invite_quota column exists in users table
-        if inspector.has_table("users"):
-            columns = [col["name"] for col in inspector.get_columns("users")]
-            if "invite_quota" not in columns:
-                logger.info("Adding invite_quota column to users table")
-                with engine.connect() as conn:
-                    conn.execute(
-                        text("ALTER TABLE users ADD COLUMN invite_quota INTEGER DEFAULT 5")
-                    )
-                    conn.commit()
+        _add_columns(
+            "vocabulary_lists",
+            [("apply_as_glossary", "BOOLEAN DEFAULT 0"), ("dict_version", "VARCHAR(64)")],
+        )
 
-        if inspector.has_table("vocabulary_lists"):
-            vl_cols = {col["name"] for col in inspector.get_columns("vocabulary_lists")}
-            if "apply_as_glossary" not in vl_cols:
-                logger.info("Adding apply_as_glossary column to vocabulary_lists")
-                with engine.connect() as conn:
-                    conn.execute(
-                        text(
-                            "ALTER TABLE vocabulary_lists ADD COLUMN apply_as_glossary "
-                            "BOOLEAN DEFAULT 0"
-                        )
+        added = _add_columns(
+            "saved_texts",
+            [
+                ("share_token", "VARCHAR(36)"),
+                ("glossary_list_ids", "TEXT"),
+                # Text folders: the folder a text lives in and its place there.
+                ("folder_id", "INTEGER"),
+                ("position", "INTEGER"),
+                # Comprehension questions for the text (services/text_quiz).
+                ("quiz", "TEXT"),
+            ],
+        )
+        with engine.connect() as conn:
+            if "share_token" in added:
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS ix_saved_texts_share_token "
+                        "ON saved_texts(share_token)"
                     )
-                    conn.commit()
-            if "dict_version" not in vl_cols:
-                logger.info("Adding dict_version column to vocabulary_lists")
-                with engine.connect() as conn:
-                    conn.execute(
-                        text("ALTER TABLE vocabulary_lists ADD COLUMN dict_version VARCHAR(64)")
+                )
+            if "folder_id" in added:
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_saved_texts_folder_id "
+                        "ON saved_texts(folder_id)"
                     )
-                    conn.commit()
+                )
+            conn.commit()
 
+        # reading_progress is a 0..1 fraction; rows from older versions hold
+        # 0..100. Idempotent: afterwards no row is above 1.
         if inspector.has_table("saved_texts"):
-            st_cols = {col["name"] for col in inspector.get_columns("saved_texts")}
-            if "share_token" not in st_cols:
-                logger.info("Adding share_token column to saved_texts")
-                with engine.connect() as conn:
-                    conn.execute(text("ALTER TABLE saved_texts ADD COLUMN share_token VARCHAR(36)"))
-                    conn.execute(
-                        text(
-                            "CREATE UNIQUE INDEX IF NOT EXISTS ix_saved_texts_share_token "
-                            "ON saved_texts(share_token)"
-                        )
-                    )
-                    conn.commit()
-            if "glossary_list_ids" not in st_cols:
-                logger.info("Adding glossary_list_ids column to saved_texts")
-                with engine.connect() as conn:
-                    conn.execute(text("ALTER TABLE saved_texts ADD COLUMN glossary_list_ids TEXT"))
-                    conn.commit()
-            # Text folders: the folder a text lives in and its place there.
-            if "folder_id" not in st_cols:
-                logger.info("Adding folder_id and position columns to saved_texts")
-                with engine.connect() as conn:
-                    conn.execute(text("ALTER TABLE saved_texts ADD COLUMN folder_id INTEGER"))
-                    conn.execute(text("ALTER TABLE saved_texts ADD COLUMN position INTEGER"))
-                    conn.execute(
-                        text(
-                            "CREATE INDEX IF NOT EXISTS ix_saved_texts_folder_id "
-                            "ON saved_texts(folder_id)"
-                        )
-                    )
-                    conn.commit()
-            # Comprehension questions for the text (services/text_quiz).
-            if "quiz" not in st_cols:
-                logger.info("Adding quiz column to saved_texts")
-                with engine.connect() as conn:
-                    conn.execute(text("ALTER TABLE saved_texts ADD COLUMN quiz TEXT"))
-                    conn.commit()
-
-        if inspector.has_table("users"):
-            user_cols = {col["name"] for col in inspector.get_columns("users")}
             with engine.connect() as conn:
-                if "streak_count" not in user_cols:
-                    logger.info("Adding streak_count column to users")
-                    conn.execute(
-                        text("ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0")
+                conn.execute(
+                    text(
+                        "UPDATE saved_texts SET reading_progress = "
+                        "MIN(reading_progress / 100.0, 1.0) WHERE reading_progress > 1"
                     )
-                if "streak_last_active" not in user_cols:
-                    logger.info("Adding streak_last_active column to users")
-                    conn.execute(text("ALTER TABLE users ADD COLUMN streak_last_active DATE"))
-                if "streak_freeze_count" not in user_cols:
-                    logger.info("Adding streak_freeze_count column to users")
-                    conn.execute(
-                        text("ALTER TABLE users ADD COLUMN streak_freeze_count INTEGER DEFAULT 0")
-                    )
-                if "daily_new_words" not in user_cols:
-                    logger.info("Adding daily_new_words column to users")
-                    conn.execute(
-                        text("ALTER TABLE users ADD COLUMN daily_new_words INTEGER DEFAULT 0")
-                    )
-                if "hsk_focus_version" not in user_cols:
-                    logger.info("Adding hsk_focus_version column to users")
-                    conn.execute(
-                        text(
-                            "ALTER TABLE users ADD COLUMN hsk_focus_version "
-                            "VARCHAR(8) DEFAULT 'new'"
-                        )
-                    )
-                if "display_script" not in user_cols:
-                    logger.info("Adding display_script column to users")
-                    conn.execute(
-                        text(
-                            "ALTER TABLE users ADD COLUMN display_script VARCHAR(8) DEFAULT 'auto'"
-                        )
-                    )
-                if "review_retention" not in user_cols:
-                    logger.info("Adding review_retention column to users")
-                    conn.execute(
-                        text("ALTER TABLE users ADD COLUMN review_retention FLOAT DEFAULT 0.95")
-                    )
-                if "review_window" not in user_cols:
-                    logger.info("Adding review_window column to users")
-                    conn.execute(
-                        text(
-                            "ALTER TABLE users ADD COLUMN review_window VARCHAR(16) DEFAULT 'today'"
-                        )
-                    )
-                if "review_focus" not in user_cols:
-                    logger.info("Adding review_focus column to users")
-                    conn.execute(
-                        text("ALTER TABLE users ADD COLUMN review_focus VARCHAR(16) DEFAULT 'both'")
-                    )
-                if "timezone" not in user_cols:
-                    logger.info("Adding timezone column to users")
-                    conn.execute(text("ALTER TABLE users ADD COLUMN timezone VARCHAR(64)"))
-                if "ui_settings" not in user_cols:
-                    logger.info("Adding ui_settings column to users")
-                    conn.execute(text("ALTER TABLE users ADD COLUMN ui_settings TEXT"))
-                if "account_status" not in user_cols:
-                    logger.info("Adding account_status column to users")
-                    conn.execute(
-                        text(
-                            "ALTER TABLE users ADD COLUMN account_status "
-                            "VARCHAR(16) DEFAULT 'active'"
-                        )
-                    )
-                if "token_version" not in user_cols:
-                    logger.info("Adding token_version column to users")
-                    conn.execute(
-                        text(
-                            "ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0"
-                        )
-                    )
+                )
                 conn.commit()
 
-        if inspector.has_table("user_words"):
-            uw_cols = {col["name"] for col in inspector.get_columns("user_words")}
-            needed = [
+        _add_columns(
+            "users",
+            [
+                ("invite_quota", "INTEGER DEFAULT 5"),
+                ("streak_count", "INTEGER DEFAULT 0"),
+                ("streak_last_active", "DATE"),
+                ("streak_freeze_count", "INTEGER DEFAULT 0"),
+                ("daily_new_words", "INTEGER DEFAULT 0"),
+                ("hsk_focus_version", "VARCHAR(8) DEFAULT 'new'"),
+                ("display_script", "VARCHAR(8) DEFAULT 'auto'"),
+                ("review_retention", "FLOAT DEFAULT 0.95"),
+                ("review_window", "VARCHAR(16) DEFAULT 'today'"),
+                ("review_focus", "VARCHAR(16) DEFAULT 'both'"),
+                ("timezone", "VARCHAR(64)"),
+                ("ui_settings", "TEXT"),
+                ("account_status", "VARCHAR(16) DEFAULT 'active'"),
+                ("token_version", "INTEGER NOT NULL DEFAULT 0"),
+            ],
+        )
+
+        _add_columns(
+            "user_words",
+            [
                 ("stability", "FLOAT"),
                 ("difficulty", "FLOAT"),
                 ("fsrs_state", "TEXT"),
@@ -720,13 +656,8 @@ def init_db():
                 ("sample_source", "VARCHAR(160)"),
                 ("meaning_source", "VARCHAR(32)"),
                 ("modes_completed", "TEXT NOT NULL DEFAULT '[]'"),
-            ]
-            with engine.connect() as conn:
-                for name, sql_type in needed:
-                    if name not in uw_cols:
-                        logger.info("Adding %s column to user_words", name)
-                        conn.execute(text(f"ALTER TABLE user_words ADD COLUMN {name} {sql_type}"))
-                conn.commit()
+            ],
+        )
 
         # 'known' words are high-stability cards in the SRS rotation. Rows
         # marked known without FSRS state get a Review-phase state with the
@@ -760,23 +691,10 @@ def init_db():
                 session.rollback()
             finally:
                 session.close()
-        if inspector.has_table("user_word_events"):
-            ev_cols = {col["name"] for col in inspector.get_columns("user_word_events")}
-            if "grade" not in ev_cols:
-                logger.info("Adding grade column to user_word_events")
-                with engine.connect() as conn:
-                    conn.execute(text("ALTER TABLE user_word_events ADD COLUMN grade INTEGER"))
-                    conn.commit()
-            if "mode" not in ev_cols:
-                logger.info("Adding mode column to user_word_events")
-                with engine.connect() as conn:
-                    conn.execute(text("ALTER TABLE user_word_events ADD COLUMN mode VARCHAR(16)"))
-                    conn.commit()
-            if "word_count" not in ev_cols:
-                logger.info("Adding word_count column to user_word_events")
-                with engine.connect() as conn:
-                    conn.execute(text("ALTER TABLE user_word_events ADD COLUMN word_count INTEGER"))
-                    conn.commit()
+        _add_columns(
+            "user_word_events",
+            [("grade", "INTEGER"), ("mode", "VARCHAR(16)"), ("word_count", "INTEGER")],
+        )
 
         # Every UserWord with a meaning but no gloss row gets one carrying
         # its current meaning + pinyin + source. Idempotent.

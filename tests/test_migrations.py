@@ -291,3 +291,26 @@ def test_init_db_adds_folder_columns_to_saved_texts(db_file):
     assert {"folder_id", "position", "quiz"} <= _columns(engine, "saved_texts")
     assert "parent_id" in _columns(engine, "text_folders")
     init_db()
+
+
+def test_init_db_normalises_percent_reading_progress(db_file):
+    from sqlalchemy import text
+
+    from app.database import init_db
+
+    engine = db_file()
+    init_db()
+    with engine.begin() as conn:
+        for text_id, progress in [(1, 40), (2, 100), (3, 0.5), (4, 0), (5, 1)]:
+            conn.execute(
+                text(
+                    "INSERT INTO saved_texts (id, user_id, title, content, reading_progress) "
+                    "VALUES (:id, 1, 't', 'c', :p)"
+                ),
+                {"id": text_id, "p": progress},
+            )
+    init_db()
+    init_db()
+    with engine.connect() as conn:
+        rows = dict(conn.execute(text("SELECT id, reading_progress FROM saved_texts")).all())
+    assert rows == {1: 0.4, 2: 1.0, 3: 0.5, 4: 0, 5: 1}

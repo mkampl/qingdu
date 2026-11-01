@@ -34,6 +34,10 @@ def is_cjk_word(word: str) -> bool:
     return bool(word) and all(is_cjk_char(c) for c in word)
 
 
+def has_cjk(text: str) -> bool:
+    return any(is_cjk_char(c) for c in text)
+
+
 def dictionaries_loaded() -> bool:
     """Both HSK and CC-CEDICT are in memory. Without CC-CEDICT there is no
     way to tell a real word from a phrase, so callers then keep tokens as

@@ -17,6 +17,7 @@ looked at again.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import random
@@ -30,7 +31,7 @@ from sqlalchemy.orm import Session
 
 from app.database import GrammarProgress, SavedText, SessionLocal, UserLibraryProgress
 from app.services import grammar, grammar_catalog, grammar_tagging, library
-from app.services.reading_progress import READ_THROUGH, progress_fraction
+from app.services.reading_progress import READ_THROUGH
 from app.services.segmentation import _group_sentences, segment_text
 from app.services.timestamps import iso_utc
 
@@ -124,7 +125,7 @@ def _sources(db: Session, user_id: int) -> list[tuple[str, str, bool, int | None
                 words if isinstance(words, list) else [],
                 data.get("sentence_translations") or {},
             )
-        read = progress_fraction(progress) >= READ_THROUGH
+        read = (progress or 0) >= READ_THROUGH
         out.append((key, title or "", read, None, tg))
 
     read_slugs = {
@@ -141,6 +142,15 @@ def _sources(db: Session, user_id: int) -> list[tuple[str, str, bool, int | None
         )
         out.append((key, entry["title"], entry["slug"] in read_slugs, entry["hsk_level"], tg))
     return out
+
+
+async def prewarm_in_background() -> None:
+    """prewarm() in a worker thread, logging the outcome."""
+    try:
+        n = await asyncio.to_thread(prewarm)
+        logger.info("Grammar cache warmed (%d texts)", n)
+    except Exception:
+        logger.exception("Grammar prewarm failed")
 
 
 def prewarm(session_factory=SessionLocal) -> int:

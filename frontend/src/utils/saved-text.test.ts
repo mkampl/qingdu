@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SavedTextSummary } from "@/api/types";
-import { matchesSearch, normalizeProgress, parseTags, previewSnippet } from "./saved-text";
+import { matchesSearch, parseTags, previewSnippet } from "./saved-text";
 
 describe("parseTags", () => {
   it("returns [] for empty, null or malformed input", () => {
@@ -13,18 +13,6 @@ describe("parseTags", () => {
 
   it("keeps only string entries of a JSON array", () => {
     expect(parseTags('["news", 3, "hsk4", null]')).toEqual(["news", "hsk4"]);
-  });
-});
-
-describe("normalizeProgress", () => {
-  it("accepts both 0..1 and older 0..100 values", () => {
-    expect(normalizeProgress(null)).toBe(0);
-    expect(normalizeProgress(Number.NaN)).toBe(0);
-    expect(normalizeProgress(0.4)).toBe(0.4);
-    expect(normalizeProgress(1)).toBe(1);
-    expect(normalizeProgress(40)).toBe(0.4);
-    expect(normalizeProgress(250)).toBe(1);
-    expect(normalizeProgress(-0.5)).toBe(0);
   });
 });
 

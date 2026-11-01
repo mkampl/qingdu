@@ -10,7 +10,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useAuthModalsStore } from "@/stores/auth-modals";
 import { useToastStore } from "@/stores/toast";
 import type { LoadState } from "@/utils/load-state";
-import { formatUtcDate } from "@/utils/time";
+import { formatFullDate } from "@/utils/time";
 
 import Button from "@/components/ui/Button.vue";
 import Modal from "@/components/ui/Modal.vue";
@@ -216,18 +216,6 @@ async function submitReset(e: Event) {
       e instanceof ApiError ? e.message : "Couldn't reset the password.";
   } finally {
     resetting.value = false;
-  }
-}
-
-// --- Date helper ---------------------------------------------------------
-
-function formatDate(iso: string): string {
-  try {
-    return (
-      formatUtcDate(iso, { year: "numeric", month: "short", day: "numeric" }) || iso
-    );
-  } catch {
-    return iso;
   }
 }
 
@@ -484,10 +472,10 @@ watch(
               </button>
             </td>
             <td class="hidden px-5 py-3 text-sm text-fg-muted lg:table-cell">
-              {{ formatDate(user.last_active) }}
+              {{ formatFullDate(user.last_active) }}
             </td>
             <td class="hidden px-5 py-3 text-sm text-fg-muted sm:table-cell">
-              {{ formatDate(user.created_at) }}
+              {{ formatFullDate(user.created_at) }}
             </td>
             <td class="px-5 py-3 text-right">
               <div class="inline-flex items-center gap-1">

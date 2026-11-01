@@ -22,14 +22,13 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_auth
 from app.database import User, UserWord, UserWordEvent, get_db
-from app.services import cloze, readability, review_scope, srs, tone_drill, user_words
+from app.services import cloze, localday, readability, review_scope, srs, tone_drill, user_words
 from app.services.cedict_loader import cap_meanings
 from app.services.due import (
     ACTIVE_REVIEW_STATES,
     due_clause,
     end_of_day,
     review_window_clause,
-    utcnow,
 )
 from app.services.enrollment import enroll_daily_words, enrolled_today
 from app.services.localday import start_of_today, user_tz
@@ -205,7 +204,7 @@ def review_queue(
     Plain `def`: everything in here is sync DB work, so FastAPI runs it
     in the threadpool instead of blocking the event loop.
     """
-    now = utcnow()
+    now = localday.utcnow()
     tz = user_tz(user)
     scope = review_scope.resolve(db, user, text_key, list_id)
     if scope is None and enroll_daily_words(user, db, now):
@@ -321,7 +320,7 @@ def review_stats(
 
     "Today" is the user's local day (services.localday, users.timezone).
     """
-    now = utcnow()
+    now = localday.utcnow()
     tz = user_tz(user)
     midnight_today = start_of_today(now, tz)
 

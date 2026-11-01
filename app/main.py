@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 
+from app.core.constants import APP_VERSION
 from app.core.paths import STATIC_DIR
 from app.core.rate_limit import limiter
 from app.database import init_db
@@ -68,27 +69,14 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="轻读 QingDu - Chinese Text Analyzer",
     description="""
-    A modern Chinese language learning tool that analyzes text difficulty based on HSK vocabulary levels.
+    Analyse Chinese text against HSK 1-9, learn its words with FSRS review,
+    and read graded texts. The web app and the Android app use this API.
 
-    ## Features
-
-    * **Text Analysis**: Analyze Chinese text and get HSK level information for each word
-    * **Translation**: Multi-provider translation with DeepL, Google, and MyMemory
-    * **Text Management**: Save and organize analyzed texts with tags
-    * **Vocabulary Lists**: Create custom vocabulary lists and export to Anki
-    * **User Management**: Multi-user support with role-based access
-
-    ## Authentication
-
-    Most endpoints require authentication using JWT tokens. Include the token in the
-    `Authorization` header:
-    ```
-    Authorization: Bearer <your-token>
-    ```
-
-    Get a token by calling `/api/auth/login` with your credentials.
+    Most endpoints need a JWT: call `/api/auth/login` and send the token as
+    `Authorization: Bearer <token>`. The `/api/external/*` endpoints also take
+    a personal access token (`qd_…`, issued under `/api/tokens`).
     """,
-    version="1.0.0",
+    version=APP_VERSION,
     contact={"name": "QingDu Support", "url": "https://github.com/mkampl/qingdu"},
     license_info={"name": "MIT"},
 )
@@ -225,20 +213,17 @@ def _validate_environment() -> None:
     logger.info("Environment validation passed")
     logger.info(f"LOG_LEVEL: {os.getenv('LOG_LEVEL', 'INFO')}")
     logger.info(f"PORT: {os.getenv('PORT', '8000')}")
-    logger.info(f"ALLOWED_ORIGINS: {os.getenv('ALLOWED_ORIGINS', '*')}")
+    logger.info(f"ALLOWED_ORIGINS: {os.getenv('ALLOWED_ORIGINS') or '(none)'}")
     logger.info(f"DEEPL_API_KEY configured: {bool(os.getenv('DEEPL_API_KEY'))}")
     logger.info(
         f"GOOGLE_TRANSLATE_API_KEY configured: {bool(os.getenv('GOOGLE_TRANSLATE_API_KEY'))}"
     )
 
 
-@app.on_event("startup")
-async def startup_event() -> None:
-    """Load HSK vocabulary, init the DB, and warm up jieba."""
-    from app.core.paths import DATA_DIR
+async def _load_dictionaries() -> None:
+    """HSK vocabulary, then CC-CEDICT on top, then jieba. The app still
+    starts when one of them fails, with fewer meanings."""
     from app.services.segmentation import prime_jieba
-
-    _validate_environment()
 
     logger.info("Loading pinned HSK vocabulary...")
     try:
@@ -248,9 +233,6 @@ async def startup_event() -> None:
         logger.error(f"Failed to load HSK vocabulary: {e}", exc_info=True)
         logger.warning("Application will start without vocabulary - some features may not work")
 
-    # CC-CEDICT — overlay richer meanings onto hsk_vocab and populate
-    # `cedict_vocab` for non-HSK lookups. Reads the vendored snapshot; if
-    # no copy is available the app keeps working on plain HSK data.
     logger.info("Loading CC-CEDICT...")
     try:
         await load_cedict()
@@ -261,136 +243,42 @@ async def startup_event() -> None:
     added_to_jieba = prime_jieba()
     logger.info(f"Added {added_to_jieba} multi-character HSK words with priority to jieba")
 
-    _release_startup_memory()
 
+def _start_background_tasks() -> None:
+    """Start the periodic tasks; shutdown_event cancels them.
+
+    Skipped under pytest (conftest sets QINGDU_SKIP_SCHEDULER=1): a task
+    that outlives the TestClient breaks event-loop teardown."""
+    if os.getenv("QINGDU_SKIP_SCHEDULER"):
+        return
+    import asyncio
+
+    from app.services import grammar_book, grammar_tagging, lifecycle, llm
+
+    app.state.lifecycle_task = asyncio.create_task(lifecycle.run_forever())
+    logger.info("Lifecycle scheduler started (interval=%ds)", lifecycle.LIFECYCLE_INTERVAL_S)
+    app.state.grammar_prewarm_task = asyncio.create_task(grammar_book.prewarm_in_background())
+    if llm.config() is not None:
+        app.state.llm_probe_task = asyncio.create_task(llm.probe_forever())
+        app.state.grammar_tagging_task = asyncio.create_task(grammar_tagging.worker())
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    """Load the dictionaries, set up the DB, then start background tasks."""
+    from app.services.admin_bootstrap import ensure_admin
+    from app.services.snapshot_backfill import run_at_startup as refresh_snapshots
+
+    _validate_environment()
+    await _load_dictionaries()
+    _release_startup_memory()
     logger.info("Initializing database...")
     init_db()
     logger.info("Database initialized")
-
-    # Refresh per-user word snapshots when the dictionary version changed
-    # since the last run, so pinyin/meaning fixes reach rows snapshotted
-    # with older glosses. Needs the tables, hence after init_db.
-    from app.services.snapshot_backfill import run_at_startup as _refresh_snapshots
-
-    _refresh_snapshots()
-
-    # Bootstrap default admin if no users exist.
-    import secrets
-
-    from app.auth import get_password_hash
-    from app.database import SessionLocal, User
-
-    db = SessionLocal()
-    try:
-        user_count = db.query(User).count()
-        if user_count == 0:
-            # Per-deploy random password. Written once to disk so the operator
-            # can recover it after a fresh container start, and printed loudly
-            # to the startup logs. Keeps a public deployment from shipping a
-            # well-known default ('admin123').
-            password = secrets.token_urlsafe(16)
-            admin_user = User(
-                username="admin",
-                password_hash=get_password_hash(password),
-                is_admin=True,
-                must_change_password=True,
-                invite_quota=-1,
-            )
-            db.add(admin_user)
-            db.commit()
-
-            try:
-                bootstrap_file = DATA_DIR / "admin_bootstrap.txt"
-                bootstrap_file.write_text(
-                    f"username: admin\npassword: {password}\n",
-                    encoding="utf-8",
-                )
-                bootstrap_file.chmod(0o600)
-            except Exception:
-                # Disk write is convenience, not correctness — logs always win.
-                pass
-
-            banner = "=" * 60
-            logger.warning(banner)
-            logger.warning("Initial admin user created — CHANGE PASSWORD ON FIRST LOGIN")
-            logger.warning("  username: admin")
-            logger.warning(f"  password: {password}")
-            logger.warning("Also written to /app/data/admin_bootstrap.txt (mode 0600).")
-            logger.warning(banner)
-        else:
-            logger.info(f"Found {user_count} existing user(s)")
-    except Exception as e:
-        logger.error(f"Error setting up users: {e}", exc_info=True)
-        db.rollback()
-    finally:
-        db.close()
-
-    # Account-lifecycle sweep. Runs immediately
-    # so a fresh container catches up on anyone who went dormant while it
-    # was offline, then again every 6 h. Silently no-ops when both
-    # soft_delete_days and hard_delete_days are 0 (the default).
-    #
-    # Skipped under pytest (conftest sets QINGDU_SKIP_SCHEDULER=1) — the
-    # TestClient context manager triggers this startup, and an orphan
-    # asyncio task that outlives the test session crashes CI on event-loop
-    # teardown with "Task was destroyed but it is pending!" errors.
-    if not os.getenv("QINGDU_SKIP_SCHEDULER"):
-        import asyncio
-
-        from app.services.lifecycle import run_lifecycle_pass
-
-        LIFECYCLE_INTERVAL_S = 6 * 60 * 60
-
-        async def _lifecycle_loop() -> None:
-            try:
-                run_lifecycle_pass()
-            except Exception:
-                logger.exception("initial lifecycle pass failed")
-            while True:
-                await asyncio.sleep(LIFECYCLE_INTERVAL_S)
-                try:
-                    run_lifecycle_pass()
-                except Exception:
-                    logger.exception("scheduled lifecycle pass failed")
-
-        task = asyncio.create_task(_lifecycle_loop())
-        app.state.lifecycle_task = task
-        logger.info("Lifecycle scheduler started (interval=%ds)", LIFECYCLE_INTERVAL_S)
-
-        # Grammar section: read every text's analysis once now rather than
-        # on the first visit (services/grammar_book).
-        from app.services import grammar_book
-
-        async def _grammar_prewarm() -> None:
-            try:
-                n = await asyncio.to_thread(grammar_book.prewarm)
-                logger.info("Grammar cache warmed (%d texts)", n)
-            except Exception:
-                logger.exception("Grammar prewarm failed")
-
-        app.state.grammar_prewarm_task = asyncio.create_task(_grammar_prewarm())
-
-        # Optional LLM: check the endpoint now and every few minutes, so
-        # features appear when it comes up and vanish when it goes away.
-        from app.services import llm
-
-        if llm.config() is not None:
-
-            async def _llm_probe_loop() -> None:
-                while True:
-                    try:
-                        await llm.probe()
-                    except Exception:
-                        logger.exception("LLM probe failed")
-                    await asyncio.sleep(llm.PROBE_INTERVAL_S)
-
-            app.state.llm_probe_task = asyncio.create_task(_llm_probe_loop())
-
-            # Grammar points of the users' sentences, worked off in the
-            # background while the LLM is up (services/grammar_tagging).
-            from app.services import grammar_tagging
-
-            app.state.grammar_tagging_task = asyncio.create_task(grammar_tagging.worker())
+    # Refresh user-word glosses when the dictionary version changed.
+    refresh_snapshots()
+    ensure_admin()
+    _start_background_tasks()
 
 
 @app.on_event("shutdown")

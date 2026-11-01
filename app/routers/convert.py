@@ -11,21 +11,11 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
-from opencc import OpenCC
 from pydantic import BaseModel
 
+from app.services.script import converter
+
 router = APIRouter(tags=["Convert"])
-
-
-# Direction-keyed converter cache. OpenCC instantiation reads a JSON config
-# from disk; we only want to do it once per direction per process.
-_CONVERTERS: dict[str, OpenCC] = {}
-
-
-def _converter(direction: str) -> OpenCC:
-    if direction not in _CONVERTERS:
-        _CONVERTERS[direction] = OpenCC(direction)
-    return _CONVERTERS[direction]
 
 
 # Common Traditional-only characters. Hits add to the t2s round-trip score
@@ -51,7 +41,7 @@ async def convert_script(payload: ConvertRequest) -> dict:
     if not text:
         return {"converted": "", "direction": payload.direction}
     try:
-        converted = _converter(payload.direction).convert(text)
+        converted = converter(payload.direction).convert(text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Conversion failed: {e!s}") from e
     return {"converted": converted, "direction": payload.direction}
@@ -80,7 +70,7 @@ async def detect_script(payload: DetectRequest) -> dict:
         return {"script": "unknown", "confidence": 0.0}
 
     sample_str = "".join(sample)
-    simplified = _converter("t2s").convert(sample_str)
+    simplified = converter("t2s").convert(sample_str)
     # Count chars that changed under t2s — those are Traditional-only.
     changed = sum(1 for a, b in zip(sample_str, simplified, strict=False) if a != b)
     indicator_hits = sum(1 for ch in sample if ch in _TRADITIONAL_INDICATOR_CHARS)

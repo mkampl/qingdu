@@ -21,7 +21,7 @@ from app.database import User
 
 
 @lru_cache(maxsize=2)
-def _converter(direction: str) -> OpenCC:
+def converter(direction: str) -> OpenCC:
     """direction is 's2t' or 't2s'. Cached so we build each converter once."""
     return OpenCC(direction)
 
@@ -37,10 +37,8 @@ def to_user_script(text: str, user: User | None) -> str:
     """Convert one string to the user's preferred script.
 
     'auto' is a no-op so user data stays untouched. 'simp' normalises any
-    Traditional characters to Simplified; 'trad' does the reverse. The
-    string is returned unchanged if it's empty or has no CJK content
-    (cheap early-out — opencc handles non-CJK too but the call is
-    measurable on hot paths like analyze).
+    Traditional characters to Simplified; 'trad' does the reverse. An
+    empty string is returned as is.
     """
     if not text:
         return text
@@ -48,9 +46,9 @@ def to_user_script(text: str, user: User | None) -> str:
     if pref == "auto":
         return text
     if pref == "trad":
-        return _converter("s2t").convert(text)
+        return converter("s2t").convert(text)
     if pref == "simp":
-        return _converter("t2s").convert(text)
+        return converter("t2s").convert(text)
     return text
 
 
@@ -68,7 +66,7 @@ def to_canonical(text: str, user: User | None) -> str:
     pref = user_script(user)
     if pref == "auto":
         return text
-    return _converter("t2s").convert(text)
+    return converter("t2s").convert(text)
 
 
 def script_variants(text: str) -> set[str]:
@@ -78,7 +76,7 @@ def script_variants(text: str) -> set[str]:
     keep whatever they typed, so a query is matched in both scripts."""
     if not text:
         return set()
-    return {text, _converter("t2s").convert(text), _converter("s2t").convert(text)}
+    return {text, converter("t2s").convert(text), converter("s2t").convert(text)}
 
 
 def convert_analysis_data(data: dict | list | None, user: User | None) -> dict | list | None:

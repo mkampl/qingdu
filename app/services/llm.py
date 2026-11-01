@@ -263,6 +263,17 @@ async def probe() -> Status:
     return _status
 
 
+async def probe_forever() -> None:
+    """Probe the endpoint now and every PROBE_INTERVAL_S, so LLM features
+    appear when it comes up and vanish when it goes away."""
+    while True:
+        try:
+            await probe()
+        except Exception:
+            logger.exception("LLM probe failed")
+        await asyncio.sleep(PROBE_INTERVAL_S)
+
+
 def enabled(feature: str) -> bool:
     cfg = config()
     return bool(cfg and _status.available and feature in cfg.features)

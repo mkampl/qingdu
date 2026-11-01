@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_api_scope
 from app.database import User, UserWord, get_db
+from app.services.levels import entry_level
 from app.services.script import to_canonical
 from app.services.streak import record_activity
 from app.services.user_words import may_create_word, upsert_word
@@ -33,13 +34,6 @@ class EncounteredWord(BaseModel):
 
 class EncounteredWordsRequest(BaseModel):
     words: list[EncounteredWord]
-
-
-def _hsk_level(word: str) -> str | None:
-    entry = hsk_vocab.get(word)
-    if not entry:
-        return None
-    return entry.get("level_new") or entry.get("level_old")
 
 
 @router.get("/words")
@@ -62,7 +56,7 @@ async def list_known_words(
                 "state": row.state,
                 "pinyin": row.pinyin,
                 "meaning": row.meaning,
-                "hsk_level": _hsk_level(row.word),
+                "hsk_level": entry_level(hsk_vocab.get(row.word)),
             }
             for row in rows
         ]

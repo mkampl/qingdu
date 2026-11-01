@@ -246,6 +246,22 @@ def hsk_level_number(word: str) -> int | None:
     return level_number((hsk_vocab.get(word) or {}).get("level_new"))
 
 
+def known_words(
+    db: Session, user_id: int, max_level: int, states: tuple[str, ...], limit: int
+) -> list[str]:
+    """The user's words in `states` at or below `max_level` (at least HSK 2),
+    most frequent first: everyday words for a generated text."""
+    words = [
+        w
+        for (w,) in db.query(UserWord.word).filter(
+            UserWord.user_id == user_id, UserWord.state.in_(states)
+        )
+        if (hsk_level_number(w) or 99) <= max(max_level, 2)
+    ]
+    words.sort(key=lambda w: -int((hsk_vocab.get(w) or {}).get("frequency") or 0))
+    return words[:limit]
+
+
 def missing_payload(word: str, count: int) -> dict:
     pinyin, meaning = lookup_pinyin_meaning(word)
     return {

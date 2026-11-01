@@ -39,11 +39,10 @@ _SAMPLES_DIR = Path(__file__).resolve().parent.parent / "data" / "packages"
 async def import_package_body(
     package: QingduPackage,
     strict: bool = Query(True, description="Reject mismatched token concatenation."),
-    user: User = Depends(require_auth),
+    _user: User = Depends(require_auth),
 ) -> dict:
     """Import a package sent as the JSON body. Nothing is stored; save the
     result via /api/texts/save."""
-    _ = user
     return _do_import(package, strict=strict)
 
 
@@ -51,10 +50,9 @@ async def import_package_body(
 async def import_package_file(
     file: UploadFile = File(...),
     strict: bool = Query(True),
-    user: User = Depends(require_auth),
+    _user: User = Depends(require_auth),
 ) -> dict:
     """Import a package uploaded as a .json file."""
-    _ = user
     raw = await file.read(_MAX_PACKAGE_BYTES + 1)
     if len(raw) > _MAX_PACKAGE_BYTES:
         raise HTTPException(

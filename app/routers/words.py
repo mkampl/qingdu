@@ -29,9 +29,9 @@ from app.schemas import (
     SnoozeRequest,
     WordStateUpdate,
 )
-from app.services import cloze, user_words
-from app.services.due import due_clause, end_of_day, utcnow
-from app.services.levels import level_number
+from app.services import cloze, localday, user_words
+from app.services.due import due_clause, end_of_day
+from app.services.levels import entry_level, level_number
 from app.services.localday import user_tz
 from app.services.script import to_canonical, to_user_script
 from app.services.streak import current_streak, record_activity
@@ -96,7 +96,7 @@ async def set_word_state(
     db.commit()
     # The scheduling fields let a list view patch its row with what the
     # server actually did (marking known reschedules due_at 60-180 d out).
-    return {"word": word, "state": payload.state, **_schedule_fields(row, utcnow())}
+    return {"word": word, "state": payload.state, **_schedule_fields(row, localday.utcnow())}
 
 
 @router.delete("/api/words/state")
@@ -172,20 +172,8 @@ async def import_hsk_known(
 
 
 def _hsk_level(entry: dict | None, hsk_version: str = "new") -> int | None:
-    """Numeric HSK level of a hsk_vocab entry for the chosen HSK version.
-
-    Mirrors the reader's levelForVersion(): the preferred version's level,
-    falling back to the other one when the word only exists in that list.
-    """
-    if not entry:
-        return None
-    first, second = (
-        ("level_old", "level_new") if hsk_version == "old" else ("level_new", "level_old")
-    )
-    lvl = level_number(entry.get(first), ("new-", "old-"))
-    if lvl is None:
-        lvl = level_number(entry.get(second), ("new-", "old-"))
-    return lvl
+    """Numeric HSK level of a hsk_vocab entry, like the reader's levelForVersion()."""
+    return level_number(entry_level(entry, hsk_version), ("new-", "old-"))
 
 
 def _schedule_fields(row: UserWord, now: datetime) -> dict:
@@ -231,7 +219,7 @@ async def list_queue(
     if hsk_version not in {"new", "old"}:
         raise HTTPException(400, "hsk_version must be 'new' or 'old'")
 
-    now = utcnow()
+    now = localday.utcnow()
     q = db.query(UserWord).filter(UserWord.user_id == user.id)
 
     if state:
@@ -324,7 +312,7 @@ async def snooze_word(
     if row is None:
         raise HTTPException(404, "word not in your queue")
 
-    now = utcnow()
+    now = localday.utcnow()
     base = max(row.due_at or now, now)
     row.due_at = base + timedelta(days=days)
     user_words.record_event(db, user.id, word, "snooze")

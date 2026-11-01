@@ -3,7 +3,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.auth import require_auth
@@ -12,7 +12,7 @@ from app.database import SavedText, User, get_db
 from app.services import cloze, dict_data, readability, text_folders
 from app.services.gloss_refresh import DICT_VERSION_KEY, refresh_analysis
 from app.services.migrations import migrate_analysis_data
-from app.services.reading_progress import READ_THROUGH, progress_fraction
+from app.services.reading_progress import READ_THROUGH
 from app.services.script import convert_analysis_data, to_user_script
 from app.services.streak import record_activity
 from app.services.timestamps import iso_utc
@@ -52,7 +52,7 @@ class UpdateTextRequest(BaseModel):
 
     title: str | None = None
     tags: list[str] | None = None
-    reading_progress: float | None = None
+    reading_progress: float | None = Field(None, ge=0, le=1)
     content: str | None = None
     analysis_data: dict | None = None
     glossary_list_ids: list[int] | None = None
@@ -344,9 +344,9 @@ async def update_text(
     if "tags" in data:
         text.tags = json.dumps(data["tags"]) if data["tags"] else None
     if "reading_progress" in data:
-        before = progress_fraction(text.reading_progress)
+        before = text.reading_progress or 0
         text.reading_progress = data["reading_progress"]
-        if before < READ_THROUGH <= progress_fraction(text.reading_progress):
+        if before < READ_THROUGH <= (text.reading_progress or 0):
             # Read to the end: counts for the streak like a review does.
             record_activity(user, db)
     if "content" in data:

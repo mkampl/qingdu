@@ -15,6 +15,7 @@ thereafter.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from datetime import datetime, timedelta
@@ -289,3 +290,17 @@ def run_lifecycle_pass(db: Session | None = None) -> dict[str, int]:
     finally:
         if own_session:
             db.close()
+
+
+LIFECYCLE_INTERVAL_S = 6 * 60 * 60
+
+
+async def run_forever() -> None:
+    """Run the lifecycle pass now, so a fresh container catches up on users
+    who went dormant while it was down, then every LIFECYCLE_INTERVAL_S."""
+    while True:
+        try:
+            run_lifecycle_pass()
+        except Exception:
+            logger.exception("lifecycle pass failed")
+        await asyncio.sleep(LIFECYCLE_INTERVAL_S)

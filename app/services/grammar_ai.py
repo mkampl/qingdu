@@ -17,13 +17,11 @@ from collections import OrderedDict
 from pypinyin import Style, lazy_pinyin
 from sqlalchemy.orm import Session
 
-from app.database import UserWord
 from app.services import grammar_catalog, grammar_tagging, llm, readability
 from app.services.levels import level_number
 from app.services.segmentation import segment_text
 from app.services.text_series import plain
 from app.services.word_info import lookup_pinyin_meaning
-from app.state import hsk_vocab
 
 EXPLAIN = "explain_sentence"
 PRACTICE = "practice_text"
@@ -71,26 +69,6 @@ characters) at HSK {level} level that uses this grammar point at least three tim
 Topic: everyday life. Use mainly these words the reader knows: {words}
 Give it a short Chinese title. Plain text: no markdown or asterisks, no pinyin, no English.{stricter}
 """
-
-
-def _known_words(db: Session, user_id: int, max_level: int, limit: int = 150) -> list[str]:
-    """Words the user knows at or below the level, most frequent first, so
-    the text is built from everyday words they can read."""
-    known = {
-        w
-        for (w,) in db.query(UserWord.word).filter(
-            UserWord.user_id == user_id, UserWord.state == "known"
-        )
-    }
-
-    def level(word: str) -> int:
-        raw = str((hsk_vocab.get(word) or {}).get("level_new") or "")
-        digits = "".join(ch for ch in raw if ch.isdigit())
-        return int(digits) if digits else 99
-
-    pool = [w for w in known if level(w) <= max(max_level, 2)]
-    pool.sort(key=lambda w: -int((hsk_vocab.get(w) or {}).get("frequency") or 0))
-    return pool[:limit]
 
 
 async def explain(sentence: str) -> dict:
@@ -160,7 +138,7 @@ async def practice_text(db: Session, user_id: int, point_id: str) -> dict:
     if e is None:
         raise llm.LlmError("Unknown grammar point")
     level = level_number(e["level"], ("",))
-    words = _known_words(db, user_id, level)
+    words = readability.known_words(db, user_id, level, ("known",), limit=150)
     best: dict | None = None
     for attempt in range(2):
         reply = await llm.chat(

@@ -890,36 +890,6 @@ export const prepareExportAudio = (id: number) =>
     method: "POST",
   });
 
-/**
- * Download a Blob with the JWT attached. Used for the .apkg + CSV exports;
- * the backend honours both Bearer header and `?token=` query, but the
- * header approach keeps the token out of server logs.
- */
-async function downloadBlob(url: string): Promise<{
-  blob: Blob;
-  filename: string;
-  stats?: string;
-  rateLimited?: boolean;
-}> {
-  const response = await fetch(apiUrl(url), { headers: authHeader() });
-  if (!response.ok) throw await apiError(response);
-  const disposition = response.headers.get("Content-Disposition") ?? "";
-  const match = /filename=(?:"([^"]+)"|([^;]+))/.exec(disposition);
-  const filename = (match?.[1] ?? match?.[2] ?? "download").trim();
-  return {
-    blob: await response.blob(),
-    filename,
-    stats: response.headers.get("X-Export-Stats") ?? undefined,
-    rateLimited: response.headers.get("X-Rate-Limited") === "true",
-  };
-}
-
-export const exportVocabularyListAnki = (id: number) =>
-  downloadBlob(`/api/vocabulary-lists/${id}/export-anki`);
-
-export const exportVocabularyListCsv = (id: number) =>
-  downloadBlob(`/api/vocabulary-lists/${id}/export`);
-
 // --- Article extraction -----------------------------------------------------
 
 export interface ExtractedArticle {

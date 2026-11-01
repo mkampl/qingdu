@@ -6,6 +6,17 @@ from app.core.constants import TEXT_LEVEL_THRESHOLD
 _BAND = re.compile(r"[1-9]|7\+|7-9")
 
 
+def entry_level(entry: dict | None, hsk_version: str = "new") -> str | None:
+    """Level string of a hsk_vocab entry in the chosen HSK version, falling
+    back to the other list when the word is only in that one."""
+    if not entry:
+        return None
+    first, second = (
+        ("level_old", "level_new") if hsk_version == "old" else ("level_new", "level_old")
+    )
+    return entry.get(first) or entry.get(second)
+
+
 def level_number(level: object, prefixes: tuple[str, ...] = ("new-",)) -> int | None:
     """Band number of an HSK level string; None for anything else.
 

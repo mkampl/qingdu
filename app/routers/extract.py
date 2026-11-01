@@ -134,10 +134,9 @@ def _extract(url: str) -> ExtractResponse:
 @router.post("/api/extract", response_model=ExtractResponse)
 def extract_article(
     data: ExtractRequest,
-    user: User = Depends(require_auth),
+    _user: User = Depends(require_auth),
 ) -> ExtractResponse:
     """Fetch and clean an article from any public URL."""
-    _ = user  # auth dependency only
     url = _validate_url(data.url)
     logger.info(f"Extracting article from {url}")
     return _extract(url)
@@ -146,14 +145,13 @@ def extract_article(
 @router.post("/api/extract/file", response_model=ExtractResponse)
 async def extract_uploaded_file(
     file: UploadFile = File(...),
-    user: User = Depends(require_auth),
+    _user: User = Depends(require_auth),
 ) -> ExtractResponse:
     """
     Pull text out of an uploaded EPUB or PDF. Response shape matches the
     URL extractor so the SPA's preview UI is reused unchanged. Scanned
     PDFs are rejected with a helpful message pointing at the OCR tool.
     """
-    _ = user
     filename = file.filename or "upload.bin"
     data = await file.read(_MAX_UPLOAD_BYTES + 1)
     if len(data) > _MAX_UPLOAD_BYTES:

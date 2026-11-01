@@ -41,6 +41,7 @@ from app.core.constants import (
     TRANSLATION_SOURCE_PARTS,
 )
 from app.services import dict_data
+from app.services.lexicon import has_cjk
 from app.services.readings import readings_payload
 from app.services.word_info import lookup_pinyin_meaning
 from app.services.word_lookup import describe_non_word, resolve_from_cedict
@@ -73,10 +74,6 @@ REFRESHABLE_SOURCES = frozenset(
 # entry has them and dropped when it does not, so a stale breakdown never
 # lingers.
 _OPTIONAL_FIELDS = ("readings", "parts")
-
-
-def _has_cjk(text: str) -> bool:
-    return any("㐀" <= c <= "鿿" or "豈" <= c <= "﫿" for c in text)
 
 
 def resolve_token(text: str) -> dict:
@@ -128,7 +125,7 @@ def _refreshable(word: dict) -> bool:
     if word.get("translation_source") not in REFRESHABLE_SOURCES:
         return False
     text = word.get("text") or ""
-    return bool(text) and _has_cjk(text)
+    return bool(text) and has_cjk(text)
 
 
 def refresh_analysis(analysis_data: dict, version: str | None) -> bool:

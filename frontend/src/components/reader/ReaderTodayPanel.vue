@@ -10,7 +10,6 @@ import { useOpenLibraryText } from "@/composables/use-open-library-text";
 import { useOpenSavedText } from "@/composables/use-open-saved-text";
 import { useReviewStore } from "@/stores/review";
 import { useUserWordsStore } from "@/stores/userWords";
-import { normalizeProgress } from "@/utils/saved-text";
 
 const userWords = useUserWordsStore();
 const review = useReviewStore();
@@ -72,7 +71,7 @@ const anyHook = computed(
 );
 
 function progressPct(t: SavedTextSummary): number {
-  return Math.round(normalizeProgress(t.reading_progress) * 100);
+  return Math.round(t.reading_progress * 100);
 }
 
 function scorePct(item: LibraryForYouItem): number {

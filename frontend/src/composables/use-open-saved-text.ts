@@ -4,7 +4,7 @@ import * as api from "@/api/client";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useReaderStore } from "@/stores/reader";
 import { useToastStore } from "@/stores/toast";
-import { normalizeProgress, parseTags } from "@/utils/saved-text";
+import { parseTags } from "@/utils/saved-text";
 
 /**
  * Open one of the user's saved texts in the reader: fetch the full text,
@@ -25,7 +25,7 @@ export function useOpenSavedText() {
       const full = await api.getText(id);
       analysis.loadSaved(full.content, full.analysisData, {
         id: full.id,
-        progress: normalizeProgress(full.reading_progress),
+        progress: full.reading_progress ?? 0,
         title: full.title ?? "",
         tags: parseTags(full.tags),
         glossaryListIds: full.glossary_list_ids,

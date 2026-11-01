@@ -8,7 +8,7 @@ import { useAppModalsStore } from "@/stores/app-modals";
 import { useAuthStore } from "@/stores/auth";
 import { useToastStore } from "@/stores/toast";
 import type { LoadState } from "@/utils/load-state";
-import { formatUtcDate } from "@/utils/time";
+import { formatFullDate } from "@/utils/time";
 
 import Button from "@/components/ui/Button.vue";
 import Modal from "@/components/ui/Modal.vue";
@@ -93,15 +93,6 @@ const statusColor = (status: InvitationSummary["status"]) => {
   }
 };
 
-function formatDate(iso: string): string {
-  try {
-    return (
-      formatUtcDate(iso, { year: "numeric", month: "short", day: "numeric" }) || iso
-    );
-  } catch {
-    return iso;
-  }
-}
 
 const quotaLabel = (state: InvitationsState) => {
   if (state.status !== "ok") return "";
@@ -211,13 +202,13 @@ const canGenerate = (state: InvitationsState) => {
               <template v-if="inv.status === 'claimed'">
                 Claimed by
                 <span class="text-fg">{{ inv.claimed_by ?? "?" }}</span>
-                on {{ inv.claimed_at ? formatDate(inv.claimed_at) : "?" }}
+                on {{ inv.claimed_at ? formatFullDate(inv.claimed_at) : "?" }}
               </template>
               <template v-else-if="inv.status === 'expired'">
-                Expired {{ formatDate(inv.expires_at) }}
+                Expired {{ formatFullDate(inv.expires_at) }}
               </template>
               <template v-else>
-                Expires {{ formatDate(inv.expires_at) }}
+                Expires {{ formatFullDate(inv.expires_at) }}
               </template>
             </p>
           </div>

@@ -35,3 +35,8 @@ export function formatUtcDate(
   const d = parseUtc(iso);
   return d ? d.toLocaleDateString(undefined, options) : "";
 }
+
+/** "Mar 4, 2026" for a UTC timestamp; the input itself if it can't be parsed. */
+export function formatFullDate(iso: string): string {
+  return formatUtcDate(iso, { year: "numeric", month: "short", day: "numeric" }) || iso;
+}

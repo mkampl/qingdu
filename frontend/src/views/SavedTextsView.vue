@@ -25,7 +25,6 @@ import type { LoadState } from "@/utils/load-state";
 import {
   formatDate,
   matchesSearch,
-  normalizeProgress,
   parseTags,
   previewSnippet,
 } from "@/utils/saved-text";
@@ -690,7 +689,7 @@ const {
             <div
               class="h-px bg-accent transition-[width]"
               :style="{
-                width: `${normalizeProgress(text.reading_progress) * 100}%`,
+                width: `${text.reading_progress * 100}%`,
               }"
             />
           </div>
@@ -700,7 +699,7 @@ const {
             <span
               class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
             >
-              {{ Math.round(normalizeProgress(text.reading_progress) * 100) }}%
+              {{ Math.round(text.reading_progress * 100) }}%
               read
             </span>
             <div class="flex items-center gap-1">

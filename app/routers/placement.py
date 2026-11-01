@@ -21,10 +21,9 @@ def placement_items(
     level: int = Query(..., ge=1, le=7),
     n: int = Query(6, ge=1, le=placement.MAX_ITEMS),
     exclude: str = Query("", max_length=2000),
-    user: User = Depends(require_auth),
+    _user: User = Depends(require_auth),
 ) -> dict:
     """Questions for one round: the meaning of `n` words of the level."""
-    _ = user
     out = placement.items(level, n, {w for w in exclude.split(",") if w})
     if not out:
         raise HTTPException(status_code=503, detail="Vocabulary not loaded yet")
