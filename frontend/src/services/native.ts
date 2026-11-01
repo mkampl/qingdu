@@ -55,7 +55,7 @@ export async function success(enabled = true): Promise<void> {
 
 // ----- Share ----------------------------------------------------------------
 
-export interface ShareTarget {
+interface ShareTarget {
   title: string;
   text: string;
   url?: string;

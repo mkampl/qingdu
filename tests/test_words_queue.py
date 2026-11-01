@@ -98,7 +98,7 @@ def test_item_shape_and_hsk_level(queue_client):
     assert item["due_at"].startswith((now + timedelta(days=2)).date().isoformat())
     assert 0 < item["seconds_until_due"] <= 2 * 86400
     assert item["created_at"] == BASE_TIME.isoformat() + "Z"
-    for key in ("seen_count", "ease", "difficulty", "last_reviewed_at"):
+    for key in ("seen_count", "difficulty", "last_reviewed_at"):
         assert key in item
 
 

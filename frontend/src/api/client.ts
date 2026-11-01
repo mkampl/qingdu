@@ -255,7 +255,7 @@ export const translate = (
 export const vocabularyStats = () =>
   request<VocabStatsResponse>("/api/vocabulary-stats", { anonymous: true });
 
-export interface ImpressumInfo {
+interface ImpressumInfo {
   name: string;
   street: string;
   zip: string;
@@ -332,7 +332,7 @@ export interface GrammarProgress {
 }
 
 /** A point of the grammar catalog (HSK 3.0 syllabus) as lists show it. */
-export interface GrammarPointSummary {
+interface GrammarPointSummary {
   id: string;
   level: string;
   group: string;
@@ -611,7 +611,7 @@ export const myInvitations = () =>
 
 // --- Open registration -------------------------------------------------------
 
-export interface RegistrationStatus {
+interface RegistrationStatus {
   open: boolean;
   captcha: boolean;
 }
@@ -865,7 +865,7 @@ export const deleteSection = (id: number, name: string) =>
 
 // --- Anki / audio export -----------------------------------------------------
 
-export interface AudioStatus {
+interface AudioStatus {
   total: number;
   cached: number;
   missing: number;
@@ -876,7 +876,7 @@ export interface AudioStatus {
 export const checkAudioStatus = (id: number) =>
   request<AudioStatus>(`/api/vocabulary-lists/${id}/check-audio`);
 
-export interface PrepareExportResult {
+interface PrepareExportResult {
   total: number;
   cached: number;
   generated: number;
@@ -1046,7 +1046,7 @@ export const getLibraryReadability = () =>
     "/api/library/readability",
   );
 
-export interface LibraryEntry extends LibraryManifestItem {
+interface LibraryEntry extends LibraryManifestItem {
   text: string;
   analyzed: unknown;
 }
@@ -1134,7 +1134,7 @@ export const getWordSense = (word: string, sentence: string, glosses: string[] =
 
 // ----- Readability ("make this text readable") ------------------------------
 
-export interface ReadabilityMissingWord {
+interface ReadabilityMissingWord {
   word: string;
   /** Occurrences in the text. */
   count: number;
@@ -1182,7 +1182,7 @@ export interface TextGloss {
   tag?: string | null;
 }
 
-export interface PrelearnRequest {
+interface PrelearnRequest {
   tokens: string[];
   extra: string[];
   words: string[];
@@ -1216,7 +1216,6 @@ export interface WordsQueueItem {
   meaning: string | null;
   hsk_level: number | null;
   seen_count: number | null;
-  ease: number | null;
   stability: number | null;
   difficulty: number | null;
   due_at: string | null;
@@ -1247,7 +1246,7 @@ export interface WordsQueueParams {
   offset?: number;
 }
 
-export interface WordsQueuePage {
+interface WordsQueuePage {
   items: WordsQueueItem[];
   /** Rows matching every filter (all pages). */
   total: number;
@@ -1303,7 +1302,7 @@ async function uploadForExtract(path: string, file: File): Promise<ExtractedArti
 
 export type UserWordState = "learning" | "known" | "ignored";
 
-export interface WordStatesResponse {
+interface WordStatesResponse {
   states: Record<string, UserWordState>;
 }
 
@@ -1493,7 +1492,7 @@ export type ReviewMode = "recognition" | "dictation" | "writing" | "cloze";
 export type QueueMode = ReviewMode | "mixed";
 /** Server-picked prompt stage based on FSRS stability.
  *  Drives which review surface the SPA renders for the card. */
-export type PromptStage = "intro" | "trace" | "produce" | "read";
+type PromptStage = "intro" | "trace" | "produce" | "read";
 export type ReviewGrade = 1 | 2 | 3 | 4;
 
 export interface ReviewCard {
@@ -1534,7 +1533,7 @@ export interface ReviewCard {
   has_sample_sentence?: boolean;
 }
 
-export interface ReviewQueueResponse {
+interface ReviewQueueResponse {
   mode: QueueMode;
   cards: ReviewCard[];
   /** Title of the text or list a focused session is about. */
@@ -1547,7 +1546,7 @@ export interface ReviewScope {
   listId?: number;
 }
 
-export interface ReviewGradeResponse {
+interface ReviewGradeResponse {
   word: string;
   due_at: string | null;
   stability: number | null;

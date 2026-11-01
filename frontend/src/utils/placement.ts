@@ -6,7 +6,7 @@
  * level failed). 4: one more round at the same level, passed with 8 of 12.
  */
 export const ROUND_SIZE = 6;
-export const TOP_LEVEL = 7;
+const TOP_LEVEL = 7;
 
 export interface PlacementState {
   level: number;

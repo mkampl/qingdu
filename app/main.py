@@ -194,20 +194,10 @@ _BURNED_SECRET_KEYS = {"9ndRcryRqp0DbvQBThQmjTybD6nIyHbAHiYOyj44DsE"}
 
 
 def _release_startup_memory() -> None:
-    """
-    Hand fragmented heap memory back to the OS after the one-time HSK
-    vocab download/merge + CC-CEDICT load + jieba dictionary build.
-
-    That startup sequence briefly holds several full copies of the
-    vocabulary in memory at once (raw source, processed dict, radical
-    enrichment, backup writes) — a peak far above what the resulting
-    module-level dicts actually need long-term. CPython's allocator
-    doesn't return freed arenas to the OS on its own, so without this the
-    process's RSS stays pinned near that transient peak for its entire
-    lifetime (measured ~40-100MB of pure fragmentation on this workload).
-    glibc's malloc_trim does the release; harmless no-op if unavailable
-    (e.g. a non-glibc base image).
-    """
+    """Hand fragmented heap memory back to the OS after the startup loads
+    (HSK vocab, CC-CEDICT, jieba dictionary). They briefly hold several
+    copies of the vocabulary, and CPython does not return freed arenas on
+    its own. glibc's malloc_trim does; a no-op where it is unavailable."""
     try:
         import ctypes
 

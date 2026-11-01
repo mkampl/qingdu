@@ -12,7 +12,6 @@ Mutates `app.state.hsk_vocab` and `app.state.hsk_lists_original` in place.
 
 import json
 import logging
-from datetime import datetime
 
 import httpx
 from pypinyin import Style, lazy_pinyin
@@ -30,7 +29,7 @@ from app.core.constants import (
     HSK_VOCAB_URL_TEMPLATE,
     MAX_RETRY_ATTEMPTS,
 )
-from app.core.paths import BACKUP_DIR, DATA_DIR
+from app.core.paths import DATA_DIR
 from app.core.radicals import CHAR_TO_RADICAL, RADICAL_PINYIN
 from app.konfuzius_parser import parse_konfuzius_old_hsk
 from app.services import dict_data
@@ -38,29 +37,6 @@ from app.services.levels import level_number
 from app.state import hsk_lists_original, hsk_vocab
 
 logger = logging.getLogger(__name__)
-
-
-def cleanup_old_backups(max_age_days: int = 30) -> None:
-    """Remove backup files older than `max_age_days`. Best-effort — never raises."""
-    try:
-        now = datetime.now()
-        deleted_count = 0
-        for backup_file in BACKUP_DIR.glob("*.json"):
-            try:
-                date_str = backup_file.stem.split("_")[-1]
-                file_date = datetime.strptime(date_str, "%Y-%m-%d")
-                age_days = (now - file_date).days
-                if age_days > max_age_days:
-                    backup_file.unlink()
-                    deleted_count += 1
-                    logger.info(f"Deleted old backup: {backup_file.name} (age: {age_days} days)")
-            except (ValueError, IndexError):
-                # Filename doesn't match expected pattern; skip.
-                continue
-        if deleted_count > 0:
-            logger.info(f"Cleanup complete: removed {deleted_count} old backup(s)")
-    except Exception as e:
-        logger.warning(f"Backup cleanup failed: {e}")
 
 
 def _choose_best_form(forms: list) -> dict | None:
@@ -266,12 +242,10 @@ def _apply_konfuzius_old_hsk() -> None:
 
 
 def _save_processed() -> None:
-    """Persist the processed vocabulary for tools and as a fallback cache,
-    and prune dated backups older than 30 days."""
+    """Persist the processed vocabulary for tools and as a fallback cache."""
     vocab_file = DATA_DIR / "hsk_vocabulary.json"
     with open(vocab_file, "w", encoding="utf-8") as f:
         json.dump(hsk_vocab, f, ensure_ascii=False, indent=2)
-    cleanup_old_backups(max_age_days=30)
 
 
 def process_raw_hsk(raw_data: list) -> None:

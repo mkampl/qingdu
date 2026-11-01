@@ -21,7 +21,7 @@ export type HskLevel =
   | "Custom"
   | string;
 
-export type TranslationSource =
+type TranslationSource =
   | "deepl"
   | "google"
   | "mymemory"
@@ -72,7 +72,7 @@ export interface WordInfo {
   parts?: WordPart[] | null;
 }
 
-export interface WordPart {
+interface WordPart {
   word: string;
   pinyin: string;
   meaning: string;
@@ -107,13 +107,11 @@ export interface AnalysisStatistics {
   hsk_words_old: number;
   hsk_distribution_old: Record<string, number>;
   estimated_level_old: string;
-  // Aliases of the new-HSK numbers.
-  hsk_words: number;
-  hsk_distribution: Record<string, number>;
+  // Alias of estimated_level_new.
   estimated_level: string;
 }
 
-export interface GrammarPatternMeta {
+interface GrammarPatternMeta {
   id: string;
   title: string;
   pinyin: string;
@@ -123,7 +121,7 @@ export interface GrammarPatternMeta {
   example_translation: string;
 }
 
-export interface GrammarMatch {
+interface GrammarMatch {
   pattern_id: string;
   sentence_idx: number;
   /** Absolute index into AnalysisResponse.words for the first token. */

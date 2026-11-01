@@ -18,10 +18,6 @@ import { storageGet, storageRemove, storageSet } from "@/utils/storage";
 
 const CHANNEL_ID = "qingdu-daily-reminder";
 const NOTIFICATION_BASE_ID = 71700;
-// Range of an evening at-risk slot that is not scheduled any more;
-// cancelExisting() still clears it so a device with slots pending there
-// stops firing them.
-const AT_RISK_BASE_ID = 71800;
 // Lifecycle warnings. Two slots: a 7-day pre-warning and a
 // 1-day pre-warning before the server soft-deletes (dormant) the account.
 // `+0` = 7-day, `+1` = 1-day. Self-host instances and admin accounts get
@@ -105,15 +101,12 @@ async function ensureChannel(): Promise<void> {
 
 async function cancelExisting(): Promise<void> {
   if (!isNative()) return;
-  // Cancel every ID either range can hold rather than filtering
-  // getPending(): unknown IDs are a no-op, and the getPending() path
-  // silently dropped at-risk slots on some Android builds, leaving them
-  // firing alongside the main reminder. removeAllDelivered then clears
-  // copies already shown in the shade.
+  // Cancel every ID the range can hold rather than filtering getPending():
+  // unknown IDs are a no-op, and getPending() missed slots on some Android
+  // builds. removeAllDelivered then clears copies already shown in the shade.
   const ids: { id: number }[] = [];
   for (let i = 0; i < HORIZON_DAYS + 5; i++) {
     ids.push({ id: NOTIFICATION_BASE_ID + i });
-    ids.push({ id: AT_RISK_BASE_ID + i });
   }
   try {
     await LocalNotifications.cancel({ notifications: ids });

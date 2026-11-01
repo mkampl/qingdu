@@ -84,8 +84,6 @@ def test_hsk_statistics_counts_both_systems():
         "hsk6": 1,
     }
     assert stats["estimated_level_new"] == estimate_text_level(stats["hsk_distribution_new"], 4)
-    assert stats["hsk_words"] == 4
-    assert stats["hsk_distribution"] is stats["hsk_distribution_new"]
     assert stats["estimated_level"] == stats["estimated_level_new"]
 
 
@@ -100,7 +98,5 @@ def test_hsk_statistics_empty():
         "hsk_words_old",
         "hsk_distribution_old",
         "estimated_level_old",
-        "hsk_words",
-        "hsk_distribution",
         "estimated_level",
     ]

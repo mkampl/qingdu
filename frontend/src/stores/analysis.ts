@@ -4,7 +4,7 @@ import { computed, ref } from "vue";
 import * as api from "@/api/client";
 import type { AnalysisResponse, TextSeries } from "@/api/types";
 
-export interface AnalysisStash {
+interface AnalysisStash {
   inputText: string;
   result: AnalysisResponse | null;
   error: string | null;

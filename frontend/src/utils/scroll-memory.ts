@@ -9,7 +9,7 @@
  *     filters) alone.
  */
 
-export type ScrollAction =
+type ScrollAction =
   | { kind: "none" }
   | { kind: "top" }
   | { kind: "restore"; top: number };

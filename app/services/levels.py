@@ -51,9 +51,7 @@ def hsk_statistics(levels: Iterable[tuple[str | None, str | None]]) -> dict:
         "hsk_words_old": total_old,
         "hsk_distribution_old": old,
         "estimated_level_old": estimate_text_level(old, total_old),
-        # Aliases of the new-HSK fields.
-        "hsk_words": total_new,
-        "hsk_distribution": new,
+        # Alias of estimated_level_new.
         "estimated_level": estimated_new,
     }
 

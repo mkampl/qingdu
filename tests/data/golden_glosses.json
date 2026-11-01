@@ -10,9 +10,7 @@
     "pinyin_alt: other readings a textbook also accepts. accept: the headline must contain one of",
     "these keywords (case-insensitive, whole word, plural/-ed/-ing endings allowed).",
     "checks: ui-tone / iu-tone (tone-mark placement), no-tag (no register tag in the headline).",
-    "not_a_word: the resolver must not glue per-character glosses ('A + B').",
-    "xfail: why the entry is currently wrong. The test marks these xfail(strict=True), so a fix",
-    "makes the run fail until the xfail field is removed here."
+    "not_a_word: the resolver must not glue per-character glosses ('A + B')."
   ],
   "entries": [
     {"word": "一", "level": 1, "pinyin": "yī", "accept": ["one"]},

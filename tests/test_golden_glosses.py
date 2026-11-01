@@ -5,9 +5,7 @@ overrides and the learner-gloss layer (app/data/learner_glosses.json), so
 headlines are checked as the app shows them.
 
 The expectations live in tests/data/golden_glosses.json (see its "about"
-block). Entries the code still gets wrong carry an "xfail" field naming
-the open problem; they run as xfail(strict=True), so a fix shows up as an
-XPASS failure until the field is removed from the data.
+block).
 """
 
 import json
@@ -43,15 +41,7 @@ def _test_id(word: str) -> str:
     return "".join(lazy_pinyin(word, style=Style.TONE3, neutral_tone_with_five=True))
 
 
-def _params():
-    for entry in GOLDEN:
-        marks = []
-        if entry.get("xfail"):
-            marks.append(pytest.mark.xfail(strict=True, reason=entry["xfail"]))
-        yield pytest.param(entry, id=_test_id(entry["word"]), marks=marks)
-
-
-@pytest.mark.parametrize("entry", _params())
+@pytest.mark.parametrize("entry", GOLDEN, ids=[_test_id(e["word"]) for e in GOLDEN])
 def test_golden_gloss(entry, pinned_dictionaries):
     word = entry["word"]
     pinyin, meaning = lookup_pinyin_meaning(word)
@@ -79,7 +69,6 @@ def test_golden_file_is_well_formed():
     words = [e["word"] for e in GOLDEN]
     assert len(words) == len(set(words)), "duplicate words in golden set"
     for e in GOLDEN:
-        assert isinstance(e.get("xfail", ""), str), e
         if e.get("expect") == "not_a_word":
             continue
         assert e["pinyin"] and e["accept"], e

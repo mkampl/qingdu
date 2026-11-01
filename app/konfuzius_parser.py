@@ -67,24 +67,3 @@ def parse_konfuzius_old_hsk(file_path: Path) -> dict[str, str]:
                     vocab[hanzi] = level_str
 
     return vocab
-
-
-if __name__ == "__main__":
-    # Test the parser
-    file_path = Path(__file__).parent.parent / "data" / "konfuzius" / "old_hsk_levels.txt"
-    vocab = parse_konfuzius_old_hsk(file_path)
-
-    print(f"Total words: {len(vocab)}")
-    print("\nTest words:")
-    for word in ["说", "对", "常常", "吃", "饭"]:
-        level = vocab.get(word, "NOT FOUND")
-        print(f"  {word}: {level}")
-
-    # Count by level
-    level_counts = {}
-    for level in vocab.values():
-        level_counts[level] = level_counts.get(level, 0) + 1
-
-    print("\nDistribution:")
-    for level in sorted(level_counts.keys()):
-        print(f"  {level}: {level_counts[level]} words")

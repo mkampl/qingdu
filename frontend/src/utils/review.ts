@@ -9,7 +9,7 @@ export type ReviewWindow = "now" | "today" | "tomorrow";
 
 /** Anki-style learning steps: a card FSRS schedules within this many
  *  minutes goes back on the end of the current session's queue. */
-export const REINSERT_WINDOW_MS = 20 * 60_000;
+const REINSERT_WINDOW_MS = 20 * 60_000;
 
 /** True when a just-graded card is due again soon enough to see it this
  *  session. `dueAt` is the API timestamp (UTC). */
@@ -82,7 +82,7 @@ export function autoGradeForWriting(
 }
 
 export type AutoGradeDelay = 0 | 1000 | 2000 | 3000;
-export const AUTO_GRADE_DELAYS: readonly AutoGradeDelay[] = [0, 1000, 2000, 3000];
+const AUTO_GRADE_DELAYS: readonly AutoGradeDelay[] = [0, 1000, 2000, 3000];
 export const DEFAULT_AUTO_GRADE_DELAY: AutoGradeDelay = 2000;
 
 export function normalizeAutoGradeDelay(value: unknown): AutoGradeDelay {

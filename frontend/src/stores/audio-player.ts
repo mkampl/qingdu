@@ -12,7 +12,7 @@ import { storageGet, storageSet } from "@/utils/storage";
  *
  * The reader subscribes to `currentSentenceKey` to highlight + auto-scroll.
  */
-export interface PlayableSentence {
+interface PlayableSentence {
   /** Stable v-for key (matches Sentence.key from reader utils). */
   key: string;
   /** The Chinese text to read. */

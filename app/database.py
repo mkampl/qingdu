@@ -102,13 +102,11 @@ class User(Base):
     created_invitations = relationship(
         "InvitationToken",
         foreign_keys="InvitationToken.created_by_user_id",
-        back_populates="creator",
         cascade="all, delete-orphan",
     )
     claimed_invitation = relationship(
         "InvitationToken",
         foreign_keys="InvitationToken.claimed_by_user_id",
-        back_populates="claimer",
         uselist=False,
     )
 
@@ -333,9 +331,6 @@ class UserWord(Base):
     # Where sample_sentence came from: a saved text's or library text's
     # title. NULL for sentences from unsaved reading or older rows.
     sample_source = Column(String(160), nullable=True)
-    # SM-2-style ease * 100. Unused by scheduling; FSRS uses
-    # stability/difficulty below.
-    ease = Column(Integer, default=250)
     # FSRS-4.5 state. `fsrs_state` carries the full Card JSON for round-tripping
     # (state machine + step + last_review timestamps). `stability` / `difficulty`
     # / `due_at` mirror the same numbers so we can SELECT for "due now" without
@@ -345,10 +340,9 @@ class UserWord(Base):
     fsrs_state = Column(Text, nullable=True)
     due_at = Column(DateTime, nullable=True)
     last_reviewed_at = Column(DateTime, nullable=True)
-    # Unused: every grade advances FSRS once. Kept so existing databases
-    # and the schema stay in step.
+    # Unused. Still declared because databases created from this model have
+    # it as NOT NULL without a default, so inserts must fill it.
     modes_completed = Column(Text, nullable=False, default="[]")
-    modes_cycle_started_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -484,14 +478,6 @@ class InvitationToken(Base):
     claimed_at = Column(DateTime, nullable=True)
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-
-    # Relationships
-    creator = relationship(
-        "User", foreign_keys=[created_by_user_id], back_populates="created_invitations"
-    )
-    claimer = relationship(
-        "User", foreign_keys=[claimed_by_user_id], back_populates="claimed_invitation"
-    )
 
 
 class SystemSetting(Base):
@@ -734,7 +720,6 @@ def init_db():
                 ("sample_source", "VARCHAR(160)"),
                 ("meaning_source", "VARCHAR(32)"),
                 ("modes_completed", "TEXT NOT NULL DEFAULT '[]'"),
-                ("modes_cycle_started_at", "DATETIME"),
             ]
             with engine.connect() as conn:
                 for name, sql_type in needed:

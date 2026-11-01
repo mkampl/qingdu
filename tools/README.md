@@ -10,7 +10,6 @@ with the app's Python environment.
 | `export_gloss_candidates.py` | Input for writing learner glosses (below) |
 | `check_learner_glosses.py` | Automatic checks for learner glosses (below) |
 | `split_glue_words.py` | One-off migration for glued user words |
-| `generate_favicon.py` | Rebuild the favicon set |
 
 ## Learner glosses
 

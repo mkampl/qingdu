@@ -61,7 +61,6 @@ def export_account(db: Session, user: User) -> dict:
                 "seen_count": w.seen_count,
                 "pinyin": w.pinyin,
                 "meaning": w.meaning,
-                "ease": w.ease,
                 "stability": w.stability,
                 "difficulty": w.difficulty,
                 "due_at": iso_utc(w.due_at),

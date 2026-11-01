@@ -2,10 +2,6 @@
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 
-# Templates and Static Files
-jinja2==3.1.2
-aiofiles==23.2.1
-
 # Chinese Text Processing
 jieba==0.42.1
 pypinyin==0.49.0
@@ -37,7 +33,6 @@ slowapi==0.1.9
 bcrypt==4.0.1
 passlib==1.7.4
 python-jose[cryptography]==3.3.0
-python-multipart==0.0.6
 
 # anki export
 genanki==0.13.0
@@ -49,14 +44,12 @@ fsrs==6.3.1
 # Traditional ⇄ Simplified Chinese conversion
 opencc-python-reimplemented==0.1.7
 
-
 # EPUB / PDF import
 EbookLib==0.20
 pypdf==6.12.1
 # Photos for the OCR import (services/image_ocr): orientation, size, JPEG.
 Pillow==11.1.0
 beautifulsoup4==4.12.3
-#pypinyin==0.49.0
 
 # YouTube caption fetch for the Watch & Read page. Pure Python,
 # hits the same public timedtext endpoint the YouTube player itself
@@ -68,6 +61,3 @@ tenacity==8.2.3
 
 # Caching
 cachetools==5.3.2
-
-# Optional: For better performance
-# uvloop==0.19.0  # Unix only

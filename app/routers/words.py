@@ -299,7 +299,6 @@ async def list_queue(
             "meaning": r.meaning,
             "hsk_level": _hsk_level(hsk_vocab.get(r.word), hsk_version),
             "seen_count": r.seen_count,
-            "ease": r.ease,
             **_schedule_fields(r, now),
             "created_at": iso_utc(r.created_at),
         }

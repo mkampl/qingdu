@@ -50,8 +50,8 @@ def _user_state_map(db: Session, user: User | None) -> dict[str, str]:
                         "statistics": {
                             "total_characters": 2,
                             "total_words": 1,
-                            "hsk_words": 1,
-                            "hsk_distribution": {"hsk1": 1},
+                            "hsk_words_new": 1,
+                            "hsk_distribution_new": {"hsk1": 1},
                             "estimated_level": "HSK 1",
                         },
                     }

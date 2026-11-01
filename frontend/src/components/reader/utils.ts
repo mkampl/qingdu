@@ -56,7 +56,7 @@ export function effectiveWordState(
   return storeHydrated ? null : (tokenState ?? null);
 }
 
-export interface PopoverPlacement {
+interface PopoverPlacement {
   top: number;
   left: number;
   /** Cap for the popover; its content scrolls inside beyond this. */
@@ -215,7 +215,7 @@ export function shouldShowPinyin(
   return wordNum > estNum;
 }
 
-export interface DistributionSegment {
+interface DistributionSegment {
   /** "HSK 1".."HSK 9" */
   label: string;
   /** Numeric level (1-9). */

@@ -7,7 +7,7 @@
 import type { WordReading } from "@/api/types";
 import { otherMeanings } from "./meanings";
 
-export interface OtherReading {
+interface OtherReading {
   pinyin: string;
   primary: string;
   tags: string[];

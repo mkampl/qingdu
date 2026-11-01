@@ -23,7 +23,7 @@ export interface WordsFilters {
 }
 
 /** Shape of vue-router's LocationQuery, without importing it. */
-export type QueryLike = Record<string, string | null | (string | null)[] | undefined>;
+type QueryLike = Record<string, string | null | (string | null)[] | undefined>;
 
 export const DEFAULT_FILTERS: Readonly<WordsFilters> = Object.freeze({
   state: "all",
@@ -38,7 +38,7 @@ const DUES: readonly DueFilter[] = ["all", "today", "week", "month"];
 const SORTS: readonly SortKey[] = ["due", "recent", "hsk"];
 
 /** Days ahead for each due chip; the server counts to the end of that day. */
-export const DUE_DAYS: Record<Exclude<DueFilter, "all">, number> = {
+const DUE_DAYS: Record<Exclude<DueFilter, "all">, number> = {
   today: 0,
   week: 7,
   month: 30,

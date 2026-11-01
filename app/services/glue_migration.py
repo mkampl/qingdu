@@ -46,14 +46,12 @@ logger = logging.getLogger(__name__)
 COPIED_FIELDS = (
     "state",
     "seen_count",
-    "ease",
     "stability",
     "difficulty",
     "fsrs_state",
     "due_at",
     "last_reviewed_at",
     "modes_completed",
-    "modes_cycle_started_at",
     "created_at",
 )
 
