@@ -1,42 +1,34 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+/**
+ * The popover for the selected word: a card at the word on desktop, a
+ * bottom sheet on phones. Meaning, sense in the sentence, word state,
+ * radical, foldouts, add to list, and a way to translate the sentence.
+ */
+import { computed, ref, watch } from "vue";
 
 import * as api from "@/api/client";
-import { ApiError } from "@/api/client";
-import type { UserWordState, WordContext, WordSnapshot } from "@/api/client";
-import { useAnalysisStore } from "@/stores/analysis";
-import { useAuthStore } from "@/stores/auth";
-import { useCapabilitiesStore } from "@/stores/capabilities";
 import { useReaderStore } from "@/stores/reader";
 import { useSettingsStore } from "@/stores/settings";
-import { useToastStore } from "@/stores/toast";
-import { useUserWordsStore } from "@/stores/userWords";
-import { useVocabListsStore } from "@/stores/vocab-lists";
+import { useAuthStore } from "@/stores/auth";
 import { useDismiss } from "@/composables/use-dismiss";
 import { useTtsPlayer } from "@/composables/use-tts-player";
+import { useWordPopoverPlacement } from "@/composables/use-word-popover-placement";
+import { useWordStateControl } from "@/composables/use-word-state-control";
 
-import { defaultSectionName, sectionContaining } from "@/utils/vocab-lists";
-
-import HskChip from "./HskChip.vue";
-import StrokeOrder from "./StrokeOrder.vue";
-import WordDetails from "./WordDetails.vue";
-import WordReadings from "./WordReadings.vue";
-import GlossChip from "@/components/ui/GlossChip.vue";
-import { effectiveWordState, levelForVersion, placePopover } from "./utils";
+import AddToListPanel from "./AddToListPanel.vue";
+import WordFoldouts from "./WordFoldouts.vue";
+import WordHeading from "./WordHeading.vue";
+import WordMeanings from "./WordMeanings.vue";
+import WordParts from "./WordParts.vue";
+import WordSense from "./WordSense.vue";
+import WordStateButtons from "./WordStateButtons.vue";
+import { levelForVersion } from "./utils";
 
 const reader = useReaderStore();
-const analysis = useAnalysisStore();
 const settings = useSettingsStore();
 const auth = useAuthStore();
-const userWords = useUserWordsStore();
-const vocabLists = useVocabListsStore();
-const toasts = useToastStore();
-const capabilities = useCapabilitiesStore();
 
 const word = computed(() => reader.selectedWord);
-const anchor = computed(() => reader.selectedAnchor);
-
-const isMobile = ref(false);
 
 const popoverRef = ref<HTMLElement | null>(null);
 // A click outside closes the popover, except on another HSK-wash word:
@@ -48,68 +40,7 @@ useDismiss(() => !!word.value, popoverRef, () => reader.clearWord(), {
   yieldToOverlays: true,
 });
 
-// Natural height of the popover content, measured so placement can flip /
-// cap it properly instead of guessing.
-const contentRef = ref<HTMLElement | null>(null);
-const contentHeight = ref(240);
-const viewport = ref({ width: 1024, height: 800 });
-let contentObserver: ResizeObserver | null = null;
-
-function measureViewport() {
-  viewport.value = { width: window.innerWidth, height: window.innerHeight };
-  isMobile.value = window.innerWidth < 640;
-}
-
-watch(contentRef, (el) => {
-  contentObserver?.disconnect();
-  contentObserver = null;
-  if (!el || typeof ResizeObserver === "undefined") return;
-  contentObserver = new ResizeObserver(() => {
-    // +1 for the accent rule above the content.
-    contentHeight.value = el.offsetHeight + 1;
-  });
-  contentObserver.observe(el);
-});
-
-const desktopPosition = computed(() => {
-  if (!anchor.value) return null;
-  return placePopover({
-    anchor: anchor.value,
-    viewport: viewport.value,
-    height: contentHeight.value,
-  });
-});
-
-// Follow the word while the page scrolls; close once it leaves the screen
-// (desktop — on phones the popover is a bottom sheet and stays put).
-let scrollFrame = 0;
-function onAnyScroll(e: Event) {
-  if (!word.value) return;
-  if (popoverRef.value && e.target instanceof Node && popoverRef.value.contains(e.target)) {
-    return; // scrolling inside the popover itself
-  }
-  if (scrollFrame) return;
-  scrollFrame = requestAnimationFrame(() => {
-    scrollFrame = 0;
-    const visible = reader.refreshAnchor();
-    if (!visible && !isMobile.value) reader.clearWord();
-  });
-}
-function onResize() {
-  measureViewport();
-  if (word.value) reader.refreshAnchor();
-}
-onMounted(() => {
-  measureViewport();
-  window.addEventListener("resize", onResize);
-  document.addEventListener("scroll", onAnyScroll, { capture: true, passive: true });
-});
-onBeforeUnmount(() => {
-  window.removeEventListener("resize", onResize);
-  document.removeEventListener("scroll", onAnyScroll, { capture: true });
-  if (scrollFrame) cancelAnimationFrame(scrollFrame);
-  contentObserver?.disconnect();
-});
+const { isMobile, contentRef, desktopPosition } = useWordPopoverPlacement(popoverRef);
 
 const { loading: ttsLoading, play: playAudio } = useTtsPlayer();
 async function playTts() {
@@ -119,106 +50,10 @@ async function playTts() {
 }
 
 watch(word, (next) => {
-  if (next) {
-    ttsLoading.value = false;
-    addToListExpanded.value = false;
-    addToListSelectedId.value = null;
-    addToListSection.value = "Main";
-    addToListSectionDirty.value = false;
-    addToListError.value = null;
-    addToListNotice.value = null;
-  }
+  if (next) ttsLoading.value = false;
 });
 
-// --- Add to vocab list ---
-// Inline panel inside the popover. The first click loads the user's lists
-// (cached in the store). The section defaults to the picked list's first
-// section, or 'Main'.
-
-const addToListExpanded = ref(false);
-const addToListSelectedId = ref<number | null>(null);
-const addToListSection = ref("Main");
-// True once the user typed a section name themselves. Until then the field
-// follows the picked list (its first section), so switching from list A
-// ("Chapter 3") to list B doesn't create a "Chapter 3" section in B.
-const addToListSectionDirty = ref(false);
-const addToListSubmitting = ref(false);
-const addToListError = ref<string | null>(null);
-const addToListNotice = ref<string | null>(null);
-const addToListAdded = ref(false);
-
-async function expandAddToList() {
-  addToListExpanded.value = true;
-  addToListAdded.value = false;
-  addToListError.value = null;
-  addToListNotice.value = null;
-  await vocabLists.ensureLoaded();
-  // Pre-select the first list.
-  if (addToListSelectedId.value === null && vocabLists.lists.length > 0) {
-    selectList(vocabLists.lists[0].id);
-  }
-}
-
-function selectList(id: number) {
-  addToListSelectedId.value = id;
-  addToListNotice.value = null;
-  addToListError.value = null;
-  if (addToListSectionDirty.value) return;
-  const list = vocabLists.lists.find((l) => l.id === id);
-  addToListSection.value = defaultSectionName(list);
-}
-
-function onSectionInput(e: Event) {
-  addToListSection.value = (e.target as HTMLInputElement).value;
-  addToListSectionDirty.value = true;
-}
-
-async function submitAddToList() {
-  if (!word.value || !addToListSelectedId.value || addToListSubmitting.value)
-    return;
-  const listId = addToListSelectedId.value;
-  const hanzi = word.value.text;
-  const sectionName = addToListSection.value.trim() || "Main";
-  addToListSubmitting.value = true;
-  addToListError.value = null;
-  addToListNotice.value = null;
-  try {
-    await api.addWordToList(listId, {
-      section_name: sectionName,
-      hanzi,
-      meaning: word.value.meaning ?? "",
-    });
-    addToListAdded.value = true;
-    toasts.success(`Added 「${hanzi}」 to “${currentListName.value}”.`);
-    // Refresh in the background (the cached lists stay on screen) so
-    // section defaults and word counts include the new word.
-    void vocabLists.invalidate();
-    setTimeout(() => {
-      addToListExpanded.value = false;
-      addToListAdded.value = false;
-    }, 700);
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 409) {
-      // Already somewhere in this list — say where instead of "Added".
-      const list = vocabLists.lists.find((l) => l.id === listId);
-      const where = sectionContaining(list, hanzi);
-      addToListNotice.value = where
-        ? `Already in “${where}”.`
-        : e.message || "Already in this list.";
-    } else {
-      addToListError.value =
-        e instanceof ApiError ? e.message : "Couldn't add the word.";
-    }
-  } finally {
-    addToListSubmitting.value = false;
-  }
-}
-
-const currentListName = computed(() => {
-  const id = addToListSelectedId.value;
-  if (id === null) return "";
-  return vocabLists.lists.find((l) => l.id === id)?.name ?? "";
-});
+const { currentState, setWordState, learnPart } = useWordStateControl(word);
 
 function translateSentenceFromWord() {
   const sentenceKey = reader.selectedSentenceKey;
@@ -226,68 +61,13 @@ function translateSentenceFromWord() {
   if (!sentenceKey || !sentenceText) return;
   reader.clearWord();
   // Open the inline annotation under the sentence + fire the translate.
-  if (reader.openSentenceKey !== sentenceKey)
-    reader.toggleSentence(sentenceKey);
+  if (reader.openSentenceKey !== sentenceKey) reader.toggleSentence(sentenceKey);
   void reader.translateSentence(sentenceText);
 }
 
-// Tokens that are not dictionary words (texts analysed before phrases were
-// split, or leftovers) carry their dictionary parts instead of a meaning.
-// They can't be saved as words; the learner saves the parts instead.
+// Tokens that are not dictionary words carry their dictionary parts
+// instead of a meaning; they can't be saved as words.
 const wordParts = computed(() => word.value?.parts ?? []);
-
-// What the word means in the sentence it was clicked in (LLM, on request).
-const sense = ref<api.WordSense | null>(null);
-const senseLoading = ref(false);
-const senseError = ref<string | null>(null);
-const canAskSense = computed(
-  () =>
-    capabilities.llmFeature("word_sense") &&
-    auth.isAuthed &&
-    !!word.value?.text &&
-    !wordParts.value.length &&
-    !!reader.selectedSentenceText?.includes(word.value.text) &&
-    // Only where there is something to choose: several senses or readings,
-    // or a meaning from the user's lists next to the dictionary's.
-    ((word.value.meanings?.length ?? 0) > 1 ||
-      (word.value.readings?.length ?? 0) > 1 ||
-      !!word.value.glossary_source ||
-      (word.value.user_glosses ?? []).some((g) => g.source !== "dictionary")),
-);
-watch(
-  () => [word.value?.text, reader.selectedSentenceText],
-  () => {
-    sense.value = null;
-    senseError.value = null;
-  },
-);
-
-async function askSense() {
-  const w = word.value;
-  const sentence = reader.selectedSentenceText;
-  if (!w || !sentence || senseLoading.value) return;
-  // Meanings the user's lists or a glossary give the word.
-  const glosses = (w.user_glosses ?? []).filter((g) => g.source !== "dictionary").map((g) => g.meaning);
-  if (w.glossary_source && w.meaning) glosses.push(w.meaning);
-  senseLoading.value = true;
-  senseError.value = null;
-  try {
-    sense.value = await api.getWordSense(w.text, sentence, [...new Set(glosses)].slice(0, 5));
-  } catch (e) {
-    senseError.value = e instanceof ApiError ? e.message : "Couldn't ask.";
-  } finally {
-    senseLoading.value = false;
-  }
-}
-
-async function learnPart(part: string) {
-  if (userWords.stateOf(part)) return;
-  try {
-    await userWords.setState(part, "learning", analysis.savedTextId ?? null, null, wordContext());
-  } catch {
-    toasts.error("Couldn't update word state");
-  }
-}
 
 // Source pill in the footer; hsk/linebreak/parts are not worth naming.
 const shownSource = computed(() => {
@@ -299,106 +79,10 @@ const wordLevel = computed(() =>
   word.value ? levelForVersion(word.value, settings.hskVersion) : null,
 );
 
-const strokeOrderOpen = ref(false);
 // Stays open from word to word once the user wants it (unlike stroke
 // order, it is small).
 const detailsOpen = ref(false);
-const wordHasCjk = computed(
-  () => !!word.value && /[一-鿿]/.test(word.value.text),
-);
-watch(word, () => {
-  // Collapse the accordion when the user moves to a new word so the
-  // popover stays compact on first open.
-  strokeOrderOpen.value = false;
-});
-
-// --- Word-state control ---
-// With autoLearnOnClick on, opening the popover for a 'new' word promotes it
-// to 'learning'. Explicit choices come from the state buttons.
-
-// Before the user-words store hydrates, the analysis token's own state is
-// the best we have — without it a known word looks new and auto-learn would
-// demote it to learning.
-const currentState = computed<UserWordState | null>(() => {
-  if (!word.value) return null;
-  return effectiveWordState(
-    userWords.stateOf(word.value.text),
-    userWords.hydrated,
-    word.value.user_state,
-  );
-});
-
-/**
- * Build the optional package-snapshot for the API call. Only populated
- * when the clicked word was glossed by a pre-analyzed JSON package — we
- * deliberately do NOT ship dictionary-sourced fields, so the backend
- * falls through to its normal lookup_pinyin_meaning() chain. Without
- * this, package-curated meanings (e.g. the bundled Dao De Jing's
- * Daoist-context glosses) get clobbered by CC-CEDICT on the first click.
- */
-function buildSnapshot(): WordSnapshot | null {
-  const w = word.value;
-  if (!w || w.translation_source !== "package") return null;
-  return {
-    meaning: w.meaning ?? null,
-    pinyin: w.pinyin ?? null,
-    translation_source: "package",
-    package_source: w.package_source ?? null,
-  };
-}
-
-/** The sentence the word was clicked in, kept as its review context. */
-function wordContext(): WordContext {
-  return { sentence: reader.selectedSentenceText, librarySlug: analysis.librarySlug };
-}
-
-watch(word, async (next) => {
-  if (!next || !auth.isAuthed) return;
-  // Skip linebreaks and other non-CJK tokens — we keep state for words only.
-  if (!next.text || next.text === "\n") return;
-  // Opt-in (Settings → Review): by default a click only shows the meaning.
-  if (!settings.autoLearnOnClick) return;
-  if (next.parts?.length) return;
-  if (currentState.value === null) {
-    try {
-      await userWords.setState(
-        next.text,
-        "learning",
-        analysis.savedTextId ?? null,
-        buildSnapshot(),
-        wordContext(),
-      );
-    } catch {
-      /* network error shouldn't block the popover */
-    }
-  }
-});
-
-async function setWordState(state: UserWordState) {
-  if (!word.value) return;
-  // Toggle off if the user clicks the currently active state.
-  if (currentState.value === state) {
-    try {
-      await userWords.clearState(word.value.text);
-    } catch {
-      /* ignore */
-    }
-    return;
-  }
-  try {
-    await userWords.setState(
-      word.value.text,
-      state,
-      analysis.savedTextId ?? null,
-      buildSnapshot(),
-      wordContext(),
-    );
-  } catch (e) {
-    toasts.error(
-      e instanceof ApiError && e.status === 422 ? e.message : "Couldn't update word state",
-    );
-  }
-}
+const wordHasCjk = computed(() => !!word.value && /[一-鿿]/.test(word.value.text));
 </script>
 
 <template>
@@ -439,218 +123,26 @@ async function setWordState(state: UserWordState) {
         />
 
         <div ref="contentRef" class="px-5 pt-4 pb-5">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <div class="font-cn-serif text-3xl leading-none text-fg">
-                {{ word.text }}
-              </div>
-              <div
-                v-if="word.pinyin"
-                class="mt-1.5 font-sans text-sm text-fg-muted"
-              >
-                {{ word.pinyin }}
-              </div>
-            </div>
-            <div class="flex flex-col items-end gap-2">
-              <div class="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  class="inline-flex items-center justify-center rounded-md border border-border bg-bg-elevated p-2 text-fg-muted transition-colors hover:text-fg hover:bg-bg-sunken disabled:opacity-50"
-                  aria-label="Play pronunciation"
-                  :disabled="ttsLoading"
-                  @click="playTts"
-                >
-                  <span
-                    v-if="ttsLoading"
-                    class="inline-block size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-                  />
-                  <svg
-                    v-else
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                  >
-                    <path
-                      d="M3.5 5h2L8 3v10L5.5 11h-2V5z"
-                      fill="currentColor"
-                    />
-                    <path
-                      d="M10.5 5.5C11.5 6.3 12 7.1 12 8s-.5 1.7-1.5 2.5M12.5 4C14 5 14.5 6.5 14.5 8s-.5 3-2 4"
-                      stroke="currentColor"
-                      stroke-width="1.2"
-                      stroke-linecap="round"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <HskChip v-if="wordLevel" :level="wordLevel" />
-            </div>
-          </div>
-
-          <!-- Glossary-source pill — when the meaning was overridden by
-               one of the user's personal glossaries, surface it so the
-               user knows it's their gloss, not the dictionary's. -->
-          <div
-            v-if="word.glossary_source"
-            class="mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider"
-            :style="{
-              backgroundColor:
-                'color-mix(in oklch, var(--color-glossary), transparent 80%)',
-              color: 'var(--color-glossary)',
-            }"
-            :title="`From your glossary list “${word.glossary_source}”`"
-          >
-            <svg
-              width="9"
-              height="9"
-              viewBox="0 0 9 9"
-              fill="none"
-              aria-hidden="true"
-            >
-              <path
-                d="M1.5 1.5h6M1.5 4h6M1.5 6.5h4"
-                stroke="currentColor"
-                stroke-width="1.4"
-                stroke-linecap="round"
-              />
-            </svg>
-            {{ word.glossary_source }}
-          </div>
-
-          <!-- Meaning(s). With tagged glosses (the user clicked this word in
-               a package context), show each with its provenance chip so
-               dictionary and package meanings sit side by side; otherwise
-               the flat meaning + meanings list. -->
-          <div
-            v-if="word.user_glosses && word.user_glosses.length"
-            class="mt-4 space-y-2"
-          >
-            <div
-              v-for="(g, i) in word.user_glosses"
-              :key="i"
-              class="flex items-start gap-2"
-            >
-              <GlossChip :gloss="g" class="mt-0.5" />
-              <p class="font-display text-[14px] leading-snug text-fg">
-                {{ g.meaning }}
-              </p>
-            </div>
-          </div>
-          <WordReadings
-            v-else-if="word.meaning || word.meanings?.length"
-            class="mt-4"
-            :meaning="word.meaning"
-            :meanings="word.meanings"
-            :meaning-tags="word.meaning_tags"
-            :readings="word.readings"
-            list-class="mt-1 list-inside space-y-0.5 text-xs text-fg-muted"
+          <WordHeading
+            :word="word"
+            :level="wordLevel"
+            :tts-loading="ttsLoading"
+            @play="playTts"
           />
 
-          <!-- The meaning in this sentence (LLM). -->
-          <div v-if="canAskSense" class="mt-3">
-            <div
-              v-if="sense"
-              class="rounded-md border border-accent/40 bg-accent/5 px-3 py-2"
-            >
-              <p class="font-mono text-[10px] uppercase tracking-wider text-accent">
-                In this sentence<template v-if="sense.pinyin"> · {{ sense.pinyin }}</template>
-              </p>
-              <p class="mt-0.5 font-display text-[14px] leading-snug text-fg">{{ sense.meaning }}</p>
-              <p v-if="sense.note" class="mt-1 text-xs text-fg-muted">{{ sense.note }}</p>
-            </div>
-            <button
-              v-else
-              type="button"
-              class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle hover:text-accent disabled:opacity-60"
-              :disabled="senseLoading"
-              @click="askSense"
-            >
-              {{ senseLoading ? "Looking…" : "Meaning in this sentence" }}
-            </button>
-            <p v-if="senseError" class="mt-1 text-xs text-red-700 dark:text-red-300">{{ senseError }}</p>
-          </div>
+          <WordMeanings :word="word" />
 
-          <!-- Parts of a token that is not a dictionary word. It has no
-               meaning or state of its own; each part can be saved. -->
-          <div
-            v-if="wordParts.length"
-            class="mt-4 border-t border-border-subtle pt-3 text-xs"
-          >
-            <p class="font-mono uppercase tracking-wider text-fg-subtle">
-              Parts
-            </p>
-            <ul class="mt-1.5 space-y-1">
-              <li
-                v-for="(p, i) in wordParts"
-                :key="i"
-                class="flex items-baseline gap-2"
-              >
-                <span class="font-cn-serif text-base text-fg">{{ p.word }}</span>
-                <span v-if="p.pinyin" class="shrink-0 text-fg-muted">{{ p.pinyin }}</span>
-                <span v-if="p.meaning" class="min-w-0 flex-1 text-fg">{{ p.meaning }}</span>
-                <button
-                  v-if="auth.isAuthed"
-                  type="button"
-                  class="ml-auto shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] text-fg-muted hover:bg-bg-sunken hover:text-fg disabled:opacity-60"
-                  :disabled="!!userWords.stateOf(p.word)"
-                  @click="learnPart(p.word)"
-                >
-                  {{ userWords.stateOf(p.word) ?? "Learn" }}
-                </button>
-              </li>
-            </ul>
-            <p class="mt-2 text-fg-subtle">
-              Not a dictionary word, so it isn't saved as one.
-            </p>
-          </div>
+          <WordSense :word="word" :sentence="reader.selectedSentenceText" />
+
+          <WordParts v-if="wordParts.length" :parts="wordParts" @learn="learnPart" />
 
           <!-- Word state — LingQ-style progress tracker. Authenticated only;
                anonymous users still get meaning + radical without the gate. -->
-          <div
+          <WordStateButtons
             v-if="auth.isAuthed && word.text && word.text !== '\n' && !wordParts.length"
-            class="mt-4 grid grid-cols-3 gap-1.5 border-t border-border-subtle pt-3"
-          >
-            <button
-              type="button"
-              :aria-pressed="currentState === 'learning'"
-              class="rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors"
-              :class="
-                currentState === 'learning'
-                  ? 'border-amber-500 bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200'
-                  : 'border-border bg-bg-elevated text-fg-muted hover:bg-bg-sunken hover:text-fg'
-              "
-              @click="setWordState('learning')"
-            >
-              Learning
-            </button>
-            <button
-              type="button"
-              :aria-pressed="currentState === 'known'"
-              class="rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors"
-              :class="
-                currentState === 'known'
-                  ? 'border-emerald-500 bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200'
-                  : 'border-border bg-bg-elevated text-fg-muted hover:bg-bg-sunken hover:text-fg'
-              "
-              @click="setWordState('known')"
-            >
-              I know this
-            </button>
-            <button
-              type="button"
-              :aria-pressed="currentState === 'ignored'"
-              class="rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors"
-              :class="
-                currentState === 'ignored'
-                  ? 'border-fg-subtle bg-bg-sunken text-fg'
-                  : 'border-border bg-bg-elevated text-fg-muted hover:bg-bg-sunken hover:text-fg'
-              "
-              @click="setWordState('ignored')"
-            >
-              Ignore
-            </button>
-          </div>
+            :current="currentState"
+            @set="setWordState"
+          />
 
           <!-- Radical -->
           <div
@@ -668,257 +160,10 @@ async function setWordState(state: UserWordState) {
             </span>
           </div>
 
-          <!-- Measure words and what the characters are made of. -->
-          <div
-            v-if="wordHasCjk"
-            class="mt-4 border-t border-border-subtle pt-3"
-          >
-            <button
-              type="button"
-              class="flex w-full items-center justify-between text-fg-muted transition-colors hover:text-fg"
-              :aria-expanded="detailsOpen"
-              @click="detailsOpen = !detailsOpen"
-            >
-              <span class="font-mono text-[10px] uppercase tracking-wider">
-                Characters &amp; measure word
-              </span>
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 10 10"
-                fill="none"
-                class="transition-transform"
-                :class="{ 'rotate-90': detailsOpen }"
-                aria-hidden="true"
-              >
-                <path
-                  d="M3.5 2l3 3-3 3"
-                  stroke="currentColor"
-                  stroke-width="1.4"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </button>
-            <WordDetails v-if="detailsOpen" :word="word.text" class="mt-3" />
-          </div>
+          <WordFoldouts v-if="wordHasCjk" v-model:details-open="detailsOpen" :word="word" />
 
-          <!-- Stroke order — collapsed by default to keep the popover small;
-               the hanzi-writer chunk + per-char data only loads on expand. -->
-          <div
-            v-if="wordHasCjk"
-            class="mt-4 border-t border-border-subtle pt-3"
-          >
-            <button
-              type="button"
-              class="flex w-full items-center justify-between text-fg-muted transition-colors hover:text-fg"
-              :aria-expanded="strokeOrderOpen"
-              @click="strokeOrderOpen = !strokeOrderOpen"
-            >
-              <span class="font-mono text-[10px] uppercase tracking-wider">
-                Stroke order
-              </span>
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 10 10"
-                fill="none"
-                class="transition-transform"
-                :class="{ 'rotate-90': strokeOrderOpen }"
-                aria-hidden="true"
-              >
-                <path
-                  d="M3.5 2l3 3-3 3"
-                  stroke="currentColor"
-                  stroke-width="1.4"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </button>
-            <div v-if="strokeOrderOpen" class="mt-3">
-              <StrokeOrder :chars="word.text" />
-            </div>
-          </div>
-
-          <!-- Add to vocab list — signed-in users only. Expands inline so the
-               popover doesn't grow until the user asks for it. -->
-          <div
-            v-if="auth.isAuthed"
-            class="mt-4 border-t border-border-subtle pt-3"
-          >
-            <template v-if="!addToListExpanded">
-              <button
-                type="button"
-                class="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg-elevated px-2.5 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:text-fg hover:bg-bg-sunken"
-                @click="expandAddToList"
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <path
-                    d="M5 1.5v7M1.5 5h7"
-                    stroke="currentColor"
-                    stroke-width="1.4"
-                    stroke-linecap="round"
-                  />
-                </svg>
-                Add to vocab list
-              </button>
-            </template>
-
-            <div v-else class="space-y-2.5">
-              <div class="flex items-center justify-between">
-                <span
-                  class="font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
-                >
-                  Add 「{{ word.text }}」 to
-                </span>
-                <button
-                  type="button"
-                  class="text-fg-subtle hover:text-fg"
-                  aria-label="Cancel"
-                  @click="addToListExpanded = false"
-                >
-                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-                    <path
-                      d="M2.5 2.5l6 6M8.5 2.5l-6 6"
-                      stroke="currentColor"
-                      stroke-width="1.4"
-                      stroke-linecap="round"
-                    />
-                  </svg>
-                </button>
-              </div>
-
-              <div
-                v-if="vocabLists.loading"
-                class="flex items-center gap-2 text-xs text-fg-muted"
-              >
-                <span
-                  class="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent"
-                />
-                Loading lists…
-              </div>
-
-              <div
-                v-else-if="vocabLists.error && vocabLists.isEmpty"
-                class="text-xs text-red-700 dark:text-red-300"
-              >
-                {{ vocabLists.error }}
-              </div>
-
-              <div
-                v-else-if="vocabLists.isEmpty"
-                class="text-xs italic text-fg-muted"
-              >
-                No vocab lists yet —
-                <router-link
-                  to="/vocab"
-                  class="font-medium text-accent hover:underline"
-                >
-                  create one
-                </router-link>
-                .
-              </div>
-
-              <template v-else>
-                <!-- List picker — compact scrollable group -->
-                <div
-                  class="max-h-24 overflow-y-auto rounded-md border border-border-subtle"
-                >
-                  <button
-                    v-for="vl in vocabLists.lists"
-                    :key="vl.id"
-                    type="button"
-                    class="block w-full px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-bg-sunken"
-                    :class="
-                      addToListSelectedId === vl.id
-                        ? 'bg-bg-sunken font-medium text-fg'
-                        : 'text-fg-muted'
-                    "
-                    :aria-pressed="addToListSelectedId === vl.id"
-                    @click="selectList(vl.id)"
-                  >
-                    {{ vl.name }}
-                    <span
-                      class="ml-1 font-mono text-[9px] uppercase tracking-wider text-fg-subtle"
-                    >
-                      {{
-                        (vl.sections ?? []).reduce(
-                          (sum, s) => sum + (s.words?.length ?? 0),
-                          0,
-                        )
-                      }}
-                      words
-                    </span>
-                  </button>
-                </div>
-
-                <!-- Section input -->
-                <label class="block">
-                  <span
-                    class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-fg-subtle"
-                  >
-                    Section
-                  </span>
-                  <input
-                    :value="addToListSection"
-                    type="text"
-                    class="block w-full rounded-md border border-border bg-bg-elevated px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none"
-                    autocomplete="off"
-                    @input="onSectionInput"
-                    @keydown.enter.prevent="submitAddToList"
-                  />
-                </label>
-
-                <p
-                  v-if="addToListNotice"
-                  class="text-xs text-fg-muted"
-                  role="status"
-                >
-                  {{ addToListNotice }}
-                </p>
-                <p
-                  v-if="addToListError"
-                  class="text-xs text-red-700 dark:text-red-300"
-                  role="alert"
-                >
-                  {{ addToListError }}
-                </p>
-
-                <button
-                  type="button"
-                  class="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-opacity hover:opacity-90 disabled:opacity-50"
-                  :disabled="
-                    addToListSelectedId === null ||
-                    addToListSubmitting ||
-                    addToListAdded
-                  "
-                  @click="submitAddToList"
-                >
-                  <span
-                    v-if="addToListSubmitting"
-                    class="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent"
-                  />
-                  <svg
-                    v-else-if="addToListAdded"
-                    width="11"
-                    height="11"
-                    viewBox="0 0 11 11"
-                    fill="none"
-                  >
-                    <path
-                      d="M2 5.5l2.5 2.5L9 3"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                  {{ addToListAdded ? "Added" : "Add" }}
-                </button>
-              </template>
-            </div>
-          </div>
+          <!-- Signed-in users only. -->
+          <AddToListPanel v-if="auth.isAuthed" :word="word" />
 
           <!-- Footer row: translate-sentence action + source pill. -->
           <div
