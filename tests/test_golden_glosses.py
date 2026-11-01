@@ -47,7 +47,7 @@ def _params():
     for entry in GOLDEN:
         marks = []
         if entry.get("xfail"):
-            marks.append(pytest.mark.xfail(strict=True, reason=f"{entry['xfail']} fixes this"))
+            marks.append(pytest.mark.xfail(strict=True, reason=entry["xfail"]))
         yield pytest.param(entry, id=_test_id(entry["word"]), marks=marks)
 
 
@@ -79,7 +79,7 @@ def test_golden_file_is_well_formed():
     words = [e["word"] for e in GOLDEN]
     assert len(words) == len(set(words)), "duplicate words in golden set"
     for e in GOLDEN:
-        assert e.get("xfail") in (None, "B6", "B7", "B8"), e
+        assert isinstance(e.get("xfail", ""), str), e
         if e.get("expect") == "not_a_word":
             continue
         assert e["pinyin"] and e["accept"], e

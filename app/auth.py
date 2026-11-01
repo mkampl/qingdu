@@ -168,14 +168,11 @@ async def require_admin(user: User = Depends(require_auth)) -> User:
     return user
 
 
-# --- Personal access tokens (Phase #121 — external integrations) ---------
+# --- Personal access tokens --------------------------------------------
 #
-# A second, narrower auth mechanism alongside the JWT session above: a
-# long-lived, user-issued, scope-limited token for outside apps (e.g. a
-# speaking-companion's own whisper/LLM/TTS stack) that only needs to read
-# and report vocabulary state, never the full account. See
-# app/routers/tokens.py (issuing) and app/routers/external.py (the
-# endpoints these tokens actually unlock).
+# Long-lived, scope-limited tokens for outside apps that read and report
+# vocabulary state without full account access. Issued by
+# app/routers/tokens.py, accepted by app/routers/external.py.
 
 API_TOKEN_PREFIX = "qd_"
 API_TOKEN_SCOPES = frozenset({"read:words", "write:words"})

@@ -73,7 +73,7 @@ export function folderCounts(
   return { total: inside.length, readable: inside.filter((t) => t.unlocked).length };
 }
 
-/** "TaiJiMen › 道德经" for a folder id, "" at top level. */
+/** "Readers › 道德经" for a folder id, "" at top level. */
 export function folderLabel(folders: TextFolder[], id: number | null | undefined): string {
   return folderPath(folders, id ?? null)
     .map((f) => f.name)

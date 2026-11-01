@@ -16,18 +16,11 @@
     />
     <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
     <link rel="manifest" href="/static/site.webmanifest" />
-    <!-- Note: previously preconnected to fonts.googleapis.com / fonts.gstatic.com
-         for CJK glyphs. Moved to a runtime-only `<link rel=stylesheet>` injected
-         by main.ts so the Capacitor (Android / F-Droid) build never opens an
-         outbound socket to Google. Web users still get Noto SC on first render. -->
-    <!-- Early error capture. Capacitor's bridge script runs inline BEFORE
-         the module bundle initialises Vue, so the global handlers we wire
-         up in main.ts can miss errors from that window (e.g. the
-         Capacitor.Plugins.X.triggerEvent quirk that fires when a plugin
-         races the bridge's ready signal). Hook the listeners here so
-         they exist from the very first tick — they reformat unknown
-         errors into 'name: message' strings the same way main.ts does
-         later. -->
+    <!-- The Noto SC stylesheet is injected at runtime by main.ts (web only), so
+         the Capacitor build never opens a connection to Google. -->
+    <!-- Early error capture: Capacitor's bridge script runs before the
+         module bundle, so main.ts's handlers would miss errors from that
+         window. These format errors as 'name: message' like main.ts. -->
     <script>
       (function () {
         function describe(err) {

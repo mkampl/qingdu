@@ -47,8 +47,8 @@ from learner_gloss_data import (  # noqa: E402
 MAX_GLOSS_CHARS = 40
 LOW_CONFIDENCE = 0.7
 
-# Headlines the gloss audit found wrong (notes: translations analysis
-# §6b). A learner gloss equal to one of these brings the bug back.
+# Headlines known to be wrong. A learner gloss equal to one of these
+# brings the bug back.
 KNOWN_BAD: dict[str, set[str]] = {
     "教": {"a religion"},
     "行": {"capable; competent", "capable"},

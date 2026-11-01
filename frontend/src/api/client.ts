@@ -934,7 +934,7 @@ export interface ExtractedArticle {
 export const extractArticle = (url: string) =>
   request<ExtractedArticle>("/api/extract", { body: { url } });
 
-// --- Watch & read prototype --------------------------------------------------
+// --- Watch & read -------------------------------------------------------------
 
 export interface YoutubeSegment {
   start: number;

@@ -36,7 +36,7 @@ def _save(c, title, folder_id=None):
 
 
 def test_texts_saved_into_a_folder_are_numbered_in_order(client):
-    top = _folder(client, "TaiJiMen")
+    top = _folder(client, "Readers")
     ddj = _folder(client, "道德经", top)
     ids = [_save(client, f"part {i}", ddj) for i in range(1, 4)]
     loose = _save(client, "loose")
@@ -44,7 +44,7 @@ def test_texts_saved_into_a_folder_are_numbered_in_order(client):
     series = client.get(f"/api/texts/{ids[1]}").json()["series"]
     assert series["index"] == 2 and series["count"] == 3
     assert series["prev_id"] == ids[0] and series["next_id"] == ids[2]
-    assert [p["name"] for p in series["path"]] == ["TaiJiMen", "道德经"]
+    assert [p["name"] for p in series["path"]] == ["Readers", "道德经"]
     assert client.get(f"/api/texts/{loose}").json()["series"] is None
 
     summaries = {t["id"]: t for t in client.get("/api/texts").json()}

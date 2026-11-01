@@ -27,7 +27,7 @@ from app.services.youtube_captions import (
     fetch_captioned_sentences,
 )
 
-router = APIRouter(tags=["Watch & Read (prototype)"])
+router = APIRouter(tags=["Watch & Read"])
 logger = logging.getLogger(__name__)
 
 _CACHE_MAX = 50

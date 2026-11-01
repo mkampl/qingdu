@@ -11,10 +11,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# No system-level build deps needed — every requirement installs from a
-# prebuilt wheel on this platform (verified directly, not assumed). Used to
-# install gcc/g++/ffmpeg/libsndfile1 here for the pronunciation-check
-# feature (faster-whisper + librosa); removed with that feature 2026-08-06.
+# No system-level build deps needed: every requirement installs from a
+# prebuilt wheel on this platform.
 
 # Copy requirements first for better caching
 COPY requirements.txt .
@@ -26,7 +24,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN mkdir -p /app/data /app/static
 
 # Copy application code + favicons/manifest (still served at /static).
-# The Vue 3 frontend supersedes the legacy templates — see Stage 1 build.
 # app/data/dict/ carries the pinned HSK list + CC-CEDICT (~5 MB gzipped),
 # so startup needs no network for dictionary data.
 COPY app/ /app/app/
@@ -63,13 +60,9 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=2).status == 200 else 1)" || exit 1
 
-# Single worker: this is a personal-scale deployment, not high-concurrency
-# traffic, and every worker independently loads its own copy of jieba's
-# dictionary + HSK vocab + CC-CEDICT since uvicorn's workers are spawned,
-# not forked (no copy-on-write sharing) — 2 workers meant paying that cost
-# twice for no real benefit. (The one CPU-heavy endpoint that used to
-# justify hedging on this, /api/pronounce, was removed 2026-08-06 along
-# with the rest of the Whisper/librosa pronunciation-check feature.)
+# Single worker: every uvicorn worker is spawned, not forked, and loads its
+# own copy of jieba's dictionary, the HSK vocab and CC-CEDICT, so extra
+# workers cost memory with little benefit at this scale.
 #
 # Proxy headers: uvicorn only trusts X-Forwarded-For / -Proto from the peers
 # listed in FORWARDED_ALLOW_IPS and rewrites the client address from them;

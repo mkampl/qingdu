@@ -391,7 +391,7 @@ const {
 
     <!-- Authenticated — main content. -->
     <template v-else>
-      <!-- Folder path: Saved texts › TaiJiMen › 道德经 -->
+      <!-- Folder path: Saved texts › Readers › 道德经 -->
       <nav
         v-if="crumbs.length && !searching"
         class="-mt-4 mb-5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm"

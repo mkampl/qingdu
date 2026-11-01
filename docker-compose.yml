@@ -10,8 +10,7 @@ services:
       - "${BIND_ADDRESS:-0.0.0.0}:${PORT:-8000}:8000"
     volumes:
       # Only persistent data is mounted. The application code lives inside
-      # the image so a pull-and-restart-without-rebuild can't end up running
-      # whatever happens to be on disk in /root/qingdu/app.
+      # the image, so a restart without a rebuild never runs code from disk.
       - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
@@ -19,8 +18,9 @@ services:
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in .env file}
       - DEEPL_API_KEY=${DEEPL_API_KEY:-}
       - GOOGLE_TRANSLATE_API_KEY=${GOOGLE_TRANSLATE_API_KEY:-}
-      # CORS: leave unset in production to default to the public origin
-      # (see app/main.py). Override via .env / Ansible for staging hosts.
+      # CORS: unset (the default) allows no cross-origin requests; the SPA
+      # and API share one origin. Set a comma-separated list or '*' in .env
+      # when another origin needs access (see app/main.py).
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
       # Peers allowed to set X-Forwarded-For. See .env.example.
       - FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IPS:-127.0.0.1}

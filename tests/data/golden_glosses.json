@@ -11,10 +11,8 @@
     "these keywords (case-insensitive, whole word, plural/-ed/-ing endings allowed).",
     "checks: ui-tone / iu-tone (tone-mark placement), no-tag (no register tag in the headline).",
     "not_a_word: the resolver must not glue per-character glosses ('A + B').",
-    "xfail: currently wrong, with the branch expected to fix it (B6 glue words, B7 wrong reading,",
-    "B8 wrong sense with the right reading). The test marks these xfail(strict=True), so a fix",
-    "makes the run fail until the xfail field is removed here. xfail_note: why an entry was",
-    "moved on to a later branch."
+    "xfail: why the entry is currently wrong. The test marks these xfail(strict=True), so a fix",
+    "makes the run fail until the xfail field is removed here."
   ],
   "entries": [
     {"word": "一", "level": 1, "pinyin": "yī", "accept": ["one"]},

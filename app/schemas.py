@@ -41,10 +41,10 @@ class WordInfo(BaseModel):
     # request was anonymous. Populated by the analyze router when there's
     # an authenticated user.
     user_state: str | None = None
-    # Phase #99 — name of the glossary list this word's meaning came from,
+    # Name of the glossary list this word's meaning came from,
     # when `translation_source == "glossary"`. The popover surfaces this.
     glossary_source: str | None = None
-    # Phase #100 — name of the pre-analyzed package this word came from,
+    # Name of the pre-analyzed package this word came from,
     # when `translation_source == "package"`. Lets the user attribute
     # contextual meanings to the right LLM / curator. Optional `notes`
     # carries any free-form annotation the package author provided.
@@ -93,7 +93,7 @@ class ResetPasswordRequest(BaseModel):
 
 
 class OpenRegisterRequest(BaseModel):
-    """Phase 2.7 — payload for `POST /api/auth/register` (open registration).
+    """Payload for `POST /api/auth/register` (open registration).
     The captcha pair is required when the instance has captcha enabled; the
     server treats a missing pair as a failed captcha when it's required."""
 
@@ -138,7 +138,7 @@ class UserSettingsUpdate(BaseModel):
     ui_settings: dict | None = None
 
 
-# --- User word state (Phase A) ---
+# --- User word state ---
 
 VALID_WORD_STATES = frozenset({"learning", "known", "ignored"})
 
@@ -147,18 +147,14 @@ class WordStateUpdate(BaseModel):
     word: str
     state: str  # 'learning' | 'known' | 'ignored'
     source_text_id: int | None = None
-    # Phase #100 follow-up — optional package-curated snapshot. Only sent
-    # by the reader when the clicked word came from a pre-analyzed JSON
-    # package (translation_source === "package"). Backend stamps these
-    # onto UserWord and marks meaning_source = "package" so the gloss
-    # the user actually read survives into the SRS queue. Omitting them
-    # (the normal HSK / CC-CEDICT / pypinyin path) leaves today's
-    # behaviour unchanged — backend falls through to the dictionary
-    # lookup chain in lookup_pinyin_meaning().
+    # Optional package-curated snapshot, sent only for words from a
+    # pre-analyzed package. It is stored on the UserWord (meaning_source
+    # "package") so the gloss the user read reaches the review queue.
+    # Without it the dictionary lookup is used.
     meaning: str | None = None
     pinyin: str | None = None
     translation_source: str | None = None
-    # Phase #120 — the package name (e.g. "dao_de_jing_ch1") that owns
+    # The package name (e.g. "dao_de_jing_ch1") that owns
     # this gloss. Used as the source_tag on the resulting user_word_glosses
     # row so the UI can show "[Dao De Jing]" next to that meaning.
     package_source: str | None = None
@@ -176,7 +172,7 @@ class WordSnapshot(BaseModel):
     meaning: str | None = None
     pinyin: str | None = None
     translation_source: str | None = None
-    package_source: str | None = None  # Phase #120 — see WordStateUpdate
+    package_source: str | None = None  # see WordStateUpdate
 
 
 class BulkMarkKnownRequest(BaseModel):
@@ -208,7 +204,7 @@ class ImportHskRequest(BaseModel):
     hsk_version: str = "new"  # 'new' | 'old'
 
 
-# --- Pre-analyzed package import (Phase #100) ----------------------------
+# --- Pre-analyzed package import ----------------------------------------
 
 
 class PackageToken(BaseModel):

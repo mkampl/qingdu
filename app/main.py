@@ -183,7 +183,7 @@ app.include_router(readability.router)
 
 # Vue 3 SPA at /. Includes a catch-all /{rest:path} route, so this MUST be
 # the last router registered or it will swallow API paths. Also registers
-# /v2 + /v2/{rest:path} -> 301 redirect for back-compat with the staging URLs.
+# 301 redirects from the old /v2 paths.
 # No-op if frontend/dist isn't built yet (e.g. CI).
 spa.mount(app)
 
@@ -335,7 +335,7 @@ async def startup_event() -> None:
     finally:
         db.close()
 
-    # Phase 2.7 — kick off the account-lifecycle sweep. Runs immediately
+    # Account-lifecycle sweep. Runs immediately
     # so a fresh container catches up on anyone who went dormant while it
     # was offline, then again every 6 h. Silently no-ops when both
     # soft_delete_days and hard_delete_days are 0 (the default).

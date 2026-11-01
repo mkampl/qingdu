@@ -12,10 +12,10 @@ import {
 } from "./text-folders";
 
 const folders: TextFolder[] = [
-  { id: 1, name: "TaiJiMen", parent_id: null, position: null },
+  { id: 1, name: "Readers", parent_id: null, position: null },
   { id: 2, name: "道德经", parent_id: 1, position: 0 },
   { id: 3, name: "金刚经", parent_id: 1, position: 1 },
-  { id: 4, name: "Lehrbuch", parent_id: null, position: null },
+  { id: 4, name: "Grammar", parent_id: null, position: null },
 ];
 
 function text(id: number, folder_id: number | null, extra: Partial<SavedTextSummary> = {}) {
@@ -39,14 +39,14 @@ function text(id: number, folder_id: number | null, extra: Partial<SavedTextSumm
 
 describe("text folders", () => {
   it("lists subfolders in order, then by name", () => {
-    expect(childFolders(folders, null).map((f) => f.name)).toEqual(["Lehrbuch", "TaiJiMen"]);
+    expect(childFolders(folders, null).map((f) => f.name)).toEqual(["Grammar", "Readers"]);
     expect(childFolders(folders, 1).map((f) => f.id)).toEqual([2, 3]);
   });
 
   it("walks a folder's path", () => {
     expect(folderPath(folders, 2).map((f) => f.id)).toEqual([1, 2]);
     expect(folderPath(folders, null)).toEqual([]);
-    expect(folderLabel(folders, 2)).toBe("TaiJiMen › 道德经");
+    expect(folderLabel(folders, 2)).toBe("Readers › 道德经");
   });
 
   it("collects a folder and everything below", () => {

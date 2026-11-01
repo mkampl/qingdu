@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Watch & read — prototype, not linked from the nav.
+ * Watch & read — not linked from the nav.
  *
  * Paste a YouTube URL, embed the official player, fetch its Chinese
  * caption track through /api/media/youtube (already segmented + HSK/CEDICT
