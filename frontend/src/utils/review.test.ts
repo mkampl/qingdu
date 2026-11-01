@@ -2,14 +2,19 @@ process.env.TZ = "America/New_York";
 
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  autoGradeDelayFor,
   autoGradeForWriting,
+  DICTATION_GRADE,
+  dictationVerdict,
   dueCountForWindow,
   formatHskLevel,
   formatInterval,
   normalizeAutoGradeDelay,
   reviewShortcutBlocked,
+  reviewSurface,
   shouldReinsert,
   suggestedGradeForMistakes,
+  surfaceMode,
 } from "./review";
 import { emptyScores, scoreTotals, shownScore, skippedScore } from "./writing-score";
 
@@ -147,5 +152,53 @@ describe("formatInterval", () => {
     expect(formatInterval(5 * 86400)).toBe("5d");
     expect(formatInterval(70 * 86400)).toBe("2mo");
     expect(formatInterval(550 * 86400)).toBe("1.5y");
+  });
+});
+
+describe("reviewSurface / surfaceMode", () => {
+  it("mixed mode follows the stage; intro turns to trace after Got it", () => {
+    expect(reviewSurface("mixed", "read", false)).toBe("read");
+    expect(reviewSurface("mixed", undefined, false)).toBe("intro");
+    expect(reviewSurface("mixed", "intro", true)).toBe("trace");
+    expect(reviewSurface("mixed", "produce", true)).toBe("produce");
+  });
+
+  it("single mode is the picked mode", () => {
+    expect(reviewSurface("cloze", "intro", true)).toBe("cloze");
+  });
+
+  it("logs stage surfaces as writing and read as recognition", () => {
+    expect(surfaceMode("intro")).toBe("writing");
+    expect(surfaceMode("trace")).toBe("writing");
+    expect(surfaceMode("produce")).toBe("writing");
+    expect(surfaceMode("read")).toBe("recognition");
+    expect(surfaceMode("dictation")).toBe("dictation");
+  });
+});
+
+describe("dictationVerdict", () => {
+  it("accepts the hanzi or the toned pinyin", () => {
+    expect(dictationVerdict("妈", " 妈 ", "mā")).toBe("correct");
+    expect(dictationVerdict("ma1", "妈", "mā")).toBe("correct");
+  });
+
+  it("tells toneless, wrong tone and wrong apart, with their grades", () => {
+    expect(dictationVerdict("ma", "妈", "mā")).toBe("toneless");
+    expect(dictationVerdict("ma3", "妈", "mā")).toBe("tone");
+    expect(dictationVerdict("ni3", "妈", "mā")).toBe("wrong");
+    expect(DICTATION_GRADE.toneless).toBe(2);
+    expect(DICTATION_GRADE.tone).toBe(1);
+  });
+});
+
+describe("autoGradeDelayFor", () => {
+  it("adds reading time for a context sentence, capped", () => {
+    expect(autoGradeDelayFor(2000, null)).toBe(2000);
+    expect(autoGradeDelayFor(2000, "一二三四")).toBe(2000 + 1500 + 600);
+    expect(autoGradeDelayFor(2000, "字".repeat(100))).toBe(2000 + 1500 + 3500);
+  });
+
+  it("stays off at 0", () => {
+    expect(autoGradeDelayFor(0, "一二三")).toBe(0);
   });
 });

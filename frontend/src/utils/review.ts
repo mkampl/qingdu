@@ -2,7 +2,8 @@
  * Pure helpers behind the review session (stores/review.ts and
  * ReviewView.vue), split out so they can be unit-tested.
  */
-import type { ReviewGrade, ReviewStatsResponse } from "@/api/client";
+import type { QueueMode, ReviewGrade, ReviewMode, ReviewStatsResponse } from "@/api/client";
+import { checkPinyin } from "@/utils/pinyin-answer";
 import { parseUtcMs } from "@/utils/time";
 
 export type ReviewWindow = "now" | "today" | "tomorrow";
@@ -127,4 +128,73 @@ export function formatInterval(seconds: number): string {
   if (d < 365) return `${Math.round(d / 30)}mo`;
   const y = d / 365;
   return `${y < 10 ? Math.round(y * 10) / 10 : Math.round(y)}y`;
+}
+
+/** The surface a card renders. In Mixed mode the server picks it via
+ *  prompt_stage; in single mode it is the ReviewMode the user picked. */
+export type ReviewSurface =
+  | "intro"
+  | "trace"
+  | "produce"
+  | "read"
+  | "recognition"
+  | "dictation"
+  | "writing"
+  | "cloze";
+
+/**
+ * After 'Got it' an intro card swaps to trace, so a new word is written in
+ * the same encounter; FSRS grades once, on the writing quiz's completion.
+ */
+export function reviewSurface(
+  queueMode: QueueMode,
+  stage: string | null | undefined,
+  introReady: boolean,
+): ReviewSurface {
+  if (queueMode !== "mixed") return queueMode;
+  const s = (stage as ReviewSurface) ?? "intro";
+  return s === "intro" && introReady ? "trace" : s;
+}
+
+/** The event-log modality for a completed surface. The stage surfaces
+ *  (intro/trace/produce) are all hanzi-writing exercises. */
+export function surfaceMode(s: ReviewSurface): ReviewMode {
+  if (s === "intro" || s === "trace" || s === "produce") return "writing";
+  if (s === "read") return "recognition";
+  return s;
+}
+
+export type DictationFeedback = "" | "correct" | "toneless" | "tone" | "wrong";
+
+/** A dictation answer: the hanzi itself, or its pinyin checked for tones. */
+export function dictationVerdict(
+  guess: string,
+  word: string,
+  pinyin: string,
+): Exclude<DictationFeedback, ""> {
+  if (guess === word.trim()) return "correct";
+  const verdict = checkPinyin(guess, pinyin);
+  return verdict === "exact"
+    ? "correct"
+    : verdict === "toneless"
+      ? "toneless"
+      : verdict === "wrong-tone"
+        ? "tone"
+        : "wrong";
+}
+
+/** Correct → Good. Right syllables without tones → Hard. A wrong tone or
+ *  wrong word → Again. */
+export const DICTATION_GRADE: Record<DictationFeedback, ReviewGrade> = {
+  correct: 3,
+  toneless: 2,
+  tone: 1,
+  wrong: 1,
+  "": 1,
+};
+
+/** The auto-grade countdown grows by the time it takes to read the context
+ *  sentence shown with the result. 0 stays off. */
+export function autoGradeDelayFor(baseMs: number, sentence: string | null | undefined): number {
+  return baseMs > 0 && sentence ? baseMs + 1500 + Math.min(3500, 150 * sentence.length) : baseMs;
 }
