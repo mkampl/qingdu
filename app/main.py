@@ -101,11 +101,7 @@ if _cors_env:
         allow_credentials=not _wildcard,
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=[
-            "X-Export-Stats",
-            "X-Rate-Limited",
-            "Content-Disposition",
-        ],
+        expose_headers=["Content-Disposition"],
     )
 
 

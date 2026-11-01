@@ -39,6 +39,9 @@ from app.database import (
 
 logger = logging.getLogger(__name__)
 
+# Seconds between lifecycle passes (run_forever).
+LIFECYCLE_INTERVAL_S = 6 * 60 * 60
+
 
 # ---- settings ----------------------------------------------------------
 
@@ -290,9 +293,6 @@ def run_lifecycle_pass(db: Session | None = None) -> dict[str, int]:
     finally:
         if own_session:
             db.close()
-
-
-LIFECYCLE_INTERVAL_S = 6 * 60 * 60
 
 
 async def run_forever() -> None:

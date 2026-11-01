@@ -35,8 +35,8 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     invite_quota = Column(Integer, default=5)  # How many invites this user can send
     # Daily activity streak. `streak_last_active` is the user's local date
-    # (services.localday) of the most recent qualifying action; `streak_count` is the length of the
-    # contiguous run leading up to that date.
+    # (services.localday) of the most recent qualifying action;
+    # `streak_count` is the length of the contiguous run up to that date.
     streak_count = Column(Integer, default=0)
     streak_last_active = Column(Date, nullable=True)
     # Streak freezes, earned automatically (see streak.py). Banked count;

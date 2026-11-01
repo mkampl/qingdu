@@ -473,7 +473,7 @@ async function exportCsv() {
   busy.value = true;
   try {
     await api.openDownload(`/api/vocabulary-lists/${list.value.id}/export`);
-    toasts.success("CSV downloaded.");
+    toasts.success("Download started.");
   } catch (e) {
     toasts.error(
       e instanceof ApiError ? e.message : "CSV export failed.",
@@ -513,9 +513,9 @@ async function exportAnki() {
     await api.openDownload(`/api/vocabulary-lists/${list.value.id}/export-anki`);
     exportPhase.value = "done";
     if (exportProgress.value?.rate_limited) {
-      toasts.info("Anki package downloaded — some cards lack audio (rate limit).");
+      toasts.info("Anki download started — some cards lack audio (rate limit).");
     } else {
-      toasts.success("Anki package downloaded.");
+      toasts.success("Anki download started.");
     }
     // Close the modal after a moment, leaving the success message up briefly.
     setTimeout(() => {

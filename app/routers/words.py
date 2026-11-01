@@ -172,7 +172,8 @@ async def import_hsk_known(
 
 
 def _hsk_level(entry: dict | None, hsk_version: str = "new") -> int | None:
-    """Numeric HSK level of a hsk_vocab entry, like the reader's levelForVersion()."""
+    """Numeric HSK level of a hsk_vocab entry, like the reader's levelForVersion().
+    An unparsable preferred level no longer falls back to the other list."""
     return level_number(entry_level(entry, hsk_version), ("new-", "old-"))
 
 

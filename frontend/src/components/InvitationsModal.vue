@@ -93,7 +93,6 @@ const statusColor = (status: InvitationSummary["status"]) => {
   }
 };
 
-
 const quotaLabel = (state: InvitationsState) => {
   if (state.status !== "ok") return "";
   const { total, used, remaining } = state.quota;
