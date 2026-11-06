@@ -184,29 +184,3 @@ def test_document_parse_runs_in_a_worker_thread(app_module, monkeypatch):
         app_module.dependency_overrides.clear()
     assert r.status_code == 422
     assert seen == ["a.epub"]
-
-
-def test_youtube_fetch_runs_in_a_worker_thread(app_module, monkeypatch):
-    from app.auth import require_auth
-    from app.database import User
-    from app.routers import media
-    from app.services.youtube_captions import YoutubeCaptionError
-
-    seen = []
-
-    def _fetch(video_id):
-        _assert_no_running_loop()
-        seen.append(video_id)
-        raise YoutubeCaptionError("no captions")
-
-    monkeypatch.setattr(media, "fetch_captioned_sentences", _fetch)
-    app_module.dependency_overrides[require_auth] = lambda: User(id=1, username="alice")
-    try:
-        with TestClient(app_module) as c:
-            r = c.post(
-                "/api/media/youtube", json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}
-            )
-    finally:
-        app_module.dependency_overrides.clear()
-    assert r.status_code == 422
-    assert seen == ["dQw4w9WgXcQ"]

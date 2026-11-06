@@ -10,11 +10,11 @@ def test_route_count(app_module):
     """A coarse check on the route table; change it on purpose, in the same
     commit that adds or removes an endpoint.
 
-    133 = API routes alone. +5 = 138 when the Vite frontend is built into
+    132 = API routes alone. +5 = 137 when the Vite frontend is built into
     `frontend/dist/`: /v2 redirect, /v2/{rest} redirect, / SPA shell,
     /{rest:path} SPA shell, /assets mount.
     """
-    assert len(app_module.routes) in (133, 138)
+    assert len(app_module.routes) in (132, 137)
 
 
 def test_router_tags_present(app_module):

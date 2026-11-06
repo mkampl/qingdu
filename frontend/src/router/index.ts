@@ -85,12 +85,6 @@ export const router = createRouter({
       props: true,
     },
     {
-      // Prototype, deliberately not linked from the nav.
-      path: "/watch",
-      name: "watch",
-      component: () => import("@/views/WatchView.vue"),
-    },
-    {
       path: "/privacy",
       name: "privacy",
       component: () => import("@/views/PrivacyView.vue"),

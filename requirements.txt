@@ -51,11 +51,6 @@ pypdf==6.12.1
 Pillow==11.1.0
 beautifulsoup4==4.12.3
 
-# YouTube caption fetch for the Watch & Read page. Pure Python,
-# hits the same public timedtext endpoint the YouTube player itself
-# uses — no API key, no browser binary.
-youtube-transcript-api==1.2.4
-
 # Retry logic
 tenacity==8.2.3
 
