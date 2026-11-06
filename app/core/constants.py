@@ -4,7 +4,7 @@ Application constants and configuration values
 
 # App version shown in the OpenAPI docs. Keep in step with versionName in
 # frontend/android/app/build.gradle.
-APP_VERSION = "1.1.3"
+APP_VERSION = "1.1.4"
 
 # Rate Limiting
 ANALYZE_RATE_LIMIT = "30/minute"

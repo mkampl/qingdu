@@ -1,0 +1,4 @@
+1.1.4 — Cleanup:
+- The experimental Watch & Read page (YouTube with captions) is removed
+- Reading progress of saved texts uses one consistent scale
+- Many internal cleanups; no change to your data
